@@ -299,7 +299,12 @@ function missingDbColumn(message: string | undefined, column: string): boolean {
 
 function shouldPlaceOrderDirectly(message: string | undefined): boolean {
   if (!message) return false;
-  return missingDbColumn(message, "variant_id") || /insufficient stock/i.test(message);
+  return (
+    missingDbColumn(message, "variant_id") ||
+    /insufficient stock/i.test(message) ||
+    /order_checkout_keys/i.test(message) ||
+    /relation .* does not exist/i.test(message)
+  );
 }
 
 async function getOrCreateActiveCart(profileId: string): Promise<{ cartId: string | null; error: string | null }> {
@@ -606,7 +611,10 @@ export async function placeOrders(input: {
     p_idempotency_key: input.idempotencyKey,
   };
   let { data, error } = await supabase.rpc("place_marketplace_orders", payload);
-  if (error && /p_idempotency_key|function.*place_marketplace_orders/i.test(error.message)) {
+  if (
+    error &&
+    /p_idempotency_key|function.*place_marketplace_orders|order_checkout_keys/i.test(error.message)
+  ) {
     const legacy = await supabase.rpc("place_marketplace_orders", {
       p_fulfilment: payload.p_fulfilment,
       p_address_id: payload.p_address_id,
