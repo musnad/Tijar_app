@@ -11,6 +11,7 @@ import {
   MapPin,
   MessageCircle,
   MoreHorizontal,
+  Send,
   Share2,
   ShoppingBag,
   ShoppingCart,
@@ -45,6 +46,7 @@ import { formatServiceDates, serviceLabel } from "@/lib/catalogue/service-schedu
 import { parseVariantList } from "@/lib/catalogue/variants";
 import { TijarLogo } from "@/components/brand-logo";
 import { FeedImage } from "@/components/media/feed-image";
+import { MediaCarousel } from "@/components/media/media-carousel";
 import { FeedSkeleton } from "@/features/marketplace/feed-skeleton";
 import { AppLanguageButton } from "@/features/app-layout/app-language-button";
 import { useTranslation } from "@/lib/i18n/context";
@@ -62,7 +64,9 @@ import {
   recordFeedSignal,
   reportVideo,
   isImagePost,
+  productGallery,
   resolveCoverSrc,
+  resolvePostGallery,
   resolveVideoSrc,
   toggleFollowBusiness,
   toggleVideoLike,
@@ -139,7 +143,7 @@ function timeAgo(iso: string | null | undefined): string {
 function CaptionText({ text, light }: { text: string; light?: boolean }) {
   const parts = text.split(/(#[\p{L}\p{N}_]+)/gu);
   return (
-    <p className={cn("mt-1 text-[14px] leading-snug", light ? "text-white/95" : "text-zinc-800")}>
+    <span className={cn("mt-1 text-[14px] leading-snug", light ? "text-white/95" : "text-zinc-800")}>
       {parts.map((part, i) =>
         part.startsWith("#") ? (
           <span key={`${part}-${i}`} className="font-semibold text-primary">
@@ -149,7 +153,7 @@ function CaptionText({ text, light }: { text: string; light?: boolean }) {
           <span key={i}>{part}</span>
         ),
       )}
-    </p>
+    </span>
   );
 }
 
@@ -374,14 +378,8 @@ export function VideoFeedScreen({ initialVideoId }: { initialVideoId?: string })
     return true;
   }
 
-  const patchFeedLike = useCallback(
-    (videoId: string, liked: boolean) => {
-      queryClient.setQueryData(["video-likes", profile?.id], (prev: Set<string> | undefined) => {
-        const next = new Set(prev ?? []);
-        if (liked) next.add(videoId);
-        else next.delete(videoId);
-        return next;
-      });
+  const patchFeedStat = useCallback(
+    (videoId: string, field: "like_count" | "comment_count" | "share_count", delta: number) => {
       queryClient.setQueryData(
         ["video-feed", profile?.id ?? "anon"],
         (old: { pages: Array<{ videos: PublicFeedVideo[]; nextCursor: string | null }>; pageParams: unknown[] } | undefined) => {
@@ -392,7 +390,7 @@ export function VideoFeedScreen({ initialVideoId }: { initialVideoId?: string })
               ...page,
               videos: page.videos.map((v) =>
                 v.id === videoId
-                  ? { ...v, like_count: Math.max(0, Number(v.like_count) + (liked ? 1 : -1)) }
+                  ? { ...v, [field]: Math.max(0, Number(v[field] ?? 0) + delta) }
                   : v,
               ),
             })),
@@ -401,6 +399,19 @@ export function VideoFeedScreen({ initialVideoId }: { initialVideoId?: string })
       );
     },
     [profile?.id, queryClient],
+  );
+
+  const patchFeedLike = useCallback(
+    (videoId: string, liked: boolean) => {
+      queryClient.setQueryData(["video-likes", profile?.id], (prev: Set<string> | undefined) => {
+        const next = new Set(prev ?? []);
+        if (liked) next.add(videoId);
+        else next.delete(videoId);
+        return next;
+      });
+      patchFeedStat(videoId, "like_count", liked ? 1 : -1);
+    },
+    [patchFeedStat, profile?.id, queryClient],
   );
 
   const feedActions = useMemo<FeedActions>(
@@ -462,12 +473,16 @@ export function VideoFeedScreen({ initialVideoId }: { initialVideoId?: string })
           haptic();
           const url = `${window.location.origin}/shop?v=${video.id}`;
           try {
-            if (navigator.share) await navigator.share({ title: video.business_name, url });
-            else {
+            if (navigator.share) {
+              await navigator.share({ title: video.business_name, text: video.caption ?? video.business_name, url });
+            } else {
               await navigator.clipboard.writeText(url);
               toast.success("Link copied");
             }
-            if (!isMockFeedId(video.id)) void recordFeedSignal(video.id, "share");
+            if (!isMockFeedId(video.id)) {
+              patchFeedStat(video.id, "share_count", 1);
+              void recordFeedSignal(video.id, "share");
+            }
           } catch {
             /* cancelled */
           }
@@ -521,7 +536,7 @@ export function VideoFeedScreen({ initialVideoId }: { initialVideoId?: string })
         })();
       },
     }),
-    [patchFeedLike, profile, queryClient, session],
+    [patchFeedLike, patchFeedStat, profile, queryClient, session],
   );
 
   const fetchNextPage = feedQuery.fetchNextPage;
@@ -649,11 +664,21 @@ export function VideoFeedScreen({ initialVideoId }: { initialVideoId?: string })
       </Sheet>
 
       <Sheet open={commentsOpen} onOpenChange={setCommentsOpen}>
-        <SheetContent side="bottom" className="max-h-[75vh] overflow-y-auto rounded-t-3xl">
-          <SheetHeader>
-            <SheetTitle>{t("shop.feed.comments")}</SheetTitle>
+        <SheetContent side="bottom" className="flex max-h-[85vh] flex-col overflow-hidden rounded-t-3xl p-0">
+          <div className="mx-auto mt-2 h-1 w-10 rounded-full bg-muted" />
+          <SheetHeader className="border-b border-border px-4 py-3">
+            <SheetTitle className="text-center text-[16px] font-extrabold">
+              {t("shop.feed.comments")}
+              {active ? ` · ${compactCount(active.comment_count)}` : ""}
+            </SheetTitle>
           </SheetHeader>
-          {active ? <CommentsThread videoId={active.id} /> : null}
+          {active ? (
+            <CommentsThread
+              videoId={active.id}
+              shopName={active.business_name}
+              onPosted={() => patchFeedStat(active.id, "comment_count", 1)}
+            />
+          ) : null}
         </SheetContent>
       </Sheet>
 
@@ -879,6 +904,8 @@ const VideoSlide = memo(function VideoSlide({
   );
 
   const likes = video.like_count;
+  const gallery = resolvePostGallery(video, products);
+  const shares = Number(video.share_count ?? 0);
 
   return (
     <article
@@ -917,7 +944,15 @@ const VideoSlide = memo(function VideoSlide({
 
       <div className="relative aspect-[4/5] w-full overflow-hidden bg-zinc-100 [transform:translateZ(0)]">
         {image ? (
-          <FeedImage src={poster || src} alt="" eager={active || eagerPreload} width={720} />
+          <MediaCarousel
+            urls={gallery.length ? gallery : [poster || src].filter(Boolean)}
+            eager={active || eagerPreload}
+            onDoubleTap={() => {
+              setBurst(true);
+              window.setTimeout(() => setBurst(false), 650);
+              actions.onLike(video);
+            }}
+          />
         ) : preload || active ? (
           // eslint-disable-next-line jsx-a11y/media-has-caption
           <video
@@ -945,12 +980,14 @@ const VideoSlide = memo(function VideoSlide({
         ) : (
           <div className="h-full w-full bg-zinc-200" />
         )}
-        <button
-          type="button"
-          className="absolute inset-0"
-          aria-label={t("shop.feed.doubleTap")}
-          onClick={onMediaTap}
-        />
+        {image ? null : (
+          <button
+            type="button"
+            className="absolute inset-0"
+            aria-label={t("shop.feed.doubleTap")}
+            onClick={onMediaTap}
+          />
+        )}
         {burst ? (
           <Heart className="pointer-events-none absolute left-1/2 top-1/2 size-16 -translate-x-1/2 -translate-y-1/2 fill-red-500 text-red-500 will-change-transform [animation:feed-heart_450ms_ease-out]" />
         ) : null}
@@ -974,7 +1011,7 @@ const VideoSlide = memo(function VideoSlide({
           </IconAction>
           <IconAction
             label={t("shop.feed.share")}
-            count={compactCount(Math.max(video.view_count, 0))}
+            count={compactCount(shares)}
             onClick={() => actions.onShare(video)}
           >
             <Share2 className="size-5 text-foreground" />
@@ -987,10 +1024,23 @@ const VideoSlide = memo(function VideoSlide({
         ) : null}
       </div>
 
+      {likes > 0 ? (
+        <p className="px-3 text-[14px] font-extrabold">{compactCount(likes)} likes</p>
+      ) : null}
       {video.caption ? (
-        <div className="shrink-0 px-3 pb-1">
+        <p className="shrink-0 px-3 pb-1 text-[14px] leading-snug text-zinc-800">
+          <span className="font-extrabold">{displayShopName(video.business_name)} </span>
           <CaptionText text={video.caption} />
-        </div>
+        </p>
+      ) : null}
+      {video.comment_count > 0 ? (
+        <button
+          type="button"
+          className="px-3 pb-1 text-left text-[14px] font-semibold text-muted-foreground"
+          onClick={() => actions.onOpenComments(video.id)}
+        >
+          View all {compactCount(video.comment_count)} comments
+        </button>
       ) : null}
 
       <div className="shrink-0 px-3 pb-3 pt-1">
@@ -1150,6 +1200,7 @@ const ListingSlide = memo(function ListingSlide({
   const actions = useFeedActions();
   const { t } = useTranslation();
   const poster = product.image_url || product.extra_image_urls?.[0] || "";
+  const gallery = productGallery(product);
   const slug = shopLinkSlug(product.business_slug, product.business_id);
   const shop = displayShopName(product.business_name);
   return (
@@ -1193,13 +1244,15 @@ const ListingSlide = memo(function ListingSlide({
         </button>
       </div>
       <div className="relative aspect-[4/5] w-full overflow-hidden bg-zinc-100">
-        {poster ? (
-          <FeedImage src={poster} alt="" width={720} />
-        ) : (
-          <div className="flex h-full items-center justify-center text-muted-foreground">
-            <ShoppingBag className="size-16" />
-          </div>
-        )}
+        <MediaCarousel
+          urls={gallery.length ? gallery : poster ? [poster] : []}
+          eager
+          empty={
+            <div className="flex h-full items-center justify-center text-muted-foreground">
+              <ShoppingBag className="size-16" />
+            </div>
+          }
+        />
       </div>
       {product.description ? (
         <p className="line-clamp-2 shrink-0 px-3 pt-2 text-[14px] text-zinc-800">{product.description}</p>
@@ -1346,7 +1399,15 @@ function ProductList({
   );
 }
 
-function CommentsThread({ videoId }: { videoId: string }) {
+function CommentsThread({
+  videoId,
+  shopName,
+  onPosted,
+}: {
+  videoId: string;
+  shopName: string;
+  onPosted?: () => void;
+}) {
   const { profile, session } = useAuth();
   const [body, setBody] = useState("");
   const [replyTo, setReplyTo] = useState<string | null>(null);
@@ -1362,35 +1423,62 @@ function CommentsThread({ videoId }: { videoId: string }) {
   });
   const comments = commentsQuery.data ?? [];
   const roots = comments.filter((c) => !c.parent_id);
+  const replyName = comments.find((c) => c.id === replyTo)?.author_name;
+  const me = profile?.full_name?.trim() || "You";
 
   return (
-    <div className="mt-4">
-      <ul className="space-y-3">
+    <div className="flex min-h-0 flex-1 flex-col">
+      <ul className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-3">
+        {commentsQuery.isPending ? <li className="text-sm text-muted-foreground">Loading comments…</li> : null}
+        {!commentsQuery.isPending && roots.length === 0 ? (
+          <li className="py-10 text-center text-sm text-muted-foreground">No comments yet. Be the first.</li>
+        ) : null}
         {roots.map((c) => (
           <li key={c.id}>
-            <p className="text-sm">
-              <span className="font-bold">{c.author_name}</span> {c.body}
-            </p>
-            <button type="button" className="text-[11px] font-bold text-primary" onClick={() => setReplyTo(c.id)}>
-              Reply
-            </button>
-            <ul className="mt-1 space-y-1 border-l pl-3">
-              {comments
-                .filter((r) => r.parent_id === c.id)
-                .map((r) => (
-                  <li key={r.id} className="text-sm">
-                    <span className="font-bold">{r.author_name}</span> {r.body}
-                  </li>
-                ))}
-            </ul>
+            <div className="flex gap-3">
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-[#0B1F4D] text-[12px] font-extrabold text-white">
+                {(c.author_name ?? "S").slice(0, 1).toUpperCase()}
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-[14px] leading-snug text-zinc-800">
+                  <span className="font-extrabold">{c.author_name}</span> {c.body}
+                </p>
+                <div className="mt-1 flex items-center gap-3 text-[11px] font-semibold text-muted-foreground">
+                  <span>{timeAgo(c.created_at) || "now"}</span>
+                  <button type="button" className="font-extrabold text-[#0B1F4D]" onClick={() => setReplyTo(c.id)}>
+                    Reply
+                  </button>
+                </div>
+                <ul className="mt-3 space-y-3">
+                  {comments
+                    .filter((r) => r.parent_id === c.id)
+                    .map((r) => (
+                      <li key={r.id} className="flex gap-3">
+                        <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-zinc-200 text-[11px] font-extrabold text-[#0B1F4D]">
+                          {(r.author_name ?? "S").slice(0, 1).toUpperCase()}
+                        </span>
+                        <div className="min-w-0">
+                          <p className="text-[13px] leading-snug">
+                            <span className="font-extrabold">{r.author_name}</span> {r.body}
+                          </p>
+                          <p className="mt-0.5 text-[11px] text-muted-foreground">{timeAgo(r.created_at) || "now"}</p>
+                        </div>
+                      </li>
+                    ))}
+                </ul>
+              </div>
+            </div>
           </li>
         ))}
       </ul>
       <form
-        className="mt-4 flex gap-2"
+        className="flex items-center gap-2 border-t border-border bg-white px-3 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]"
         onSubmit={async (e) => {
           e.preventDefault();
-          if (!session || !profile) return;
+          if (!session || !profile) {
+            toast.message("Sign in to comment.");
+            return;
+          }
           const { error } = await postVideoComment({
             profileId: profile.id,
             videoId,
@@ -1401,19 +1489,29 @@ function CommentsThread({ videoId }: { videoId: string }) {
           else {
             setBody("");
             setReplyTo(null);
+            onPosted?.();
             void queryClient.invalidateQueries({ queryKey: ["video-comments", videoId] });
             void queryClient.invalidateQueries({ queryKey: ["activity-inbox"] });
           }
         }}
       >
+        <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-[#1F7A4D] text-[12px] font-extrabold text-white">
+          {me.slice(0, 1).toUpperCase()}
+        </span>
         <Input
           value={body}
           onChange={(e) => setBody(e.target.value)}
-          placeholder={replyTo ? "Write a reply…" : "Add a comment"}
-          className="rounded-xl"
+          placeholder={replyTo ? `Reply to ${replyName ?? "comment"}…` : `Add a comment for ${shopName}…`}
+          className="h-11 rounded-full border-border"
         />
-        <Button type="submit" className="rounded-xl">
-          Send
+        <Button
+          type="submit"
+          variant="ghost"
+          disabled={!body.trim()}
+          className="h-11 rounded-full px-3 font-extrabold text-[#1F7A4D] disabled:text-muted-foreground"
+          aria-label="Post comment"
+        >
+          <Send className="size-4" />
         </Button>
       </form>
     </div>

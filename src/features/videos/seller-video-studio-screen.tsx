@@ -30,7 +30,7 @@ import { inspectShoppingMedia, MAX_VIDEO_SEC, MIN_VIDEO_SEC } from "@/lib/video/
 import { cn } from "@/lib/utils";
 import { uploadProductImage } from "@/services/product-image-service";
 import { createProduct, listProducts, updateProductImageUrl } from "@/services/product-service";
-import { submitStudioVideo } from "@/services/video-studio-service";
+import { MAX_POST_IMAGES, submitStudioVideo } from "@/services/video-studio-service";
 import type { Product } from "@/types/database";
 import { formatNgn } from "@/utils/money";
 
@@ -57,6 +57,7 @@ export function SellerVideoStudioScreen({
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const extraInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const liveRef = useRef<HTMLVideoElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -68,6 +69,7 @@ export function SellerVideoStudioScreen({
   const autoStarted = useRef(false);
 
   const [file, setFile] = useState<File | null>(null);
+  const [extraImages, setExtraImages] = useState<File[]>([]);
   const [kind, setKind] = useState<"image" | "video" | null>(null);
   const [durationSec, setDurationSec] = useState(0);
   const [currentSec, setCurrentSec] = useState(0);
@@ -104,12 +106,19 @@ export function SellerVideoStudioScreen({
   const products = productsQuery.data ?? [];
   const product = products.find((p) => p.id === productId) ?? null;
   const previewUrl = useMemo(() => (file ? URL.createObjectURL(file) : null), [file]);
+  const extraPreviews = useMemo(() => extraImages.map((item) => URL.createObjectURL(item)), [extraImages]);
 
   useEffect(() => {
     return () => {
       if (previewUrl) URL.revokeObjectURL(previewUrl);
     };
   }, [previewUrl]);
+
+  useEffect(() => {
+    return () => {
+      extraPreviews.forEach((url) => URL.revokeObjectURL(url));
+    };
+  }, [extraPreviews]);
 
   useEffect(() => {
     if (!initialProductId) return;
@@ -160,8 +169,39 @@ export function SellerVideoStudioScreen({
     setCamLive(false);
     setFile(next);
     setKind(result.media);
-    if (result.media === "video") setDurationSec(result.durationMs / 1000);
+    if (result.media === "video") {
+      setExtraImages([]);
+      setDurationSec(result.durationMs / 1000);
+    }
     haptic("light");
+  }
+
+  async function addExtraFiles(list: FileList | File[] | null) {
+    const incoming = [...(list ?? [])];
+    const accepted: File[] = [];
+    for (const next of incoming) {
+      const result = await inspectShoppingMedia(next);
+      if (result.ok && result.media === "image") accepted.push(next);
+    }
+    if (accepted.length === 0) {
+      toast.error("Add photos (JPEG, PNG, or WebP).");
+      return;
+    }
+    setExtraImages((cur) => {
+      const room = MAX_POST_IMAGES - 1 - cur.length;
+      return room > 0 ? [...cur, ...accepted.slice(0, room)] : cur;
+    });
+    haptic("light");
+  }
+
+  async function onFiles(list: FileList | null) {
+    const files = [...(list ?? [])];
+    if (files.length === 0) return;
+    await onFile(files[0] ?? null);
+    if (files.length > 1) {
+      setExtraImages([]);
+      await addExtraFiles(files.slice(1, MAX_POST_IMAGES));
+    }
   }
 
   function addTag(raw: string) {
@@ -322,6 +362,7 @@ export function SellerVideoStudioScreen({
       businessId,
       profileId,
       file,
+      extraImages: kind === "image" ? extraImages : [],
       caption: fullCaption,
       productIds: tagId ? [tagId] : [],
       products: products.map((p) => ({ id: p.id, business_id: p.business_id })).concat(
@@ -622,9 +663,18 @@ export function SellerVideoStudioScreen({
                 <input
                   ref={fileInputRef}
                   type="file"
+                  multiple
                   accept="video/mp4,video/webm,image/jpeg,image/png,image/webp"
                   className="sr-only"
-                  onChange={(e) => void onFile(e.target.files?.[0] ?? null)}
+                  onChange={(e) => void onFiles(e.target.files)}
+                />
+                <input
+                  ref={extraInputRef}
+                  type="file"
+                  multiple
+                  accept="image/jpeg,image/png,image/webp"
+                  className="sr-only"
+                  onChange={(e) => void addExtraFiles(e.target.files)}
                 />
                 <input
                   ref={cameraInputRef}
@@ -639,8 +689,39 @@ export function SellerVideoStudioScreen({
                 <span className="text-[#1F7A4D]" aria-hidden>
                   ↻
                 </span>
-                    Photo, or a video of {MIN_VIDEO_SEC} to {MAX_VIDEO_SEC} seconds
+                    Photo, or a video of {MIN_VIDEO_SEC} to {MAX_VIDEO_SEC} seconds. Add up to {MAX_POST_IMAGES} photos — shoppers swipe the rest.
               </p>
+              {kind === "image" && file ? (
+                <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
+                  {previewUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={previewUrl} alt="" className="size-16 rounded-xl object-cover ring-2 ring-[#1F7A4D]" />
+                  ) : null}
+                  {extraPreviews.map((src, i) => (
+                    <button
+                      key={`${extraImages[i]?.name}-${i}`}
+                      type="button"
+                      className="relative size-16 shrink-0 overflow-hidden rounded-xl"
+                      onClick={() => setExtraImages((cur) => cur.filter((_, idx) => idx !== i))}
+                      aria-label="Remove photo"
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={src} alt="" className="size-full object-cover" />
+                      <X className="absolute right-1 top-1 size-4 rounded-full bg-black/60 p-0.5 text-white" />
+                    </button>
+                  ))}
+                  {1 + extraImages.length < MAX_POST_IMAGES ? (
+                    <button
+                      type="button"
+                      className="flex size-16 shrink-0 flex-col items-center justify-center rounded-xl border border-dashed border-[#D1D5DB] text-[10px] font-bold text-[#0B1F4D]"
+                      onClick={() => extraInputRef.current?.click()}
+                    >
+                      <Plus className="size-4" />
+                      Add
+                    </button>
+                  ) : null}
+                </div>
+              ) : null}
               <div className="mt-2 grid grid-cols-2 gap-2">
                 {camLive ? (
                   <>

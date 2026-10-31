@@ -3,6 +3,7 @@ import { assertProductsBelongToBusiness, requireShoppingTags } from "@/lib/feed/
 import { captureVideoThumbnail, inspectShoppingMedia } from "@/lib/video/file-guard";
 import { videoPublicStatus } from "@/lib/video/publish-status";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import { updateProductImages } from "@/services/product-service";
 
 export { videoPublicStatus };
 
@@ -18,8 +19,11 @@ export type StudioSubmitInput = {
   rightsAttested?: boolean;
   asDraft?: boolean;
   durationHintMs?: number;
+  extraImages?: File[];
   onProgress?: (pct: number, label: string) => void;
 };
+
+export const MAX_POST_IMAGES = 10;
 
 const IMAGE_EXT: Record<string, { ext: string; type: string }> = {
   jpeg: { ext: "jpg", type: "image/jpeg" },
@@ -72,6 +76,23 @@ export async function submitStudioVideo(input: StudioSubmitInput): Promise<{ err
   }
 
   const playbackUrl = supabase.storage.from("business-videos").getPublicUrl(storagePath).data.publicUrl;
+  const imageUrls: string[] = isImage ? [playbackUrl] : [];
+  if (isImage && input.extraImages?.length) {
+    report(48, "Uploading more photos…");
+    for (const extra of input.extraImages.slice(0, MAX_POST_IMAGES - 1)) {
+      const extraInspect = await inspectShoppingMedia(extra);
+      if (!extraInspect.ok || extraInspect.media !== "image") continue;
+      const extraMeta = IMAGE_EXT[extraInspect.kind];
+      if (!extraMeta) continue;
+      const extraPath = `${input.businessId}/${id}-${imageUrls.length}.${extraMeta.ext}`;
+      const extraUp = await supabase.storage.from("business-videos").upload(extraPath, extra, {
+        contentType: extraMeta.type,
+        upsert: false,
+      });
+      if (extraUp.error) continue;
+      imageUrls.push(supabase.storage.from("business-videos").getPublicUrl(extraPath).data.publicUrl);
+    }
+  }
   const goLive = !input.asDraft;
   let status: string = input.asDraft ? "draft" : "ready";
   const row = {
@@ -89,21 +110,26 @@ export async function submitStudioVideo(input: StudioSubmitInput): Promise<{ err
     moderation_status: "pending",
     attribution: input.attribution ?? "business",
     media_kind: isImage ? "image" : "video",
+    image_urls: imageUrls,
     rights_attested_at: new Date().toISOString(),
     published_at: goLive ? new Date().toISOString() : null,
   };
   let { error: rowErr } = await supabase.from("video_posts").insert(row);
+  if (rowErr && /image_urls/i.test(rowErr.message)) {
+    const { image_urls: _urls, ...withoutUrls } = row;
+    rowErr = (await supabase.from("video_posts").insert(withoutUrls)).error;
+  }
   if (rowErr && /media_kind/i.test(rowErr.message)) {
-    const { media_kind: _mk, ...withoutKind } = row;
+    const { media_kind: _mk, image_urls: _urls, ...withoutKind } = row;
     rowErr = (await supabase.from("video_posts").insert(withoutKind)).error;
   }
   if (rowErr && /rights_attested/i.test(rowErr.message)) {
-    const { media_kind: _mk, rights_attested_at: _ra, ...withoutRights } = row;
+    const { media_kind: _mk, rights_attested_at: _ra, image_urls: _urls, ...withoutRights } = row;
     rowErr = (await supabase.from("video_posts").insert(withoutRights)).error;
   }
   if (rowErr && /invalid input value for enum video_post_status/i.test(rowErr.message)) {
     status = input.asDraft ? "uploading" : "ready";
-    const { media_kind: _mk, rights_attested_at: _ra, ...base } = row;
+    const { media_kind: _mk, rights_attested_at: _ra, image_urls: _urls, ...base } = row;
     rowErr = (await supabase.from("video_posts").insert({ ...base, status })).error;
   }
   if (rowErr) return { error: rowErr.message };
@@ -125,6 +151,9 @@ export async function submitStudioVideo(input: StudioSubmitInput): Promise<{ err
       .update({ is_published: true, is_active: true })
       .in("id", input.productIds)
       .eq("business_id", input.businessId);
+    if (isImage && imageUrls.length > 0) {
+      await updateProductImages(input.productIds[0]!, imageUrls);
+    }
   }
   report(100, "Live on For You");
 

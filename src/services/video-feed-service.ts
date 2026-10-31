@@ -26,6 +26,8 @@ export type PublicFeedVideo = {
   comment_count: number;
   save_count: number;
   view_count: number;
+  share_count?: number;
+  image_urls?: string[];
   published_at: string | null;
   created_at: string;
   slug: string;
@@ -78,6 +80,43 @@ export function resolveCoverSrc(coverPath: string | null): string | null {
   if (coverPath.startsWith("http") || coverPath.startsWith("/")) return coverPath;
   const supabase = getSupabaseBrowserClient();
   return supabase.storage.from("business-videos").getPublicUrl(coverPath).data.publicUrl;
+}
+
+export function asUrlList(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((item): item is string => typeof item === "string" && item.trim().length > 0);
+}
+
+function addGalleryUrl(out: string[], seen: Set<string>, raw: string | null | undefined) {
+  if (!raw) return;
+  const url = raw.startsWith("http") || raw.startsWith("/") ? raw : resolveCoverSrc(raw);
+  if (!url || seen.has(url)) return;
+  seen.add(url);
+  out.push(url);
+}
+
+export function resolvePostGallery(video: PublicFeedVideo, products: PublicProduct[] = []): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const url of asUrlList(video.image_urls)) addGalleryUrl(out, seen, url);
+  if (isImagePost(video)) {
+    addGalleryUrl(out, seen, video.cover_path);
+    addGalleryUrl(out, seen, video.playback_url);
+    addGalleryUrl(out, seen, video.storage_path);
+  }
+  for (const product of products) {
+    addGalleryUrl(out, seen, product.image_url);
+    for (const extra of product.extra_image_urls ?? []) addGalleryUrl(out, seen, extra);
+  }
+  return out;
+}
+
+export function productGallery(product: PublicProduct): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  addGalleryUrl(out, seen, product.image_url);
+  for (const extra of product.extra_image_urls ?? []) addGalleryUrl(out, seen, extra);
+  return out;
 }
 
 export const FEED_PAGE_SIZE = 12;
@@ -133,7 +172,7 @@ async function loadFeedFromPosts(
   let query = supabase
     .from("video_posts")
     .select(
-      "id, business_id, profile_id, caption, captions_url, cover_path, playback_url, storage_path, duration_ms, attribution, like_count, comment_count, save_count, view_count, published_at, created_at, media_kind",
+      "id, business_id, profile_id, caption, captions_url, cover_path, playback_url, storage_path, duration_ms, attribution, like_count, comment_count, save_count, view_count, share_count, image_urls, published_at, created_at, media_kind",
     )
     .eq("status", "ready")
     .order("created_at", { ascending: false })
@@ -142,22 +181,20 @@ async function loadFeedFromPosts(
   if (businessId) query = query.eq("business_id", businessId);
   const posts = await query;
   let rows = posts.data;
-  if (posts.error && /media_kind/i.test(posts.error.message)) {
-    let retryQuery = supabase
-      .from("video_posts")
-      .select(
-        "id, business_id, profile_id, caption, captions_url, cover_path, playback_url, storage_path, duration_ms, attribution, like_count, comment_count, save_count, view_count, published_at, created_at",
-      )
-      .eq("status", "ready")
-      .order("created_at", { ascending: false })
-      .limit(limit);
+  let selectError = posts.error;
+  if (selectError && /share_count|image_urls|media_kind/i.test(selectError.message)) {
+    const slim =
+      "id, business_id, profile_id, caption, captions_url, cover_path, playback_url, storage_path, duration_ms, attribution, like_count, comment_count, save_count, view_count, published_at, created_at" +
+      (/media_kind/i.test(selectError.message) ? "" : ", media_kind");
+    let retryQuery = supabase.from("video_posts").select(slim).eq("status", "ready").order("created_at", { ascending: false }).limit(limit);
     if (before) retryQuery = retryQuery.lt("created_at", before);
     if (businessId) retryQuery = retryQuery.eq("business_id", businessId);
     const retry = await retryQuery;
     if (retry.error) return { videos: [], error: retry.error.message };
     rows = retry.data;
-  } else if (posts.error) {
-    return { videos: [], error: posts.error.message };
+    selectError = null;
+  } else if (selectError) {
+    return { videos: [], error: selectError.message };
   }
 
   const list = rows ?? [];
@@ -195,6 +232,8 @@ async function loadFeedFromPosts(
       comment_count: Number(row.comment_count ?? 0),
       save_count: Number(row.save_count ?? 0),
       view_count: Number(row.view_count ?? 0),
+      share_count: Number((row as { share_count?: number }).share_count ?? 0),
+      image_urls: asUrlList((row as { image_urls?: unknown }).image_urls),
       published_at: (row.published_at as string | null) ?? (row.created_at as string),
       created_at: row.created_at as string,
       slug: (shop?.slug as string | undefined) ?? (row.business_id as string),
@@ -221,6 +260,8 @@ async function attachShopNames(videos: PublicFeedVideo[]): Promise<PublicFeedVid
     const person = people.get(video.profile_id) ?? null;
     return {
       ...video,
+      share_count: Number(video.share_count ?? 0),
+      image_urls: asUrlList(video.image_urls),
       business_name: displayShopName(shop?.business_name ?? video.business_name, person),
       slug: shop?.slug || video.slug || video.business_id,
       business_logo_url: shop?.logo_url ?? video.business_logo_url,

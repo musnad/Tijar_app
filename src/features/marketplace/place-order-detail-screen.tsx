@@ -6,6 +6,7 @@ import { ArrowLeft, Building2, Clock3, Landmark, MapPin } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
+import { MediaCarousel } from "@/components/media/media-carousel";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { MarketplaceShell } from "@/features/marketplace/marketplace-shell";
@@ -138,20 +139,9 @@ export function PlaceOrderDetailScreen({ listingId }: { listingId: string }) {
           {listing ? (
             <>
               <div className="overflow-hidden rounded-2xl border border-border">
-                <div className="aspect-[16/10] bg-muted">
-                  {listing.image_urls[0] ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={listing.image_urls[0]} alt="" className="size-full object-cover" />
-                  ) : null}
+                <div className="aspect-[4/5] bg-muted">
+                  <MediaCarousel urls={listing.image_urls} eager />
                 </div>
-                {listing.image_urls.length > 1 ? (
-                  <div className="flex gap-1.5 overflow-x-auto p-2">
-                    {listing.image_urls.map((src) => (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img key={src} src={src} alt="" className="size-14 rounded-xl object-cover" />
-                    ))}
-                  </div>
-                ) : null}
               </div>
               <h2 className="mt-3 text-[22px] font-extrabold text-[#0B1F4D]">{listing.title}</h2>
               <p className="text-sm font-semibold text-[#1F7A4D]">{listing.shop_name}</p>
