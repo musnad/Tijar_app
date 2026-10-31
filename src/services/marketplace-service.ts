@@ -297,6 +297,11 @@ function missingDbColumn(message: string | undefined, column: string): boolean {
   return new RegExp(`${column}|schema cache`, "i").test(message) && /schema cache|does not exist|column/i.test(message);
 }
 
+function shouldPlaceOrderDirectly(message: string | undefined): boolean {
+  if (!message) return false;
+  return missingDbColumn(message, "variant_id") || /insufficient stock/i.test(message);
+}
+
 async function getOrCreateActiveCart(profileId: string): Promise<{ cartId: string | null; error: string | null }> {
   const supabase = getSupabaseBrowserClient();
   const { data: existing } = await supabase
@@ -611,7 +616,7 @@ export async function placeOrders(input: {
     data = legacy.data;
     error = legacy.error;
   }
-  if (error && missingDbColumn(error.message, "variant_id")) {
+  if (error && shouldPlaceOrderDirectly(error.message)) {
     const fallback = await placeOrdersWithoutVariants(input);
     if (fallback.error || fallback.orders.length === 0) {
       return { orders: [], error: fallback.error ?? error.message };
