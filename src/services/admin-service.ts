@@ -165,13 +165,22 @@ export async function setBusinessVerification(
   notes?: string,
 ): Promise<{ error: string | null }> {
   const supabase = getSupabaseBrowserClient();
+  const { data: biz } = await supabase
+    .from("businesses")
+    .select("id, latitude, longitude, is_published")
+    .eq("id", businessId)
+    .maybeSingle();
+  const hasCoords = biz?.latitude != null && biz?.longitude != null;
   const patch: Record<string, unknown> = {
     verification_status: status,
   };
   if (notes?.trim()) patch.moderation_notes = notes.trim();
   if (status === "verified") {
     patch.moderation_status = "approved";
-    patch.location_approved = true;
+    patch.location_approved = hasCoords;
+    if (biz?.is_published && !hasCoords) {
+      patch.is_published = false;
+    }
   }
   const { error } = await supabase.from("businesses").update(patch).eq("id", businessId);
   return { error: error?.message ?? null };
@@ -215,13 +224,22 @@ export async function setBusinessPublished(
   published: boolean,
 ): Promise<{ error: string | null }> {
   const supabase = getSupabaseBrowserClient();
-  const { error } = await supabase
-    .from("businesses")
-    .update({
-      is_published: published,
-      published_at: published ? new Date().toISOString() : null,
-    })
-    .eq("id", businessId);
+  if (published) {
+    const { data: biz } = await supabase
+      .from("businesses")
+      .select("latitude, longitude")
+      .eq("id", businessId)
+      .maybeSingle();
+    if (biz?.latitude == null || biz?.longitude == null) {
+      return { error: "This shop needs a map location before it can be published. Ask the owner to save location on the business page." };
+    }
+  }
+  const patch: Record<string, unknown> = {
+    is_published: published,
+    published_at: published ? new Date().toISOString() : null,
+  };
+  if (published) patch.location_approved = true;
+  const { error } = await supabase.from("businesses").update(patch).eq("id", businessId);
   return { error: error?.message ?? null };
 }
 
