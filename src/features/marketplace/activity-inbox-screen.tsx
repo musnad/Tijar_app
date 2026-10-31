@@ -37,10 +37,12 @@ export function ActivityInboxScreen() {
     queryKey: ["activity-inbox", profile?.id],
     enabled: Boolean(profile?.id),
     queryFn: async () => {
-      const r = await fetchActivityNotifications(profile!.id);
-      if (r.error && /does not exist|schema cache/i.test(r.error)) return { items: [], unread: 0 };
-      if (r.error) throw new Error(r.error);
-      return r;
+      try {
+        const r = await fetchActivityNotifications(profile!.id);
+        return r.error ? { items: [], unread: 0 } : r;
+      } catch {
+        return { items: [], unread: 0 };
+      }
     },
   });
 

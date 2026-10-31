@@ -11,7 +11,7 @@ export function usePrimaryBusiness(profileId: string | undefined) {
     queryFn: async () => {
       if (!profileId) return { business: null, dna: null };
       const result = await fetchPrimaryBusiness(profileId);
-      if (result.error) throw new Error(result.error);
+      if (result.error) return { business: null, dna: null };
       return { business: result.business, dna: result.dna };
     },
   });

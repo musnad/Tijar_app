@@ -86,8 +86,12 @@ export function MarketplaceShell({
     enabled: Boolean(profile?.id),
     refetchInterval: 12_000,
     queryFn: async () => {
-      const ids = await fetchMyBusinessIds(profile!.id);
-      return countUnreadShopChats(profile!.id, ids);
+      try {
+        const ids = await fetchMyBusinessIds(profile!.id);
+        return await countUnreadShopChats(profile!.id, ids);
+      } catch {
+        return 0;
+      }
     },
   });
   const unread = unreadQuery.data ?? 0;

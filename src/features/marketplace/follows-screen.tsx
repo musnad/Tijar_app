@@ -36,9 +36,11 @@ export function FollowsScreen() {
   const shopsQuery = useQuery({
     queryKey: ["followed-shops", profile?.id ?? "guest"],
     queryFn: async () => {
-      const r = await fetchFollowedBusinesses(profile?.id ?? "guest");
-      if (r.error) throw new Error(r.error);
-      return r.shops;
+      try {
+        return (await fetchFollowedBusinesses(profile?.id ?? "guest")).shops;
+      } catch {
+        return [];
+      }
     },
   });
 
@@ -46,10 +48,11 @@ export function FollowsScreen() {
     queryKey: ["followed-people", profile?.id],
     enabled: Boolean(profile?.id),
     queryFn: async () => {
-      const r = await fetchPeopleIFollow(profile!.id);
-      if (r.error && /does not exist|schema cache/i.test(r.error)) return [];
-      if (r.error) throw new Error(r.error);
-      return r.people;
+      try {
+        return (await fetchPeopleIFollow(profile!.id)).people;
+      } catch {
+        return [];
+      }
     },
   });
 
@@ -167,10 +170,11 @@ export function FollowersScreen() {
     queryKey: ["shop-followers", profile?.id],
     enabled: Boolean(profile?.id),
     queryFn: async () => {
-      const r = await fetchFollowersForMe(profile!.id);
-      if (r.error && /does not exist|schema cache/i.test(r.error)) return [];
-      if (r.error) throw new Error(r.error);
-      return r.people;
+      try {
+        return (await fetchFollowersForMe(profile!.id)).people;
+      } catch {
+        return [];
+      }
     },
   });
 

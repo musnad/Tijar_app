@@ -651,7 +651,6 @@ export async function toggleFavoriteProduct(
     profile_id: profileId,
     product_id: productId,
   });
-  if (!error && catalog) ensureSavedProduct(profileId, catalog);
   return { favorited: true, error: error?.message ?? null };
 }
 
@@ -681,13 +680,17 @@ export async function fetchFavoriteProducts(profileId: string): Promise<{
 
 export async function countFavoriteProducts(profileId: string): Promise<number> {
   const local = listSavedProducts(profileId).length;
-  const supabase = getSupabaseBrowserClient();
-  const { count } = await supabase
-    .from("marketplace_favorites")
-    .select("id", { count: "exact", head: true })
-    .eq("profile_id", profileId)
-    .not("product_id", "is", null);
-  return Math.max(local, count ?? 0);
+  try {
+    const supabase = getSupabaseBrowserClient();
+    const { count } = await supabase
+      .from("marketplace_favorites")
+      .select("id", { count: "exact", head: true })
+      .eq("profile_id", profileId)
+      .not("product_id", "is", null);
+    return Math.max(local, count ?? 0);
+  } catch {
+    return local;
+  }
 }
 
 export type BusinessUpgradeRequest = {
@@ -856,12 +859,13 @@ export async function fetchFollowedBusinesses(profileId: string): Promise<{
   shops: PublicBusiness[];
   error: string | null;
 }> {
+  const localShops = listFollowedShopsAsBusinesses(profileId);
+  if (!profileId || profileId === "guest") return { shops: localShops, error: null };
   const supabase = getSupabaseBrowserClient();
   const { data: follows, error } = await supabase
     .from("business_follows")
     .select("business_id")
     .eq("profile_id", profileId);
-  const localShops = listFollowedShopsAsBusinesses(profileId);
   if (error) return { shops: localShops, error: localShops.length ? null : error.message };
   const ids = (follows ?? []).map((f) => f.business_id as string);
   if (ids.length === 0) return { shops: localShops, error: null };

@@ -115,6 +115,7 @@ async function myFollowedPeopleIds(profileId: string): Promise<Set<string>> {
 }
 
 export async function fetchPeopleIFollow(profileId: string): Promise<{ people: SocialConnection[]; error: string | null }> {
+  try {
   const supabase = getSupabaseBrowserClient();
   const { data, error } = await supabase
     .from("profile_follows")
@@ -145,12 +146,16 @@ export async function fetchPeopleIFollow(profileId: string): Promise<{ people: S
     };
   });
   return { people, error: null };
+  } catch (err) {
+    return { people: [], error: err instanceof Error ? err.message : "Could not load people you follow." };
+  }
 }
 
 export async function fetchFollowersForMe(profileId: string): Promise<{
   people: SocialConnection[];
   error: string | null;
 }> {
+  try {
   const supabase = getSupabaseBrowserClient();
   const { data: myShops } = await supabase.from("businesses").select("id, business_name").eq("owner_id", profileId);
   const shopIds = (myShops ?? []).map((s) => s.id as string);
@@ -179,7 +184,7 @@ export async function fetchFollowersForMe(profileId: string): Promise<{
     ]),
   ].filter((id) => id && id !== profileId);
 
-  if (ids.length === 0) return { people: [], error: shopFollows.error?.message ?? peopleFollows.error?.message ?? null };
+  if (ids.length === 0) return { people: [], error: null };
 
   const { data: profiles } = await supabase.from("profiles").select("id, full_name, avatar_url").in("id", ids);
   const shops = await shopsByOwner(ids);
@@ -209,6 +214,9 @@ export async function fetchFollowersForMe(profileId: string): Promise<{
     };
   });
   return { people, error: null };
+  } catch (err) {
+    return { people: [], error: err instanceof Error ? err.message : "Could not load followers." };
+  }
 }
 
 export async function followBack(profileId: string, person: SocialConnection): Promise<{ following: boolean; error: string | null }> {
@@ -227,14 +235,13 @@ export async function followBack(profileId: string, person: SocialConnection): P
     }
     return toggleFollowPerson(profileId, target);
   }
+  const supabase = getSupabaseBrowserClient();
   if (person.shopId && !isMockFeedId(person.shopId)) {
-    const supabase = getSupabaseBrowserClient();
     const { error } = await supabase
       .from("business_follows")
       .insert({ profile_id: profileId, business_id: person.shopId });
     if (error && error.code !== "23505") return { following: false, error: error.message };
   }
-  const supabase = getSupabaseBrowserClient();
   const { error } = await supabase.from("profile_follows").insert({
     follower_id: profileId,
     followee_id: person.profileId,
@@ -249,6 +256,7 @@ export async function fetchActivityNotifications(profileId: string): Promise<{
   unread: number;
   error: string | null;
 }> {
+  try {
   const supabase = getSupabaseBrowserClient();
   const { data, error } = await supabase
     .from("activity_notifications")
@@ -281,6 +289,9 @@ export async function fetchActivityNotifications(profileId: string): Promise<{
     };
   });
   return { items, unread: items.filter((i) => !i.readAt).length, error: null };
+  } catch (err) {
+    return { items: [], unread: 0, error: err instanceof Error ? err.message : "Could not load notifications." };
+  }
 }
 
 export async function markNotificationsRead(profileId: string): Promise<{ error: string | null }> {
