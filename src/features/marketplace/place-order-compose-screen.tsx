@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { MarketplaceShell } from "@/features/marketplace/marketplace-shell";
+import { PlaceOrderShareButton } from "@/features/marketplace/place-order-social";
 import { ProductPhotosField, type ProductPhotoItem } from "@/features/products/product-photos-field";
 import { useAuth } from "@/features/auth/auth-context";
 import { usePrimaryBusiness } from "@/hooks/use-primary-business";
@@ -245,24 +246,29 @@ export function PlaceOrderComposeScreen() {
                   <p className="text-sm font-extrabold">Your open posts</p>
                   <ul className="mt-2 space-y-2">
                     {mineQuery.data?.map((item) => (
-                      <li key={item.id} className="flex items-center justify-between gap-2 rounded-xl border px-3 py-2">
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-bold">{item.title}</p>
-                          <p className="text-[11px] text-muted-foreground">{item.is_open ? "Open" : "Closed"} · {formatNgn(item.price)}</p>
+                      <li key={item.id} className="rounded-xl border px-3 py-2">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-bold">{item.title}</p>
+                            <p className="text-[11px] text-muted-foreground">{item.is_open ? "Open" : "Closed"} · {formatNgn(item.price)}</p>
+                          </div>
+                          {item.is_open ? (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={async () => {
+                                await closePlaceOrderListing(item.id);
+                                await queryClient.invalidateQueries({ queryKey: ["place-order-mine-listings"] });
+                                await queryClient.invalidateQueries({ queryKey: ["place-order-listings"] });
+                              }}
+                            >
+                              Close
+                            </Button>
+                          ) : null}
                         </div>
-                        {item.is_open ? (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={async () => {
-                              await closePlaceOrderListing(item.id);
-                              await queryClient.invalidateQueries({ queryKey: ["place-order-mine-listings"] });
-                              await queryClient.invalidateQueries({ queryKey: ["place-order-listings"] });
-                            }}
-                          >
-                            Close
-                          </Button>
-                        ) : null}
+                        <div className="mt-2">
+                          <PlaceOrderShareButton listing={item} label="Share post" />
+                        </div>
                       </li>
                     ))}
                   </ul>

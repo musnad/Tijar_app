@@ -1,0 +1,286 @@
+"use client";
+
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Heart, MessageCircle, Send, Share2 } from "lucide-react";
+import { useState } from "react";
+import { toast } from "sonner";
+
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { useAuth } from "@/features/auth/auth-context";
+import { haptic } from "@/lib/haptics";
+import { cn } from "@/lib/utils";
+import {
+  fetchMyLikedPlaceOrderIds,
+  fetchPlaceOrderComments,
+  postPlaceOrderComment,
+  sharePlaceOrderPost,
+  togglePlaceOrderLike,
+  type PlaceOrderListing,
+} from "@/services/place-order-service";
+
+function compactCount(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1).replace(/\.0$/, "")}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1).replace(/\.0$/, "")}K`;
+  return String(n);
+}
+
+function timeAgo(iso: string | null | undefined): string {
+  if (!iso) return "";
+  const ms = Date.now() - new Date(iso).getTime();
+  if (!Number.isFinite(ms) || ms < 0) return "";
+  const minutes = Math.max(1, Math.floor(ms / 60_000));
+  if (minutes < 60) return `${minutes}m`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h`;
+  return `${Math.floor(hours / 24)}d`;
+}
+
+function patchListingCounts(
+  queryClient: ReturnType<typeof useQueryClient>,
+  listingId: string,
+  field: "like_count" | "comment_count" | "share_count",
+  delta: number,
+) {
+  const apply = (listing: PlaceOrderListing) =>
+    listing.id === listingId ? { ...listing, [field]: Math.max(0, Number(listing[field] ?? 0) + delta) } : listing;
+  queryClient.setQueryData(["place-order-listing", listingId], (old: PlaceOrderListing | null | undefined) =>
+    old ? apply(old) : old,
+  );
+  queryClient.setQueryData(["for-you-place-orders"], (old: PlaceOrderListing[] | undefined) => old?.map(apply));
+  queryClient.setQueriesData({ queryKey: ["place-order-listings"] }, (old: unknown) => {
+    if (!old || typeof old !== "object" || !("listings" in old)) return old;
+    const data = old as { listings: PlaceOrderListing[]; error: string | null };
+    return { ...data, listings: data.listings.map(apply) };
+  });
+  queryClient.setQueriesData({ queryKey: ["place-order-mine-listings"] }, (old: PlaceOrderListing[] | undefined) =>
+    old?.map(apply),
+  );
+}
+
+export function PlaceOrderSocialBar({
+  listing,
+  className,
+  compact = false,
+}: {
+  listing: PlaceOrderListing;
+  className?: string;
+  compact?: boolean;
+}) {
+  const { profile, session } = useAuth();
+  const queryClient = useQueryClient();
+  const [commentsOpen, setCommentsOpen] = useState(false);
+  const likesQuery = useQuery({
+    queryKey: ["place-order-likes", profile?.id],
+    enabled: Boolean(profile?.id),
+    queryFn: () => fetchMyLikedPlaceOrderIds(profile!.id),
+  });
+  const liked = likesQuery.data?.has(listing.id) ?? false;
+  const likes = Number(listing.like_count ?? 0);
+  const comments = Number(listing.comment_count ?? 0);
+  const shares = Number(listing.share_count ?? 0);
+
+  async function like() {
+    if (!session || !profile) {
+      toast.message("Sign in to like this.");
+      return;
+    }
+    haptic();
+    const { liked: next, error } = await togglePlaceOrderLike(profile.id, listing.id);
+    if (error) {
+      toast.error(error);
+      return;
+    }
+    queryClient.setQueryData(["place-order-likes", profile.id], (prev: Set<string> | undefined) => {
+      const copy = new Set(prev ?? []);
+      if (next) copy.add(listing.id);
+      else copy.delete(listing.id);
+      return copy;
+    });
+    patchListingCounts(queryClient, listing.id, "like_count", next ? 1 : -1);
+  }
+
+  async function share() {
+    haptic();
+    const result = await sharePlaceOrderPost(listing);
+    if (result.shared) {
+      patchListingCounts(queryClient, listing.id, "share_count", 1);
+      if (!navigator.share) toast.success("Link copied");
+    }
+  }
+
+  return (
+    <>
+      <div className={cn("flex items-center", className)}>
+        <button type="button" data-place-order-like={listing.id} className="inline-flex min-h-11 min-w-11 items-center justify-center gap-1.5 px-2.5" aria-label={liked ? "Unlike" : "Like"} onClick={() => void like()}>
+          <Heart className={cn("size-5", liked ? "fill-red-500 text-red-500" : "text-foreground")} />
+          <span className="text-[12px] font-bold tabular-nums">{compactCount(likes)}</span>
+        </button>
+        <button type="button" className="inline-flex min-h-11 min-w-11 items-center justify-center gap-1.5 px-2.5" aria-label="Comments" onClick={() => setCommentsOpen(true)}>
+          <MessageCircle className="size-5 text-foreground" />
+          <span className="text-[12px] font-bold tabular-nums">{compactCount(comments)}</span>
+        </button>
+        <button type="button" className="inline-flex min-h-11 min-w-11 items-center justify-center gap-1.5 px-2.5" aria-label="Share" onClick={() => void share()}>
+          <Share2 className="size-5 text-foreground" />
+          <span className="text-[12px] font-bold tabular-nums">{compactCount(shares)}</span>
+        </button>
+      </div>
+      {!compact && likes > 0 ? <p className="px-3 text-[14px] font-extrabold">{compactCount(likes)} likes</p> : null}
+      {!compact && comments > 0 ? (
+        <button type="button" className="px-3 pb-1 text-left text-[14px] font-semibold text-muted-foreground" onClick={() => setCommentsOpen(true)}>
+          View all {compactCount(comments)} comments
+        </button>
+      ) : null}
+      <Sheet open={commentsOpen} onOpenChange={setCommentsOpen}>
+        <SheetContent side="bottom" className="flex max-h-[85vh] flex-col overflow-hidden rounded-t-3xl p-0">
+          <div className="mx-auto mt-2 h-1 w-10 rounded-full bg-muted" />
+          <SheetHeader className="border-b border-border px-4 py-3">
+            <SheetTitle className="text-center text-[16px] font-extrabold">Comments · {compactCount(comments)}</SheetTitle>
+          </SheetHeader>
+          <PlaceOrderCommentsThread
+            listingId={listing.id}
+            shopName={listing.shop_name}
+            onPosted={() => patchListingCounts(queryClient, listing.id, "comment_count", 1)}
+          />
+        </SheetContent>
+      </Sheet>
+    </>
+  );
+}
+
+export function PlaceOrderCommentsThread({
+  listingId,
+  shopName,
+  onPosted,
+}: {
+  listingId: string;
+  shopName: string;
+  onPosted?: () => void;
+}) {
+  const { profile, session } = useAuth();
+  const [body, setBody] = useState("");
+  const [replyTo, setReplyTo] = useState<string | null>(null);
+  const queryClient = useQueryClient();
+  const commentsQuery = useQuery({
+    queryKey: ["place-order-comments", listingId],
+    queryFn: async () => {
+      const r = await fetchPlaceOrderComments(listingId);
+      if (r.error) throw new Error(r.error);
+      return r.comments;
+    },
+  });
+  const comments = commentsQuery.data ?? [];
+  const roots = comments.filter((c) => !c.parent_id);
+  const replyName = comments.find((c) => c.id === replyTo)?.author_name;
+  const me = profile?.full_name?.trim() || "You";
+
+  return (
+    <div className="flex min-h-0 flex-1 flex-col">
+      <ul className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-3">
+        {commentsQuery.isPending ? <li className="text-sm text-muted-foreground">Loading comments…</li> : null}
+        {commentsQuery.error ? (
+          <li className="text-sm text-destructive">{commentsQuery.error instanceof Error ? commentsQuery.error.message : "Could not load comments."}</li>
+        ) : null}
+        {!commentsQuery.isPending && !commentsQuery.error && roots.length === 0 ? (
+          <li className="py-10 text-center text-sm text-muted-foreground">No comments yet. Be the first.</li>
+        ) : null}
+        {roots.map((c) => (
+          <li key={c.id}>
+            <div className="flex gap-3">
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-[#0B1F4D] text-[12px] font-extrabold text-white">
+                {(c.author_name ?? "S").slice(0, 1).toUpperCase()}
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-[14px] leading-snug text-zinc-800">
+                  <span className="font-extrabold">{c.author_name}</span> {c.body}
+                </p>
+                <div className="mt-1 flex items-center gap-3 text-[11px] font-semibold text-muted-foreground">
+                  <span>{timeAgo(c.created_at) || "now"}</span>
+                  <button type="button" className="font-extrabold text-[#0B1F4D]" onClick={() => setReplyTo(c.id)}>
+                    Reply
+                  </button>
+                </div>
+                <ul className="mt-3 space-y-3">
+                  {comments
+                    .filter((r) => r.parent_id === c.id)
+                    .map((r) => (
+                      <li key={r.id} className="flex gap-3">
+                        <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-zinc-200 text-[11px] font-extrabold text-[#0B1F4D]">
+                          {(r.author_name ?? "S").slice(0, 1).toUpperCase()}
+                        </span>
+                        <div className="min-w-0">
+                          <p className="text-[13px] leading-snug">
+                            <span className="font-extrabold">{r.author_name}</span> {r.body}
+                          </p>
+                          <p className="mt-0.5 text-[11px] text-muted-foreground">{timeAgo(r.created_at) || "now"}</p>
+                        </div>
+                      </li>
+                    ))}
+                </ul>
+              </div>
+            </div>
+          </li>
+        ))}
+      </ul>
+      <form
+        className="flex items-center gap-2 border-t border-border bg-white px-3 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]"
+        onSubmit={async (e) => {
+          e.preventDefault();
+          if (!session || !profile) {
+            toast.message("Sign in to comment.");
+            return;
+          }
+          const { error } = await postPlaceOrderComment({
+            profileId: profile.id,
+            listingId,
+            body,
+            parentId: replyTo,
+          });
+          if (error) toast.error(error);
+          else {
+            setBody("");
+            setReplyTo(null);
+            onPosted?.();
+            void queryClient.invalidateQueries({ queryKey: ["place-order-comments", listingId] });
+          }
+        }}
+      >
+        <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-[#1F7A4D] text-[12px] font-extrabold text-white">
+          {me.slice(0, 1).toUpperCase()}
+        </span>
+        <Input
+          value={body}
+          onChange={(e) => setBody(e.target.value)}
+          placeholder={replyTo ? `Reply to ${replyName ?? "comment"}…` : `Add a comment for ${shopName}…`}
+          className="h-11 rounded-full border-border"
+        />
+        <Button type="submit" variant="ghost" disabled={!body.trim()} className="h-11 rounded-full px-3 font-extrabold text-[#1F7A4D]" aria-label="Post comment">
+          <Send className="size-4" />
+        </Button>
+      </form>
+    </div>
+  );
+}
+
+export function PlaceOrderShareButton({ listing, label = "Share link" }: { listing: PlaceOrderListing; label?: string }) {
+  const queryClient = useQueryClient();
+  return (
+    <Button
+      type="button"
+      size="sm"
+      variant="outline"
+      className="rounded-full"
+      onClick={async () => {
+        const result = await sharePlaceOrderPost(listing);
+        if (result.shared) {
+          patchListingCounts(queryClient, listing.id, "share_count", 1);
+          if (!navigator.share) toast.success("Link copied");
+        }
+      }}
+    >
+      <Share2 className="mr-1 size-3.5" />
+      {label}
+    </Button>
+  );
+}

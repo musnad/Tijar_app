@@ -25,6 +25,9 @@ export type PlaceOrderListing = {
   ready_until: string | null;
   qty_note: string | null;
   is_open: boolean;
+  like_count: number;
+  comment_count: number;
+  share_count: number;
   created_at: string;
   shop_name: string;
   shop_slug: string;
@@ -55,7 +58,7 @@ export type PlaceOrderRequest = {
 };
 
 function missingTable(message: string): boolean {
-  return /place_order_listings|place_order_requests|schema cache|does not exist/i.test(message);
+  return /place_order_listings|place_order_requests|place_order_likes|place_order_comments|schema cache|does not exist/i.test(message);
 }
 
 function asListing(
@@ -83,6 +86,9 @@ function asListing(
     ready_until: (row.ready_until as string | null) ?? null,
     qty_note: (row.qty_note as string | null) ?? null,
     is_open: row.is_open !== false,
+    like_count: Number(row.like_count ?? 0),
+    comment_count: Number(row.comment_count ?? 0),
+    share_count: Number(row.share_count ?? 0),
     created_at: row.created_at as string,
     shop_name: displayShopName(shop?.business_name ?? "Shop"),
     shop_slug: shopLinkSlug(shop?.public_slug ?? null, shop?.id ?? (row.business_id as string)),
@@ -483,4 +489,118 @@ export function categoryLabel(value: PlaceOrderCategory): string {
     other: "Other",
   };
   return labels[value];
+}
+
+export type PlaceOrderComment = {
+  id: string;
+  listing_id: string;
+  profile_id: string;
+  parent_id: string | null;
+  body: string;
+  created_at: string;
+  author_name?: string;
+};
+
+export function placeOrderShareUrl(listingId: string): string {
+  const origin = typeof window !== "undefined" ? window.location.origin : "";
+  return `${origin}/shop/order-now/${listingId}`;
+}
+
+export async function sharePlaceOrderPost(listing: {
+  id: string;
+  title: string;
+  shop_name: string;
+}): Promise<{ shared: boolean }> {
+  const url = placeOrderShareUrl(listing.id);
+  try {
+    if (typeof navigator !== "undefined" && navigator.share) {
+      await navigator.share({
+        title: listing.title,
+        text: `Place your order from ${listing.shop_name}`,
+        url,
+      });
+    } else if (typeof navigator !== "undefined" && navigator.clipboard) {
+      await navigator.clipboard.writeText(url);
+    }
+    await recordPlaceOrderShare(listing.id);
+    return { shared: true };
+  } catch {
+    return { shared: false };
+  }
+}
+
+export async function recordPlaceOrderShare(listingId: string): Promise<void> {
+  const supabase = getSupabaseBrowserClient();
+  await supabase.rpc("record_place_order_share", { p_listing_id: listingId });
+}
+
+export async function fetchMyLikedPlaceOrderIds(profileId: string): Promise<Set<string>> {
+  const supabase = getSupabaseBrowserClient();
+  const { data, error } = await supabase.from("place_order_likes").select("listing_id").eq("profile_id", profileId);
+  if (error) return new Set();
+  return new Set((data ?? []).map((row) => row.listing_id as string));
+}
+
+export async function togglePlaceOrderLike(
+  profileId: string,
+  listingId: string,
+): Promise<{ liked: boolean; error: string | null }> {
+  const supabase = getSupabaseBrowserClient();
+  const { data: existing } = await supabase
+    .from("place_order_likes")
+    .select("profile_id")
+    .eq("profile_id", profileId)
+    .eq("listing_id", listingId)
+    .maybeSingle();
+  if (existing) {
+    const { error } = await supabase.from("place_order_likes").delete().eq("profile_id", profileId).eq("listing_id", listingId);
+    return { liked: false, error: missingTable(error?.message ?? "") ? "Likes are not set up yet. Apply migration 000044." : error?.message ?? null };
+  }
+  const { error } = await supabase.from("place_order_likes").insert({ profile_id: profileId, listing_id: listingId });
+  if (error?.code === "23505") return { liked: true, error: null };
+  if (error && missingTable(error.message)) return { liked: false, error: "Likes are not set up yet. Apply migration 000044." };
+  return { liked: true, error: error?.message ?? null };
+}
+
+export async function fetchPlaceOrderComments(
+  listingId: string,
+): Promise<{ comments: PlaceOrderComment[]; error: string | null }> {
+  const supabase = getSupabaseBrowserClient();
+  const { data, error } = await supabase
+    .from("place_order_comments")
+    .select("id, listing_id, profile_id, parent_id, body, created_at")
+    .eq("listing_id", listingId)
+    .order("created_at", { ascending: true })
+    .limit(200);
+  if (error) {
+    return { comments: [], error: missingTable(error.message) ? "Comments are not set up yet. Apply migration 000044." : error.message };
+  }
+  const comments = (data ?? []) as PlaceOrderComment[];
+  const ids = [...new Set(comments.map((c) => c.profile_id))];
+  if (ids.length === 0) return { comments, error: null };
+  const { data: profiles } = await supabase.from("profiles").select("id, full_name").in("id", ids);
+  const names = new Map((profiles ?? []).map((p) => [p.id as string, p.full_name as string]));
+  return {
+    comments: comments.map((c) => ({ ...c, author_name: names.get(c.profile_id) ?? "Shopper" })),
+    error: null,
+  };
+}
+
+export async function postPlaceOrderComment(input: {
+  profileId: string;
+  listingId: string;
+  body: string;
+  parentId?: string | null;
+}): Promise<{ error: string | null }> {
+  const text = input.body.trim();
+  if (!text) return { error: "Write a comment first." };
+  const supabase = getSupabaseBrowserClient();
+  const { error } = await supabase.from("place_order_comments").insert({
+    profile_id: input.profileId,
+    listing_id: input.listingId,
+    parent_id: input.parentId ?? null,
+    body: text,
+  });
+  if (error && missingTable(error.message)) return { error: "Comments are not set up yet. Apply migration 000044." };
+  return { error: error?.message ?? null };
 }

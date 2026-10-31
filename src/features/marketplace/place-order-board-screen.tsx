@@ -8,6 +8,7 @@ import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { MarketplaceShell } from "@/features/marketplace/marketplace-shell";
+import { PlaceOrderSocialBar } from "@/features/marketplace/place-order-social";
 import { useAuth } from "@/features/auth/auth-context";
 import { canUseBusinessMode } from "@/lib/account-mode";
 import { cn } from "@/lib/utils";
@@ -130,44 +131,47 @@ function ListingCard({ listing }: { listing: PlaceOrderListing }) {
   const photo = listing.image_urls[0];
   const when = useMemo(() => dayLabel(listing.available_on), [listing.available_on]);
   return (
-    <Link
-      to="/shop/order-now/$listingId"
-      params={{ listingId: listing.id }}
-      className="flex gap-3 overflow-hidden rounded-2xl border border-border bg-white shadow-[0_1px_2px_rgba(15,40,50,0.05)]"
-    >
-      <div className="size-[6.5rem] shrink-0 bg-muted">
-        {photo ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={photo} alt="" className="size-full object-cover" />
-        ) : (
-          <span className="flex size-full items-center justify-center text-[#1F7A4D]">
-            <UtensilsCrossed className="size-7" />
-          </span>
-        )}
-      </div>
-      <div className="min-w-0 flex-1 py-2.5 pr-3">
-        <p className="truncate text-[15px] font-extrabold text-[#0B1F4D]">{listing.title}</p>
-        <p className="truncate text-[12px] font-semibold text-[#1F7A4D]">{listing.shop_name}</p>
-        <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-muted-foreground">
-          <span>{categoryLabel(listing.category)}</span>
-          <span className="inline-flex items-center gap-0.5">
-            <Clock3 className="size-3" />
-            {when}
-          </span>
-        </p>
-        {listing.location_label ? (
-          <p className="mt-0.5 flex items-center gap-1 truncate text-[11px] text-muted-foreground">
-            <MapPin className="size-3 shrink-0" />
-            {listing.location_label}
+    <div className="overflow-hidden rounded-2xl border border-border bg-white shadow-[0_1px_2px_rgba(15,40,50,0.05)]">
+      <Link
+        to="/shop/order-now/$listingId"
+        params={{ listingId: listing.id }}
+        className="flex gap-3"
+      >
+        <div className="size-[6.5rem] shrink-0 bg-muted">
+          {photo ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={photo} alt="" className="size-full object-cover" />
+          ) : (
+            <span className="flex size-full items-center justify-center text-[#1F7A4D]">
+              <UtensilsCrossed className="size-7" />
+            </span>
+          )}
+        </div>
+        <div className="min-w-0 flex-1 py-2.5 pr-3">
+          <p className="truncate text-[15px] font-extrabold text-[#0B1F4D]">{listing.title}</p>
+          <p className="truncate text-[12px] font-semibold text-[#1F7A4D]">{listing.shop_name}</p>
+          <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-muted-foreground">
+            <span>{categoryLabel(listing.category)}</span>
+            <span className="inline-flex items-center gap-0.5">
+              <Clock3 className="size-3" />
+              {when}
+            </span>
           </p>
-        ) : null}
-        <p className="mt-0.5 text-[11px] font-semibold text-muted-foreground">
-          {listing.pickup_enabled ? "Pickup" : ""}
-          {listing.pickup_enabled && listing.delivery_enabled ? " · " : ""}
-          {listing.delivery_enabled ? "Delivery" : ""}
-        </p>
-        <p className="mt-1.5 text-[15px] font-extrabold text-[#1F7A4D]">{formatNgn(listing.price)}</p>
-      </div>
-    </Link>
+          {listing.location_label ? (
+            <p className="mt-0.5 flex items-center gap-1 truncate text-[11px] text-muted-foreground">
+              <MapPin className="size-3 shrink-0" />
+              {listing.location_label}
+            </p>
+          ) : null}
+          <p className="mt-0.5 text-[11px] font-semibold text-muted-foreground">
+            {listing.pickup_enabled ? "Pickup" : ""}
+            {listing.pickup_enabled && listing.delivery_enabled ? " · " : ""}
+            {listing.delivery_enabled ? "Delivery" : ""}
+          </p>
+          <p className="mt-1.5 text-[15px] font-extrabold text-[#1F7A4D]">{formatNgn(listing.price)}</p>
+        </div>
+      </Link>
+      <PlaceOrderSocialBar listing={listing} compact className="border-t border-border px-1" />
+    </div>
   );
 }
