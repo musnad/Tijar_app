@@ -292,6 +292,11 @@ export async function fetchMarketplaceProduct(productId: string): Promise<{
   return { product: named[0] ?? product, error: null };
 }
 
+function missingDbColumn(message: string | undefined, column: string): boolean {
+  if (!message) return false;
+  return new RegExp(`${column}|schema cache`, "i").test(message) && /schema cache|does not exist|column/i.test(message);
+}
+
 async function getOrCreateActiveCart(profileId: string): Promise<{ cartId: string | null; error: string | null }> {
   const supabase = getSupabaseBrowserClient();
   const { data: existing } = await supabase
@@ -363,11 +368,12 @@ export async function addToCart(
   rememberSavedFromCart(profileId, input);
   const supabase = getSupabaseBrowserClient();
   const qty = input.quantity ?? 1;
-  const rpc = await supabase.rpc("add_marketplace_cart_item", {
+  const rpcArgs: { p_product_id: string; p_quantity: number; p_variant_id?: string } = {
     p_product_id: input.productId,
     p_quantity: qty,
-    p_variant_id: input.variantId ?? null,
-  });
+  };
+  if (input.variantId) rpcArgs.p_variant_id = input.variantId;
+  const rpc = await supabase.rpc("add_marketplace_cart_item", rpcArgs);
   if (!rpc.error) return { error: null };
 
   const { cartId, error: cartError } = await getOrCreateActiveCart(profileId);
@@ -406,9 +412,8 @@ export async function addToCart(
     product_name: live.product.name,
     unit: live.product.unit,
     image_url: live.product.image_url ?? null,
-    variant_id: input.variantId ?? null,
-    variant_label: input.variantLabel ?? null,
   });
+  if (error?.code === "23505") return { error: null };
   return { error: error?.message ?? null };
 }
 
@@ -481,6 +486,103 @@ export async function quoteCheckout(
   return { quote: data as CheckoutQuote, error: null };
 }
 
+async function placeOrdersWithoutVariants(input: {
+  fulfilment?: "pickup" | "seller_delivery" | "third_party";
+  addressId?: string | null;
+  buyerNote?: string;
+  buyerPhone?: string;
+  paymentMethod?: string | null;
+  paymentDestination?: string | null;
+}): Promise<{ orders: MarketplaceOrder[]; error: string | null }> {
+  const supabase = getSupabaseBrowserClient();
+  const { data: auth } = await supabase.auth.getUser();
+  const profileId = auth.user?.id;
+  if (!profileId) return { orders: [], error: "Sign in to place an order." };
+
+  let items = (await fetchLiveCartItems(profileId)) ?? [];
+  if (items.length === 0) {
+    const local = listLocalCart(profileId);
+    for (const line of local) {
+      const added = await addToCart(profileId, {
+        businessId: line.business_id,
+        productId: line.product_id,
+        productName: line.product_name,
+        unit: line.unit,
+        unitPrice: Number(line.unit_price),
+        quantity: Number(line.quantity),
+        imageUrl: line.image_url,
+      });
+      if (added.error && !missingDbColumn(added.error, "variant_id")) {
+        return { orders: [], error: added.error };
+      }
+    }
+    items = (await fetchLiveCartItems(profileId)) ?? local;
+  }
+  if (items.length === 0) return { orders: [], error: "Your cart is empty." };
+
+  const byShop = new Map<string, CartItem[]>();
+  for (const line of items) {
+    const list = byShop.get(line.business_id) ?? [];
+    list.push(line);
+    byShop.set(line.business_id, list);
+  }
+
+  const orders: MarketplaceOrder[] = [];
+  const delivery = input.fulfilment === "pickup" ? 0 : 500;
+  for (const [businessId, lines] of byShop) {
+    const subtotal = lines.reduce((sum, line) => sum + Number(line.quantity) * Number(line.unit_price), 0);
+    const stamp = new Date().toISOString().slice(2, 10).replace(/-/g, "");
+    const suffix = crypto.randomUUID().replace(/-/g, "").slice(0, 6).toUpperCase();
+    const { data: order, error } = await supabase
+      .from("orders")
+      .insert({
+        order_number: `TJ-${stamp}-${suffix}`,
+        buyer_profile_id: profileId,
+        business_id: businessId,
+        status: "pending_payment",
+        fulfilment: input.fulfilment ?? "pickup",
+        delivery_address_id: input.addressId ?? null,
+        subtotal,
+        delivery_fee: delivery,
+        total: subtotal + delivery,
+        buyer_phone: input.buyerPhone ?? null,
+        buyer_note: input.buyerNote ?? null,
+      })
+      .select("*")
+      .single();
+    if (error || !order) return { orders, error: error?.message ?? "Could not create the order." };
+
+    const { error: itemError } = await supabase.from("order_items").insert(
+      lines.map((line) => ({
+        order_id: order.id,
+        product_id: line.product_id,
+        product_name: line.product_name,
+        unit: line.unit,
+        quantity: line.quantity,
+        unit_price: line.unit_price,
+        line_total: Number(line.quantity) * Number(line.unit_price),
+        image_url: line.image_url,
+      })),
+    );
+    if (itemError) return { orders, error: itemError.message };
+
+    await supabase.from("payments").insert({
+      order_id: order.id,
+      provider: "test",
+      status: "initiated",
+      amount: Number(order.total),
+      test_mode: true,
+    });
+    orders.push(order as MarketplaceOrder);
+  }
+
+  const { cartId } = await getOrCreateActiveCart(profileId);
+  if (cartId) {
+    await supabase.from("carts").update({ status: "converted" }).eq("id", cartId);
+  }
+  return { orders, error: null };
+}
+
 export async function placeOrders(input: {
   fulfilment?: "pickup" | "seller_delivery" | "third_party";
   addressId?: string | null;
@@ -508,6 +610,14 @@ export async function placeOrders(input: {
     });
     data = legacy.data;
     error = legacy.error;
+  }
+  if (error && missingDbColumn(error.message, "variant_id")) {
+    const fallback = await placeOrdersWithoutVariants(input);
+    if (fallback.error || fallback.orders.length === 0) {
+      return { orders: [], error: fallback.error ?? error.message };
+    }
+    data = fallback.orders;
+    error = null;
   }
   if (error) return { orders: [], error: error.message };
   const orders = (data ?? []) as MarketplaceOrder[];
