@@ -63,6 +63,7 @@ import { Route as ShopBuyRouteImport } from './routes/shop/buy'
 import { Route as ShopCartRouteImport } from './routes/shop/cart'
 import { Route as ShopCheckoutRouteImport } from './routes/shop/checkout'
 import { Route as ShopCreateRouteImport } from './routes/shop/create'
+import { Route as ShopCreateOrderRouteImport } from './routes/shop/create-order'
 import { Route as ShopDiscoverRouteImport } from './routes/shop/discover'
 import { Route as ShopEditProfileRouteImport } from './routes/shop/edit-profile'
 import { Route as ShopEnquiriesRouteImport } from './routes/shop/enquiries'
@@ -72,6 +73,7 @@ import { Route as ShopFollowsRouteImport } from './routes/shop/follows'
 import { Route as ShopHelpRouteImport } from './routes/shop/help'
 import { Route as ShopNearbyRouteImport } from './routes/shop/nearby'
 import { Route as ShopNotificationsRouteImport } from './routes/shop/notifications'
+import { Route as ShopOrderNowRouteImport } from './routes/shop/order-now'
 import { Route as ShopOrdersRouteImport } from './routes/shop/orders'
 import { Route as ShopPayoutsRouteImport } from './routes/shop/payouts'
 import { Route as ShopProfileRouteImport } from './routes/shop/profile'
@@ -107,6 +109,7 @@ import { Route as AppProfileSettingsRouteImport } from './routes/app/profile/set
 import { Route as AppVideosNewRouteImport } from './routes/app/videos/new'
 import { Route as ShopEnquiriesIndexRouteImport } from './routes/shop/enquiries.index'
 import { Route as ShopEnquiriesConversationIdRouteImport } from './routes/shop/enquiries.$conversationId'
+import { Route as ShopOrderNowListingIdRouteImport } from './routes/shop/order-now.$listingId'
 import { Route as ShopOrdersIndexRouteImport } from './routes/shop/orders.index'
 import { Route as ShopOrdersOrderIdRouteImport } from './routes/shop/orders.$orderId'
 import { Route as ShopPProductIdRouteImport } from './routes/shop/p.$productId'
@@ -383,6 +386,11 @@ const ShopCreateRoute = ShopCreateRouteImport.update({
   path: '/create',
   getParentRoute: () => ShopRoute,
 } as any)
+const ShopCreateOrderRoute = ShopCreateOrderRouteImport.update({
+  id: '/create-order',
+  path: '/create-order',
+  getParentRoute: () => ShopRoute,
+} as any)
 const ShopDiscoverRoute = ShopDiscoverRouteImport.update({
   id: '/discover',
   path: '/discover',
@@ -426,6 +434,11 @@ const ShopNearbyRoute = ShopNearbyRouteImport.update({
 const ShopNotificationsRoute = ShopNotificationsRouteImport.update({
   id: '/notifications',
   path: '/notifications',
+  getParentRoute: () => ShopRoute,
+} as any)
+const ShopOrderNowRoute = ShopOrderNowRouteImport.update({
+  id: '/order-now',
+  path: '/order-now',
   getParentRoute: () => ShopRoute,
 } as any)
 const ShopOrdersRoute = ShopOrdersRouteImport.update({
@@ -604,6 +617,11 @@ const ShopEnquiriesConversationIdRoute =
     path: '/$conversationId',
     getParentRoute: () => ShopEnquiriesRoute,
   } as any)
+const ShopOrderNowListingIdRoute = ShopOrderNowListingIdRouteImport.update({
+  id: '/$listingId',
+  path: '/$listingId',
+  getParentRoute: () => ShopOrderNowRoute,
+} as any)
 const ShopOrdersIndexRoute = ShopOrdersIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -683,6 +701,7 @@ export interface FileRoutesByFullPath {
   '/shop/cart': typeof ShopCartRoute
   '/shop/checkout': typeof ShopCheckoutRoute
   '/shop/create': typeof ShopCreateRoute
+  '/shop/create-order': typeof ShopCreateOrderRoute
   '/shop/discover': typeof ShopDiscoverRoute
   '/shop/edit-profile': typeof ShopEditProfileRoute
   '/shop/enquiries': typeof ShopEnquiriesRouteWithChildren
@@ -692,6 +711,7 @@ export interface FileRoutesByFullPath {
   '/shop/help': typeof ShopHelpRoute
   '/shop/nearby': typeof ShopNearbyRoute
   '/shop/notifications': typeof ShopNotificationsRoute
+  '/shop/order-now': typeof ShopOrderNowRouteWithChildren
   '/shop/orders': typeof ShopOrdersRouteWithChildren
   '/shop/payouts': typeof ShopPayoutsRoute
   '/shop/profile': typeof ShopProfileRoute
@@ -725,6 +745,7 @@ export interface FileRoutesByFullPath {
   '/app/profile/settings': typeof AppProfileSettingsRoute
   '/app/videos/new': typeof AppVideosNewRoute
   '/shop/enquiries/$conversationId': typeof ShopEnquiriesConversationIdRoute
+  '/shop/order-now/$listingId': typeof ShopOrderNowListingIdRoute
   '/shop/orders/$orderId': typeof ShopOrdersOrderIdRoute
   '/shop/p/$productId': typeof ShopPProductIdRoute
   '/app/admin/': typeof AppAdminIndexRoute
@@ -784,6 +805,7 @@ export interface FileRoutesByTo {
   '/shop/cart': typeof ShopCartRoute
   '/shop/checkout': typeof ShopCheckoutRoute
   '/shop/create': typeof ShopCreateRoute
+  '/shop/create-order': typeof ShopCreateOrderRoute
   '/shop/discover': typeof ShopDiscoverRoute
   '/shop/edit-profile': typeof ShopEditProfileRoute
   '/shop/favorites': typeof ShopFavoritesRoute
@@ -792,6 +814,7 @@ export interface FileRoutesByTo {
   '/shop/help': typeof ShopHelpRoute
   '/shop/nearby': typeof ShopNearbyRoute
   '/shop/notifications': typeof ShopNotificationsRoute
+  '/shop/order-now': typeof ShopOrderNowRouteWithChildren
   '/shop/payouts': typeof ShopPayoutsRoute
   '/shop/profile': typeof ShopProfileRoute
   '/shop/settings': typeof ShopSettingsRoute
@@ -824,6 +847,7 @@ export interface FileRoutesByTo {
   '/app/profile/settings': typeof AppProfileSettingsRoute
   '/app/videos/new': typeof AppVideosNewRoute
   '/shop/enquiries/$conversationId': typeof ShopEnquiriesConversationIdRoute
+  '/shop/order-now/$listingId': typeof ShopOrderNowListingIdRoute
   '/shop/orders/$orderId': typeof ShopOrdersOrderIdRoute
   '/shop/p/$productId': typeof ShopPProductIdRoute
   '/app/admin': typeof AppAdminIndexRoute
@@ -888,6 +912,7 @@ export interface FileRoutesById {
   '/shop/cart': typeof ShopCartRoute
   '/shop/checkout': typeof ShopCheckoutRoute
   '/shop/create': typeof ShopCreateRoute
+  '/shop/create-order': typeof ShopCreateOrderRoute
   '/shop/discover': typeof ShopDiscoverRoute
   '/shop/edit-profile': typeof ShopEditProfileRoute
   '/shop/enquiries': typeof ShopEnquiriesRouteWithChildren
@@ -897,6 +922,7 @@ export interface FileRoutesById {
   '/shop/help': typeof ShopHelpRoute
   '/shop/nearby': typeof ShopNearbyRoute
   '/shop/notifications': typeof ShopNotificationsRoute
+  '/shop/order-now': typeof ShopOrderNowRouteWithChildren
   '/shop/orders': typeof ShopOrdersRouteWithChildren
   '/shop/payouts': typeof ShopPayoutsRoute
   '/shop/profile': typeof ShopProfileRoute
@@ -930,6 +956,7 @@ export interface FileRoutesById {
   '/app/profile/settings': typeof AppProfileSettingsRoute
   '/app/videos/new': typeof AppVideosNewRoute
   '/shop/enquiries/$conversationId': typeof ShopEnquiriesConversationIdRoute
+  '/shop/order-now/$listingId': typeof ShopOrderNowListingIdRoute
   '/shop/orders/$orderId': typeof ShopOrdersOrderIdRoute
   '/shop/p/$productId': typeof ShopPProductIdRoute
   '/app/admin/': typeof AppAdminIndexRoute
@@ -995,6 +1022,7 @@ export interface FileRouteTypes {
     | '/shop/cart'
     | '/shop/checkout'
     | '/shop/create'
+    | '/shop/create-order'
     | '/shop/discover'
     | '/shop/edit-profile'
     | '/shop/enquiries'
@@ -1004,6 +1032,7 @@ export interface FileRouteTypes {
     | '/shop/help'
     | '/shop/nearby'
     | '/shop/notifications'
+    | '/shop/order-now'
     | '/shop/orders'
     | '/shop/payouts'
     | '/shop/profile'
@@ -1037,6 +1066,7 @@ export interface FileRouteTypes {
     | '/app/profile/settings'
     | '/app/videos/new'
     | '/shop/enquiries/$conversationId'
+    | '/shop/order-now/$listingId'
     | '/shop/orders/$orderId'
     | '/shop/p/$productId'
     | '/app/admin/'
@@ -1096,6 +1126,7 @@ export interface FileRouteTypes {
     | '/shop/cart'
     | '/shop/checkout'
     | '/shop/create'
+    | '/shop/create-order'
     | '/shop/discover'
     | '/shop/edit-profile'
     | '/shop/favorites'
@@ -1104,6 +1135,7 @@ export interface FileRouteTypes {
     | '/shop/help'
     | '/shop/nearby'
     | '/shop/notifications'
+    | '/shop/order-now'
     | '/shop/payouts'
     | '/shop/profile'
     | '/shop/settings'
@@ -1136,6 +1168,7 @@ export interface FileRouteTypes {
     | '/app/profile/settings'
     | '/app/videos/new'
     | '/shop/enquiries/$conversationId'
+    | '/shop/order-now/$listingId'
     | '/shop/orders/$orderId'
     | '/shop/p/$productId'
     | '/app/admin'
@@ -1199,6 +1232,7 @@ export interface FileRouteTypes {
     | '/shop/cart'
     | '/shop/checkout'
     | '/shop/create'
+    | '/shop/create-order'
     | '/shop/discover'
     | '/shop/edit-profile'
     | '/shop/enquiries'
@@ -1208,6 +1242,7 @@ export interface FileRouteTypes {
     | '/shop/help'
     | '/shop/nearby'
     | '/shop/notifications'
+    | '/shop/order-now'
     | '/shop/orders'
     | '/shop/payouts'
     | '/shop/profile'
@@ -1241,6 +1276,7 @@ export interface FileRouteTypes {
     | '/app/profile/settings'
     | '/app/videos/new'
     | '/shop/enquiries/$conversationId'
+    | '/shop/order-now/$listingId'
     | '/shop/orders/$orderId'
     | '/shop/p/$productId'
     | '/app/admin/'
@@ -1668,6 +1704,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ShopCreateRouteImport
       parentRoute: typeof ShopRoute
     }
+    '/shop/create-order': {
+      id: '/shop/create-order'
+      path: '/create-order'
+      fullPath: '/shop/create-order'
+      preLoaderRoute: typeof ShopCreateOrderRouteImport
+      parentRoute: typeof ShopRoute
+    }
     '/shop/discover': {
       id: '/shop/discover'
       path: '/discover'
@@ -1729,6 +1772,13 @@ declare module '@tanstack/react-router' {
       path: '/notifications'
       fullPath: '/shop/notifications'
       preLoaderRoute: typeof ShopNotificationsRouteImport
+      parentRoute: typeof ShopRoute
+    }
+    '/shop/order-now': {
+      id: '/shop/order-now'
+      path: '/order-now'
+      fullPath: '/shop/order-now'
+      preLoaderRoute: typeof ShopOrderNowRouteImport
       parentRoute: typeof ShopRoute
     }
     '/shop/orders': {
@@ -1976,6 +2026,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ShopEnquiriesConversationIdRouteImport
       parentRoute: typeof ShopEnquiriesRoute
     }
+    '/shop/order-now/$listingId': {
+      id: '/shop/order-now/$listingId'
+      path: '/$listingId'
+      fullPath: '/shop/order-now/$listingId'
+      preLoaderRoute: typeof ShopOrderNowListingIdRouteImport
+      parentRoute: typeof ShopOrderNowRoute
+    }
     '/shop/orders/': {
       id: '/shop/orders/'
       path: '/'
@@ -2193,6 +2250,18 @@ const ShopEnquiriesRouteWithChildren = ShopEnquiriesRoute._addFileChildren(
   ShopEnquiriesRouteChildren,
 )
 
+interface ShopOrderNowRouteChildren {
+  ShopOrderNowListingIdRoute: typeof ShopOrderNowListingIdRoute
+}
+
+const ShopOrderNowRouteChildren: ShopOrderNowRouteChildren = {
+  ShopOrderNowListingIdRoute: ShopOrderNowListingIdRoute,
+}
+
+const ShopOrderNowRouteWithChildren = ShopOrderNowRoute._addFileChildren(
+  ShopOrderNowRouteChildren,
+)
+
 interface ShopOrdersRouteChildren {
   ShopOrdersOrderIdRoute: typeof ShopOrdersOrderIdRoute
   ShopOrdersIndexRoute: typeof ShopOrdersIndexRoute
@@ -2214,6 +2283,7 @@ interface ShopRouteChildren {
   ShopCartRoute: typeof ShopCartRoute
   ShopCheckoutRoute: typeof ShopCheckoutRoute
   ShopCreateRoute: typeof ShopCreateRoute
+  ShopCreateOrderRoute: typeof ShopCreateOrderRoute
   ShopDiscoverRoute: typeof ShopDiscoverRoute
   ShopEditProfileRoute: typeof ShopEditProfileRoute
   ShopEnquiriesRoute: typeof ShopEnquiriesRouteWithChildren
@@ -2223,6 +2293,7 @@ interface ShopRouteChildren {
   ShopHelpRoute: typeof ShopHelpRoute
   ShopNearbyRoute: typeof ShopNearbyRoute
   ShopNotificationsRoute: typeof ShopNotificationsRoute
+  ShopOrderNowRoute: typeof ShopOrderNowRouteWithChildren
   ShopOrdersRoute: typeof ShopOrdersRouteWithChildren
   ShopPayoutsRoute: typeof ShopPayoutsRoute
   ShopProfileRoute: typeof ShopProfileRoute
@@ -2239,6 +2310,7 @@ const ShopRouteChildren: ShopRouteChildren = {
   ShopCartRoute: ShopCartRoute,
   ShopCheckoutRoute: ShopCheckoutRoute,
   ShopCreateRoute: ShopCreateRoute,
+  ShopCreateOrderRoute: ShopCreateOrderRoute,
   ShopDiscoverRoute: ShopDiscoverRoute,
   ShopEditProfileRoute: ShopEditProfileRoute,
   ShopEnquiriesRoute: ShopEnquiriesRouteWithChildren,
@@ -2248,6 +2320,7 @@ const ShopRouteChildren: ShopRouteChildren = {
   ShopHelpRoute: ShopHelpRoute,
   ShopNearbyRoute: ShopNearbyRoute,
   ShopNotificationsRoute: ShopNotificationsRoute,
+  ShopOrderNowRoute: ShopOrderNowRouteWithChildren,
   ShopOrdersRoute: ShopOrdersRouteWithChildren,
   ShopPayoutsRoute: ShopPayoutsRoute,
   ShopProfileRoute: ShopProfileRoute,

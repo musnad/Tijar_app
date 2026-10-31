@@ -2,7 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { BadgeCheck, ChevronRight, MapPin, Search, Sparkles, Store } from "lucide-react";
+import { BadgeCheck, ChevronRight, MapPin, Search, Sparkles, Store, UtensilsCrossed } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -153,9 +153,17 @@ export function ShopHomeScreen() {
             />
           </div>
 
-          <div className="mt-3 flex gap-2">
+          <Button
+            className="mt-3 min-h-11 w-full rounded-2xl border-0 bg-white font-extrabold text-[oklch(0.32_0.06_195)] hover:bg-white/95"
+            asChild
+          >
+            <Link to="/shop/order-now">
+              <UtensilsCrossed className="mr-1.5 size-4" /> Place your order · same day & next day
+            </Link>
+          </Button>
+          <div className="mt-2 flex gap-2">
             <Button
-              className="min-h-11 flex-1 rounded-2xl border-0 bg-white font-bold text-[oklch(0.32_0.06_195)] hover:bg-white/95"
+              className="min-h-11 flex-1 rounded-2xl border-0 bg-white/90 font-bold text-[oklch(0.32_0.06_195)] hover:bg-white"
               asChild
             >
               <Link to="/shop/nearby">

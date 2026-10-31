@@ -96,7 +96,11 @@ export function MarketplaceShell({
   });
   const unread = unreadQuery.data ?? 0;
   const feed = variant === "feed";
-  const sellActive = pathname === "/shop/create" || pathname.startsWith("/shop/create/") || pathname === "/shop/business-apply";
+  const sellActive =
+    pathname === "/shop/create" ||
+    pathname.startsWith("/shop/create/") ||
+    pathname === "/shop/create-order" ||
+    pathname === "/shop/business-apply";
 
   const tabs = feed
     ? [

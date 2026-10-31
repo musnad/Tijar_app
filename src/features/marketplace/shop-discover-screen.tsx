@@ -217,6 +217,9 @@ export function ShopDiscoverScreen() {
             <div className="flex items-center gap-1.5">
               <AppLanguageButton />
               <Button type="button" variant="outline" size="sm" className="min-h-11 rounded-full px-3" asChild>
+                <Link to="/shop/order-now">Order</Link>
+              </Button>
+              <Button type="button" variant="outline" size="sm" className="min-h-11 rounded-full px-3" asChild>
                 <Link to="/shop/nearby">
                   <MapPin className="mr-1 size-4" />
                   {t("shop.explore.map")}

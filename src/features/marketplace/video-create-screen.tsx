@@ -56,12 +56,22 @@ export function VideoCreateScreen({
   return (
     <MarketplaceShell cartCount={cartCount} hideTopBar hideNav={checkingAccess || hasBusinessAccount} variant="feed">
       {hasBusinessAccount && profile && business ? (
-        <SellerVideoStudioScreen
-          businessId={business.id}
-          profileId={profile.id}
-          autoCamera={openCamera}
-          initialProductId={productId}
-        />
+        <div className="flex min-h-0 flex-1 flex-col">
+          <div className="flex shrink-0 gap-2 px-3 pb-2 pt-[max(0.4rem,env(safe-area-inset-top))]">
+            <Button className="min-h-10 flex-1 rounded-full bg-[#0B1F4D] text-xs font-extrabold" type="button">
+              Post video
+            </Button>
+            <Button className="min-h-10 flex-1 rounded-full text-xs font-extrabold" variant="outline" asChild>
+              <Link to="/shop/create-order">Place your order</Link>
+            </Button>
+          </div>
+          <SellerVideoStudioScreen
+            businessId={business.id}
+            profileId={profile.id}
+            autoCamera={openCamera}
+            initialProductId={productId}
+          />
+        </div>
       ) : (
       <div
         className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-contain px-4 pb-6 pt-[max(0.75rem,env(safe-area-inset-top))] [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
