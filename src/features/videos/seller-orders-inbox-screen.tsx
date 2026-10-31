@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { AppPageHeader } from "@/features/app-layout/app-page-header";
 import { canSellerTransition } from "@/lib/checkout/order-status";
 import { fetchSellerOrders } from "@/services/seller-dashboard-service";
+import { fetchShopPlaceOrders, placeOrderPayLabel, placeOrderStatusLabel } from "@/services/place-order-service";
 import { transitionOrder } from "@/services/marketplace-service";
 import { formatNgn } from "@/utils/money";
 import { orderStatusLabel } from "@/utils/order-tracking";
@@ -20,6 +21,10 @@ export function SellerOrdersInboxScreen({ businessId }: { businessId: string }) 
       if (r.error) throw new Error(r.error);
       return r.orders;
     },
+  });
+  const placeQuery = useQuery({
+    queryKey: ["place-order-shop", businessId],
+    queryFn: async () => (await fetchShopPlaceOrders(businessId)).orders,
   });
 
   const move = useMutation({
@@ -42,9 +47,40 @@ export function SellerOrdersInboxScreen({ businessId }: { businessId: string }) 
         subtitle="When a customer taps Paid now, confirm the transfer. That records it in today’s sales."
       />
       {query.isLoading && <p className="mt-4 text-sm text-muted-foreground">Loading…</p>}
-      {(query.data?.length ?? 0) === 0 && !query.isLoading && (
+      {(query.data?.length ?? 0) === 0 && (placeQuery.data?.length ?? 0) === 0 && !query.isLoading && (
         <p className="mt-4 text-sm text-muted-foreground">No order requests yet.</p>
       )}
+      {(placeQuery.data?.length ?? 0) > 0 ? (
+        <ul className="mt-4 space-y-3">
+          {(placeQuery.data ?? []).map((order) => {
+            const paid = placeOrderPayLabel(order.status) === "Paid";
+            return (
+              <li key={order.id} className="rounded-2xl border border-border bg-card p-4">
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <p className="font-bold">{order.listing_title ?? "Place your order"}</p>
+                    <p className="text-xs text-muted-foreground">{placeOrderStatusLabel(order.status)}</p>
+                  </div>
+                  <span className={`rounded-full px-2 py-0.5 text-[11px] font-extrabold ${paid ? "bg-[#1F7A4D]/12 text-[#1F7A4D]" : "bg-amber-100 text-amber-900"}`}>
+                    {placeOrderPayLabel(order.status)}
+                  </span>
+                </div>
+                <p className="mt-2 text-sm font-bold">{order.buyer_name ?? "Customer"}</p>
+                <p className="text-xs text-muted-foreground">
+                  {order.fulfilment === "delivery" ? "Delivery" : "Pickup"} · {order.quantity} · {order.slot_time}
+                </p>
+                <p className="mt-1 text-sm font-extrabold text-primary">{formatNgn(order.total)}</p>
+                <p className="mt-2 text-xs font-semibold">Phone {order.buyer_phone || "not given"}</p>
+                {order.fulfilment === "delivery" ? (
+                  <p className="text-xs">Deliver to {order.delivery_address || "no address yet"}</p>
+                ) : (
+                  <p className="text-xs">Customer will pick up</p>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      ) : null}
       <ul className="mt-4 space-y-3">
         {(query.data ?? []).map((o) => {
           const next =

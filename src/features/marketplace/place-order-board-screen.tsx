@@ -95,7 +95,7 @@ export function PlaceOrderBoardScreen() {
             <div className="rounded-2xl border border-dashed p-6 text-center">
               <UtensilsCrossed className="mx-auto size-8 text-[#1F7A4D]" />
               <p className="mt-3 font-extrabold text-[#0B1F4D]">Nothing posted yet</p>
-              <p className="mt-1 text-sm text-muted-foreground">Shops post food they are making today or tomorrow. Check back soon.</p>
+              <p className="mt-1 text-sm text-muted-foreground">When a shop taps Post place your order, it appears here and on For You for shoppers to place an order.</p>
             </div>
           ) : null}
           <ul className="space-y-3">
@@ -161,6 +161,11 @@ function ListingCard({ listing }: { listing: PlaceOrderListing }) {
             {listing.location_label}
           </p>
         ) : null}
+        <p className="mt-0.5 text-[11px] font-semibold text-muted-foreground">
+          {listing.pickup_enabled ? "Pickup" : ""}
+          {listing.pickup_enabled && listing.delivery_enabled ? " · " : ""}
+          {listing.delivery_enabled ? "Delivery" : ""}
+        </p>
         <p className="mt-1.5 text-[15px] font-extrabold text-[#1F7A4D]">{formatNgn(listing.price)}</p>
       </div>
     </Link>

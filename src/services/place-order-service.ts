@@ -51,6 +51,7 @@ export type PlaceOrderRequest = {
   listing_title?: string;
   listing_image?: string | null;
   shop_name?: string;
+  buyer_name?: string | null;
 };
 
 function missingTable(message: string): boolean {
@@ -271,7 +272,72 @@ export async function placeYourOrder(input: {
     }
     return { order: null, error: error.message };
   }
-  return { order: data as PlaceOrderRequest, error: null };
+  const order = data as PlaceOrderRequest;
+  await notifyShopPlaceOrder({
+    businessId: input.businessId,
+    buyerId: input.buyerId,
+    kind: "place_order",
+    title: `Pending · ${input.quantity} order`,
+    body: placeOrderNoticeBody({
+      fulfilment: input.fulfilment,
+      quantity: input.quantity,
+      total,
+      phone: input.buyerPhone,
+      address: input.deliveryAddress,
+      note: input.buyerNote,
+      slotDay: input.slotDay,
+      slotTime: input.slotTime,
+    }),
+  });
+  return { order, error: null };
+}
+
+function placeOrderNoticeBody(input: {
+  fulfilment: PlaceOrderFulfilment;
+  quantity: number;
+  total: number;
+  phone?: string | null;
+  address?: string | null;
+  note?: string | null;
+  slotDay: string;
+  slotTime: string;
+}): string {
+  const bits = [
+    input.fulfilment === "delivery" ? "Delivery" : "Pickup",
+    `${input.quantity} item${input.quantity === 1 ? "" : "s"}`,
+    `₦${Number(input.total).toLocaleString()}`,
+    input.slotDay === "tomorrow" ? "Next day" : "Same day",
+    input.slotTime,
+    `Phone ${input.phone?.trim() || "not given"}`,
+  ];
+  if (input.fulfilment === "delivery") bits.push(`Address ${input.address?.trim() || "not given"}`);
+  if (input.note?.trim()) bits.push(`Note: ${input.note.trim()}`);
+  return bits.join(" · ");
+}
+
+async function notifyShopPlaceOrder(input: {
+  businessId: string;
+  buyerId: string;
+  kind: "place_order" | "place_order_paid";
+  title: string;
+  body: string;
+}): Promise<void> {
+  const supabase = getSupabaseBrowserClient();
+  const { data: shop } = await supabase.from("businesses").select("owner_id").eq("id", input.businessId).maybeSingle();
+  if (!shop?.owner_id || shop.owner_id === input.buyerId) return;
+  const payload = {
+    p_recipient: shop.owner_id,
+    p_actor: input.buyerId,
+    p_kind: input.kind,
+    p_title: input.title,
+    p_body: input.body,
+    p_business_id: input.businessId,
+    p_video_post_id: null as string | null,
+  };
+  const first = await supabase.rpc("notify_activity", payload);
+  if (first.error && /kind|check|invalid/i.test(first.error.message)) {
+    await supabase.rpc("notify_activity", { ...payload, p_kind: "comment" });
+  }
 }
 
 export async function markPlaceOrderPaid(orderId: string): Promise<{ error: string | null }> {
@@ -283,6 +349,27 @@ export async function markPlaceOrderPaid(orderId: string): Promise<{ error: stri
       buyer_marked_paid_at: new Date().toISOString(),
     })
     .eq("id", orderId);
+  if (!error) {
+    const { data } = await supabase.from("place_order_requests").select("*").eq("id", orderId).maybeSingle();
+    if (data) {
+      await notifyShopPlaceOrder({
+        businessId: data.business_id as string,
+        buyerId: data.buyer_id as string,
+        kind: "place_order_paid",
+        title: "Paid order",
+        body: placeOrderNoticeBody({
+          fulfilment: data.fulfilment as PlaceOrderFulfilment,
+          quantity: Number(data.quantity),
+          total: Number(data.total),
+          phone: data.buyer_phone as string | null,
+          address: data.delivery_address as string | null,
+          note: data.buyer_note as string | null,
+          slotDay: data.slot_day as string,
+          slotTime: data.slot_time as string,
+        }),
+      });
+    }
+  }
   return { error: error?.message ?? null };
 }
 
@@ -330,9 +417,16 @@ async function decorateRequests(rows: Record<string, unknown>[]): Promise<PlaceO
       : { data: [] as Array<{ id: string; business_name: string }> };
   const listingMap = new Map((listings.data ?? []).map((row) => [row.id, row]));
   const shopMap = new Map((shops.data ?? []).map((row) => [row.id, row]));
+  const buyerIds = [...new Set(rows.map((r) => r.buyer_id as string).filter(Boolean))];
+  const buyers =
+    buyerIds.length > 0
+      ? await supabase.from("profiles").select("id, full_name, phone").in("id", buyerIds)
+      : { data: [] as Array<{ id: string; full_name: string | null; phone: string | null }> };
+  const buyerMap = new Map((buyers.data ?? []).map((row) => [row.id, row]));
   return rows.map((row) => {
     const listing = listingMap.get(row.listing_id as string);
     const shop = shopMap.get(row.business_id as string);
+    const buyer = buyerMap.get(row.buyer_id as string);
     const images = Array.isArray(listing?.image_urls) ? listing.image_urls : [];
     return {
       id: row.id as string,
@@ -344,7 +438,7 @@ async function decorateRequests(rows: Record<string, unknown>[]): Promise<PlaceO
       slot_day: row.slot_day as "today" | "tomorrow",
       slot_time: row.slot_time as string,
       delivery_address: (row.delivery_address as string | null) ?? null,
-      buyer_phone: (row.buyer_phone as string | null) ?? null,
+      buyer_phone: (row.buyer_phone as string | null) ?? buyer?.phone ?? null,
       buyer_note: (row.buyer_note as string | null) ?? null,
       unit_price: Number(row.unit_price),
       total: Number(row.total),
@@ -354,8 +448,24 @@ async function decorateRequests(rows: Record<string, unknown>[]): Promise<PlaceO
       listing_title: listing?.title,
       listing_image: images[0] ?? null,
       shop_name: shop ? displayShopName(shop.business_name) : "Shop",
+      buyer_name: buyer?.full_name?.trim() || null,
     };
   });
+}
+
+export function placeOrderPayLabel(status: string): "Paid" | "Pending" {
+  if (status === "paid" || status === "preparing" || status === "ready" || status === "completed") return "Paid";
+  return "Pending";
+}
+
+export function placeOrderStatusLabel(status: string): string {
+  if (status === "placed") return "Pending";
+  if (status === "paid") return "Paid";
+  if (status === "preparing") return "Preparing";
+  if (status === "ready") return "Ready";
+  if (status === "completed") return "Completed";
+  if (status === "cancelled") return "Cancelled";
+  return status;
 }
 
 export function dayLabel(value: PlaceOrderDay): string {

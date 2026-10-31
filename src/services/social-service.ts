@@ -18,7 +18,8 @@ export type SocialConnection = {
 
 export type ActivityNotification = {
   id: string;
-  kind: "follow" | "follow_back" | "comment" | "comment_reply";
+  kind: "follow" | "follow_back" | "comment" | "comment_reply" | "place_order" | "place_order_paid";
+  href?: string;
   title: string;
   body: string;
   businessId: string | null;
@@ -279,6 +280,13 @@ export async function fetchActivityNotifications(profileId: string): Promise<{
       kind: r.kind as ActivityNotification["kind"],
       title: r.title as string,
       body: r.body as string,
+      href:
+        r.kind === "place_order" ||
+        r.kind === "place_order_paid" ||
+        String(r.title).startsWith("Pending") ||
+        String(r.title).startsWith("Paid")
+          ? "/shop/create-order?tab=orders"
+          : undefined,
       businessId: (r.business_id as string | null) ?? null,
       videoPostId: (r.video_post_id as string | null) ?? null,
       actorId: (r.actor_id as string | null) ?? null,

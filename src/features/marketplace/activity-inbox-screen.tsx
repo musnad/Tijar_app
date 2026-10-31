@@ -2,7 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { Bell, Heart, MessageCircle, UserPlus } from "lucide-react";
+import { Bell, Heart, MessageCircle, Package, UserPlus } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { FeedImage } from "@/components/media/feed-image";
@@ -25,6 +25,7 @@ function timeAgo(iso: string): string {
 }
 
 function kindIcon(kind: ActivityNotification["kind"]) {
+  if (kind === "place_order" || kind === "place_order_paid") return Package;
   if (kind === "comment" || kind === "comment_reply") return MessageCircle;
   if (kind === "follow_back") return Heart;
   return UserPlus;
@@ -75,7 +76,7 @@ export function ActivityInboxScreen() {
       <div className="flex items-start justify-between gap-3">
         <div>
           <h1 className="text-xl font-extrabold">Notifications</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Follows, follow-backs, and comments on your posts.</p>
+          <p className="mt-1 text-sm text-muted-foreground">Follows, comments, and Place your order requests (pending or paid).</p>
         </div>
         {unread > 0 ? (
           <Button
@@ -105,9 +106,11 @@ export function ActivityInboxScreen() {
           return (
             <li key={item.id}>
               <Link
-                {...(item.videoPostId
-                  ? { to: "/shop" as const, search: { v: item.videoPostId } }
-                  : { to: "/shop/followers" as const })}
+                {...(item.href
+                  ? { to: "/shop/create-order" as const, search: { tab: "orders" as const } }
+                  : item.videoPostId
+                    ? { to: "/shop" as const, search: { v: item.videoPostId } }
+                    : { to: "/shop/followers" as const })}
                 className={cn(
                   "flex gap-3 rounded-2xl border border-border p-3",
                   item.readAt ? "bg-card" : "border-primary/20 bg-primary/5",

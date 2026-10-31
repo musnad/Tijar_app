@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link, useNavigate } from "@tanstack/react-router";
+import { Link, useNavigate, useSearch } from "@tanstack/react-router";
 import { ArrowLeft, MapPin } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -20,6 +20,8 @@ import {
   closePlaceOrderListing,
   fetchMyPlaceOrderListings,
   fetchShopPlaceOrders,
+  placeOrderPayLabel,
+  placeOrderStatusLabel,
   publishPlaceOrderListing,
   updatePlaceOrderStatus,
   type PlaceOrderCategory,
@@ -47,7 +49,8 @@ export function PlaceOrderComposeScreen() {
   const [readyUntil, setReadyUntil] = useState("18:00");
   const [qtyNote, setQtyNote] = useState("");
   const [busy, setBusy] = useState(false);
-  const [tab, setTab] = useState<"post" | "orders">("post");
+  const search = useSearch({ strict: false }) as { tab?: string };
+  const [tab, setTab] = useState<"post" | "orders">(search.tab === "orders" ? "orders" : "post");
 
   const mineQuery = useQuery({
     queryKey: ["place-order-mine-listings", business?.id],
@@ -117,10 +120,12 @@ export function PlaceOrderComposeScreen() {
       toast.error(published.error ?? "Could not post.");
       return;
     }
-    toast.success("Posted. Shoppers can place their order now.");
+    toast.success("Posted to the marketplace. Shoppers can place their order now.");
     await queryClient.invalidateQueries({ queryKey: ["place-order-listings"] });
     await queryClient.invalidateQueries({ queryKey: ["place-order-mine-listings"] });
-    void navigate({ to: "/shop/order-now/$listingId", params: { listingId: published.listing.id } });
+    await queryClient.invalidateQueries({ queryKey: ["for-you-place-orders"] });
+    await queryClient.invalidateQueries({ queryKey: ["for-you-listings"] });
+    void navigate({ to: "/shop/order-now" });
   }
 
   if (!canSell) {
@@ -266,17 +271,30 @@ export function PlaceOrderComposeScreen() {
             </>
           ) : (
             <ul className="space-y-3">
-              {(ordersQuery.data ?? []).length === 0 ? <p className="text-sm text-muted-foreground">No incoming orders yet.</p> : null}
-              {(ordersQuery.data ?? []).map((order) => (
+              {(ordersQuery.data ?? []).length === 0 ? <p className="text-sm text-muted-foreground">No incoming orders yet. When a shopper places an order, it shows here as Pending or Paid, with their phone and address.</p> : null}
+              {(ordersQuery.data ?? []).map((order) => {
+                const paid = placeOrderPayLabel(order.status) === "Paid";
+                return (
                 <li key={order.id} className="rounded-2xl border p-3">
-                  <p className="font-extrabold text-[#0B1F4D]">{order.listing_title ?? "Order"}</p>
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="font-extrabold text-[#0B1F4D]">{order.listing_title ?? "Order"}</p>
+                    <span className={cn("rounded-full px-2 py-0.5 text-[11px] font-extrabold", paid ? "bg-[#1F7A4D]/12 text-[#1F7A4D]" : "bg-amber-100 text-amber-900")}>
+                      {placeOrderPayLabel(order.status)}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-[13px] font-bold">{order.buyer_name ?? "Customer"}</p>
                   <p className="text-[13px] text-muted-foreground">
-                    {order.quantity} · {order.fulfilment} · {order.slot_day === "today" ? "Same day" : "Next day"} · {order.slot_time}
+                    {order.quantity} × {formatNgn(order.unit_price)} · {order.fulfilment === "delivery" ? "Delivery" : "Pickup"} · {order.slot_day === "today" ? "Same day" : "Next day"} · {order.slot_time}
                   </p>
                   <p className="mt-1 text-sm font-extrabold text-[#1F7A4D]">{formatNgn(order.total)}</p>
-                  {order.buyer_phone ? <p className="text-[12px]">Phone {order.buyer_phone}</p> : null}
-                  {order.delivery_address ? <p className="text-[12px]">{order.delivery_address}</p> : null}
-                  <p className="mt-1 text-[11px] font-bold uppercase text-muted-foreground">{order.status}</p>
+                  <p className="mt-2 text-[12px] font-semibold">Phone {order.buyer_phone || "not given"}</p>
+                  {order.fulfilment === "delivery" ? (
+                    <p className="text-[12px]">Deliver to {order.delivery_address || "no address yet"}</p>
+                  ) : (
+                    <p className="text-[12px]">Customer will pick up</p>
+                  )}
+                  {order.buyer_note ? <p className="mt-1 text-[12px] text-muted-foreground">Note: {order.buyer_note}</p> : null}
+                  <p className="mt-1 text-[11px] font-bold uppercase text-muted-foreground">{placeOrderStatusLabel(order.status)}</p>
                   <div className="mt-2 flex flex-wrap gap-2">
                     {["paid", "preparing", "ready", "completed"].map((status) => (
                       <Button
@@ -287,14 +305,16 @@ export function PlaceOrderComposeScreen() {
                         onClick={async () => {
                           await updatePlaceOrderStatus(order.id, status);
                           await queryClient.invalidateQueries({ queryKey: ["place-order-shop"] });
+                          await queryClient.invalidateQueries({ queryKey: ["activity-inbox"] });
                         }}
                       >
-                        {status}
+                        {placeOrderStatusLabel(status)}
                       </Button>
                     ))}
                   </div>
                 </li>
-              ))}
+                );
+              })}
             </ul>
           )}
         </div>

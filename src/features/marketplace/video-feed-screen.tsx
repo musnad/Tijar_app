@@ -15,6 +15,7 @@ import {
   Share2,
   ShoppingBag,
   ShoppingCart,
+  UtensilsCrossed,
 } from "lucide-react";
 import {
   createContext,
@@ -79,6 +80,12 @@ import { useDoubleTap } from "@/lib/use-double-tap";
 import { haptic } from "@/lib/haptics";
 import { formatNgn } from "@/utils/money";
 import { isMockFeedId } from "@/features/marketplace/feed-mock";
+import {
+  categoryLabel,
+  dayLabel,
+  fetchPlaceOrderListings,
+  type PlaceOrderListing,
+} from "@/services/place-order-service";
 import { useStartShopChat } from "@/features/marketplace/use-start-shop-chat";
 
 type FeedTab = "foryou" | "following" | "nearby";
@@ -220,6 +227,12 @@ export function VideoFeedScreen({ initialVideoId }: { initialVideoId?: string })
       return r.data;
     },
     staleTime: 60_000,
+  });
+
+  const placeOrdersQuery = useQuery({
+    queryKey: ["for-you-place-orders"],
+    queryFn: async () => (await fetchPlaceOrderListings({ day: "all" })).listings,
+    staleTime: 30_000,
   });
 
   const liveVideos = useMemo(() => {
@@ -554,6 +567,8 @@ export function VideoFeedScreen({ initialVideoId }: { initialVideoId?: string })
         : videos;
   const showListings =
     feedTab === "nearby" ? liveListings : feedTab === "foryou" ? extraListings : [];
+  const showPlaceOrders =
+    feedTab === "following" ? [] : (placeOrdersQuery.data ?? []);
   const activeIndex = showPosts.findIndex((v) => v.id === activeId);
   const productsByVideo = useMemo(() => {
     const map = new Map<string, PublicProduct[]>();
@@ -593,6 +608,13 @@ export function VideoFeedScreen({ initialVideoId }: { initialVideoId?: string })
           {feedQuery.isPending
             ? Array.from({ length: 3 }, (_, i) => <FeedSkeleton key={`sk-${i}`} />)
             : null}
+          {showPlaceOrders.map((listing) => (
+            <PlaceOrderSlide
+              key={listing.id}
+              listing={listing}
+              following={followQuery.data?.has(listing.business_id) || mockFollowing.has(listing.business_id)}
+            />
+          ))}
           {showPosts.map((video, index) => {
             const idx = activeIndex < 0 ? 0 : activeIndex;
             const mountMedia = index >= idx - 1 && index <= idx + 2;
@@ -619,7 +641,7 @@ export function VideoFeedScreen({ initialVideoId }: { initialVideoId?: string })
               following={followQuery.data?.has(product.business_id) || mockFollowing.has(product.business_id)}
             />
           ))}
-          {feedQuery.isPending ? null : showPosts.length === 0 && showListings.length === 0 ? (
+          {feedQuery.isPending ? null : showPosts.length === 0 && showListings.length === 0 && showPlaceOrders.length === 0 ? (
             <div className="flex h-full flex-col items-center justify-center gap-3 px-8 text-center">
               <ShoppingBag className="size-10 text-primary/40" />
               <p className="font-extrabold text-foreground">
@@ -1189,6 +1211,88 @@ function FeedProductCard({ product, onAdd }: { product: PublicProduct; onAdd: ()
     </div>
   );
 }
+
+const PlaceOrderSlide = memo(function PlaceOrderSlide({
+  listing,
+  following,
+}: {
+  listing: PlaceOrderListing;
+  following: boolean;
+}) {
+  const actions = useFeedActions();
+  const { t } = useTranslation();
+  const slug = shopLinkSlug(listing.shop_slug, listing.business_id);
+  return (
+    <article
+      data-video-id={`place-order:${listing.id}`}
+      style={SLIDE_STYLE}
+      className="w-full shrink-0 border-b border-border bg-white pb-3"
+    >
+      <div className="flex items-center gap-2 px-3 py-2">
+        <Link to="/b/$slug" params={{ slug }} className="flex min-w-0 flex-1 items-center gap-2">
+          <span className="flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[color:var(--brand-navy,#001B3A)] text-sm font-extrabold text-white">
+            {listing.shop_logo ? (
+              <FeedImage src={listing.shop_logo} alt="" eager width={96} />
+            ) : (
+              listing.shop_name.slice(0, 1)
+            )}
+          </span>
+          <span className="min-w-0">
+            <span className="block truncate text-[15px] font-extrabold text-foreground">{listing.shop_name}</span>
+            <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
+              Place your order · {dayLabel(listing.available_on)}
+              {listing.location_label ? (
+                <>
+                  <span aria-hidden>·</span>
+                  <MapPin className="size-3" />
+                  {listing.location_label}
+                </>
+              ) : null}
+            </span>
+          </span>
+        </Link>
+        <button
+          type="button"
+          onClick={() => actions.onFollowShop(listing.business_id, listing.shop_name)}
+          className={cn(
+            "inline-flex min-h-11 shrink-0 items-center rounded-full px-4 text-sm font-extrabold",
+            following ? "border border-border bg-white text-foreground" : "bg-primary text-white",
+          )}
+        >
+          {following ? t("shop.feed.followingBtn") : t("shop.feed.follow")}
+        </button>
+      </div>
+      <div className="relative aspect-[4/5] w-full overflow-hidden bg-zinc-100">
+        <MediaCarousel
+          urls={listing.image_urls}
+          eager
+          empty={
+            <div className="flex h-full items-center justify-center text-muted-foreground">
+              <UtensilsCrossed className="size-16" />
+            </div>
+          }
+        />
+      </div>
+      <p className="px-3 pt-2 text-[15px] font-extrabold text-foreground">{listing.title}</p>
+      {listing.details ? <p className="line-clamp-2 px-3 pt-1 text-[14px] text-zinc-800">{listing.details}</p> : null}
+      <p className="px-3 pt-1 text-[12px] font-semibold text-muted-foreground">
+        {categoryLabel(listing.category)}
+        {listing.pickup_enabled ? " · Pickup" : ""}
+        {listing.delivery_enabled ? " · Delivery" : ""}
+      </p>
+      <p className="px-3 pt-1 text-lg font-black text-primary">{formatNgn(listing.price)}</p>
+      <div className="px-3 pb-3 pt-2">
+        <Link
+          to="/shop/order-now/$listingId"
+          params={{ listingId: listing.id }}
+          className="inline-flex min-h-11 w-full items-center justify-center rounded-full bg-primary text-sm font-extrabold text-white"
+        >
+          Place your order
+        </Link>
+      </div>
+    </article>
+  );
+});
 
 const ListingSlide = memo(function ListingSlide({
   product,

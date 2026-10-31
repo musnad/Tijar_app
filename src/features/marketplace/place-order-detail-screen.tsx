@@ -66,15 +66,21 @@ export function PlaceOrderDetailScreen({ listingId }: { listingId: string }) {
     if (!dayOptions.includes(slotDay)) setSlotDay(dayOptions[0]!);
   }, [dayOptions, slotDay]);
 
+  useEffect(() => {
+    if (!listing) return;
+    if (!listing.pickup_enabled && listing.delivery_enabled) setFulfilment("delivery");
+    else if (listing.pickup_enabled && !listing.delivery_enabled) setFulfilment("pickup");
+  }, [listing]);
+
+  useEffect(() => {
+    if (profile?.phone) setPhone((current) => current || profile.phone || "");
+  }, [profile?.phone]);
+
   async function submit() {
     if (!listing) return;
     if (!session || !profile) {
       toast.error("Sign in to place your order.");
       void navigate({ to: "/login" });
-      return;
-    }
-    if (!hasAccount) {
-      toast.error("This shop has not added a bank account yet.");
       return;
     }
     if (fulfilment === "delivery" && address.trim().length < 6) {
@@ -105,8 +111,10 @@ export function PlaceOrderDetailScreen({ listingId }: { listingId: string }) {
       return;
     }
     setOrderId(placed.order.id);
-    toast.success("Order placed. Transfer to the shop, then tap I have paid.");
+    toast.success(hasAccount ? "Order placed. Transfer to the shop, then tap I have paid." : "Order placed. The shop will see it as pending.");
     await queryClient.invalidateQueries({ queryKey: ["place-order-mine"] });
+    await queryClient.invalidateQueries({ queryKey: ["place-order-shop"] });
+    await queryClient.invalidateQueries({ queryKey: ["activity-inbox"] });
   }
 
   async function paidNow() {
@@ -119,7 +127,9 @@ export function PlaceOrderDetailScreen({ listingId }: { listingId: string }) {
       return;
     }
     setPaid(true);
-    toast.success("Marked as paid. The shop can start preparing.");
+    toast.success("Marked as paid. The shop can see it in notifications.");
+    await queryClient.invalidateQueries({ queryKey: ["place-order-shop"] });
+    await queryClient.invalidateQueries({ queryKey: ["activity-inbox"] });
   }
 
   return (
@@ -161,7 +171,8 @@ export function PlaceOrderDetailScreen({ listingId }: { listingId: string }) {
                 ) : null}
               </p>
 
-              <p className="mt-5 text-sm font-extrabold">How you will get it</p>
+              <p className="mt-5 text-sm font-extrabold">Pickup or delivery</p>
+              <p className="mt-1 text-[12px] text-muted-foreground">Choose how you want this order.</p>
               <div className="mt-2 grid grid-cols-2 gap-2">
                 {listing.pickup_enabled ? (
                   <Choice active={fulfilment === "pickup"} onClick={() => setFulfilment("pickup")} label="Pickup" />
@@ -170,6 +181,9 @@ export function PlaceOrderDetailScreen({ listingId }: { listingId: string }) {
                   <Choice active={fulfilment === "delivery"} onClick={() => setFulfilment("delivery")} label="Delivery · ₦500" />
                 ) : null}
               </div>
+              {fulfilment === "pickup" && listing.location_label ? (
+                <p className="mt-2 text-[12px] text-muted-foreground">Pickup at {listing.location_label}</p>
+              ) : null}
 
               <p className="mt-4 text-sm font-extrabold">When</p>
               <div className="mt-2 flex gap-2">
@@ -246,7 +260,7 @@ export function PlaceOrderDetailScreen({ listingId }: { listingId: string }) {
                 <Button
                   type="button"
                   className="mt-4 min-h-12 w-full rounded-xl bg-[#1F7A4D] font-extrabold"
-                  disabled={busy || !hasAccount}
+                  disabled={busy}
                   onClick={() => void submit()}
                 >
                   {busy ? "Placing…" : "Place your order"}
