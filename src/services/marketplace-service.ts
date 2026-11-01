@@ -292,6 +292,164 @@ export async function fetchMarketplaceProduct(productId: string): Promise<{
   return { product: named[0] ?? product, error: null };
 }
 
+/* ------------------------------------------------------------------ *
+ * Product social engagement: likes, comments, and shares on shop posts.
+ * ------------------------------------------------------------------ */
+
+export type ProductComment = {
+  id: string;
+  product_id: string;
+  profile_id: string;
+  parent_id: string | null;
+  body: string;
+  created_at: string;
+  author_name?: string;
+};
+
+export type ProductEngagement = {
+  like_count: number;
+  comment_count: number;
+  share_count: number;
+};
+
+const EMPTY_ENGAGEMENT: ProductEngagement = { like_count: 0, comment_count: 0, share_count: 0 };
+
+function productSocialMissing(message: string | undefined): boolean {
+  return !message || /product_comments|product_likes|like_count|comment_count|share_count|schema cache|does not exist/i.test(message);
+}
+
+export async function fetchProductEngagement(productId: string): Promise<ProductEngagement> {
+  if (isMockFeedId(productId)) return EMPTY_ENGAGEMENT;
+  const supabase = getSupabaseBrowserClient();
+  const { data, error } = await supabase
+    .from("public_business_products")
+    .select("like_count, comment_count, share_count")
+    .eq("id", productId)
+    .maybeSingle();
+  if (error || !data) return EMPTY_ENGAGEMENT;
+  const row = data as { like_count?: number | null; comment_count?: number | null; share_count?: number | null };
+  return {
+    like_count: Number(row.like_count ?? 0),
+    comment_count: Number(row.comment_count ?? 0),
+    share_count: Number(row.share_count ?? 0),
+  };
+}
+
+export async function fetchMyLikedProductIds(profileId: string): Promise<Set<string>> {
+  const supabase = getSupabaseBrowserClient();
+  const { data, error } = await supabase.from("product_likes").select("product_id").eq("profile_id", profileId);
+  if (error) return new Set();
+  return new Set((data ?? []).map((row) => row.product_id as string));
+}
+
+export async function toggleProductLikeDb(
+  profileId: string,
+  productId: string,
+): Promise<{ liked: boolean; error: string | null }> {
+  const supabase = getSupabaseBrowserClient();
+  const { data: existing } = await supabase
+    .from("product_likes")
+    .select("profile_id")
+    .eq("profile_id", profileId)
+    .eq("product_id", productId)
+    .maybeSingle();
+  if (existing) {
+    const { error } = await supabase.from("product_likes").delete().eq("profile_id", profileId).eq("product_id", productId);
+    return { liked: false, error: productSocialMissing(error?.message) ? "Likes are not set up yet. Apply migration 000048." : error?.message ?? null };
+  }
+  const { error } = await supabase.from("product_likes").insert({ profile_id: profileId, product_id: productId });
+  if (error?.code === "23505") return { liked: true, error: null };
+  if (error && productSocialMissing(error.message)) return { liked: false, error: "Likes are not set up yet. Apply migration 000048." };
+  return { liked: true, error: error?.message ?? null };
+}
+
+export async function likeMarketplaceProduct(profileId: string, productId: string): Promise<{ error: string | null }> {
+  const supabase = getSupabaseBrowserClient();
+  const { error } = await supabase.from("product_likes").insert({ profile_id: profileId, product_id: productId });
+  if (error && error.code !== "23505") return { error: error.message };
+  return { error: null };
+}
+
+export async function fetchProductComments(
+  productId: string,
+): Promise<{ comments: ProductComment[]; error: string | null }> {
+  const supabase = getSupabaseBrowserClient();
+  const { data, error } = await supabase
+    .from("product_comments")
+    .select("id, product_id, profile_id, parent_id, body, created_at")
+    .eq("product_id", productId)
+    .order("created_at", { ascending: true })
+    .limit(200);
+  if (error) {
+    return {
+      comments: [],
+      error: productSocialMissing(error.message) ? "Comments are not set up yet. Apply migration 000048." : error.message,
+    };
+  }
+  const comments = (data ?? []) as ProductComment[];
+  const ids = [...new Set(comments.map((c) => c.profile_id))];
+  if (ids.length === 0) return { comments, error: null };
+  const { data: profiles } = await supabase.from("profiles").select("id, full_name").in("id", ids);
+  const names = new Map((profiles ?? []).map((p) => [p.id as string, p.full_name as string]));
+  return {
+    comments: comments.map((c) => ({ ...c, author_name: names.get(c.profile_id) ?? "Shopper" })),
+    error: null,
+  };
+}
+
+export async function postProductComment(input: {
+  profileId: string;
+  productId: string;
+  body: string;
+  parentId?: string | null;
+}): Promise<{ error: string | null }> {
+  const text = input.body.trim();
+  if (!text) return { error: "Write a comment first." };
+  const supabase = getSupabaseBrowserClient();
+  const { error } = await supabase.from("product_comments").insert({
+    profile_id: input.profileId,
+    product_id: input.productId,
+    parent_id: input.parentId ?? null,
+    body: text,
+  });
+  if (error && productSocialMissing(error.message)) return { error: "Comments are not set up yet. Apply migration 000048." };
+  return { error: error?.message ?? null };
+}
+
+export async function recordProductShare(productId: string): Promise<void> {
+  const supabase = getSupabaseBrowserClient();
+  await supabase.rpc("record_product_share", { p_product_id: productId });
+}
+
+export function productShareUrl(productId: string): string {
+  const origin = typeof window !== "undefined" ? window.location.origin : "";
+  return `${origin}/shop/p/${productId}`;
+}
+
+export async function shareProductPost(product: {
+  id: string;
+  name: string;
+  business_name?: string | null;
+}): Promise<{ shared: boolean }> {
+  if (isMockFeedId(product.id)) return { shared: false };
+  const url = productShareUrl(product.id);
+  try {
+    if (typeof navigator !== "undefined" && navigator.share) {
+      await navigator.share({
+        title: product.name,
+        text: product.business_name ? `${product.name} from ${displayShopName(product.business_name)}` : product.name,
+        url,
+      });
+    } else if (typeof navigator !== "undefined" && navigator.clipboard) {
+      await navigator.clipboard.writeText(url);
+    }
+    await recordProductShare(product.id);
+    return { shared: true };
+  } catch {
+    return { shared: false };
+  }
+}
+
 function missingDbColumn(message: string | undefined, column: string): boolean {
   if (!message) return false;
   return new RegExp(`${column}|schema cache`, "i").test(message) && /schema cache|does not exist|column/i.test(message);

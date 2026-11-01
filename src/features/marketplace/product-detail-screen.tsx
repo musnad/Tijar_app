@@ -18,12 +18,15 @@ import { haptic } from "@/lib/haptics";
 import { useTranslation } from "@/lib/i18n/context";
 import { displayShopName, shopLinkSlug } from "@/lib/shop-names";
 import { cn } from "@/lib/utils";
-import { isProductLiked, likeProduct, isProductSaved } from "@/lib/shop-social";
+import { ProductSocialBar } from "@/features/marketplace/product-social";
+import { isProductSaved } from "@/lib/shop-social";
 import { useDoubleTap } from "@/lib/use-double-tap";
 import {
   addToCart,
   fetchCart,
   fetchMarketplaceProduct,
+  fetchMyLikedProductIds,
+  likeMarketplaceProduct,
   toggleFavoriteProduct,
 } from "@/services/marketplace-service";
 import { enrollInService } from "@/services/customer-service";
@@ -52,10 +55,16 @@ export function ProductDetailScreen({ productId }: { productId: string }) {
   const scroller = useRef<HTMLDivElement>(null);
   const [imageIndex, setImageIndex] = useState(0);
   const [saved, setSaved] = useState(false);
-  const [liked, setLiked] = useState(false);
   const [heartBurst, setHeartBurst] = useState(false);
   const [variantId, setVariantId] = useState("");
   const [busy, setBusy] = useState<"cart" | "buy" | null>(null);
+
+  const productLikesQuery = useQuery({
+    queryKey: ["product-likes", profile?.id],
+    enabled: Boolean(profile?.id),
+    queryFn: () => fetchMyLikedProductIds(profile!.id),
+  });
+  const liked = productLikesQuery.data?.has(productId) ?? false;
 
   const productQuery = useQuery({
     queryKey: ["marketplace-product", productId],
@@ -108,7 +117,6 @@ export function ProductDetailScreen({ productId }: { productId: string }) {
   const actorId = profile?.id ?? "guest";
 
   useEffect(() => {
-    setLiked(isProductLiked(actorId, productId));
     setSaved(isProductSaved(actorId, productId));
   }, [actorId, productId]);
 
@@ -128,11 +136,25 @@ export function ProductDetailScreen({ productId }: { productId: string }) {
 
   function burstLike() {
     haptic("success");
-    likeProduct(actorId, productId);
-    setLiked(true);
     setHeartBurst(true);
     window.setTimeout(() => setHeartBurst(false), 700);
-    toast.success("Liked");
+    if (!session || !profile) {
+      toast.message("Sign in to like this.");
+      return;
+    }
+    void likeMarketplaceProduct(profile.id, productId).then(({ error }) => {
+      if (error) {
+        toast.error(error);
+        return;
+      }
+      queryClient.setQueryData(["product-likes", profile.id], (prev: Set<string> | undefined) => {
+        const copy = new Set(prev ?? []);
+        copy.add(productId);
+        return copy;
+      });
+      void queryClient.invalidateQueries({ queryKey: ["product-engagement", productId] });
+      toast.success("Liked");
+    });
   }
 
   const onImageTap = useDoubleTap(burstLike);
@@ -384,6 +406,8 @@ export function ProductDetailScreen({ productId }: { productId: string }) {
                   <ChevronRight className="size-4" />
                 </Link>
               </div>
+
+              <ProductSocialBar product={product} className="mt-1 -ml-2.5" />
 
               {colours.length > 0 && (
                 <div className="mt-4">

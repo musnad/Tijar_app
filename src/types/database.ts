@@ -205,6 +205,9 @@ export type PublicProduct = {
   service_type?: ServiceType;
   starts_on?: string | null;
   ends_on?: string | null;
+  like_count?: number;
+  comment_count?: number;
+  share_count?: number;
 };
 
 export type ServiceEnrollment = {
