@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { MarketplaceShell } from "@/features/marketplace/marketplace-shell";
 import { PlaceOrderSocialBar } from "@/features/marketplace/place-order-social";
 import { useAuth } from "@/features/auth/auth-context";
+import { usePrimaryBusiness } from "@/hooks/use-primary-business";
 import { canUseBusinessMode } from "@/lib/account-mode";
 import { cn } from "@/lib/utils";
 import {
@@ -42,7 +43,8 @@ const CATS: Array<{ id: "all" | PlaceOrderCategory; label: string }> = [
 
 export function PlaceOrderBoardScreen() {
   const { profile } = useAuth();
-  const canPost = Boolean(profile && canUseBusinessMode(profile));
+  const shopQuery = usePrimaryBusiness(profile?.id);
+  const canPost = Boolean(profile && canUseBusinessMode(profile) && shopQuery.data?.business);
   const [search, setSearch] = useState("");
   const [day, setDay] = useState<"all" | "today" | "tomorrow">("all");
   const [category, setCategory] = useState<"all" | PlaceOrderCategory>("all");

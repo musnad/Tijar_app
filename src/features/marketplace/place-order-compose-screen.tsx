@@ -142,8 +142,10 @@ export function PlaceOrderComposeScreen() {
     return (
       <MarketplaceShell hideTopBar variant="feed">
         <div className="px-4 pt-[max(1rem,env(safe-area-inset-top))]">
-          <h1 className="text-xl font-extrabold text-[#0B1F4D]">Place your order</h1>
-          <p className="mt-2 text-sm text-muted-foreground">This is for business accounts. Open a shop, then post what you are making today or tomorrow.</p>
+          <h1 className="text-xl font-extrabold text-[#0B1F4D]">Place your order posts</h1>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Only business accounts with an open shop can post here. Open a shop to post what you are making today or tomorrow.
+          </p>
           <Button className="mt-4 min-h-11 w-full rounded-full font-bold" asChild>
             <Link to="/shop/business-apply">Open a shop</Link>
           </Button>

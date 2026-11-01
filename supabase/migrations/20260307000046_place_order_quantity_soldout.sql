@@ -13,6 +13,10 @@ alter table public.place_order_listings
   add column if not exists quantity integer,
   add column if not exists sold_count integer not null default 0;
 
+-- The name the customer typed on the order form (falls back to their profile).
+alter table public.place_order_requests
+  add column if not exists buyer_name text;
+
 alter table public.place_order_listings
   drop constraint if exists place_order_listings_quantity_ok;
 alter table public.place_order_listings

@@ -147,8 +147,10 @@ export function ShopProfileScreen() {
           { to: "/app", label: t("shop.profile.dashboard"), icon: LayoutDashboard },
           { to: "/app/business", label: "Business account", icon: Store },
           { to: "/shop/studio", label: t("shop.profile.studio"), icon: Sparkles },
-          { to: "/shop/create-order", label: "Place your order posts", icon: UtensilsCrossed },
         ]
+      : []),
+    ...(!demo && canUseBusinessMode(profile) && shopQuery.data?.business
+      ? [{ to: "/shop/create-order", label: "Place your order posts", icon: UtensilsCrossed }]
       : []),
     { to: "/shop/order-now", label: "Place your order", icon: UtensilsCrossed },
     { to: "/app/learn", label: t("shop.profile.learn"), icon: BookOpen },

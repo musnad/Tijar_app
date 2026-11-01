@@ -257,6 +257,7 @@ export async function placeYourOrder(input: {
   listingId: string;
   businessId: string;
   buyerId: string;
+  buyerName?: string;
   quantity: number;
   fulfilment: PlaceOrderFulfilment;
   slotDay: "today" | "tomorrow";
@@ -274,6 +275,7 @@ export async function placeYourOrder(input: {
       listing_id: input.listingId,
       business_id: input.businessId,
       buyer_id: input.buyerId,
+      buyer_name: input.buyerName?.trim() || null,
       quantity: input.quantity,
       fulfilment: input.fulfilment,
       slot_day: input.slotDay,
@@ -469,7 +471,7 @@ async function decorateRequests(rows: Record<string, unknown>[]): Promise<PlaceO
       listing_title: listing?.title,
       listing_image: images[0] ?? null,
       shop_name: shop ? displayShopName(shop.business_name) : "Shop",
-      buyer_name: buyer?.full_name?.trim() || null,
+      buyer_name: ((row.buyer_name as string | null)?.trim() || buyer?.full_name?.trim()) ?? null,
     };
   });
 }
