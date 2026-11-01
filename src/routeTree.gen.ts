@@ -109,6 +109,7 @@ import { Route as AppProfileSettingsRouteImport } from './routes/app/profile/set
 import { Route as AppVideosNewRouteImport } from './routes/app/videos/new'
 import { Route as ShopEnquiriesIndexRouteImport } from './routes/shop/enquiries.index'
 import { Route as ShopEnquiriesConversationIdRouteImport } from './routes/shop/enquiries.$conversationId'
+import { Route as ShopOrderNowIndexRouteImport } from './routes/shop/order-now.index'
 import { Route as ShopOrderNowListingIdRouteImport } from './routes/shop/order-now.$listingId'
 import { Route as ShopOrdersIndexRouteImport } from './routes/shop/orders.index'
 import { Route as ShopOrdersOrderIdRouteImport } from './routes/shop/orders.$orderId'
@@ -617,6 +618,11 @@ const ShopEnquiriesConversationIdRoute =
     path: '/$conversationId',
     getParentRoute: () => ShopEnquiriesRoute,
   } as any)
+const ShopOrderNowIndexRoute = ShopOrderNowIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => ShopOrderNowRoute,
+} as any)
 const ShopOrderNowListingIdRoute = ShopOrderNowListingIdRouteImport.update({
   id: '/$listingId',
   path: '/$listingId',
@@ -752,6 +758,7 @@ export interface FileRoutesByFullPath {
   '/app/customers/': typeof AppCustomersIndexRoute
   '/app/learn/': typeof AppLearnIndexRoute
   '/shop/enquiries/': typeof ShopEnquiriesIndexRoute
+  '/shop/order-now/': typeof ShopOrderNowIndexRoute
   '/shop/orders/': typeof ShopOrdersIndexRoute
   '/api/studio/video/$requestId': typeof ApiStudioVideoRequestIdRoute
   '/app/customers/credit/new': typeof AppCustomersCreditNewRoute
@@ -814,7 +821,6 @@ export interface FileRoutesByTo {
   '/shop/help': typeof ShopHelpRoute
   '/shop/nearby': typeof ShopNearbyRoute
   '/shop/notifications': typeof ShopNotificationsRoute
-  '/shop/order-now': typeof ShopOrderNowRouteWithChildren
   '/shop/payouts': typeof ShopPayoutsRoute
   '/shop/profile': typeof ShopProfileRoute
   '/shop/settings': typeof ShopSettingsRoute
@@ -854,6 +860,7 @@ export interface FileRoutesByTo {
   '/app/customers': typeof AppCustomersIndexRoute
   '/app/learn': typeof AppLearnIndexRoute
   '/shop/enquiries': typeof ShopEnquiriesIndexRoute
+  '/shop/order-now': typeof ShopOrderNowIndexRoute
   '/shop/orders': typeof ShopOrdersIndexRoute
   '/api/studio/video/$requestId': typeof ApiStudioVideoRequestIdRoute
   '/app/customers/credit/new': typeof AppCustomersCreditNewRoute
@@ -963,6 +970,7 @@ export interface FileRoutesById {
   '/app/customers/': typeof AppCustomersIndexRoute
   '/app/learn/': typeof AppLearnIndexRoute
   '/shop/enquiries/': typeof ShopEnquiriesIndexRoute
+  '/shop/order-now/': typeof ShopOrderNowIndexRoute
   '/shop/orders/': typeof ShopOrdersIndexRoute
   '/api/studio/video/$requestId': typeof ApiStudioVideoRequestIdRoute
   '/app/customers/credit/new': typeof AppCustomersCreditNewRoute
@@ -1073,6 +1081,7 @@ export interface FileRouteTypes {
     | '/app/customers/'
     | '/app/learn/'
     | '/shop/enquiries/'
+    | '/shop/order-now/'
     | '/shop/orders/'
     | '/api/studio/video/$requestId'
     | '/app/customers/credit/new'
@@ -1135,7 +1144,6 @@ export interface FileRouteTypes {
     | '/shop/help'
     | '/shop/nearby'
     | '/shop/notifications'
-    | '/shop/order-now'
     | '/shop/payouts'
     | '/shop/profile'
     | '/shop/settings'
@@ -1175,6 +1183,7 @@ export interface FileRouteTypes {
     | '/app/customers'
     | '/app/learn'
     | '/shop/enquiries'
+    | '/shop/order-now'
     | '/shop/orders'
     | '/api/studio/video/$requestId'
     | '/app/customers/credit/new'
@@ -1283,6 +1292,7 @@ export interface FileRouteTypes {
     | '/app/customers/'
     | '/app/learn/'
     | '/shop/enquiries/'
+    | '/shop/order-now/'
     | '/shop/orders/'
     | '/api/studio/video/$requestId'
     | '/app/customers/credit/new'
@@ -2026,6 +2036,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ShopEnquiriesConversationIdRouteImport
       parentRoute: typeof ShopEnquiriesRoute
     }
+    '/shop/order-now/': {
+      id: '/shop/order-now/'
+      path: '/'
+      fullPath: '/shop/order-now/'
+      preLoaderRoute: typeof ShopOrderNowIndexRouteImport
+      parentRoute: typeof ShopOrderNowRoute
+    }
     '/shop/order-now/$listingId': {
       id: '/shop/order-now/$listingId'
       path: '/$listingId'
@@ -2252,10 +2269,12 @@ const ShopEnquiriesRouteWithChildren = ShopEnquiriesRoute._addFileChildren(
 
 interface ShopOrderNowRouteChildren {
   ShopOrderNowListingIdRoute: typeof ShopOrderNowListingIdRoute
+  ShopOrderNowIndexRoute: typeof ShopOrderNowIndexRoute
 }
 
 const ShopOrderNowRouteChildren: ShopOrderNowRouteChildren = {
   ShopOrderNowListingIdRoute: ShopOrderNowListingIdRoute,
+  ShopOrderNowIndexRoute: ShopOrderNowIndexRoute,
 }
 
 const ShopOrderNowRouteWithChildren = ShopOrderNowRoute._addFileChildren(
