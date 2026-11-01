@@ -113,8 +113,8 @@ export function ProductCard({
             {formatServiceDates(product)}
           </p>
         )}
-        <p
-          className="mt-1 truncate text-[11px] font-medium text-muted-foreground underline-offset-2 hover:underline"
+        <span
+          className="mt-1 flex min-w-0 items-center gap-1.5 underline-offset-2 hover:underline"
           onClick={(e) => {
             e.preventDefault();
             e.stopPropagation();
@@ -122,8 +122,22 @@ export function ProductCard({
             if (slug) void navigate({ to: "/b/$slug", params: { slug } });
           }}
         >
-          {displayShopName(product.business_name)}
-        </p>
+          {product.business_logo_url ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={product.business_logo_url}
+              alt=""
+              className="size-4 shrink-0 rounded-full object-cover ring-1 ring-border"
+            />
+          ) : (
+            <span className="flex size-4 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[8px] font-extrabold text-primary">
+              {displayShopName(product.business_name).slice(0, 1)}
+            </span>
+          )}
+          <span className="truncate text-[11px] font-medium text-muted-foreground">
+            {displayShopName(product.business_name)}
+          </span>
+        </span>
         {product.sale_price != null ? (
           <button
             type="button"

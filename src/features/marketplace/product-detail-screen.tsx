@@ -356,9 +356,18 @@ export function ProductDetailScreen({ productId }: { productId: string }) {
               </p>
 
               <div className="mt-4 flex items-center gap-3 border-y border-border py-3">
-                <span className="flex size-11 items-center justify-center rounded-full bg-primary/10 text-primary">
-                  <Store className="size-5" />
-                </span>
+                {product.business_logo_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={product.business_logo_url}
+                    alt=""
+                    className="size-11 shrink-0 rounded-full object-cover ring-1 ring-border"
+                  />
+                ) : (
+                  <span className="flex size-11 items-center justify-center rounded-full bg-primary/10 text-primary">
+                    <Store className="size-5" />
+                  </span>
+                )}
                 <div className="min-w-0 flex-1">
                   <p className="text-[11px] font-medium text-muted-foreground">Seller</p>
                   <p className="flex items-center gap-1 font-extrabold text-[color:var(--brand-navy,#001B3A)]">

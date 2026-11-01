@@ -7,6 +7,14 @@ import { useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { TijarLogo } from "@/components/brand-logo";
 import { useAuth } from "@/features/auth/auth-context";
@@ -20,6 +28,8 @@ import { nkenneLanguageForLocale } from "@/lib/nkenne/languages";
 import { cn } from "@/lib/utils";
 import { useStartShopChat } from "@/features/marketplace/use-start-shop-chat";
 import { reportListing } from "@/services/marketplace-service";
+import { updateBusinessProfile } from "@/services/business-service";
+import { updateProfile } from "@/services/profile-service";
 import { fetchStorefront, recordBusinessShare, submitEnquiry } from "@/services/discover-service";
 import { fetchMyBusinessIds } from "@/services/shop-chat-service";
 import { displayShopName } from "@/lib/shop-names";
@@ -143,7 +153,7 @@ function ShopPostTile({ video, shopName }: { video: PublicFeedVideo; shopName: s
 export function StorefrontScreen({ slug }: { slug: string }) {
   const { t, locale } = useTranslation();
   const voiceLang = nkenneLanguageForLocale(locale) ?? "English";
-  const { session, profile } = useAuth();
+  const { session, profile, refreshProfile } = useAuth();
   const primaryBusiness = usePrimaryBusiness(profile?.id);
   const navigate = useNavigate();
   const startChat = useStartShopChat();
@@ -157,6 +167,9 @@ export function StorefrontScreen({ slug }: { slug: string }) {
   const [pull, setPull] = useState(0);
   const [savedTick, setSavedTick] = useState(0);
   const [mockFollowTick, setMockFollowTick] = useState(0);
+  const [phoneOpen, setPhoneOpen] = useState(false);
+  const [phoneDraft, setPhoneDraft] = useState("");
+  const [phoneSaving, setPhoneSaving] = useState(false);
   const scrollerRef = useRef<HTMLDivElement>(null);
   const startY = useRef(0);
 
@@ -270,6 +283,45 @@ export function StorefrontScreen({ slug }: { slug: string }) {
     writeIdList(SAVED_SHOPS_KEY, next);
     setSavedTick((n) => n + 1);
     toast.success(next.includes(business.id) ? "Shop saved" : "Removed from saved");
+  }
+
+  function openPhoneDialog() {
+    setPhoneDraft(business?.public_phone ?? profile?.phone ?? "");
+    setPhoneOpen(true);
+  }
+
+  async function savePhone() {
+    if (!profile) {
+      toast.message("Sign in to add your number.");
+      return;
+    }
+    const value = phoneDraft.trim();
+    if (value.replace(/\D/g, "").length < 7) {
+      toast.error("Enter a valid phone number.");
+      return;
+    }
+    setPhoneSaving(true);
+    await updateProfile(profile.id, { phone: value });
+    if (business) {
+      await updateBusinessProfile(
+        business.id,
+        {
+          businessName: business.business_name,
+          location: business.location ?? "",
+          description: business.description ?? undefined,
+          categoryId: business.category_id ?? undefined,
+          islamicModeEnabled: Boolean(business.islamic_mode_enabled),
+          publicPhone: value,
+        },
+        profile.id,
+      );
+    }
+    setPhoneSaving(false);
+    setPhoneOpen(false);
+    toast.success("Phone number saved to your profile.");
+    await refreshProfile();
+    await queryClient.invalidateQueries({ queryKey: ["storefront", slug] });
+    await queryClient.invalidateQueries({ queryKey: ["primary-business"] });
   }
 
   async function onShareShop() {
@@ -540,9 +592,9 @@ export function StorefrontScreen({ slug }: { slug: string }) {
                 <Phone className="mt-0.5 size-4 shrink-0" />
                 <span>
                   Add a contact number so customers can reach you.{" "}
-                  <Link to="/app/business" className="underline">
+                  <button type="button" className="underline" onClick={openPhoneDialog}>
                     Add phone number
-                  </Link>
+                  </button>
                 </span>
               </section>
             ) : null}
@@ -653,6 +705,35 @@ export function StorefrontScreen({ slug }: { slug: string }) {
             </div>
           </>
         )}
+
+        <Dialog open={phoneOpen} onOpenChange={setPhoneOpen}>
+          <DialogContent className="max-w-sm rounded-2xl">
+            <DialogHeader>
+              <DialogTitle>Add your phone number</DialogTitle>
+              <DialogDescription>
+                Customers see this number on your shop so they can call or message you.
+              </DialogDescription>
+            </DialogHeader>
+            <Input
+              className="min-h-12 rounded-xl text-base"
+              value={phoneDraft}
+              onChange={(e) => setPhoneDraft(e.target.value)}
+              placeholder="080…"
+              inputMode="tel"
+              autoComplete="tel"
+            />
+            <DialogFooter className="mt-2">
+              <Button
+                type="button"
+                className="min-h-11 w-full rounded-xl font-bold"
+                disabled={phoneSaving}
+                onClick={() => void savePhone()}
+              >
+                {phoneSaving ? "Saving…" : "Save number"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </MarketplaceShell>
   );
