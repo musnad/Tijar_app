@@ -19,6 +19,8 @@ import {
   dayLabel,
   fetchPlaceOrderListing,
   markPlaceOrderPaid,
+  placeOrderRemaining,
+  placeOrderSoldOut,
   placeYourOrder,
   sharePlaceOrderPost,
   type PlaceOrderFulfilment,
@@ -54,6 +56,8 @@ export function PlaceOrderDetailScreen({ listingId }: { listingId: string }) {
   });
   const account = accountQuery.data;
   const hasAccount = Boolean(account?.payout_account_number);
+  const soldOut = listing ? placeOrderSoldOut(listing) : false;
+  const remaining = listing ? placeOrderRemaining(listing) : null;
 
   const deliveryFee = fulfilment === "delivery" ? 500 : 0;
   const total = listing ? listing.price * qty + deliveryFee : 0;
@@ -80,6 +84,10 @@ export function PlaceOrderDetailScreen({ listingId }: { listingId: string }) {
 
   async function submit() {
     if (!listing) return;
+    if (soldOut) {
+      toast.error("This post is sold out.");
+      return;
+    }
     if (!session || !profile) {
       toast.error("Sign in to place your order.");
       void navigate({ to: "/login" });
@@ -114,6 +122,9 @@ export function PlaceOrderDetailScreen({ listingId }: { listingId: string }) {
     }
     setOrderId(placed.order.id);
     toast.success(hasAccount ? "Order placed. Transfer to the shop, then tap I have paid." : "Order placed. The shop will see it as pending.");
+    await queryClient.invalidateQueries({ queryKey: ["place-order-listing", listing.id] });
+    await queryClient.invalidateQueries({ queryKey: ["place-order-listings"] });
+    await queryClient.invalidateQueries({ queryKey: ["for-you-place-orders"] });
     await queryClient.invalidateQueries({ queryKey: ["place-order-mine"] });
     await queryClient.invalidateQueries({ queryKey: ["place-order-shop"] });
     await queryClient.invalidateQueries({ queryKey: ["activity-inbox"] });
@@ -197,6 +208,13 @@ export function PlaceOrderDetailScreen({ listingId }: { listingId: string }) {
                 <span className="text-sm font-semibold text-[#1F7A4D]">{listing.shop_name}</span>
               </span>
               <p className="mt-1 text-lg font-extrabold text-[#1F7A4D]">{formatNgn(listing.price)}</p>
+              {soldOut ? (
+                <p className="mt-2 inline-flex rounded-full bg-[#0B1F4D] px-3 py-1 text-[12px] font-extrabold uppercase tracking-wide text-white">
+                  Sold out
+                </p>
+              ) : remaining != null ? (
+                <p className="mt-2 text-[12px] font-bold text-[#1F7A4D]">{remaining} left</p>
+              ) : null}
               <p className="mt-2 text-[13px] leading-relaxed text-foreground">{listing.details || "Place your order with this shop."}</p>
               <p className="mt-2 flex flex-wrap gap-2 text-[12px] font-semibold text-muted-foreground">
                 <span>{categoryLabel(listing.category)}</span>
@@ -298,14 +316,24 @@ export function PlaceOrderDetailScreen({ listingId }: { listingId: string }) {
                 <span className="text-lg font-extrabold text-[#0B1F4D]">{formatNgn(total)}</span>
               </div>
               {!orderId ? (
-                <Button
-                  type="button"
-                  className="mt-4 min-h-12 w-full rounded-xl bg-[#1F7A4D] font-extrabold"
-                  disabled={busy}
-                  onClick={() => void submit()}
-                >
-                  {busy ? "Placing…" : "Place your order"}
-                </Button>
+                soldOut ? (
+                  <Button
+                    type="button"
+                    className="mt-4 min-h-12 w-full rounded-xl bg-[#0B1F4D]/60 font-extrabold"
+                    disabled
+                  >
+                    Sold out
+                  </Button>
+                ) : (
+                  <Button
+                    type="button"
+                    className="mt-4 min-h-12 w-full rounded-xl bg-[#1F7A4D] font-extrabold"
+                    disabled={busy}
+                    onClick={() => void submit()}
+                  >
+                    {busy ? "Placing…" : "Place your order"}
+                  </Button>
+                )
               ) : (
                 <>
                   <Button

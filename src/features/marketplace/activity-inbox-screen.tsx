@@ -2,7 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { Bell, Heart, MessageCircle, Package, UserPlus } from "lucide-react";
+import { Bell, Heart, MessageCircle, Package, ShoppingCart, UserPlus } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { FeedImage } from "@/components/media/feed-image";

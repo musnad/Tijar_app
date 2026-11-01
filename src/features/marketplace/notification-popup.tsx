@@ -9,6 +9,34 @@ import { useAuth } from "@/features/auth/auth-context";
 import { fetchActivityNotifications, type ActivityNotification } from "@/services/social-service";
 
 const SEEN_KEY = "tijar-notif-last-seen";
+const PERMISSION_KEY = "tijar-notif-permission-asked";
+
+/** Ask the browser for desktop-notification permission (once). */
+function ensureBrowserPermission() {
+  if (typeof window === "undefined" || !("Notification" in window)) return;
+  if (window.Notification.permission !== "default") return;
+  if (window.localStorage.getItem(PERMISSION_KEY)) return;
+  window.localStorage.setItem(PERMISSION_KEY, "1");
+  void window.Notification.requestPermission().catch(() => undefined);
+}
+
+/** Mirror an activity item to a real browser (desktop) notification. */
+function showBrowserNotification(item: ActivityNotification) {
+  if (typeof window === "undefined" || !("Notification" in window)) return;
+  if (window.Notification.permission !== "granted") return;
+  try {
+    const options: NotificationOptions = { body: item.body, tag: `tijar-${item.id}` };
+    if (item.actorAvatar) options.icon = item.actorAvatar;
+    const note = new window.Notification(item.title, options);
+    note.onclick = () => {
+      window.focus();
+      window.location.href = target(item);
+      note.close();
+    };
+  } catch {
+    // Some browsers block constructing notifications outside a service worker.
+  }
+}
 
 function PopupIcon({ kind }: { kind: ActivityNotification["kind"] }) {
   if (kind === "place_order" || kind === "place_order_paid" || kind === "purchase") return <Package className="size-4" />;
@@ -75,6 +103,10 @@ export function NotificationPopup() {
   const items = query.data;
 
   useEffect(() => {
+    ensureBrowserPermission();
+  }, []);
+
+  useEffect(() => {
     if (!items || items.length === 0 || typeof window === "undefined") return;
     const stored = window.localStorage.getItem(SEEN_KEY);
     if (!stored) {
@@ -85,6 +117,7 @@ export function NotificationPopup() {
     const fresh = idx === -1 ? items.slice(0, 1) : items.slice(0, idx);
     if (fresh.length === 0) return;
     window.localStorage.setItem(SEEN_KEY, items[0]!.id);
+    for (const item of fresh) showBrowserNotification(item);
     const top = fresh[0]!;
     toast.custom((id) => <PopupCard item={top} onClose={() => toast.dismiss(id)} />, {
       duration: 5_000,

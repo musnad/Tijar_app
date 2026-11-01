@@ -84,6 +84,8 @@ import {
   categoryLabel,
   dayLabel,
   fetchPlaceOrderListings,
+  placeOrderRemaining,
+  placeOrderSoldOut,
   type PlaceOrderListing,
 } from "@/services/place-order-service";
 import { useStartShopChat } from "@/features/marketplace/use-start-shop-chat";
@@ -1222,6 +1224,8 @@ const PlaceOrderSlide = memo(function PlaceOrderSlide({
   const actions = useFeedActions();
   const { t } = useTranslation();
   const slug = shopLinkSlug(listing.shop_slug, listing.business_id);
+  const soldOut = placeOrderSoldOut(listing);
+  const remaining = placeOrderRemaining(listing);
   return (
     <article
       data-video-id={`place-order:${listing.id}`}
@@ -1280,15 +1284,34 @@ const PlaceOrderSlide = memo(function PlaceOrderSlide({
         {listing.pickup_enabled ? " · Pickup" : ""}
         {listing.delivery_enabled ? " · Delivery" : ""}
       </p>
-      <p className="px-3 pt-1 text-lg font-black text-primary">{formatNgn(listing.price)}</p>
+      <p className="flex items-center gap-2 px-3 pt-1">
+        <span className="text-lg font-black text-primary">{formatNgn(listing.price)}</span>
+        {soldOut ? (
+          <span className="inline-flex rounded-full bg-[#0B1F4D] px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-white">
+            Sold out
+          </span>
+        ) : remaining != null ? (
+          <span className="text-[12px] font-bold text-primary">{remaining} left</span>
+        ) : null}
+      </p>
       <div className="px-3 pb-3 pt-2">
-        <Link
-          to="/shop/order-now/$listingId"
-          params={{ listingId: listing.id }}
-          className="inline-flex min-h-11 w-full items-center justify-center rounded-full bg-primary text-sm font-extrabold text-white"
-        >
-          Place your order
-        </Link>
+        {soldOut ? (
+          <button
+            type="button"
+            disabled
+            className="inline-flex min-h-11 w-full items-center justify-center rounded-full bg-[#0B1F4D]/60 text-sm font-extrabold text-white"
+          >
+            Sold out
+          </button>
+        ) : (
+          <Link
+            to="/shop/order-now/$listingId"
+            params={{ listingId: listing.id }}
+            className="inline-flex min-h-11 w-full items-center justify-center rounded-full bg-primary text-sm font-extrabold text-white"
+          >
+            Place your order
+          </Link>
+        )}
       </div>
     </article>
   );

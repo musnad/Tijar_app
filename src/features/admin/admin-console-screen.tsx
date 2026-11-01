@@ -53,6 +53,7 @@ import { cn } from "@/lib/utils";
 import {
   approveAllBusinesses,
   fetchAdminBusinesses,
+  fetchAdminBusinessInsights,
   fetchAdminOrders,
   fetchAdminPayments,
   fetchAdminProfiles,

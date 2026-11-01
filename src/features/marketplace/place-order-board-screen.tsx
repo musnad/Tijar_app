@@ -16,6 +16,8 @@ import {
   categoryLabel,
   dayLabel,
   fetchPlaceOrderListings,
+  placeOrderRemaining,
+  placeOrderSoldOut,
   type PlaceOrderCategory,
   type PlaceOrderListing,
 } from "@/services/place-order-service";
@@ -133,61 +135,79 @@ function Chip({ active, onClick, children }: { active: boolean; onClick: () => v
 function ListingCard({ listing }: { listing: PlaceOrderListing }) {
   const photo = listing.image_urls[0];
   const when = useMemo(() => dayLabel(listing.available_on), [listing.available_on]);
-  return (
-    <div className="overflow-hidden rounded-2xl border border-border bg-white shadow-[0_1px_2px_rgba(15,40,50,0.05)]">
-      <Link
-        to="/shop/order-now/$listingId"
-        params={{ listingId: listing.id }}
-        className="flex gap-3"
-      >
-        <div className="size-[6.5rem] shrink-0 bg-muted">
-          {photo ? (
+  const soldOut = placeOrderSoldOut(listing);
+  const remaining = placeOrderRemaining(listing);
+
+  const body = (
+    <>
+      <div className="size-[6.5rem] shrink-0 bg-muted">
+        {photo ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={photo} alt="" className={cn("size-full object-cover", soldOut && "opacity-60")} />
+        ) : (
+          <span className="flex size-full items-center justify-center text-[#1F7A4D]">
+            <UtensilsCrossed className="size-7" />
+          </span>
+        )}
+      </div>
+      <div className="min-w-0 flex-1 py-2.5 pr-3">
+        <p className="truncate text-[15px] font-extrabold text-[#0B1F4D]">{listing.title}</p>
+        <span className="mt-0.5 flex items-center gap-1.5">
+          {listing.shop_logo ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={photo} alt="" className="size-full object-cover" />
+            <img
+              src={listing.shop_logo}
+              alt=""
+              className="size-[1.15rem] shrink-0 rounded-full border border-[#1F7A4D]/25 object-cover"
+            />
           ) : (
-            <span className="flex size-full items-center justify-center text-[#1F7A4D]">
-              <UtensilsCrossed className="size-7" />
+            <span className="flex size-[1.15rem] shrink-0 items-center justify-center rounded-full bg-[#E8F5EE] text-[9px] font-extrabold text-[#0B1F4D]">
+              {(listing.shop_name ?? "S").slice(0, 1)}
             </span>
           )}
-        </div>
-        <div className="min-w-0 flex-1 py-2.5 pr-3">
-          <p className="truncate text-[15px] font-extrabold text-[#0B1F4D]">{listing.title}</p>
-          <span className="mt-0.5 flex items-center gap-1.5">
-            {listing.shop_logo ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={listing.shop_logo}
-                alt=""
-                className="size-[1.15rem] shrink-0 rounded-full border border-[#1F7A4D]/25 object-cover"
-              />
-            ) : (
-              <span className="flex size-[1.15rem] shrink-0 items-center justify-center rounded-full bg-[#E8F5EE] text-[9px] font-extrabold text-[#0B1F4D]">
-                {(listing.shop_name ?? "S").slice(0, 1)}
-              </span>
-            )}
-            <span className="truncate text-[12px] font-semibold text-[#1F7A4D]">{listing.shop_name}</span>
+          <span className="truncate text-[12px] font-semibold text-[#1F7A4D]">{listing.shop_name}</span>
+        </span>
+        <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-muted-foreground">
+          <span>{categoryLabel(listing.category)}</span>
+          <span className="inline-flex items-center gap-0.5">
+            <Clock3 className="size-3" />
+            {when}
           </span>
-          <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-muted-foreground">
-            <span>{categoryLabel(listing.category)}</span>
-            <span className="inline-flex items-center gap-0.5">
-              <Clock3 className="size-3" />
-              {when}
+        </p>
+        {listing.location_label ? (
+          <p className="mt-0.5 flex items-center gap-1 truncate text-[11px] text-muted-foreground">
+            <MapPin className="size-3 shrink-0" />
+            {listing.location_label}
+          </p>
+        ) : null}
+        <p className="mt-0.5 text-[11px] font-semibold text-muted-foreground">
+          {listing.pickup_enabled ? "Pickup" : ""}
+          {listing.pickup_enabled && listing.delivery_enabled ? " · " : ""}
+          {listing.delivery_enabled ? "Delivery" : ""}
+        </p>
+        <p className="mt-1.5 flex items-center gap-2">
+          <span className="text-[15px] font-extrabold text-[#1F7A4D]">{formatNgn(listing.price)}</span>
+          {soldOut ? (
+            <span className="inline-flex rounded-full bg-[#0B1F4D] px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-white">
+              Sold out
             </span>
-          </p>
-          {listing.location_label ? (
-            <p className="mt-0.5 flex items-center gap-1 truncate text-[11px] text-muted-foreground">
-              <MapPin className="size-3 shrink-0" />
-              {listing.location_label}
-            </p>
+          ) : remaining != null ? (
+            <span className="text-[11px] font-bold text-[#1F7A4D]">{remaining} left</span>
           ) : null}
-          <p className="mt-0.5 text-[11px] font-semibold text-muted-foreground">
-            {listing.pickup_enabled ? "Pickup" : ""}
-            {listing.pickup_enabled && listing.delivery_enabled ? " · " : ""}
-            {listing.delivery_enabled ? "Delivery" : ""}
-          </p>
-          <p className="mt-1.5 text-[15px] font-extrabold text-[#1F7A4D]">{formatNgn(listing.price)}</p>
-        </div>
-      </Link>
+        </p>
+      </div>
+    </>
+  );
+
+  return (
+    <div className="overflow-hidden rounded-2xl border border-border bg-white shadow-[0_1px_2px_rgba(15,40,50,0.05)]">
+      {soldOut ? (
+        <div className="flex gap-3">{body}</div>
+      ) : (
+        <Link to="/shop/order-now/$listingId" params={{ listingId: listing.id }} className="flex gap-3">
+          {body}
+        </Link>
+      )}
       <PlaceOrderSocialBar listing={listing} compact className="border-t border-border px-1" />
     </div>
   );

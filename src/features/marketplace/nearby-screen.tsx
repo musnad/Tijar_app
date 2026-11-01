@@ -12,7 +12,7 @@ import { MarketplaceShell } from "@/features/marketplace/marketplace-shell";
 import { NearbyMap } from "@/features/marketplace/nearby-map";
 import { ProductCard } from "@/features/marketplace/product-card";
 import { useAuth } from "@/features/auth/auth-context";
-import { AREA_PRESETS } from "@/lib/maps/provider";
+import { AREA_PRESETS, reverseGeocode } from "@/lib/maps/provider";
 import { fetchCart, fetchNearbyMarketplaceShops } from "@/services/marketplace-service";
 import { formatDistance } from "@/utils/discover";
 import { formatNgn } from "@/utils/money";

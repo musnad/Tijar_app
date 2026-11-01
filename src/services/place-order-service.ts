@@ -34,6 +34,8 @@ export type PlaceOrderListing = {
   ready_until: string | null;
   qty_note: string | null;
   is_open: boolean;
+  quantity: number | null;
+  sold_count: number;
   like_count: number;
   comment_count: number;
   share_count: number;
@@ -95,6 +97,8 @@ function asListing(
     ready_until: (row.ready_until as string | null) ?? null,
     qty_note: (row.qty_note as string | null) ?? null,
     is_open: row.is_open !== false,
+    quantity: row.quantity != null ? Number(row.quantity) : null,
+    sold_count: Number(row.sold_count ?? 0),
     like_count: Number(row.like_count ?? 0),
     comment_count: Number(row.comment_count ?? 0),
     share_count: Number(row.share_count ?? 0),
@@ -198,6 +202,7 @@ export async function publishPlaceOrderListing(input: {
   readyFrom?: string;
   readyUntil?: string;
   qtyNote?: string;
+  quantity?: number | null;
 }): Promise<{ listing: PlaceOrderListing | null; error: string | null }> {
   const id = crypto.randomUUID();
   const uploaded: string[] = [...(input.existingUrls ?? [])];
@@ -227,6 +232,7 @@ export async function publishPlaceOrderListing(input: {
       ready_from: input.readyFrom?.trim() || null,
       ready_until: input.readyUntil?.trim() || null,
       qty_note: input.qtyNote?.trim() || null,
+      quantity: input.quantity ?? null,
       is_open: true,
     })
     .select("*")
@@ -487,6 +493,18 @@ export function dayLabel(value: PlaceOrderDay): string {
   if (value === "today") return "Same day";
   if (value === "tomorrow") return "Next day";
   return "Same day & next day";
+}
+
+/** Units still available on a post, or null when the shop did not set a limit. */
+export function placeOrderRemaining(listing: { quantity: number | null; sold_count: number }): number | null {
+  if (listing.quantity == null) return null;
+  return Math.max(0, listing.quantity - Number(listing.sold_count ?? 0));
+}
+
+/** True when the shop set a limit and every unit has been ordered. */
+export function placeOrderSoldOut(listing: { quantity: number | null; sold_count: number }): boolean {
+  const remaining = placeOrderRemaining(listing);
+  return remaining != null && remaining <= 0;
 }
 
 export function categoryLabel(value: PlaceOrderCategory): string {

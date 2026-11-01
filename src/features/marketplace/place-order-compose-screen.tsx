@@ -22,6 +22,8 @@ import {
   fetchMyPlaceOrderListings,
   fetchShopPlaceOrders,
   placeOrderPayLabel,
+  placeOrderRemaining,
+  placeOrderSoldOut,
   placeOrderStatusLabel,
   publishPlaceOrderListing,
   updatePlaceOrderStatus,
@@ -49,6 +51,7 @@ export function PlaceOrderComposeScreen() {
   const [readyFrom, setReadyFrom] = useState("10:00");
   const [readyUntil, setReadyUntil] = useState("18:00");
   const [qtyNote, setQtyNote] = useState("");
+  const [quantity, setQuantity] = useState("");
   const [busy, setBusy] = useState(false);
   const search = useSearch({ strict: false }) as { tab?: string };
   const [tab, setTab] = useState<"post" | "orders">(search.tab === "orders" ? "orders" : "post");
@@ -97,6 +100,11 @@ export function PlaceOrderComposeScreen() {
       toast.error("Turn on pickup, delivery, or both.");
       return;
     }
+    const stock = quantity.trim() ? Math.floor(Number(quantity)) : null;
+    if (stock != null && (!Number.isFinite(stock) || stock <= 0)) {
+      toast.error("How many do you have? Enter a whole number above 0, or leave it blank.");
+      return;
+    }
     setBusy(true);
     const published = await publishPlaceOrderListing({
       businessId: business.id,
@@ -115,6 +123,7 @@ export function PlaceOrderComposeScreen() {
       readyFrom,
       readyUntil,
       qtyNote,
+      quantity: stock,
     });
     setBusy(false);
     if (published.error || !published.listing) {
@@ -236,6 +245,9 @@ export function PlaceOrderComposeScreen() {
                 <MapPin className="mr-1.5 size-4" />
                 Use my location
               </Button>
+              <label className="mt-3 block text-sm font-extrabold">How many do you have? (optional)</label>
+              <Input className="mt-1 min-h-11 rounded-xl" inputMode="numeric" value={quantity} onChange={(e) => setQuantity(e.target.value)} placeholder="10" />
+              <p className="mt-1 text-[12px] text-muted-foreground">The count drops as shoppers order. At 0 the post shows Sold out and the Place order button is hidden.</p>
               <label className="mt-3 block text-sm font-extrabold">How many / packs (optional)</label>
               <Input className="mt-1 min-h-11 rounded-xl" value={qtyNote} onChange={(e) => setQtyNote(e.target.value)} placeholder="20 packs, while it lasts" />
               <Button type="button" className="mt-5 min-h-12 w-full rounded-xl bg-[#1F7A4D] font-extrabold" disabled={busy} onClick={() => void publish()}>
@@ -250,7 +262,16 @@ export function PlaceOrderComposeScreen() {
                         <div className="flex items-center justify-between gap-2">
                           <div className="min-w-0">
                             <p className="truncate text-sm font-bold">{item.title}</p>
-                            <p className="text-[11px] text-muted-foreground">{item.is_open ? "Open" : "Closed"} · {formatNgn(item.price)}</p>
+                            <p className="text-[11px] text-muted-foreground">
+                              {placeOrderSoldOut(item)
+                                ? "Sold out"
+                                : item.is_open
+                                  ? placeOrderRemaining(item) != null
+                                    ? `${placeOrderRemaining(item)} left`
+                                    : "Open"
+                                  : "Closed"}{" "}
+                              · {formatNgn(item.price)}
+                            </p>
                           </div>
                           {item.is_open ? (
                             <Button
