@@ -169,6 +169,11 @@ function ListingCard({ listing }: { listing: PlaceOrderListing }) {
           )}
           <span className="truncate text-[12px] font-semibold text-[#1F7A4D]">{listing.shop_name}</span>
         </span>
+        {listing.collaborators.length > 0 ? (
+          <p className="mt-0.5 truncate text-[11px] font-semibold text-muted-foreground">
+            with {listing.collaborators.map((c) => c.name).join(", ")}
+          </p>
+        ) : null}
         <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-muted-foreground">
           <span>{categoryLabel(listing.category)}</span>
           <span className="inline-flex items-center gap-0.5">

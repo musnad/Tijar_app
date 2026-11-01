@@ -620,15 +620,17 @@ export function VideoFeedScreen({ initialVideoId }: { initialVideoId?: string })
           {showPosts.map((video, index) => {
             const idx = activeIndex < 0 ? 0 : activeIndex;
             const mountMedia = index >= idx - 1 && index <= idx + 2;
-            const preloadNext = !dataSaver && (index === idx + 1 || index === idx + 2);
+            const isActive = activeId === video.id;
+            const isNext = index === idx + 1;
             return (
               <VideoSlide
                 key={video.id}
                 video={video}
-                active={activeId === video.id}
+                active={isActive}
                 paused={paused}
-                preload={mountMedia && (preloadNext || activeId === video.id)}
-                eagerPreload={index === idx + 1}
+                mounted={mountMedia}
+                preload={isActive || (!dataSaver && isNext)}
+                eagerPreload={isNext}
                 products={productsByVideo.get(video.id) ?? EMPTY_PRODUCTS}
                 liked={likedQuery.data?.has(video.id) ?? mockLiked.has(video.id)}
                 saved={savedQuery.data?.has(video.id) ?? false}
@@ -869,6 +871,7 @@ const VideoSlide = memo(function VideoSlide({
   video,
   active,
   paused,
+  mounted,
   preload,
   eagerPreload,
   products,
@@ -878,6 +881,7 @@ const VideoSlide = memo(function VideoSlide({
   video: PublicFeedVideo;
   active: boolean;
   paused: boolean;
+  mounted: boolean;
   preload: boolean;
   eagerPreload: boolean;
   products: PublicProduct[];
@@ -911,7 +915,7 @@ const VideoSlide = memo(function VideoSlide({
       return () => el.removeEventListener("canplay", play);
     }
     el.pause();
-  }, [active, paused, image, src, preload]);
+  }, [active, paused, image, src, mounted]);
 
   const { t } = useTranslation();
   const featured = products[0] ?? null;
@@ -977,7 +981,7 @@ const VideoSlide = memo(function VideoSlide({
               actions.onLike(video);
             }}
           />
-        ) : preload || active ? (
+        ) : mounted ? (
           // eslint-disable-next-line jsx-a11y/media-has-caption
           <video
             ref={ref}
@@ -988,7 +992,7 @@ const VideoSlide = memo(function VideoSlide({
             muted
             playsInline
             loop
-            preload={active || eagerPreload ? "auto" : "metadata"}
+            preload={preload || active ? "auto" : "metadata"}
             onCanPlay={() => {
               if (active && !paused) void ref.current?.play().catch(() => undefined);
             }}
