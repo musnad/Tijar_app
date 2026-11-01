@@ -9,6 +9,7 @@ import { TijarLogo } from "@/components/brand-logo";
 import { Button } from "@/components/ui/button";
 import { AppLanguageButton } from "@/features/app-layout/app-language-button";
 import { AccountModeSwitch } from "@/features/marketplace/account-mode-switch";
+import { NotificationPopup } from "@/features/marketplace/notification-popup";
 import { useAuth } from "@/features/auth/auth-context";
 import { isTijarNativeApp } from "@/lib/tijar-native-app";
 import { useTranslation } from "@/lib/i18n/context";
