@@ -181,7 +181,21 @@ export function PlaceOrderDetailScreen({ listingId }: { listingId: string }) {
                 <PlaceOrderSocialBar listing={listing} />
               </div>
               <h2 className="mt-3 text-[22px] font-extrabold text-[#0B1F4D]">{listing.title}</h2>
-              <p className="text-sm font-semibold text-[#1F7A4D]">{listing.shop_name}</p>
+              <span className="flex items-center gap-1.5">
+                {listing.shop_logo ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={listing.shop_logo}
+                    alt=""
+                    className="size-5 shrink-0 rounded-full border border-[#1F7A4D]/25 object-cover"
+                  />
+                ) : (
+                  <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-[#E8F5EE] text-[10px] font-extrabold text-[#0B1F4D]">
+                    {(listing.shop_name ?? "S").slice(0, 1)}
+                  </span>
+                )}
+                <span className="text-sm font-semibold text-[#1F7A4D]">{listing.shop_name}</span>
+              </span>
               <p className="mt-1 text-lg font-extrabold text-[#1F7A4D]">{formatNgn(listing.price)}</p>
               <p className="mt-2 text-[13px] leading-relaxed text-foreground">{listing.details || "Place your order with this shop."}</p>
               <p className="mt-2 flex flex-wrap gap-2 text-[12px] font-semibold text-muted-foreground">

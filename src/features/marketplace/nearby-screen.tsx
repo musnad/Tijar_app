@@ -33,6 +33,15 @@ export function NearbyScreen() {
   const [selectedShopId, setSelectedShopId] = useState<string | null>(null);
   const [geoBusy, setGeoBusy] = useState(false);
   const [geoHint, setGeoHint] = useState("");
+  const [usingMyLocation, setUsingMyLocation] = useState(false);
+
+  async function applyDeviceLocation(lat: number, lng: number) {
+    setCentre({ lat, lng });
+    setUsingMyLocation(true);
+    setCentreLabel("Your location");
+    const label = await reverseGeocode(lat, lng);
+    if (label) setCentreLabel(label);
+  }
 
   const shopsQuery = useQuery({
     queryKey: ["nearby-marketplace-shops", centre.lat, centre.lng, radiusKm],
@@ -122,8 +131,7 @@ export function NearbyScreen() {
     setGeoBusy(true);
     navigator.geolocation.getCurrentPosition(
       (pos) => {
-        setCentre({ lat: pos.coords.latitude, lng: pos.coords.longitude });
-        setCentreLabel("Your location");
+        void applyDeviceLocation(pos.coords.latitude, pos.coords.longitude);
         setGeoHint("");
         setGeoBusy(false);
         toast.success("Showing shops near you");
@@ -175,18 +183,19 @@ export function NearbyScreen() {
 
           <div className="flex gap-2 overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             <select
-              value={centreLabel === "Your location" ? "" : centreLabel}
+              value={usingMyLocation ? "" : centreLabel}
               onChange={(e) => {
                 const preset = AREA_PRESETS.find((a) => a.name === e.target.value);
                 if (!preset) return;
                 setCentre({ lat: preset.lat, lng: preset.lng });
                 setCentreLabel(preset.name);
+                setUsingMyLocation(false);
                 setSelectedShopId(null);
               }}
               className="min-h-10 shrink-0 rounded-xl border border-input bg-card px-3 text-sm"
               aria-label="Choose city"
             >
-              <option value="">{centreLabel === "Your location" ? "Your location" : "Choose city"}</option>
+              <option value="">{usingMyLocation ? centreLabel : "Choose city"}</option>
               {AREA_PRESETS.map((a) => (
                 <option key={a.name} value={a.name}>
                   {a.name}

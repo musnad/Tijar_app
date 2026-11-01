@@ -54,6 +54,20 @@ export async function fetchNearbyBusinesses(input: {
   return { data: (data ?? []) as PublicBusiness[], error: null };
 }
 
+/** Record that a shopper shared a shop link to another social app (feeds "business of the week"). */
+export async function recordBusinessShare(businessId: string, channel?: string): Promise<void> {
+  if (!businessId) return;
+  const supabase = getSupabaseBrowserClient();
+  try {
+    await supabase.rpc("record_business_share", {
+      p_business_id: businessId,
+      p_channel: channel ?? null,
+    });
+  } catch {
+    // Share tracking is best-effort; never block the user's share action.
+  }
+}
+
 function asPublicBusiness(row: Record<string, unknown>, fallbackSlug: string): PublicBusiness {
   return {
     id: row.id as string,

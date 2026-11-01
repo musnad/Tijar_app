@@ -25,7 +25,9 @@ function timeAgo(iso: string): string {
 }
 
 function kindIcon(kind: ActivityNotification["kind"]) {
-  if (kind === "place_order" || kind === "place_order_paid") return Package;
+  if (kind === "place_order" || kind === "place_order_paid" || kind === "purchase") return Package;
+  if (kind === "cart") return ShoppingCart;
+  if (kind === "like") return Heart;
   if (kind === "comment" || kind === "comment_reply") return MessageCircle;
   if (kind === "follow_back") return Heart;
   return UserPlus;

@@ -63,7 +63,7 @@ export function CheckoutScreen() {
   });
 
   const cartQuery = useQuery({
-    queryKey: ["marketplace-cart-v2", actorId],
+    queryKey: ["marketplace-cart", actorId],
     queryFn: async () => {
       const res = await fetchCart(actorId);
       if (res.error && res.items.length === 0) throw new Error(res.error);

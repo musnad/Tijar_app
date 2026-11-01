@@ -108,7 +108,7 @@ export async function fetchAdminOrders(): Promise<{
   const supabase = getSupabaseBrowserClient();
   const { data, error } = await supabase
     .from("orders")
-    .select("*, businesses(business_name, public_phone), buyer:profiles!orders_buyer_profile_id_fkey(full_name, email, phone)")
+    .select("*, businesses(business_name), buyer:profiles!orders_buyer_profile_id_fkey(full_name, email)")
     .order("created_at", { ascending: false })
     .limit(400);
   if (error) {
@@ -245,4 +245,52 @@ export async function setBusinessPublished(
 
 export function shopName(row: { businesses?: { business_name: string } | null; business_id?: string }): string {
   return row.businesses?.business_name ?? row.business_id?.slice(0, 8) ?? "Shop";
+}
+
+export type AdminBusinessInsight = {
+  business_id: string;
+  business_name: string;
+  owner_id: string | null;
+  contact_phone: string | null;
+  public_slug: string | null;
+  logo_url: string | null;
+  product_count: number;
+  inventory_units: number;
+  orders_count: number;
+  sales_total: number;
+  credit_pending: number;
+  share_count: number;
+  like_count: number;
+};
+
+/**
+ * Admin-only per-business metrics: total inventory, total sales, pending credit
+ * (unpaid orders), and social share counts used to rank "business of the week".
+ */
+export async function fetchAdminBusinessInsights(): Promise<{
+  insights: AdminBusinessInsight[];
+  error: string | null;
+}> {
+  const supabase = getSupabaseBrowserClient();
+  const { data, error } = await supabase.rpc("admin_business_insights");
+  if (error) return { insights: [], error: error.message };
+  const rows = (data ?? []) as Record<string, unknown>[];
+  return {
+    insights: rows.map((row) => ({
+      business_id: String(row.business_id),
+      business_name: String(row.business_name ?? "Shop"),
+      owner_id: (row.owner_id as string | null) ?? null,
+      contact_phone: (row.contact_phone as string | null) ?? null,
+      public_slug: (row.public_slug as string | null) ?? null,
+      logo_url: (row.logo_url as string | null) ?? null,
+      product_count: Number(row.product_count ?? 0),
+      inventory_units: Number(row.inventory_units ?? 0),
+      orders_count: Number(row.orders_count ?? 0),
+      sales_total: Number(row.sales_total ?? 0),
+      credit_pending: Number(row.credit_pending ?? 0),
+      share_count: Number(row.share_count ?? 0),
+      like_count: Number(row.like_count ?? 0),
+    })),
+    error: null,
+  };
 }

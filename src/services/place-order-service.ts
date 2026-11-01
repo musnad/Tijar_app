@@ -2,7 +2,16 @@ import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { displayShopName, shopLinkSlug } from "@/lib/shop-names";
 import { uploadProductImage } from "@/services/product-image-service";
 
-export const PLACE_ORDER_CATEGORIES = ["food", "snacks", "drinks", "meals", "other"] as const;
+export const PLACE_ORDER_CATEGORIES = [
+  "food",
+  "snacks",
+  "drinks",
+  "meals",
+  "photography",
+  "events",
+  "services",
+  "other",
+] as const;
 export type PlaceOrderCategory = (typeof PLACE_ORDER_CATEGORIES)[number];
 export type PlaceOrderDay = "today" | "tomorrow" | "both";
 export type PlaceOrderFulfilment = "pickup" | "delivery";
@@ -486,6 +495,9 @@ export function categoryLabel(value: PlaceOrderCategory): string {
     snacks: "Snacks",
     drinks: "Drinks",
     meals: "Meals",
+    photography: "Photography",
+    events: "Event planning",
+    services: "Services",
     other: "Other",
   };
   return labels[value];

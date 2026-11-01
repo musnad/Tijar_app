@@ -33,6 +33,9 @@ const CATS: Array<{ id: "all" | PlaceOrderCategory; label: string }> = [
   { id: "snacks", label: "Snacks" },
   { id: "meals", label: "Meals" },
   { id: "drinks", label: "Drinks" },
+  { id: "photography", label: "Photography" },
+  { id: "events", label: "Event planning" },
+  { id: "services", label: "Services" },
 ];
 
 export function PlaceOrderBoardScreen() {
@@ -59,7 +62,7 @@ export function PlaceOrderBoardScreen() {
         <header className="shrink-0 border-b border-border px-4 pb-3 pt-[max(0.65rem,env(safe-area-inset-top))]">
           <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#1F7A4D]">Place your order</p>
           <h1 className="mt-1 text-[22px] font-extrabold tracking-tight text-[#0B1F4D]">What is cooking</h1>
-          <p className="mt-1 text-[13px] text-muted-foreground">Same-day and next-day food, snacks, and meals from shops near you.</p>
+          <p className="mt-1 text-[13px] text-muted-foreground">Order food, snacks, and meals — or book photographers and event planners near you.</p>
           <div className="relative mt-3">
             <Search className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input
@@ -149,7 +152,21 @@ function ListingCard({ listing }: { listing: PlaceOrderListing }) {
         </div>
         <div className="min-w-0 flex-1 py-2.5 pr-3">
           <p className="truncate text-[15px] font-extrabold text-[#0B1F4D]">{listing.title}</p>
-          <p className="truncate text-[12px] font-semibold text-[#1F7A4D]">{listing.shop_name}</p>
+          <span className="mt-0.5 flex items-center gap-1.5">
+            {listing.shop_logo ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={listing.shop_logo}
+                alt=""
+                className="size-[1.15rem] shrink-0 rounded-full border border-[#1F7A4D]/25 object-cover"
+              />
+            ) : (
+              <span className="flex size-[1.15rem] shrink-0 items-center justify-center rounded-full bg-[#E8F5EE] text-[9px] font-extrabold text-[#0B1F4D]">
+                {(listing.shop_name ?? "S").slice(0, 1)}
+              </span>
+            )}
+            <span className="truncate text-[12px] font-semibold text-[#1F7A4D]">{listing.shop_name}</span>
+          </span>
           <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-muted-foreground">
             <span>{categoryLabel(listing.category)}</span>
             <span className="inline-flex items-center gap-0.5">

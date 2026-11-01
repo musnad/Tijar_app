@@ -60,6 +60,10 @@ export function EditBusinessForm({ business }: { business: Business }) {
       toast.error(parsed.error.errors[0]?.message ?? t("app.errors.validation"));
       return;
     }
+    if (!phone.trim() && !whatsapp.trim()) {
+      toast.error("Add a contact phone or WhatsApp number so customers can reach your shop.");
+      return;
+    }
 
     setSaving(true);
     let logoUrl: string | null | undefined = undefined;

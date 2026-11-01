@@ -135,6 +135,7 @@ export function MarketplaceShell({
         {!hideTopBar && !feed && <MarketplaceTopBar leftSlot={leftSlot} />}
         {children}
       </main>
+      <NotificationPopup />
 
       {!hideNav && <nav
         className={cn(

@@ -2,7 +2,7 @@
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { BadgeCheck, Bell, Camera, Clock, Flag, Heart, MapPin, MessageCircle, Navigation, Phone, Play, Plus } from "lucide-react";
+import { BadgeCheck, Bell, Camera, Clock, Flag, Heart, MapPin, MessageCircle, Navigation, Phone, Play, Plus, Share2 } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
@@ -20,7 +20,7 @@ import { nkenneLanguageForLocale } from "@/lib/nkenne/languages";
 import { cn } from "@/lib/utils";
 import { useStartShopChat } from "@/features/marketplace/use-start-shop-chat";
 import { reportListing } from "@/services/marketplace-service";
-import { fetchStorefront, submitEnquiry } from "@/services/discover-service";
+import { fetchStorefront, recordBusinessShare, submitEnquiry } from "@/services/discover-service";
 import { fetchMyBusinessIds } from "@/services/shop-chat-service";
 import { displayShopName } from "@/lib/shop-names";
 import { isFollowingShop } from "@/lib/shop-social";
@@ -272,6 +272,30 @@ export function StorefrontScreen({ slug }: { slug: string }) {
     toast.success(next.includes(business.id) ? "Shop saved" : "Removed from saved");
   }
 
+  async function onShareShop() {
+    if (!business) return;
+    const url = `${window.location.origin}/b/${business.slug}`;
+    let channel = "copy";
+    try {
+      if (typeof navigator !== "undefined" && navigator.share) {
+        channel = "native";
+        await navigator.share({
+          title: business.business_name,
+          text: business.description ?? business.business_name,
+          url,
+        });
+      } else if (typeof navigator !== "undefined" && navigator.clipboard) {
+        await navigator.clipboard.writeText(url);
+        toast.success("Shop link copied");
+      } else {
+        return;
+      }
+    } catch {
+      return;
+    }
+    await recordBusinessShare(business.id, channel);
+  }
+
   async function onReport() {
     if (!session || !profile || !business) {
       void navigate({ to: "/login" });
@@ -441,6 +465,14 @@ export function StorefrontScreen({ slug }: { slug: string }) {
                       >
                         <Heart className={cn("size-4", shopSaved && "fill-[#1F7A4D]")} />
                       </button>
+                      <button
+                        type="button"
+                        onClick={() => void onShareShop()}
+                        className="flex size-8 items-center justify-center rounded-full border border-[#1F7A4D]/25 text-[#1F7A4D]"
+                        aria-label="Share shop"
+                      >
+                        <Share2 className="size-4" />
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -482,6 +514,38 @@ export function StorefrontScreen({ slug }: { slug: string }) {
                 <p className="mt-1 text-[11px] text-[#9CA3AF]">Followers</p>
               </div>
             </section>
+
+            {business.public_phone || business.public_whatsapp ? (
+              <section className="flex items-center gap-2 px-4 py-3">
+                <a
+                  href={`tel:${(business.public_phone ?? business.public_whatsapp ?? "").replace(/\s+/g, "")}`}
+                  className="flex min-h-10 flex-1 items-center justify-center gap-2 rounded-xl bg-[#0B1F4D] text-[13px] font-extrabold text-white"
+                >
+                  <Phone className="size-4" />
+                  {business.public_phone ?? business.public_whatsapp}
+                </a>
+                {business.public_whatsapp ? (
+                  <a
+                    href={`https://wa.me/${business.public_whatsapp.replace(/\D/g, "")}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex min-h-10 items-center justify-center gap-2 rounded-xl border border-[#1F7A4D] px-3 text-[13px] font-extrabold text-[#1F7A4D]"
+                  >
+                    WhatsApp
+                  </a>
+                ) : null}
+              </section>
+            ) : isOwner ? (
+              <section className="mx-4 mb-1 flex items-start gap-2 rounded-xl border border-amber-300 bg-amber-50 px-3 py-2.5 text-[12px] font-semibold text-amber-800">
+                <Phone className="mt-0.5 size-4 shrink-0" />
+                <span>
+                  Add a contact number so customers can reach you.{" "}
+                  <Link to="/app/business" className="underline">
+                    Add phone number
+                  </Link>
+                </span>
+              </section>
+            ) : null}
 
             <div className="sticky top-[3.35rem] z-10 bg-white">
               <nav className="grid grid-cols-3 px-2" aria-label="Storefront sections">

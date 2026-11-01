@@ -39,7 +39,6 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { MarketplaceShell } from "@/features/marketplace/marketplace-shell";
-import { PlaceOrderSocialBar } from "@/features/marketplace/place-order-social";
 import { useAuth } from "@/features/auth/auth-context";
 import { displayShopName, isBlankShopName, shopLinkSlug } from "@/lib/shop-names";
 import { cn } from "@/lib/utils";
@@ -1267,9 +1266,6 @@ const PlaceOrderSlide = memo(function PlaceOrderSlide({
         <MediaCarousel
           urls={listing.image_urls}
           eager
-          onDoubleTap={() => {
-            document.querySelector<HTMLButtonElement>(`[data-place-order-like="${listing.id}"]`)?.click();
-          }}
           empty={
             <div className="flex h-full items-center justify-center text-muted-foreground">
               <UtensilsCrossed className="size-16" />
@@ -1277,7 +1273,6 @@ const PlaceOrderSlide = memo(function PlaceOrderSlide({
           }
         />
       </div>
-      <PlaceOrderSocialBar listing={listing} className="px-2" />
       <p className="px-3 pt-2 text-[15px] font-extrabold text-foreground">{listing.title}</p>
       {listing.details ? <p className="line-clamp-2 px-3 pt-1 text-[14px] text-zinc-800">{listing.details}</p> : null}
       <p className="px-3 pt-1 text-[12px] font-semibold text-muted-foreground">

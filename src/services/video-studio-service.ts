@@ -155,8 +155,6 @@ export async function submitStudioVideo(input: StudioSubmitInput): Promise<{ err
       await updateProductImages(input.productIds[0]!, imageUrls);
     }
   }
-  report(100, "Live on For You");
-
   if (!isImage && !goLive) {
     await supabase.from("video_processing_jobs").insert({
       video_post_id: id,

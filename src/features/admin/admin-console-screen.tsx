@@ -15,9 +15,10 @@ import {
   BadgeCheck,
   Building2,
   ClipboardList,
+  Crown,
   Download,
-  Phone,
   Percent,
+  Phone,
   Search,
   ShieldCheck,
   Store,
@@ -76,6 +77,7 @@ type Tab =
   | "kyc"
   | "applications"
   | "businesses"
+  | "insights"
   | "users"
   | "transactions"
   | "orders";
@@ -319,12 +321,23 @@ export function AdminConsoleScreen() {
     },
   });
 
+  const insightsQuery = useQuery({
+    queryKey: ["admin-business-insights"],
+    enabled: isAdmin,
+    queryFn: async () => {
+      const r = await fetchAdminBusinessInsights();
+      if (r.error) throw new Error(r.error);
+      return r.insights;
+    },
+  });
+
   const businesses = businessesQuery.data ?? [];
   const users = usersQuery.data ?? [];
   const orders = ordersQuery.data ?? [];
   const transactions = txQuery.data ?? [];
   const payments = paymentsQuery.data ?? [];
   const upgrades = upgradesQuery.data ?? [];
+  const insights = insightsQuery.data ?? [];
 
   const stats = useMemo(() => {
     const today = new Date().toISOString().slice(0, 10);
@@ -414,6 +427,7 @@ export function AdminConsoleScreen() {
   async function refreshAll() {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ["admin-businesses"] }),
+      queryClient.invalidateQueries({ queryKey: ["admin-business-insights"] }),
       queryClient.invalidateQueries({ queryKey: ["admin-upgrades"] }),
       queryClient.invalidateQueries({ queryKey: ["admin-users"] }),
       queryClient.invalidateQueries({ queryKey: ["admin-orders"] }),
@@ -460,6 +474,7 @@ export function AdminConsoleScreen() {
     { id: "kyc", label: "KYC" },
     { id: "applications", label: "Applications" },
     { id: "businesses", label: "Businesses" },
+    { id: "insights", label: "Inventory & sales" },
     { id: "users", label: "Users" },
     { id: "transactions", label: "Transactions" },
     { id: "orders", label: "Orders" },
@@ -1038,6 +1053,114 @@ export function AdminConsoleScreen() {
             ))}
           </AdminTable>
         </>
+      )}
+
+      {tab === "insights" && (
+        <div className="mt-4 space-y-4">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            {[
+              {
+                label: "Total inventory",
+                value: `${insights.reduce((s, i) => s + i.inventory_units, 0).toLocaleString()} units`,
+                hint: `${insights.reduce((s, i) => s + i.product_count, 0).toLocaleString()} products`,
+              },
+              {
+                label: "Total sales",
+                value: formatNgnCompact(insights.reduce((s, i) => s + i.sales_total, 0)),
+                hint: `${insights.reduce((s, i) => s + i.orders_count, 0).toLocaleString()} orders`,
+              },
+              {
+                label: "Credit reminder",
+                value: formatNgnCompact(insights.reduce((s, i) => s + i.credit_pending, 0)),
+                hint: "Unpaid (pay-on-delivery) orders",
+              },
+              {
+                label: "Social shares",
+                value: insights.reduce((s, i) => s + i.share_count, 0).toLocaleString(),
+                hint: "Shares that promote shops",
+              },
+            ].map((tile) => (
+              <div key={tile.label} className="rounded-xl border border-border bg-card px-3 py-3">
+                <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">{tile.label}</p>
+                <p className="mt-1 text-lg font-extrabold tabular-nums">{tile.value}</p>
+                <p className="text-[10px] font-medium text-muted-foreground">{tile.hint}</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="rounded-2xl border border-border bg-card p-4">
+            <div className="flex items-center gap-2">
+              <Crown className="size-4 text-amber-500" />
+              <h3 className="text-sm font-extrabold">Business of the week</h3>
+            </div>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Ranked by how often their shop links and posts were shared to other social apps. Promote the top shops.
+            </p>
+            {insights.filter((i) => i.share_count > 0).length === 0 ? (
+              <p className="mt-3 text-xs text-muted-foreground">No shares recorded yet.</p>
+            ) : (
+              <ol className="mt-3 space-y-2">
+                {insights
+                  .filter((i) => i.share_count > 0)
+                  .slice(0, 5)
+                  .map((i, index) => (
+                    <li key={i.business_id} className="flex items-center gap-3">
+                      <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-primary text-[11px] font-extrabold text-primary-foreground">
+                        {index + 1}
+                      </span>
+                      <span className="size-8 shrink-0 overflow-hidden rounded-lg bg-muted">
+                        {i.logo_url ? (
+                          <img src={i.logo_url} alt="" className="size-full object-cover" />
+                        ) : null}
+                      </span>
+                      <span className="min-w-0 flex-1 truncate text-sm font-bold">{i.business_name}</span>
+                      <span className="text-xs font-semibold text-muted-foreground">
+                        {i.share_count.toLocaleString()} shares
+                      </span>
+                    </li>
+                  ))}
+              </ol>
+            )}
+          </div>
+
+          <p className="text-xs text-muted-foreground">
+            {insightsQuery.isLoading
+              ? "Loading business metrics…"
+              : `Inventory, sales and credit per business · ${insights.length} shops`}
+          </p>
+          <AdminTable
+            empty="No business metrics yet."
+            headers={["Shop", "Contact", "Inventory", "Products", "Orders", "Sales", "Credit owed", "Shares", "Likes"]}
+          >
+            {insights.map((i) => (
+              <tr key={i.business_id} className="border-t border-border/60">
+                <td className="px-3 py-2.5">
+                  <div className="flex items-center gap-2">
+                    <span className="size-7 shrink-0 overflow-hidden rounded-md bg-muted">
+                      {i.logo_url ? <img src={i.logo_url} alt="" className="size-full object-cover" /> : null}
+                    </span>
+                    <span className="font-bold">{i.business_name}</span>
+                  </div>
+                </td>
+                <td className="px-3 py-2.5 text-xs text-muted-foreground">{i.contact_phone ?? "—"}</td>
+                <td className="px-3 py-2.5 tabular-nums">{i.inventory_units.toLocaleString()}</td>
+                <td className="px-3 py-2.5 tabular-nums">{i.product_count.toLocaleString()}</td>
+                <td className="px-3 py-2.5 tabular-nums">{i.orders_count.toLocaleString()}</td>
+                <td className="px-3 py-2.5 font-semibold tabular-nums">{formatNgn(i.sales_total)}</td>
+                <td
+                  className={cn(
+                    "px-3 py-2.5 tabular-nums",
+                    i.credit_pending > 0 && "font-semibold text-amber-600",
+                  )}
+                >
+                  {i.credit_pending > 0 ? formatNgn(i.credit_pending) : "—"}
+                </td>
+                <td className="px-3 py-2.5 tabular-nums">{i.share_count.toLocaleString()}</td>
+                <td className="px-3 py-2.5 tabular-nums">{i.like_count.toLocaleString()}</td>
+              </tr>
+            ))}
+          </AdminTable>
+        </div>
       )}
 
       {tab === "transactions" && (
