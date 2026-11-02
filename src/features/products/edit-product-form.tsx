@@ -14,7 +14,7 @@ import { canPublishProduct, productPublishErrors } from "@/lib/catalogue/publish
 import { parseAttributes, variantsFromSizeColour } from "@/lib/catalogue/variants";
 import { invalidateBusinessQueries } from "@/lib/invalidate-business-queries";
 import { uploadProductImage } from "@/services/product-image-service";
-import { deactivateProduct, getProduct, restoreProduct, setProductPublished, updateProduct, updateProductImages } from "@/services/product-service";
+import { deactivateProduct, getProduct, restoreProduct, updateProduct, updateProductImages } from "@/services/product-service";
 import type { PublicProduct } from "@/types/database";
 import { formatNgn } from "@/utils/money";
 
@@ -101,7 +101,7 @@ export function EditProductForm({ businessId, productId }: { businessId: string;
       attributes: attrs,
       image_url: imageUrl,
       extra_image_urls: urls.slice(1),
-      is_published: Number.isFinite(priceNum as number) ? true : (publish ?? product.is_published),
+      is_published: publish ? true : (product.is_published ?? false),
       service_type: product.kind === "service" ? serviceType : "general",
       starts_on: product.kind === "service" && startsOn ? startsOn : null,
       ends_on: product.kind === "service" && endsOn ? endsOn : null,
@@ -111,12 +111,8 @@ export function EditProductForm({ businessId, productId }: { businessId: string;
       toast.error(error);
       return;
     }
-    if (Number.isFinite(priceNum as number)) {
-      const pub = await setProductPublished(product.id, true);
-      if (pub.error) toast.error(pub.error);
-    }
     await invalidateBusinessQueries(queryClient, businessId);
-    toast.success("Saved");
+    toast.success(publish ? "Published to the marketplace" : "Saved");
     void navigate({ to: "/app/products" });
   }
 

@@ -139,7 +139,7 @@ export async function createProduct(
     variants: variantsFromSizeColour(input.sizes ?? "", input.colours ?? ""),
     video_url: input.videoUrl?.trim() || null,
     catalogue_category: input.catalogueCategory?.trim() || null,
-    is_published: input.isPublished ?? input.salePrice != null,
+    is_published: input.isPublished ?? false,
     currency: "NGN",
     service_type: kind === "service" ? (input.serviceType ?? "general") : "general",
     starts_on: kind === "service" && input.startsOn ? input.startsOn : null,

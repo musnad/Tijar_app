@@ -109,6 +109,7 @@ import { Route as AppProductsScanShopRouteImport } from './routes/app/products/s
 import { Route as AppProfileEditRouteImport } from './routes/app/profile/edit'
 import { Route as AppProfileSettingsRouteImport } from './routes/app/profile/settings'
 import { Route as AppVideosNewRouteImport } from './routes/app/videos/new'
+import { Route as ShopBidPostIdRouteImport } from './routes/shop/bid.$postId'
 import { Route as ShopEnquiriesIndexRouteImport } from './routes/shop/enquiries.index'
 import { Route as ShopEnquiriesConversationIdRouteImport } from './routes/shop/enquiries.$conversationId'
 import { Route as ShopOrderNowIndexRouteImport } from './routes/shop/order-now.index'
@@ -118,6 +119,7 @@ import { Route as ShopOrdersOrderIdRouteImport } from './routes/shop/orders.$ord
 import { Route as ShopPProductIdRouteImport } from './routes/shop/p.$productId'
 import { Route as ApiStudioVideoRequestIdRouteImport } from './routes/api.studio.video.$requestId'
 import { Route as AppCustomersCreditNewRouteImport } from './routes/app/customers/credit/new'
+import { Route as ShopPostPostIdEditRouteImport } from './routes/shop/post.$postId.edit'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -619,6 +621,11 @@ const AppVideosNewRoute = AppVideosNewRouteImport.update({
   path: '/new',
   getParentRoute: () => AppVideosRoute,
 } as any)
+const ShopBidPostIdRoute = ShopBidPostIdRouteImport.update({
+  id: '/bid/$postId',
+  path: '/bid/$postId',
+  getParentRoute: () => ShopRoute,
+} as any)
 const ShopEnquiriesIndexRoute = ShopEnquiriesIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -664,6 +671,11 @@ const AppCustomersCreditNewRoute = AppCustomersCreditNewRouteImport.update({
   id: '/credit/new',
   path: '/credit/new',
   getParentRoute: () => AppCustomersRouteRoute,
+} as any)
+const ShopPostPostIdEditRoute = ShopPostPostIdEditRouteImport.update({
+  id: '/post/$postId/edit',
+  path: '/post/$postId/edit',
+  getParentRoute: () => ShopRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
@@ -764,6 +776,7 @@ export interface FileRoutesByFullPath {
   '/app/profile/edit': typeof AppProfileEditRoute
   '/app/profile/settings': typeof AppProfileSettingsRoute
   '/app/videos/new': typeof AppVideosNewRoute
+  '/shop/bid/$postId': typeof ShopBidPostIdRoute
   '/shop/enquiries/$conversationId': typeof ShopEnquiriesConversationIdRoute
   '/shop/order-now/$listingId': typeof ShopOrderNowListingIdRoute
   '/shop/orders/$orderId': typeof ShopOrdersOrderIdRoute
@@ -776,6 +789,7 @@ export interface FileRoutesByFullPath {
   '/shop/orders/': typeof ShopOrdersIndexRoute
   '/api/studio/video/$requestId': typeof ApiStudioVideoRequestIdRoute
   '/app/customers/credit/new': typeof AppCustomersCreditNewRoute
+  '/shop/post/$postId/edit': typeof ShopPostPostIdEditRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -868,6 +882,7 @@ export interface FileRoutesByTo {
   '/app/profile/edit': typeof AppProfileEditRoute
   '/app/profile/settings': typeof AppProfileSettingsRoute
   '/app/videos/new': typeof AppVideosNewRoute
+  '/shop/bid/$postId': typeof ShopBidPostIdRoute
   '/shop/enquiries/$conversationId': typeof ShopEnquiriesConversationIdRoute
   '/shop/order-now/$listingId': typeof ShopOrderNowListingIdRoute
   '/shop/orders/$orderId': typeof ShopOrdersOrderIdRoute
@@ -880,6 +895,7 @@ export interface FileRoutesByTo {
   '/shop/orders': typeof ShopOrdersIndexRoute
   '/api/studio/video/$requestId': typeof ApiStudioVideoRequestIdRoute
   '/app/customers/credit/new': typeof AppCustomersCreditNewRoute
+  '/shop/post/$postId/edit': typeof ShopPostPostIdEditRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -980,6 +996,7 @@ export interface FileRoutesById {
   '/app/profile/edit': typeof AppProfileEditRoute
   '/app/profile/settings': typeof AppProfileSettingsRoute
   '/app/videos/new': typeof AppVideosNewRoute
+  '/shop/bid/$postId': typeof ShopBidPostIdRoute
   '/shop/enquiries/$conversationId': typeof ShopEnquiriesConversationIdRoute
   '/shop/order-now/$listingId': typeof ShopOrderNowListingIdRoute
   '/shop/orders/$orderId': typeof ShopOrdersOrderIdRoute
@@ -992,6 +1009,7 @@ export interface FileRoutesById {
   '/shop/orders/': typeof ShopOrdersIndexRoute
   '/api/studio/video/$requestId': typeof ApiStudioVideoRequestIdRoute
   '/app/customers/credit/new': typeof AppCustomersCreditNewRoute
+  '/shop/post/$postId/edit': typeof ShopPostPostIdEditRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -1093,6 +1111,7 @@ export interface FileRouteTypes {
     | '/app/profile/edit'
     | '/app/profile/settings'
     | '/app/videos/new'
+    | '/shop/bid/$postId'
     | '/shop/enquiries/$conversationId'
     | '/shop/order-now/$listingId'
     | '/shop/orders/$orderId'
@@ -1105,6 +1124,7 @@ export interface FileRouteTypes {
     | '/shop/orders/'
     | '/api/studio/video/$requestId'
     | '/app/customers/credit/new'
+    | '/shop/post/$postId/edit'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -1197,6 +1217,7 @@ export interface FileRouteTypes {
     | '/app/profile/edit'
     | '/app/profile/settings'
     | '/app/videos/new'
+    | '/shop/bid/$postId'
     | '/shop/enquiries/$conversationId'
     | '/shop/order-now/$listingId'
     | '/shop/orders/$orderId'
@@ -1209,6 +1230,7 @@ export interface FileRouteTypes {
     | '/shop/orders'
     | '/api/studio/video/$requestId'
     | '/app/customers/credit/new'
+    | '/shop/post/$postId/edit'
   id:
     | '__root__'
     | '/'
@@ -1308,6 +1330,7 @@ export interface FileRouteTypes {
     | '/app/profile/edit'
     | '/app/profile/settings'
     | '/app/videos/new'
+    | '/shop/bid/$postId'
     | '/shop/enquiries/$conversationId'
     | '/shop/order-now/$listingId'
     | '/shop/orders/$orderId'
@@ -1320,6 +1343,7 @@ export interface FileRouteTypes {
     | '/shop/orders/'
     | '/api/studio/video/$requestId'
     | '/app/customers/credit/new'
+    | '/shop/post/$postId/edit'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -2062,6 +2086,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppVideosNewRouteImport
       parentRoute: typeof AppVideosRoute
     }
+    '/shop/bid/$postId': {
+      id: '/shop/bid/$postId'
+      path: '/bid/$postId'
+      fullPath: '/shop/bid/$postId'
+      preLoaderRoute: typeof ShopBidPostIdRouteImport
+      parentRoute: typeof ShopRoute
+    }
     '/shop/enquiries/': {
       id: '/shop/enquiries/'
       path: '/'
@@ -2124,6 +2155,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/app/customers/credit/new'
       preLoaderRoute: typeof AppCustomersCreditNewRouteImport
       parentRoute: typeof AppCustomersRouteRoute
+    }
+    '/shop/post/$postId/edit': {
+      id: '/shop/post/$postId/edit'
+      path: '/post/$postId/edit'
+      fullPath: '/shop/post/$postId/edit'
+      preLoaderRoute: typeof ShopPostPostIdEditRouteImport
+      parentRoute: typeof ShopRoute
     }
   }
 }
@@ -2359,7 +2397,9 @@ interface ShopRouteChildren {
   ShopSettingsRoute: typeof ShopSettingsRoute
   ShopStudioRoute: typeof ShopStudioRoute
   ShopIndexRoute: typeof ShopIndexRoute
+  ShopBidPostIdRoute: typeof ShopBidPostIdRoute
   ShopPProductIdRoute: typeof ShopPProductIdRoute
+  ShopPostPostIdEditRoute: typeof ShopPostPostIdEditRoute
 }
 
 const ShopRouteChildren: ShopRouteChildren = {
@@ -2386,7 +2426,9 @@ const ShopRouteChildren: ShopRouteChildren = {
   ShopSettingsRoute: ShopSettingsRoute,
   ShopStudioRoute: ShopStudioRoute,
   ShopIndexRoute: ShopIndexRoute,
+  ShopBidPostIdRoute: ShopBidPostIdRoute,
   ShopPProductIdRoute: ShopPProductIdRoute,
+  ShopPostPostIdEditRoute: ShopPostPostIdEditRoute,
 }
 
 const ShopRouteWithChildren = ShopRoute._addFileChildren(ShopRouteChildren)

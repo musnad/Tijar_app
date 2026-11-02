@@ -12,6 +12,7 @@ type NotifyBody = {
   body?: string;
   business_id?: string | null;
   video_post_id?: string | null;
+  product_id?: string | null;
 };
 
 type SubscriptionRow = {
@@ -26,6 +27,7 @@ function targetFor(row: NotifyBody): string {
   if (kind === "place_order" || kind === "place_order_paid" || kind === "cart" || kind === "purchase") {
     return "/shop/create-order?tab=orders";
   }
+  if (row.product_id) return `/shop/p/${row.product_id}`;
   if (row.video_post_id) return `/shop?v=${row.video_post_id}`;
   if (kind === "follow" || kind === "follow_back") return "/shop/notifications";
   return "/shop/notifications";

@@ -174,7 +174,7 @@ export function ScanShopScreen() {
         ...(sale != null ? { salePrice: sale } : {}),
         ...(cost != null ? { costPrice: cost } : {}),
         initialStock: 1,
-        isPublished: sale != null,
+        isPublished: false,
         notes: categoryNote(it.category),
       });
       if (product) saved += 1;

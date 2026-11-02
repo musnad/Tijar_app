@@ -182,15 +182,10 @@ export async function submitStudioVideo(input: StudioSubmitInput): Promise<{ err
     if (tagErr) return { error: tagErr.message };
   }
 
-  if (goLive && input.productIds.length > 0) {
-    await supabase
-      .from("products")
-      .update({ is_published: true, is_active: true })
-      .in("id", input.productIds)
-      .eq("business_id", input.businessId);
-    if (isImage && imageUrls.length > 0) {
-      await updateProductImages(input.productIds[0]!, imageUrls);
-    }
+  // Tagging a product in a post never publishes it to the marketplace — the shop
+  // must press "Publish to marketplace" on the product itself.
+  if (goLive && isImage && input.productIds.length > 0 && imageUrls.length > 0) {
+    await updateProductImages(input.productIds[0]!, imageUrls);
   }
   if (!isImage && !goLive) {
     await supabase.from("video_processing_jobs").insert({

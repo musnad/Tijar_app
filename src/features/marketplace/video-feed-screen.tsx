@@ -12,10 +12,12 @@ import {
   MapPin,
   MessageCircle,
   MoreHorizontal,
+  Pencil,
   Send,
   Share2,
   ShoppingBag,
   ShoppingCart,
+  Trash2,
   UtensilsCrossed,
 } from "lucide-react";
 import {
@@ -97,8 +99,8 @@ import {
   bidPhase,
   bidPaymentSecondsLeft,
   confirmBidPayment,
+  deleteVideoPost,
   markBidPaid,
-  placeBid,
   releaseBidUnpaid,
 } from "@/services/bid-service";
 import { usePrimaryBusiness } from "@/hooks/use-primary-business";
@@ -247,6 +249,9 @@ export function VideoFeedScreen({ initialVideoId }: { initialVideoId?: string })
   const [productsOpen, setProductsOpen] = useState(false);
   const [commentsOpen, setCommentsOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
+  const [shareTarget, setShareTarget] = useState<PublicFeedVideo | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const businessQuery = usePrimaryBusiness(profile?.id);
   const [feedTab, setFeedTab] = useState<FeedTab>("foryou");
   const [mockLiked, setMockLiked] = useState(() => new Set(loadUserSocial("guest").likedVideos));
   const [mockFollowing, setMockFollowing] = useState(() => new Set(listFollowedShopIds("guest")));
@@ -789,10 +794,54 @@ export function VideoFeedScreen({ initialVideoId }: { initialVideoId?: string })
       <Sheet open={moreOpen} onOpenChange={setMoreOpen}>
         <SheetContent side="bottom" className="rounded-t-3xl">
           <SheetHeader>
-            <SheetTitle>Safety</SheetTitle>
+            <SheetTitle>{active && businessQuery.data?.business?.id === active.business_id ? "Your post" : "Safety"}</SheetTitle>
           </SheetHeader>
           {active ? (
             <div className="mt-4 grid gap-2">
+              {businessQuery.data?.business?.id === active.business_id ? (
+                <>
+                  <Link
+                    to="/shop/post/$postId/edit"
+                    params={{ postId: active.id }}
+                    onClick={() => setMoreOpen(false)}
+                    className="flex min-h-11 items-center rounded-xl border border-border px-4 text-sm font-semibold"
+                  >
+                    <Pencil className="mr-2 size-4" /> Edit post
+                  </Link>
+                  <Button
+                    variant="outline"
+                    className="justify-start rounded-xl"
+                    onClick={() => {
+                      setShareTarget(active);
+                      setMoreOpen(false);
+                    }}
+                  >
+                    <Share2 className="mr-2 size-4" /> Share post
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="justify-start rounded-xl text-destructive"
+                    disabled={deleting}
+                    onClick={async () => {
+                      if (!window.confirm("Delete this post? Customers will no longer see it.")) return;
+                      setDeleting(true);
+                      const r = await deleteVideoPost(active.id);
+                      setDeleting(false);
+                      if (r.error) {
+                        toast.error(r.error);
+                        return;
+                      }
+                      toast.success("Post deleted.");
+                      setMoreOpen(false);
+                      void queryClient.invalidateQueries({ queryKey: ["video-feed"] });
+                      void queryClient.invalidateQueries({ queryKey: ["seller-videos"] });
+                    }}
+                  >
+                    <Trash2 className="mr-2 size-4" /> {deleting ? "Deleting…" : "Delete post"}
+                  </Button>
+                  <div className="my-1 h-px bg-border" />
+                </>
+              ) : null}
               <Button
                 variant="outline"
                 className="justify-start rounded-xl"
@@ -843,6 +892,22 @@ export function VideoFeedScreen({ initialVideoId }: { initialVideoId?: string })
           ) : null}
         </SheetContent>
       </Sheet>
+
+      <ShareSheet
+        open={Boolean(shareTarget)}
+        onOpenChange={(open) => {
+          if (!open) setShareTarget(null);
+        }}
+        title={shareTarget ? displayShopName(shareTarget.business_name) : ""}
+        text={shareTarget?.caption?.trim() || "New on TIJAR"}
+        url={
+          shareTarget
+            ? `${typeof window !== "undefined" ? window.location.origin : ""}${
+                shareTarget.post_type === "bid" ? `/shop/bid/${shareTarget.id}` : `/shop?v=${shareTarget.id}`
+              }`
+            : ""
+        }
+      />
     </MarketplaceShell>
   );
 }
@@ -947,7 +1012,6 @@ function FeedTopBar({ tab, onTab }: { tab: FeedTab; onTab: (t: FeedTab) => void 
 
 const BidPanel = memo(function BidPanel({ video }: { video: PublicFeedVideo }) {
   const { profile } = useAuth();
-  const queryClient = useQueryClient();
   const businessQuery = usePrimaryBusiness(profile?.id);
   const phase = bidPhase(video);
   const isOwner = Boolean(profile?.id && businessQuery.data?.business?.id === video.business_id);
@@ -956,50 +1020,23 @@ const BidPanel = memo(function BidPanel({ video }: { video: PublicFeedVideo }) {
   const starting = video.bid_starting_price != null ? Number(video.bid_starting_price) : 0;
   const limit = video.bid_sale_limit != null ? Number(video.bid_sale_limit) : null;
   const topBid = video.top_bid != null ? Number(video.top_bid) : null;
-  const minNext = Math.max(topBid != null ? topBid + 1 : starting, starting);
-
-  const [sheetOpen, setSheetOpen] = useState(false);
-  const [amount, setAmount] = useState("");
-  const [busy, setBusy] = useState(false);
 
   const endsIn = useSecondsTo(video.bid_ends_at);
   const startsIn = useSecondsTo(video.bid_starts_at);
   const payIn = useSecondsTo(bidPaymentSecondsLeft(video) > 0 ? video.bid_payment_due_at : null);
-
-  async function refresh() {
-    await queryClient.invalidateQueries({ queryKey: ["video-feed"] });
-  }
-
-  async function submitBid() {
-    const value = Number(amount.replace(/,/g, ""));
-    if (!(value > 0)) {
-      toast.error("Enter a bid amount.");
-      return;
-    }
-    setBusy(true);
-    const r = await placeBid(video.id, value);
-    setBusy(false);
-    if (r.error) {
-      toast.error(r.error);
-      return;
-    }
-    setSheetOpen(false);
-    setAmount("");
-    haptic("success");
-    toast.success("Bid placed.");
-    await refresh();
-  }
 
   const chip =
     phase === "paid"
       ? { label: "Paid", cls: "bg-[#1F7A4D] text-white" }
       : phase === "sold"
         ? { label: "Sold", cls: "bg-[#0B1F4D] text-white" }
-        : phase === "upcoming"
-          ? { label: "Starts soon", cls: "bg-[#EEF1F5] text-[#0B1F4D]" }
-          : phase === "ended"
-            ? { label: "Ended", cls: "bg-[#EEF1F5] text-[#6B7280]" }
-            : { label: "Live", cls: "bg-[#1F7A4D] text-white" };
+        : phase === "paused"
+          ? { label: "Stopped", cls: "bg-amber-500 text-white" }
+          : phase === "upcoming"
+            ? { label: "Starts soon", cls: "bg-[#EEF1F5] text-[#0B1F4D]" }
+            : phase === "ended" || phase === "closed"
+              ? { label: phase === "closed" ? "Closed" : "Ended", cls: "bg-[#EEF1F5] text-[#6B7280]" }
+              : { label: "Live", cls: "bg-[#1F7A4D] text-white" };
 
   return (
     <div className="rounded-2xl border border-[#E5E7EB] bg-[#F8FAF9] p-3">
@@ -1056,62 +1093,27 @@ const BidPanel = memo(function BidPanel({ video }: { video: PublicFeedVideo }) {
         </p>
       ) : null}
 
-      {phase === "open" ? (
-        <>
-          <Button
-            type="button"
-            className="mt-3 min-h-11 w-full rounded-xl bg-[#1F7A4D] font-extrabold text-white hover:bg-[#1F7A4D]/90"
-            onClick={() => {
-              setAmount(String(minNext));
-              setSheetOpen(true);
-            }}
-          >
-            Place a bid
-          </Button>
-          <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
-            <SheetContent side="bottom" className="rounded-t-3xl">
-              <SheetHeader>
-                <SheetTitle>Place a bid</SheetTitle>
-              </SheetHeader>
-              <div className="mt-3 space-y-3 px-1 pb-6">
-                <p className="text-[13px] text-muted-foreground">
-                  Starting {formatNgn(starting)}
-                  {topBid != null ? ` · highest bid ${formatNgn(topBid)}` : ""}
-                </p>
-                <Input
-                  inputMode="decimal"
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
-                  placeholder={`${formatNgn(minNext)} or more`}
-                  className="min-h-12 rounded-xl"
-                />
-                <Button
-                  type="button"
-                  className="min-h-12 w-full rounded-xl bg-[#1F7A4D] font-extrabold text-white hover:bg-[#1F7A4D]/90"
-                  disabled={busy}
-                  onClick={() => void submitBid()}
-                >
-                  {busy ? "Placing…" : "Place bid"}
-                </Button>
-                {limit != null ? (
-                  <p className="text-[11px] text-muted-foreground">
-                    A bid of {formatNgn(limit)} or more buys it instantly.
-                  </p>
-                ) : null}
-              </div>
-            </SheetContent>
-          </Sheet>
-        </>
-      ) : null}
+      <Link
+        to="/shop/bid/$postId"
+        params={{ postId: video.id }}
+        className={cn(
+          "mt-3 flex min-h-11 items-center justify-center rounded-xl text-sm font-extrabold",
+          phase === "open" && !isOwner
+            ? "bg-[#1F7A4D] text-white hover:bg-[#1F7A4D]/90"
+            : "border border-[#E5E7EB] bg-white text-[#0B1F4D]",
+        )}
+      >
+        {isOwner ? "Open control room" : phase === "open" ? "Place a bid" : "View bids & details"}
+      </Link>
 
       {phase === "upcoming" ? (
-        <p className="mt-3 rounded-xl bg-white px-3 py-2 text-center text-[13px] font-bold text-[#6B7280]">
+        <p className="mt-2 rounded-xl bg-white px-3 py-2 text-center text-[13px] font-bold text-[#6B7280]">
           Bidding opens soon
         </p>
       ) : null}
 
-      {phase === "ended" ? (
-        <p className="mt-3 rounded-xl bg-white px-3 py-2 text-center text-[13px] font-bold text-[#6B7280]">
+      {phase === "ended" || phase === "closed" ? (
+        <p className="mt-2 rounded-xl bg-white px-3 py-2 text-center text-[13px] font-bold text-[#6B7280]">
           Bidding finished — no sale
         </p>
       ) : null}

@@ -73,7 +73,7 @@ export function NewProductForm({
   const [sizes, setSizes] = useState("");
   const [colours, setColours] = useState("");
   const [videoUrl, setVideoUrl] = useState("");
-  const [isPublished, setIsPublished] = useState(true);
+  const [isPublished, setIsPublished] = useState(false);
   const [serviceType, setServiceType] = useState<"general" | "course" | "mentorship">("general");
   const [startsOn, setStartsOn] = useState("");
   const [endsOn, setEndsOn] = useState("");

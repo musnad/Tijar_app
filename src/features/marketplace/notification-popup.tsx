@@ -40,9 +40,45 @@ function PopupIcon({ kind }: { kind: ActivityNotification["kind"] }) {
 }
 
 function target(n: ActivityNotification): string {
+  if (n.productId) return `/shop/p/${n.productId}`;
   if (n.href) return n.href;
   if (n.videoPostId) return `/shop?v=${n.videoPostId}`;
   return "/shop/notifications";
+}
+
+let soundCtx: AudioContext | null = null;
+
+/** TIJAR's own short two-note chime (no audio file needed). */
+function playNotificationSound() {
+  if (typeof window === "undefined") return;
+  try {
+    const Ctx =
+      window.AudioContext ??
+      (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (!Ctx) return;
+    soundCtx = soundCtx ?? new Ctx();
+    const ctx = soundCtx;
+    if (ctx.state === "suspended") void ctx.resume();
+    const now = ctx.currentTime;
+    const notes = [
+      { freq: 880, start: 0 },
+      { freq: 1318.5, start: 0.12 },
+    ];
+    for (const n of notes) {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.value = n.freq;
+      gain.gain.setValueAtTime(0.0001, now + n.start);
+      gain.gain.exponentialRampToValueAtTime(0.22, now + n.start + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + n.start + 0.22);
+      osc.connect(gain).connect(ctx.destination);
+      osc.start(now + n.start);
+      osc.stop(now + n.start + 0.24);
+    }
+  } catch {
+    // Autoplay policies may block audio until the user interacts — ignore.
+  }
 }
 
 function PopupCard({ item, onClose }: { item: ActivityNotification; onClose: () => void }) {
@@ -119,6 +155,7 @@ export function NotificationPopup() {
     const fresh = idx === -1 ? items.slice(0, 1) : items.slice(0, idx);
     if (fresh.length === 0) return;
     window.localStorage.setItem(SEEN_KEY, items[0]!.id);
+    playNotificationSound();
     // When Web Push is configured the service worker shows the OS notification,
     // so only fall back to an in-page browser notification here.
     if (!vapidPublicKey() && document.visibilityState !== "visible") {

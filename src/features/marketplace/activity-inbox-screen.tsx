@@ -108,11 +108,13 @@ export function ActivityInboxScreen() {
           return (
             <li key={item.id}>
               <Link
-                {...(item.href
-                  ? { to: "/shop/create-order" as const, search: { tab: "orders" as const } }
-                  : item.videoPostId
-                    ? { to: "/shop" as const, search: { v: item.videoPostId } }
-                    : { to: "/shop/followers" as const })}
+                {...(item.productId
+                  ? { to: "/shop/p/$productId" as const, params: { productId: item.productId } }
+                  : item.href
+                    ? { to: "/shop/create-order" as const, search: { tab: "orders" as const } }
+                    : item.videoPostId
+                      ? { to: "/shop" as const, search: { v: item.videoPostId } }
+                      : { to: "/shop/followers" as const })}
                 className={cn(
                   "flex gap-3 rounded-2xl border border-border p-3",
                   item.readAt ? "bg-card" : "border-primary/20 bg-primary/5",

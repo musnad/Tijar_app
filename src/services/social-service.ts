@@ -36,6 +36,7 @@ export type ActivityNotification = {
   body: string;
   businessId: string | null;
   videoPostId: string | null;
+  productId: string | null;
   actorId: string | null;
   actorName: string | null;
   actorAvatar: string | null;
@@ -273,7 +274,7 @@ export async function fetchActivityNotifications(profileId: string): Promise<{
   const supabase = getSupabaseBrowserClient();
   const { data, error } = await supabase
     .from("activity_notifications")
-    .select("id, kind, title, body, business_id, video_post_id, actor_id, read_at, created_at")
+    .select("id, kind, title, body, business_id, video_post_id, product_id, actor_id, read_at, created_at")
     .eq("recipient_id", profileId)
     .order("created_at", { ascending: false })
     .limit(80);
@@ -287,27 +288,36 @@ export async function fetchActivityNotifications(profileId: string): Promise<{
   const names = new Map((actors ?? []).map((p) => [p.id as string, p]));
   const items: ActivityNotification[] = rows.map((r) => {
     const actor = names.get(r.actor_id as string);
+    const videoPostId = (r.video_post_id as string | null) ?? null;
+    const productId = (r.product_id as string | null) ?? null;
+    const isOrderish =
+      r.kind === "place_order" ||
+      r.kind === "place_order_paid" ||
+      r.kind === "cart" ||
+      r.kind === "purchase" ||
+      String(r.title).startsWith("Pending") ||
+      String(r.title).startsWith("Paid");
+    const href = isOrderish
+      ? "/shop/create-order?tab=orders"
+      : productId
+        ? `/shop/p/${productId}`
+        : videoPostId
+          ? `/shop?v=${videoPostId}`
+          : undefined;
     return {
       id: r.id as string,
       kind: r.kind as ActivityNotification["kind"],
-      title: r.title as string,
-      body: r.body as string,
-      href:
-        r.kind === "place_order" ||
-        r.kind === "place_order_paid" ||
-        r.kind === "cart" ||
-        r.kind === "purchase" ||
-        String(r.title).startsWith("Pending") ||
-        String(r.title).startsWith("Paid")
-          ? "/shop/create-order?tab=orders"
-          : undefined,
+      href,
       businessId: (r.business_id as string | null) ?? null,
-      videoPostId: (r.video_post_id as string | null) ?? null,
+      videoPostId,
+      productId,
       actorId: (r.actor_id as string | null) ?? null,
       actorName: (actor?.full_name as string | null) ?? null,
       actorAvatar: (actor?.avatar_url as string | null) ?? null,
       readAt: (r.read_at as string | null) ?? null,
       createdAt: r.created_at as string,
+      title: r.title as string,
+      body: r.body as string,
     };
   });
   return { items, unread: items.filter((i) => !i.readAt).length, error: null };
