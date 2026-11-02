@@ -31,7 +31,7 @@ function showBrowserNotification(item: ActivityNotification) {
 }
 
 function PopupIcon({ kind }: { kind: ActivityNotification["kind"] }) {
-  if (kind === "place_order" || kind === "place_order_paid" || kind === "purchase" || kind === "new_post") return <Package className="size-4" />;
+  if (kind === "place_order" || kind === "place_order_paid" || kind === "purchase" || kind === "new_post" || kind === "order_update") return <Package className="size-4" />;
   if (kind === "cart") return <ShoppingCart className="size-4" />;
   if (kind === "like") return <ThumbsUp className="size-4" />;
   if (kind === "comment" || kind === "comment_reply") return <MessageCircle className="size-4" />;
@@ -40,6 +40,8 @@ function PopupIcon({ kind }: { kind: ActivityNotification["kind"] }) {
 }
 
 function target(n: ActivityNotification): string {
+  if (n.kind === "order_update") return n.orderId ? `/shop/orders/${n.orderId}` : "/shop/orders";
+  if (n.kind === "cart" || n.kind === "purchase") return "/app/orders";
   if (n.productId) return `/shop/p/${n.productId}`;
   if (n.href) return n.href;
   if (n.videoPostId) return `/shop?v=${n.videoPostId}`;

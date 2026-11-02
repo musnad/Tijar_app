@@ -37,6 +37,7 @@ export function OrdersScreen() {
 
   const ordersQuery = useQuery({
     queryKey: ["marketplace-orders", profile?.id ?? "guest"],
+    refetchInterval: 30_000,
     queryFn: async () => {
       const res = await fetchMyOrders(profile?.id ?? "guest");
       if (res.error) throw new Error(res.error);

@@ -25,12 +25,33 @@ function timeAgo(iso: string): string {
 }
 
 function kindIcon(kind: ActivityNotification["kind"]) {
-  if (kind === "place_order" || kind === "place_order_paid" || kind === "purchase") return Package;
+  if (kind === "place_order" || kind === "place_order_paid" || kind === "purchase" || kind === "order_update") return Package;
   if (kind === "cart") return ShoppingCart;
   if (kind === "like") return Heart;
   if (kind === "comment" || kind === "comment_reply") return MessageCircle;
   if (kind === "follow_back") return Heart;
   return UserPlus;
+}
+
+function notificationLink(item: ActivityNotification) {
+  if (item.kind === "order_update") {
+    return item.orderId
+      ? { to: "/shop/orders/$orderId" as const, params: { orderId: item.orderId } }
+      : { to: "/shop/orders" as const };
+  }
+  if (item.kind === "cart" || item.kind === "purchase") {
+    return { to: "/app/orders" as const };
+  }
+  if (item.kind === "place_order" || item.kind === "place_order_paid") {
+    return { to: "/shop/create-order" as const, search: { tab: "orders" as const } };
+  }
+  if (item.productId) {
+    return { to: "/shop/p/$productId" as const, params: { productId: item.productId } };
+  }
+  if (item.videoPostId) {
+    return { to: "/shop" as const, search: { v: item.videoPostId } };
+  }
+  return { to: "/shop/followers" as const };
 }
 
 export function ActivityInboxScreen() {
@@ -108,13 +129,7 @@ export function ActivityInboxScreen() {
           return (
             <li key={item.id}>
               <Link
-                {...(item.productId
-                  ? { to: "/shop/p/$productId" as const, params: { productId: item.productId } }
-                  : item.href
-                    ? { to: "/shop/create-order" as const, search: { tab: "orders" as const } }
-                    : item.videoPostId
-                      ? { to: "/shop" as const, search: { v: item.videoPostId } }
-                      : { to: "/shop/followers" as const })}
+                {...notificationLink(item)}
                 className={cn(
                   "flex gap-3 rounded-2xl border border-border p-3",
                   item.readAt ? "bg-card" : "border-primary/20 bg-primary/5",

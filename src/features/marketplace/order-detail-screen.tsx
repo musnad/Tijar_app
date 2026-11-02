@@ -25,6 +25,7 @@ export function OrderDetailScreen({ orderId }: { orderId: string }) {
   const [paying, setPaying] = useState(false);
   const detailQuery = useQuery({
     queryKey: ["marketplace-order", orderId, profile?.id ?? "guest"],
+    refetchInterval: 20_000,
     queryFn: async () => {
       const res = await fetchOrderDetail(orderId, profile?.id ?? "guest");
       if (res.error) throw new Error(res.error);
