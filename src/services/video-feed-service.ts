@@ -1,5 +1,5 @@
 import { isMockFeedId } from "@/features/marketplace/feed-mock";
-import { applyOrganicInterleave, rankVideoFeed, type RankableVideo, type ViewerSignals, type VideoAttribution } from "@/lib/feed/rank-video-feed";
+import { type ViewerSignals, type VideoAttribution } from "@/lib/feed/rank-video-feed";
 import {
   isFollowingShop,
   listFollowedShopIds,
@@ -37,6 +37,8 @@ export type PublicFeedVideo = {
   verification_status: string;
   category_id: string | null;
   category_name: string | null;
+  location_text: string | null;
+  public_location_label: string | null;
   product_ids: string[];
   media_kind?: "video" | "image" | string | null;
 };
@@ -203,7 +205,7 @@ async function loadFeedFromPosts(
   const businessIds = [...new Set(list.map((r) => r.business_id as string))];
   const postIds = list.map((r) => r.id as string);
   const [shops, tags] = await Promise.all([
-    supabase.from("public_marketplace_businesses").select("id, slug, business_name, logo_url, is_verified, verification_status, category_id, category_name").in("id", businessIds),
+    supabase.from("public_marketplace_businesses").select("id, slug, business_name, logo_url, is_verified, verification_status, category_id, category_name, location_text, public_location_label").in("id", businessIds),
     supabase.from("video_post_products").select("video_post_id, product_id, sort_order").in("video_post_id", postIds),
   ]);
   const shopById = new Map((shops.data ?? []).map((s) => [s.id as string, s]));
@@ -243,6 +245,8 @@ async function loadFeedFromPosts(
       verification_status: (shop?.verification_status as string | undefined) ?? "unverified",
       category_id: (shop?.category_id as string | null | undefined) ?? null,
       category_name: (shop?.category_name as string | null | undefined) ?? null,
+      location_text: (shop?.location_text as string | null | undefined) ?? null,
+      public_location_label: (shop?.public_location_label as string | null | undefined) ?? null,
       product_ids: tagsByPost.get(row.id as string) ?? [],
       media_kind: ((row as { media_kind?: string }).media_kind as PublicFeedVideo["media_kind"]) ?? null,
     };
@@ -311,54 +315,30 @@ export async function rankAndLoadFeed(
   error: string | null;
 }> {
   const limit = opts?.limit ?? FEED_PAGE_SIZE;
-  const raw = await fetchPublicVideoFeed({ limit, before: opts?.before ?? null });
+  const before = opts?.before ?? null;
+
+  // Load the newest posts and the viewer signals in parallel: the feed used to
+  // await them one after another, which made the first paint feel slow.
+  const [raw, signals] = await Promise.all([
+    fetchPublicVideoFeed({ limit, before }),
+    fetchFeedViewerSignals(profileId),
+  ]);
   if (raw.error) return { videos: [], nextCursor: null, error: raw.error };
+
   const last = raw.videos[raw.videos.length - 1];
   const nextCursor = raw.videos.length >= limit ? (last?.published_at ?? last?.created_at ?? null) : null;
 
-  if (opts?.before) {
-    return { videos: raw.videos, nextCursor, error: null };
-  }
+  const blocked = new Set(signals.blockedProfileIds);
+  const muted = new Set(signals.mutedProfileIds);
+  const videos = raw.videos
+    .filter((v) => !blocked.has(v.profile_id) && !muted.has(v.profile_id))
+    .sort((a, b) => {
+      const at = new Date(a.published_at ?? a.created_at).getTime();
+      const bt = new Date(b.published_at ?? b.created_at).getTime();
+      return bt - at;
+    });
 
-  const signals = await fetchFeedViewerSignals(profileId);
-  const productIds = [...new Set(raw.videos.flatMap((v) => v.product_ids ?? []))];
-  const live = await fetchLiveProductsByIds(productIds);
-  const liveMap = new Map(live.products.map((p) => [p.id, p]));
-
-  const captions: Record<string, string> = {};
-  const rankable: RankableVideo[] = raw.videos.map((v) => {
-    captions[v.id] = `${v.caption ?? ""} ${v.business_name}`;
-    const tagged = (v.product_ids ?? []).map((id) => liveMap.get(id)).filter(Boolean);
-    return {
-      id: v.id,
-      businessId: v.business_id,
-      profileId: v.profile_id,
-      categoryId: v.category_id,
-      productIds: v.product_ids ?? [],
-      publishedAt: v.published_at,
-      createdAt: v.created_at,
-      likeCount: Number(v.like_count),
-      viewCount: Number(v.view_count),
-      attribution: v.attribution,
-      hasAvailableProduct: tagged.some((p) => p && p.is_available !== false && p.sale_price != null),
-    };
-  });
-  signals.videoCaptions = captions;
-  signals.preferredCategoryIds = [
-    ...new Set(
-      raw.videos
-        .filter((v) => signals.followedBusinessIds.includes(v.business_id) && v.category_id)
-        .map((v) => v.category_id as string),
-    ),
-  ];
-
-  const ranked = rankVideoFeed(rankable, signals);
-  const byId = new Map(raw.videos.map((v) => [v.id, v]));
-  const ordered = applyOrganicInterleave(
-    ranked.filter((r) => r.score > -1000).map((r) => r.videoId),
-    byId,
-  );
-  return { videos: ordered.map((id) => byId.get(id)!).filter(Boolean), nextCursor, error: null };
+  return { videos, nextCursor, error: null };
 }
 
 export async function fetchLiveProductsByIds(ids: string[]): Promise<{
@@ -367,24 +347,18 @@ export async function fetchLiveProductsByIds(ids: string[]): Promise<{
 }> {
   if (ids.length === 0) return { products: [], error: null };
   const supabase = getSupabaseBrowserClient();
-  let { data, error } = await supabase
-    .from("public_business_products")
-    .select(
-      "id, business_id, name, kind, description, sale_price, unit, image_url, extra_image_urls, attributes, variants, is_available, business_name, business_slug, service_type, starts_on, ends_on",
-    )
-    .in("id", ids);
-  if (error && /service_type|starts_on|ends_on/i.test(error.message)) {
-    const retry = await supabase
-      .from("public_business_products")
-      .select(
-        "id, business_id, name, kind, description, sale_price, unit, image_url, extra_image_urls, attributes, variants, is_available, business_name, business_slug",
-      )
-      .in("id", ids);
+  const full =
+    "id, business_id, name, kind, description, sale_price, unit, image_url, extra_image_urls, attributes, variants, is_available, business_name, business_slug, service_type, starts_on, ends_on, business_location_text, business_public_location_label";
+  const core =
+    "id, business_id, name, kind, description, sale_price, unit, image_url, extra_image_urls, attributes, variants, is_available, business_name, business_slug";
+  let { data, error } = await supabase.from("public_business_products").select(full).in("id", ids);
+  if (error && /service_type|starts_on|ends_on|business_location/i.test(error.message)) {
+    const retry = await supabase.from("public_business_products").select(core).in("id", ids);
     data = retry.data;
     error = retry.error;
   }
   if (error) return { products: [], error: error.message };
-  return { products: await attachProductShopNames((data ?? []) as PublicProduct[]), error: null };
+  return { products: await attachProductShopNames((data ?? []) as unknown as PublicProduct[]), error: null };
 }
 
 async function attachProductShopNames(products: PublicProduct[]): Promise<PublicProduct[]> {
@@ -486,7 +460,7 @@ export async function toggleFollowBusiness(
   }
   const { error } = await supabase.from("business_follows").insert({ profile_id: profileId, business_id: businessId });
   if (!error && !isFollowingShop(profileId, businessId)) {
-    toggleFollowShopLocal(profileId, businessId, { name: actorName });
+    toggleFollowShopLocal(profileId, businessId, { name: actorName ?? null });
   }
   return { following: true, error: error?.message ?? null };
 }

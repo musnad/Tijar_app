@@ -6,19 +6,11 @@ import { useEffect } from "react";
 import { toast } from "sonner";
 
 import { useAuth } from "@/features/auth/auth-context";
+import { enableWebPush, notificationsGranted, syncWebPushSubscription, vapidPublicKey } from "@/lib/web-push";
 import { fetchActivityNotifications, type ActivityNotification } from "@/services/social-service";
 
 const SEEN_KEY = "tijar-notif-last-seen";
 const PERMISSION_KEY = "tijar-notif-permission-asked";
-
-/** Ask the browser for desktop-notification permission (once). */
-function ensureBrowserPermission() {
-  if (typeof window === "undefined" || !("Notification" in window)) return;
-  if (window.Notification.permission !== "default") return;
-  if (window.localStorage.getItem(PERMISSION_KEY)) return;
-  window.localStorage.setItem(PERMISSION_KEY, "1");
-  void window.Notification.requestPermission().catch(() => undefined);
-}
 
 /** Mirror an activity item to a real browser (desktop) notification. */
 function showBrowserNotification(item: ActivityNotification) {
@@ -39,7 +31,7 @@ function showBrowserNotification(item: ActivityNotification) {
 }
 
 function PopupIcon({ kind }: { kind: ActivityNotification["kind"] }) {
-  if (kind === "place_order" || kind === "place_order_paid" || kind === "purchase") return <Package className="size-4" />;
+  if (kind === "place_order" || kind === "place_order_paid" || kind === "purchase" || kind === "new_post") return <Package className="size-4" />;
   if (kind === "cart") return <ShoppingCart className="size-4" />;
   if (kind === "like") return <ThumbsUp className="size-4" />;
   if (kind === "comment" || kind === "comment_reply") return <MessageCircle className="size-4" />;
@@ -103,8 +95,18 @@ export function NotificationPopup() {
   const items = query.data;
 
   useEffect(() => {
-    ensureBrowserPermission();
-  }, []);
+    if (!profile?.id) return;
+    void (async () => {
+      if (notificationsGranted()) {
+        // Same device, new login — make sure the subscription is stored for this profile.
+        await syncWebPushSubscription();
+        return;
+      }
+      if (window.localStorage.getItem(PERMISSION_KEY)) return;
+      window.localStorage.setItem(PERMISSION_KEY, "1");
+      await enableWebPush();
+    })();
+  }, [profile?.id]);
 
   useEffect(() => {
     if (!items || items.length === 0 || typeof window === "undefined") return;
@@ -117,7 +119,11 @@ export function NotificationPopup() {
     const fresh = idx === -1 ? items.slice(0, 1) : items.slice(0, idx);
     if (fresh.length === 0) return;
     window.localStorage.setItem(SEEN_KEY, items[0]!.id);
-    for (const item of fresh) showBrowserNotification(item);
+    // When Web Push is configured the service worker shows the OS notification,
+    // so only fall back to an in-page browser notification here.
+    if (!vapidPublicKey() && document.visibilityState !== "visible") {
+      for (const item of fresh) showBrowserNotification(item);
+    }
     const top = fresh[0]!;
     toast.custom((id) => <PopupCard item={top} onClose={() => toast.dismiss(id)} />, {
       duration: 5_000,

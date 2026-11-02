@@ -1,4 +1,3 @@
-import { canUseBusinessMode, isCustomerOnly, profileActiveMode } from "@/lib/account-mode";
 import { absoluteAppUrl } from "@/lib/site-url";
 import { fetchCurrentProfile } from "@/services/profile-service";
 import type { Profile } from "@/types/database";
@@ -11,19 +10,13 @@ export function resolveAppEntry(profile: Profile | null, isAuthenticated: boolea
     return "/shop" as const;
   }
 
-  // Customer-only accounts go straight to the marketplace.
-  if (isCustomerOnly(profile) || profileActiveMode(profile) === "customer") {
-    return "/shop" as const;
-  }
-
+  // Onboarding must finish first — it collects the data the feed relies on.
   if (profile.onboarding_status !== "completed") {
     return "/app/onboarding" as const;
   }
 
-  if (canUseBusinessMode(profile) && profileActiveMode(profile) === "business") {
-    return "/app" as const;
-  }
-
+  // Everyone (including business owners) lands on the recent-posts feed and can
+  // switch to their shop dashboard from there.
   return "/shop" as const;
 }
 

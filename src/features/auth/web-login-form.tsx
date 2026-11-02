@@ -28,6 +28,9 @@ export function WebLoginForm() {
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
+    // #region debug-point B:login-submit
+    fetch("http://10.164.42.184:7777/event",{method:"POST",body:JSON.stringify({sessionId:"android-login-blank-screen",runId:"pre",hypothesisId:"B",location:"web-login-form.tsx:31",msg:"[DEBUG] Login submitted",ts:Date.now()})}).catch(()=>{});
+    // #endregion
     const normalizedEmail = email.includes("@") ? email.trim() : "";
     if (!normalizedEmail) {
       toast.error(t("auth.phoneLoginSoon"));
@@ -40,6 +43,9 @@ export function WebLoginForm() {
     }
     setLoading(true);
     const { data, error } = await signInWithEmail(parsed.data.email, parsed.data.password);
+    // #region debug-point B:login-result
+    fetch("http://10.164.42.184:7777/event",{method:"POST",body:JSON.stringify({sessionId:"android-login-blank-screen",runId:"pre",hypothesisId:"B",location:"web-login-form.tsx:44",msg:`[DEBUG] Login result: ${error ? "error" : "success"}`,data:{error:error?.message},ts:Date.now()})}).catch(()=>{});
+    // #endregion
     if (error || !data.session) {
       setLoading(false);
       toast.error(error?.message ?? "Sign-in did not complete. Try again.");

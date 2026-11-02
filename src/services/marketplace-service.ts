@@ -426,30 +426,6 @@ export function productShareUrl(productId: string): string {
   return `${origin}/shop/p/${productId}`;
 }
 
-export async function shareProductPost(product: {
-  id: string;
-  name: string;
-  business_name?: string | null;
-}): Promise<{ shared: boolean }> {
-  if (isMockFeedId(product.id)) return { shared: false };
-  const url = productShareUrl(product.id);
-  try {
-    if (typeof navigator !== "undefined" && navigator.share) {
-      await navigator.share({
-        title: product.name,
-        text: product.business_name ? `${product.name} from ${displayShopName(product.business_name)}` : product.name,
-        url,
-      });
-    } else if (typeof navigator !== "undefined" && navigator.clipboard) {
-      await navigator.clipboard.writeText(url);
-    }
-    await recordProductShare(product.id);
-    return { shared: true };
-  } catch {
-    return { shared: false };
-  }
-}
-
 function missingDbColumn(message: string | undefined, column: string): boolean {
   if (!message) return false;
   return new RegExp(`${column}|schema cache`, "i").test(message) && /schema cache|does not exist|column/i.test(message);

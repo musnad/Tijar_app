@@ -25,7 +25,8 @@ export type ActivityNotificationKind =
   | "cart"
   | "purchase"
   | "place_order"
-  | "place_order_paid";
+  | "place_order_paid"
+  | "new_post";
 
 export type ActivityNotification = {
   id: string;

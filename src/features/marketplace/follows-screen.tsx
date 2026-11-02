@@ -184,6 +184,8 @@ export function FollowersScreen() {
       queryClient.invalidateQueries({ queryKey: ["followed-shops"] }),
       queryClient.invalidateQueries({ queryKey: ["followed-people"] }),
       queryClient.invalidateQueries({ queryKey: ["video-follows"] }),
+      queryClient.invalidateQueries({ queryKey: ["followed-ids"] }),
+      queryClient.invalidateQueries({ queryKey: ["video-feed"] }),
       queryClient.invalidateQueries({ queryKey: ["activity-inbox"] }),
     ]);
   }

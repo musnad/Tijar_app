@@ -32,6 +32,7 @@ import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { ShareSheet } from "@/components/share-sheet";
 import {
   Sheet,
   SheetContent,
@@ -80,6 +81,7 @@ import { useDoubleTap } from "@/lib/use-double-tap";
 import { haptic } from "@/lib/haptics";
 import { formatNgn } from "@/utils/money";
 import { isMockFeedId } from "@/features/marketplace/feed-mock";
+import { ProductSocialBar } from "@/features/marketplace/product-social";
 import {
   categoryLabel,
   dayLabel,
@@ -105,7 +107,7 @@ type FeedActions = {
   onLike: (video: PublicFeedVideo) => void;
   onSave: (video: PublicFeedVideo) => void;
   onFollowShop: (businessId: string, businessName: string) => void;
-  onShare: (video: PublicFeedVideo) => void;
+  onRecordShare: (video: PublicFeedVideo) => void;
   onOpenProducts: (videoId: string) => void;
   onOpenComments: (videoId: string) => void;
   onMore: (videoId: string) => void;
@@ -476,6 +478,7 @@ export function VideoFeedScreen({ initialVideoId }: { initialVideoId?: string })
             });
             toast.success(following ? `Following ${businessName}` : "Unfollowed");
             void queryClient.invalidateQueries({ queryKey: ["video-follows"] });
+            void queryClient.invalidateQueries({ queryKey: ["followed-ids"] });
             void queryClient.invalidateQueries({ queryKey: ["followed-shops"] });
             void queryClient.invalidateQueries({ queryKey: ["shop-followers"] });
             void queryClient.invalidateQueries({ queryKey: ["followed-people"] });
@@ -483,25 +486,10 @@ export function VideoFeedScreen({ initialVideoId }: { initialVideoId?: string })
           }
         })();
       },
-      onShare: (video) => {
-        void (async () => {
-          haptic();
-          const url = `${window.location.origin}/shop?v=${video.id}`;
-          try {
-            if (navigator.share) {
-              await navigator.share({ title: video.business_name, text: video.caption ?? video.business_name, url });
-            } else {
-              await navigator.clipboard.writeText(url);
-              toast.success("Link copied");
-            }
-            if (!isMockFeedId(video.id)) {
-              patchFeedStat(video.id, "share_count", 1);
-              void recordFeedSignal(video.id, "share");
-            }
-          } catch {
-            /* cancelled */
-          }
-        })();
+      onRecordShare: (video) => {
+        if (isMockFeedId(video.id)) return;
+        patchFeedStat(video.id, "share_count", 1);
+        void recordFeedSignal(video.id, "share");
       },
       onOpenProducts: (videoId) => {
         setActiveId(videoId);
@@ -642,7 +630,9 @@ export function VideoFeedScreen({ initialVideoId }: { initialVideoId?: string })
             <ListingSlide
               key={product.id}
               product={product}
-              following={followQuery.data?.has(product.business_id) || mockFollowing.has(product.business_id)}
+              following={
+                followQuery.data?.has(product.business_id) || mockFollowing.has(product.business_id)
+              }
             />
           ))}
           {feedQuery.isPending ? null : showPosts.length === 0 && showListings.length === 0 && showPlaceOrders.length === 0 ? (
@@ -922,6 +912,7 @@ const VideoSlide = memo(function VideoSlide({
   const when = timeAgo(video.published_at ?? video.created_at);
   const place = video.category_name;
   const [burst, setBurst] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
   const onMediaTap = useDoubleTap(
     () => {
       setBurst(true);
@@ -934,6 +925,9 @@ const VideoSlide = memo(function VideoSlide({
   const likes = video.like_count;
   const gallery = resolvePostGallery(video, products);
   const shares = Number(video.share_count ?? 0);
+  const shopName = displayShopName(video.business_name);
+  const shareUrl = `${typeof window !== "undefined" ? window.location.origin : ""}/shop?v=${video.id}`;
+  const shareText = video.caption?.trim() || `${shopName} on TIJAR`;
 
   return (
     <article
@@ -1040,7 +1034,10 @@ const VideoSlide = memo(function VideoSlide({
           <IconAction
             label={t("shop.feed.share")}
             count={compactCount(shares)}
-            onClick={() => actions.onShare(video)}
+            onClick={() => {
+              haptic();
+              setShareOpen(true);
+            }}
           >
             <Share2 className="size-5 text-foreground" />
           </IconAction>
@@ -1084,6 +1081,15 @@ const VideoSlide = memo(function VideoSlide({
           </button>
         )}
       </div>
+      <ShareSheet
+        open={shareOpen}
+        onOpenChange={setShareOpen}
+        title={shopName}
+        text={shareText}
+        url={shareUrl}
+        imageUrl={poster ?? gallery[0] ?? null}
+        onShared={() => actions.onRecordShare(video)}
+      />
     </article>
   );
 });
@@ -1334,6 +1340,7 @@ const ListingSlide = memo(function ListingSlide({
   const gallery = productGallery(product);
   const slug = shopLinkSlug(product.business_slug, product.business_id);
   const shop = displayShopName(product.business_name);
+  const place = product.business_public_location_label ?? product.business_location_text ?? null;
   return (
     <article
       data-video-id={`listing:${product.id}`}
@@ -1353,11 +1360,11 @@ const ListingSlide = memo(function ListingSlide({
             <span className="block truncate text-[15px] font-extrabold text-foreground">{shop}</span>
             <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
               {timeAgo(product.created_at) || "Just listed"}
-              {product.category_name ? (
+              {place ? (
                 <>
                   <span aria-hidden>·</span>
                   <MapPin className="size-3" />
-                  {product.category_name}
+                  {place}
                 </>
               ) : null}
             </span>
@@ -1388,6 +1395,9 @@ const ListingSlide = memo(function ListingSlide({
       {product.description ? (
         <p className="line-clamp-2 shrink-0 px-3 pt-2 text-[14px] text-zinc-800">{product.description}</p>
       ) : null}
+      <div className="shrink-0 px-3 pt-1">
+        <ProductSocialBar product={product} className="gap-1" />
+      </div>
       <div className="shrink-0 px-3 pb-3 pt-2">
         <FeedProductCard product={product} onAdd={() => actions.onAddProduct(null, product)} />
       </div>

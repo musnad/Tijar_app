@@ -2,10 +2,12 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
+import { useState } from "react";
 import { toast } from "sonner";
 
 import { MarketplaceShell } from "@/features/marketplace/marketplace-shell";
 import { useAuth } from "@/features/auth/auth-context";
+import { enableWebPush, notificationsGranted, pushSupported } from "@/lib/web-push";
 import { fetchNotificationPreferences, saveNotificationPreferences } from "@/services/marketplace-service";
 import type { NotificationPreferences } from "@/types/database";
 
@@ -34,6 +36,8 @@ function Toggle({
 export function NotificationPrefsScreen() {
   const { profile, session } = useAuth();
   const queryClient = useQueryClient();
+  const [pushOn, setPushOn] = useState(() => notificationsGranted());
+  const [enabling, setEnabling] = useState(false);
   const query = useQuery({
     queryKey: ["notification-prefs", profile?.id],
     enabled: Boolean(profile?.id),
@@ -75,8 +79,35 @@ export function NotificationPrefsScreen() {
     <MarketplaceShell>
       <h1 className="text-xl font-extrabold">Notification preferences</h1>
       <p className="mt-1 text-sm text-muted-foreground">
-        These control in-app reminders. Push notifications are not enabled until a provider is configured.
+        These control in-app reminders. Turn on push to get alerts on this device even when TIJAR is closed.
       </p>
+      {pushSupported() ? (
+        <div className="mt-4 flex items-start justify-between gap-3 rounded-2xl border border-border bg-card p-4">
+          <span>
+            <span className="block font-bold">Push notifications on this device</span>
+            <span className="mt-1 block text-xs text-muted-foreground">
+              {pushOn ? "On — new posts, likes, comments and orders pop up here." : "Off — tap to allow alerts on this device."}
+            </span>
+          </span>
+          <button
+            type="button"
+            disabled={enabling || pushOn}
+            className="shrink-0 rounded-full bg-primary px-4 py-2 text-sm font-bold text-white disabled:opacity-60"
+            onClick={async () => {
+              setEnabling(true);
+              const r = await enableWebPush();
+              setEnabling(false);
+              if (r.error) toast.error(r.error);
+              else {
+                setPushOn(true);
+                toast.success("Push notifications enabled");
+              }
+            }}
+          >
+            {pushOn ? "Enabled" : enabling ? "Enabling…" : "Enable"}
+          </button>
+        </div>
+      ) : null}
       {prefs && (
         <div className="mt-4 space-y-2">
           <Toggle

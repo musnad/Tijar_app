@@ -202,6 +202,8 @@ export type PublicProduct = {
   business_slug?: string | null;
   business_logo_url?: string | null;
   category_name?: string | null;
+  business_location_text?: string | null;
+  business_public_location_label?: string | null;
   service_type?: ServiceType;
   starts_on?: string | null;
   ends_on?: string | null;

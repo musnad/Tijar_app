@@ -7,6 +7,7 @@ import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { ShareSheet } from "@/components/share-sheet";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useAuth } from "@/features/auth/auth-context";
 import { haptic } from "@/lib/haptics";
@@ -14,7 +15,9 @@ import { cn } from "@/lib/utils";
 import {
   fetchMyLikedPlaceOrderIds,
   fetchPlaceOrderComments,
+  placeOrderShareUrl,
   postPlaceOrderComment,
+  recordPlaceOrderShare,
   sharePlaceOrderPost,
   togglePlaceOrderLike,
   type PlaceOrderListing,
@@ -71,6 +74,7 @@ export function PlaceOrderSocialBar({
   const { profile, session } = useAuth();
   const queryClient = useQueryClient();
   const [commentsOpen, setCommentsOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
   const likesQuery = useQuery({
     queryKey: ["place-order-likes", profile?.id],
     enabled: Boolean(profile?.id),
@@ -101,13 +105,14 @@ export function PlaceOrderSocialBar({
     patchListingCounts(queryClient, listing.id, "like_count", next ? 1 : -1);
   }
 
-  async function share() {
+  function share() {
     haptic();
-    const result = await sharePlaceOrderPost(listing);
-    if (result.shared) {
-      patchListingCounts(queryClient, listing.id, "share_count", 1);
-      if (!navigator.share) toast.success("Link copied");
-    }
+    setShareOpen(true);
+  }
+
+  async function handleShared() {
+    patchListingCounts(queryClient, listing.id, "share_count", 1);
+    await recordPlaceOrderShare(listing.id);
   }
 
   return (
@@ -121,11 +126,19 @@ export function PlaceOrderSocialBar({
           <MessageCircle className="size-5 text-foreground" />
           <span className="text-[12px] font-bold tabular-nums">{compactCount(comments)}</span>
         </button>
-        <button type="button" className="inline-flex min-h-11 min-w-11 items-center justify-center gap-1.5 px-2.5" aria-label="Share" onClick={() => void share()}>
+        <button type="button" className="inline-flex min-h-11 min-w-11 items-center justify-center gap-1.5 px-2.5" aria-label="Share" onClick={() => share()}>
           <Share2 className="size-5 text-foreground" />
           <span className="text-[12px] font-bold tabular-nums">{compactCount(shares)}</span>
         </button>
       </div>
+      <ShareSheet
+        open={shareOpen}
+        onOpenChange={setShareOpen}
+        title={listing.title}
+        text={`Place your order from ${listing.shop_name} on TIJAR`}
+        url={placeOrderShareUrl(listing.id)}
+        onShared={() => void handleShared()}
+      />
       {!compact && likes > 0 ? <p className="px-3 text-[14px] font-extrabold">{compactCount(likes)} likes</p> : null}
       {!compact && comments > 0 ? (
         <button type="button" className="px-3 pb-1 text-left text-[14px] font-semibold text-muted-foreground" onClick={() => setCommentsOpen(true)}>

@@ -5,10 +5,12 @@ import { Heart, MessageCircle, Send, Share2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { ShareSheet } from "@/components/share-sheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useAuth } from "@/features/auth/auth-context";
+import { isMockFeedId } from "@/features/marketplace/feed-mock";
 import { haptic } from "@/lib/haptics";
 import { displayShopName } from "@/lib/shop-names";
 import { cn } from "@/lib/utils";
@@ -17,7 +19,8 @@ import {
   fetchProductComments,
   fetchProductEngagement,
   postProductComment,
-  shareProductPost,
+  productShareUrl,
+  recordProductShare,
   toggleProductLikeDb,
   type ProductEngagement,
 } from "@/services/marketplace-service";
@@ -52,6 +55,7 @@ export function ProductSocialBar({
   const { profile, session } = useAuth();
   const queryClient = useQueryClient();
   const [commentsOpen, setCommentsOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
 
   const likesQuery = useQuery({
     queryKey: ["product-likes", profile?.id],
@@ -106,15 +110,20 @@ export function ProductSocialBar({
     patch("like_count", next ? 1 : -1);
   }
 
-  async function share(e: React.MouseEvent) {
+  function share(e: React.MouseEvent) {
     e.preventDefault();
     e.stopPropagation();
-    haptic();
-    const result = await shareProductPost(product);
-    if (result.shared) {
-      patch("share_count", 1);
-      if (!navigator.share) toast.success("Link copied");
+    if (isMockFeedId(product.id)) {
+      toast.error("This listing is not available.");
+      return;
     }
+    haptic();
+    setShareOpen(true);
+  }
+
+  async function handleShared() {
+    patch("share_count", 1);
+    await recordProductShare(product.id);
   }
 
   return (
@@ -155,12 +164,21 @@ export function ProductSocialBar({
             compact ? "min-h-8 min-w-8 px-1.5" : "min-h-11 min-w-11 px-2.5",
           )}
           aria-label="Share"
-          onClick={(e) => void share(e)}
+          onClick={(e) => share(e)}
         >
           <Share2 className={cn(compact ? "size-4" : "size-5", "text-foreground")} />
           <span className={cn("font-bold tabular-nums", compact ? "text-[10px]" : "text-[12px]")}>{compactCount(shares)}</span>
         </button>
       </div>
+      <ShareSheet
+        open={shareOpen}
+        onOpenChange={setShareOpen}
+        title={product.name}
+        text={`${product.name} · ${displayShopName(product.business_name)} on TIJAR`}
+        url={productShareUrl(product.id)}
+        imageUrl={product.image_url}
+        onShared={() => void handleShared()}
+      />
       <Sheet open={commentsOpen} onOpenChange={setCommentsOpen}>
         <SheetContent side="bottom" className="flex max-h-[85vh] flex-col overflow-hidden rounded-t-3xl p-0">
           <div className="mx-auto mt-2 h-1 w-10 rounded-full bg-muted" />

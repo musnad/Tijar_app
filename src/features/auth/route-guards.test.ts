@@ -32,19 +32,19 @@ describe("resolveAppEntry", () => {
     );
   });
 
-  it("sends businesses that finished onboarding to the dashboard", () => {
+  it("sends businesses that finished onboarding to the recent-posts feed", () => {
     expect(
       resolveAppEntry(
         profile({ account_mode: "business", active_mode: "business", onboarding_status: "completed" }),
         true,
       ),
-    ).toBe("/app");
+    ).toBe("/shop");
   });
 
   it("sends businesses that still need onboarding there", () => {
     expect(
       resolveAppEntry(
-        profile({ account_mode: "business", active_mode: "business", onboarding_status: "pending" }),
+        profile({ account_mode: "business", active_mode: "business", onboarding_status: "in_progress" }),
         true,
       ),
     ).toBe("/app/onboarding");

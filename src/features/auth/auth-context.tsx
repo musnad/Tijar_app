@@ -41,6 +41,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let cancelled = false;
 
     void (async () => {
+      // #region debug-point A:ensure-env
+      fetch("http://10.164.42.184:7777/event",{method:"POST",body:JSON.stringify({sessionId:"android-login-blank-screen",runId:"pre",hypothesisId:"A",location:"auth-context.tsx:44",msg:"[DEBUG] Ensuring Supabase env...",ts:Date.now()})}).catch(()=>{});
+      // #endregion
       const env = await ensureSupabasePublicEnv();
       if (cancelled) return;
       if (env) {
@@ -94,6 +97,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, nextSession) => {
+      // #region debug-point A:auth-change
+      fetch("http://10.164.42.184:7777/event",{method:"POST",body:JSON.stringify({sessionId:"android-login-blank-screen",runId:"pre",hypothesisId:"A",location:"auth-context.tsx:97",msg:`[DEBUG] Auth state changed: ${event}`,data:{userId:nextSession?.user.id},ts:Date.now()})}).catch(()=>{});
+      // #endregion
       if (event === "PASSWORD_RECOVERY") markPasswordRecovery();
       setSession((prev) => {
         if (prev?.access_token === nextSession?.access_token && prev?.user.id === nextSession?.user.id) {
