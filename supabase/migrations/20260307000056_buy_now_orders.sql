@@ -43,8 +43,8 @@ begin
     from public.order_checkout_keys
     where profile_id = v_profile and idempotency_key = p_idempotency_key;
     if v_existing is not null then
-      return query select * from public.orders where id = any (v_existing) limit 1;
-      return;
+      select * into v_order from public.orders where id = any (v_existing) limit 1;
+      return v_order;
     end if;
   end if;
 
