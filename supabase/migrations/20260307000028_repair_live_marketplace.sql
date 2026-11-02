@@ -17,5 +17,5 @@ values
   ('product-images', 'product-images', true),
   ('voice-samples', 'voice-samples', false),
   ('upgrade-shop-images', 'upgrade-shop-images', true),
-  ('video-posts', 'video-posts', true)
+  ('business-videos', 'business-videos', true)
 on conflict (id) do nothing;
