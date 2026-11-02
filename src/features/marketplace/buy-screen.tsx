@@ -12,11 +12,10 @@ import { MarketplaceShell } from "@/features/marketplace/marketplace-shell";
 import { isMockFeedId } from "@/features/marketplace/feed-mock";
 import { useAuth } from "@/features/auth/auth-context";
 import {
-  addToCart,
   fetchBusinessPayoutAccount,
   fetchMarketplaceProduct,
   markBuyerTransferPaid,
-  placeOrders,
+  placeBuyNowOrder,
 } from "@/services/marketplace-service";
 import { formatNgn } from "@/utils/money";
 import { useTranslation } from "@/lib/i18n/context";
@@ -81,35 +80,20 @@ export function BuyScreen({ productId }: { productId?: string }) {
       return;
     }
     setBusy(true);
-    const added = await addToCart(profile.id, {
-      businessId: product.business_id,
+    const placed = await placeBuyNowOrder({
       productId: product.id,
-      productName: product.name,
-      unit: product.unit,
-      unitPrice: Number(product.sale_price),
       quantity: qty,
-      imageUrl: product.image_url,
-    });
-    if (added.error) {
-      toast.error(added.error);
-      setBusy(false);
-      return;
-    }
-    const placed = await placeOrders({
       fulfilment,
       buyerNote: ["Pay: Transfer to shop", note].filter(Boolean).join(" · "),
       buyerPhone: phone,
       idempotencyKey: crypto.randomUUID(),
-      paymentMethod: "transfer",
-      paymentDestination: "seller",
     });
-    if (placed.error || placed.orders.length === 0) {
+    if (placed.error || !placed.order) {
       setBusy(false);
       toast.error(placed.error ?? "Could not place the order.");
       return;
     }
-    const order = placed.orders[0]!;
-    setOrderId(order.id);
+    setOrderId(placed.order.id);
     await queryClient.invalidateQueries({ queryKey: ["marketplace-orders"] });
     setBusy(false);
     toast.success(t("shop.buy.transferReady"));

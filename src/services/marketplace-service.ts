@@ -785,6 +785,36 @@ export async function placeOrders(input: {
   return { orders, error: null };
 }
 
+/**
+ * "Buy now" — order a single product directly, without touching the cart.
+ * The shop is notified (in-app + push) by the orders trigger.
+ */
+export async function placeBuyNowOrder(input: {
+  productId: string;
+  quantity?: number;
+  variantId?: string | null;
+  fulfilment?: "pickup" | "seller_delivery" | "third_party";
+  buyerPhone?: string;
+  buyerNote?: string;
+  idempotencyKey: string;
+}): Promise<{ order: MarketplaceOrder | null; error: string | null }> {
+  const supabase = getSupabaseBrowserClient();
+  const { data, error } = await supabase.rpc("place_buy_now_order", {
+    p_product_id: input.productId,
+    p_quantity: input.quantity ?? 1,
+    p_variant_id: input.variantId ?? null,
+    p_fulfilment: input.fulfilment ?? "pickup",
+    p_buyer_phone: input.buyerPhone ?? null,
+    p_buyer_note: input.buyerNote ?? null,
+    p_idempotency_key: input.idempotencyKey,
+  });
+  if (error) return { order: null, error: error.message };
+  const raw = data as MarketplaceOrder | MarketplaceOrder[] | null;
+  const order = Array.isArray(raw) ? (raw[0] ?? null) : raw;
+  if (!order) return { order: null, error: "Could not place the order." };
+  return { order, error: null };
+}
+
 export async function transitionOrder(
   orderId: string,
   nextStatus: string,
