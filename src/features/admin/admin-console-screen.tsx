@@ -12,14 +12,20 @@ import {
   YAxis,
 } from "recharts";
 import {
+  Activity,
   BadgeCheck,
   Building2,
   ClipboardList,
   Crown,
   Download,
+  Eye,
+  Heart,
+  MessageCircle,
+  Package,
   Percent,
   Phone,
   Search,
+  Share2,
   ShieldCheck,
   Store,
   Users,
@@ -54,17 +60,21 @@ import {
   approveAllBusinesses,
   fetchAdminBusinesses,
   fetchAdminBusinessInsights,
+  fetchAdminContentOverview,
   fetchAdminOrders,
   fetchAdminPayments,
   fetchAdminProfiles,
   fetchAdminTransactions,
   fetchAdminUpgradeRequests,
+  fetchAdminVisibility,
   reviewBusinessUpgrade,
   setBusinessPublished,
   setBusinessVerification,
   shopName,
   type AdminBusiness,
+  type AdminContentKind,
   type AdminOrder,
+  type AdminProfile,
   type AdminTransaction,
   type KycStatus,
 } from "@/services/admin-service";
@@ -78,6 +88,7 @@ type Tab =
   | "kyc"
   | "applications"
   | "businesses"
+  | "content"
   | "insights"
   | "users"
   | "transactions"
@@ -85,9 +96,29 @@ type Tab =
 
 const KYC_QUEUE: KycStatus[] = ["submitted", "under_review", "in_progress", "requires_update"];
 
+const ONLINE_WINDOW_MS = 5 * 60 * 1000;
+
 const engagementConfig = {
   events: { label: "Activity", color: "hsl(160 45% 42%)" },
   sales: { label: "Sales", color: "hsl(210 55% 42%)" },
+};
+
+const visitorsConfig = {
+  visitors: { label: "Visitors", color: "hsl(160 45% 42%)" },
+  newUsers: { label: "New users", color: "hsl(210 55% 42%)" },
+};
+
+function isOnline(iso?: string | null): boolean {
+  if (!iso) return false;
+  const stamp = Date.parse(iso);
+  if (Number.isNaN(stamp)) return false;
+  return Date.now() - stamp < ONLINE_WINDOW_MS;
+}
+
+const CONTENT_LABEL: Record<AdminContentKind, string> = {
+  product: "Product",
+  post: "Post",
+  listing: "Order listing",
 };
 
 function dayKey(iso?: string | null): string {
@@ -150,6 +181,21 @@ function StatusPill({
   return (
     <span className={cn("inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide", cls)}>
       {label.replaceAll("_", " ")}
+    </span>
+  );
+}
+
+function OnlineDot({ online }: { online: boolean }) {
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide",
+        online ? "text-primary" : "text-muted-foreground",
+      )}
+      title={online ? "Active in the last 5 minutes" : "Not active right now"}
+    >
+      <span className={cn("size-2 rounded-full", online ? "bg-primary" : "bg-muted-foreground/40")} />
+      {online ? "online" : "offline"}
     </span>
   );
 }
@@ -248,6 +294,7 @@ export function AdminConsoleScreen() {
   const [tab, setTab] = useState<Tab>("overview");
   const [query, setQuery] = useState("");
   const [userKind, setUserKind] = useState<"all" | AccountCategory>("all");
+  const [contentKind, setContentKind] = useState<"all" | AdminContentKind>("all");
   const [ratePct, setRatePct] = useState(DEFAULT_PLATFORM_COMMISSION_RATE * 100);
   const [notesById, setNotesById] = useState<Record<string, string>>({});
   const [approvingAll, setApprovingAll] = useState(false);
@@ -332,6 +379,27 @@ export function AdminConsoleScreen() {
     },
   });
 
+  const contentQuery = useQuery({
+    queryKey: ["admin-content"],
+    enabled: isAdmin,
+    queryFn: async () => {
+      const r = await fetchAdminContentOverview();
+      if (r.error) throw new Error(r.error);
+      return r.items;
+    },
+  });
+
+  const visibilityQuery = useQuery({
+    queryKey: ["admin-visibility"],
+    enabled: isAdmin,
+    refetchInterval: 60_000,
+    queryFn: async () => {
+      const r = await fetchAdminVisibility();
+      if (r.error) throw new Error(r.error);
+      return r.visibility;
+    },
+  });
+
   const businesses = businessesQuery.data ?? [];
   const users = usersQuery.data ?? [];
   const orders = ordersQuery.data ?? [];
@@ -339,6 +407,10 @@ export function AdminConsoleScreen() {
   const payments = paymentsQuery.data ?? [];
   const upgrades = upgradesQuery.data ?? [];
   const insights = insightsQuery.data ?? [];
+  const content = contentQuery.data ?? [];
+  const visibility = visibilityQuery.data;
+  const totals = visibility?.totals;
+  const presence = visibility?.presence;
 
   const stats = useMemo(() => {
     const today = new Date().toISOString().slice(0, 10);
@@ -434,6 +506,8 @@ export function AdminConsoleScreen() {
       queryClient.invalidateQueries({ queryKey: ["admin-orders"] }),
       queryClient.invalidateQueries({ queryKey: ["admin-transactions"] }),
       queryClient.invalidateQueries({ queryKey: ["admin-payments"] }),
+      queryClient.invalidateQueries({ queryKey: ["admin-content"] }),
+      queryClient.invalidateQueries({ queryKey: ["admin-visibility"] }),
       queryClient.invalidateQueries({ queryKey: ["moderation-listings"] }),
     ]);
   }
@@ -475,6 +549,7 @@ export function AdminConsoleScreen() {
     { id: "kyc", label: "KYC" },
     { id: "applications", label: "Applications" },
     { id: "businesses", label: "Businesses" },
+    { id: "content", label: "Content & live" },
     { id: "insights", label: "Inventory & sales" },
     { id: "users", label: "Users" },
     { id: "transactions", label: "Transactions" },
@@ -579,6 +654,28 @@ export function AdminConsoleScreen() {
     toast.success("Finance summary downloaded");
   }
 
+  function exportContent() {
+    downloadAdminCsv(
+      `tijar-content-${stamp()}.csv`,
+      ["Type", "Name", "Shop", "Price", "Posted by", "Poster email", "Poster phone", "Likes", "Comments", "Shares", "Live", "Posted"],
+      content.map((item) => [
+        CONTENT_LABEL[item.kind],
+        item.title,
+        item.businessName,
+        item.price == null ? "" : item.price.toFixed(2),
+        item.posterName,
+        item.posterEmail ?? "",
+        item.posterPhone ?? "",
+        item.likeCount,
+        item.commentCount,
+        item.shareCount,
+        item.isPublished ? "yes" : "no",
+        item.createdAt ?? "",
+      ]),
+    );
+    toast.success("Content CSV downloaded");
+  }
+
   const q = query.trim();
   const kycRows = businesses.filter((b) =>
     matchesQuery(
@@ -606,6 +703,21 @@ export function AdminConsoleScreen() {
       q,
     ),
   );
+  const contentRows = content.filter((item) => {
+    if (contentKind !== "all" && item.kind !== contentKind) return false;
+    return matchesQuery(
+      [
+        item.title,
+        CONTENT_LABEL[item.kind],
+        item.businessName,
+        item.posterName,
+        item.posterEmail,
+        item.posterPhone,
+        item.price == null ? "" : String(item.price),
+      ].join(" "),
+      q,
+    );
+  });
 
   return (
     <div className="pb-8">
@@ -637,6 +749,18 @@ export function AdminConsoleScreen() {
           <Kpi icon={Wallet} label="Sales (ledger)" value={formatNgnCompact(stats.salesVolume)} hint={`${formatNgnCompact(stats.salesToday)} today`} />
           <Kpi icon={Building2} label="Marketplace GMV" value={formatNgnCompact(stats.gmv)} hint={`${stats.ordersToday} orders today`} />
           <Kpi icon={Percent} label="Commission" value={formatNgnCompact(finance.totalCommission)} hint={`${ratePct}% of volume`} />
+          <Kpi
+            icon={Activity}
+            label="Online now"
+            value={String(presence?.onlineUsers ?? 0)}
+            hint={`${presence?.onlineBusinesses ?? 0} shops · ${presence?.activeToday ?? 0} active today`}
+          />
+          <Kpi
+            icon={Eye}
+            label="Visitors today"
+            value={String(presence?.visitorsToday ?? 0)}
+            hint={`${(presence?.visitors7d ?? 0).toLocaleString()} in 7 days`}
+          />
         </div>
       </section>
 
@@ -676,6 +800,9 @@ export function AdminConsoleScreen() {
         </Button>
         <Button size="sm" variant="outline" className="rounded-xl font-bold" onClick={exportFinance}>
           <Download className="mr-1.5 size-3.5" /> Finance
+        </Button>
+        <Button size="sm" variant="outline" className="rounded-xl font-bold" onClick={exportContent}>
+          <Download className="mr-1.5 size-3.5" /> Content
         </Button>
       </div>
 
@@ -958,6 +1085,7 @@ export function AdminConsoleScreen() {
                 <p className="text-[11px] text-muted-foreground">
                   {biz.owner?.full_name ?? "Owner"} · {biz.public_location_label ?? biz.location ?? "—"}
                 </p>
+                <OnlineDot online={isOnline(biz.owner?.last_seen_at)} />
               </td>
               <td className="px-3 py-3">
                 <PhoneLink phone={recordedPhone(biz.public_phone, biz.public_whatsapp, biz.owner?.phone)} />
@@ -1048,12 +1176,131 @@ export function AdminConsoleScreen() {
               </button>
             ))}
           </div>
-          <AdminTable empty="No users in this category." headers={["Name", "Phone numbers", "Category", "Spend", "Business making", "Email", "Joined"]}>
+          <AdminTable empty="No users in this category." headers={["Name", "Presence", "Phone numbers", "Category", "Spend", "Business making", "Email", "Joined"]}>
             {userRows.map((row) => (
               <UserRow key={row.user.id} row={row} />
             ))}
           </AdminTable>
         </>
+      )}
+
+      {tab === "content" && (
+        <div className="mt-4 space-y-4">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-5">
+            {(
+              [
+                { icon: Heart, label: "Total likes", value: (totals?.likes ?? 0).toLocaleString(), hint: "Posts + products" },
+                { icon: MessageCircle, label: "Total comments", value: (totals?.comments ?? 0).toLocaleString(), hint: "Posts + products" },
+                { icon: Share2, label: "Total shares", value: (totals?.shares ?? 0).toLocaleString(), hint: "Shared to other apps" },
+                { icon: Package, label: "Products", value: (totals?.products ?? 0).toLocaleString(), hint: `${(totals?.publishedProducts ?? 0).toLocaleString()} published` },
+                { icon: ClipboardList, label: "Posts & listings", value: ((totals?.posts ?? 0) + (totals?.listings ?? 0)).toLocaleString(), hint: `${totals?.posts ?? 0} posts · ${totals?.listings ?? 0} order listings` },
+                { icon: Activity, label: "Online now", value: String(presence?.onlineUsers ?? 0), hint: `${presence?.onlineBusinesses ?? 0} shops online` },
+                { icon: Eye, label: "Active today", value: String(presence?.activeToday ?? 0), hint: `${presence?.newUsersToday ?? 0} joined today` },
+                { icon: Users, label: "Daily visitors", value: String(presence?.visitorsToday ?? 0), hint: `${presence?.visitors7d ?? 0} in last 7 days` },
+                { icon: Users, label: "All-time visits", value: (presence?.visitorsTotal ?? 0).toLocaleString(), hint: `${(presence?.uniqueVisitors ?? 0).toLocaleString()} unique devices` },
+                { icon: Store, label: "Accounts", value: (presence?.totalBusinesses ?? 0).toLocaleString(), hint: `${(presence?.totalUsers ?? 0).toLocaleString()} users total` },
+              ] as { icon: typeof Users; label: string; value: string; hint: string }[]
+            ).map((tile) => {
+              const Icon = tile.icon;
+              return (
+                <div key={tile.label} className="rounded-xl border border-border bg-card px-3 py-3">
+                  <div className="flex items-center gap-1.5 text-muted-foreground">
+                    <Icon className="size-3.5" />
+                    <p className="text-[10px] font-bold uppercase tracking-wide">{tile.label}</p>
+                  </div>
+                  <p className="mt-1 text-lg font-extrabold tabular-nums">{tile.value}</p>
+                  <p className="text-[10px] font-medium text-muted-foreground">{tile.hint}</p>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="rounded-2xl border border-border bg-card p-4 shadow-sm">
+            <div className="flex items-center justify-between">
+              <h2 className="font-extrabold">Daily visitors</h2>
+              <span className="text-[10px] font-semibold uppercase text-muted-foreground">Last 14 days</span>
+            </div>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Unique devices that opened TIJAR each day, and the accounts created that day.
+            </p>
+            <ChartContainer config={visitorsConfig} className="mt-3 h-[200px] w-full aspect-auto">
+              <BarChart data={visibility?.daily ?? []} margin={{ top: 8, right: 4, left: -18, bottom: 0 }}>
+                <CartesianGrid vertical={false} strokeDasharray="4 4" />
+                <XAxis dataKey="label" tickLine={false} axisLine={false} />
+                <YAxis tickLine={false} axisLine={false} width={36} />
+                <ChartTooltip content={<ChartTooltipContent />} />
+                <Bar dataKey="visitors" fill="var(--color-visitors)" radius={[6, 6, 0, 0]} />
+                <Bar dataKey="newUsers" fill="var(--color-newUsers)" radius={[6, 6, 0, 0]} />
+              </BarChart>
+            </ChartContainer>
+          </div>
+
+          <div className="flex flex-wrap gap-1.5">
+            {(["all", "product", "post", "listing"] as const).map((kind) => {
+              const count = kind === "all" ? content.length : content.filter((i) => i.kind === kind).length;
+              return (
+                <button
+                  key={kind}
+                  type="button"
+                  onClick={() => setContentKind(kind)}
+                  className={cn(
+                    "rounded-full px-3 py-1.5 text-xs font-bold",
+                    contentKind === kind ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground",
+                  )}
+                >
+                  {kind === "all" ? "All" : `${CONTENT_LABEL[kind]}s`} ({count})
+                </button>
+              );
+            })}
+          </div>
+
+          <AdminTable
+            empty="No products or posts yet."
+            headers={["Name", "Shop", "Price", "Posted by", "Likes", "Comments", "Shares", "Live", "Posted"]}
+          >
+            {contentRows.map((item) => (
+              <tr key={`${item.kind}-${item.itemId}`} className="border-t border-border/60 align-top">
+                <td className="max-w-[220px] px-3 py-2.5">
+                  <p className="truncate font-semibold">{item.title}</p>
+                  <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+                    {CONTENT_LABEL[item.kind]}
+                  </p>
+                </td>
+                <td className="px-3 py-2.5">
+                  {item.businessSlug ? (
+                    <Link to="/b/$slug" params={{ slug: item.businessSlug }} className="font-semibold text-primary">
+                      {item.businessName}
+                    </Link>
+                  ) : (
+                    <span className="font-semibold">{item.businessName}</span>
+                  )}
+                </td>
+                <td className="px-3 py-2.5 font-semibold tabular-nums">
+                  {item.price == null ? "—" : formatNgn(item.price)}
+                </td>
+                <td className="min-w-[11rem] px-3 py-2.5">
+                  <p className="font-semibold">{item.posterName}</p>
+                  <p className="text-[11px] text-muted-foreground">{item.posterEmail ?? "—"}</p>
+                  <p className="text-[11px]">
+                    <PhoneLink phone={item.posterPhone} />
+                  </p>
+                </td>
+                <td className="px-3 py-2.5 tabular-nums">{item.likeCount.toLocaleString()}</td>
+                <td className="px-3 py-2.5 tabular-nums">{item.commentCount.toLocaleString()}</td>
+                <td className="px-3 py-2.5 tabular-nums">{item.shareCount.toLocaleString()}</td>
+                <td className="px-3 py-2.5">
+                  <StatusPill label={item.isPublished ? "live" : "draft"} tone={item.isPublished ? "ok" : "muted"} />
+                </td>
+                <td className="px-3 py-2.5 text-muted-foreground">{formatWhen(item.createdAt)}</td>
+              </tr>
+            ))}
+          </AdminTable>
+          <p className="text-xs text-muted-foreground">
+            {contentQuery.isLoading
+              ? "Loading products and posts…"
+              : `${contentRows.length} of ${content.length} items · likes, comments and shares are platform totals`}
+          </p>
+        </div>
       )}
 
       {tab === "insights" && (
@@ -1251,7 +1498,7 @@ function UserRow({
   row,
 }: {
   row: {
-    user: Profile;
+    user: AdminProfile;
     kind: AccountCategory;
     spend: number;
     making: number;
@@ -1263,6 +1510,12 @@ function UserRow({
     <tr className="border-t border-border align-top">
       <td className="px-3 py-2.5">
         <p className="font-semibold">{user.full_name || "—"}</p>
+      </td>
+      <td className="px-3 py-2.5">
+        <OnlineDot online={isOnline(user.last_seen_at)} />
+        <p className="mt-0.5 text-[10px] text-muted-foreground">
+          {user.last_seen_at ? formatWhen(user.last_seen_at) : "never seen"}
+        </p>
       </td>
       <td className="min-w-[11rem] px-3 py-2.5">
         <PhoneNumbers phones={phones} />

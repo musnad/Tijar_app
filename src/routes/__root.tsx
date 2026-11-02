@@ -17,6 +17,7 @@ import { isTijarNativeApp } from "@/lib/tijar-native-app";
 import appCss from "../styles.css?url";
 import { SiteFooter, SiteHeader } from "../components/site-shell";
 import { AuthProvider, useAuth } from "@/features/auth/auth-context";
+import { PresenceBeacon } from "@/features/app/presence-beacon";
 import { SitePreferencesProvider, useTranslation } from "../lib/i18n/context";
 import { enMessages } from "../lib/i18n/messages/en";
 import { clearServiceWorkers } from "../lib/clear-service-workers";
@@ -214,6 +215,7 @@ function RootLayout() {
 
   return (
     <div className={shopFeed ? "h-dvh overflow-hidden bg-background text-foreground" : "min-h-screen bg-background text-foreground"}>
+      <PresenceBeacon />
       {showMarketingShell && <SiteHeader />}
       <main id="main-content" className={shopFeed ? "h-full overflow-hidden" : undefined}>
         <Outlet />
