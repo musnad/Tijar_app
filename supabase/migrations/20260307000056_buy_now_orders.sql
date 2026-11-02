@@ -7,6 +7,29 @@
 -- stay in the cart. The existing `orders_notify_placed` trigger still tells
 -- the shop (in-app + push) that a new order landed.
 
+-- Make sure the checkout columns/tables this RPC writes to exist, even when
+-- the earlier cart/checkout migrations were not applied to this database.
+alter table public.orders
+  add column if not exists payment_fee numeric(18, 2) not null default 0,
+  add column if not exists is_order_request boolean not null default true,
+  add column if not exists idempotency_key text,
+  add column if not exists pricing_snapshot jsonb not null default '{}'::jsonb,
+  add column if not exists payment_method text,
+  add column if not exists payment_destination text;
+
+alter table public.order_items
+  add column if not exists variant_id text,
+  add column if not exists variant_label text,
+  add column if not exists snapshot jsonb not null default '{}'::jsonb;
+
+create table if not exists public.order_checkout_keys (
+  profile_id uuid not null references public.profiles (id) on delete cascade,
+  idempotency_key text not null,
+  order_ids uuid[] not null default '{}',
+  created_at timestamptz not null default now(),
+  primary key (profile_id, idempotency_key)
+);
+
 create or replace function public.place_buy_now_order(
   p_product_id uuid,
   p_quantity numeric default 1,
