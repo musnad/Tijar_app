@@ -41,7 +41,29 @@ export type PublicFeedVideo = {
   public_location_label: string | null;
   product_ids: string[];
   media_kind?: "video" | "image" | string | null;
+  /** Standalone display price for a photo/video post. */
+  price?: number | null;
+  post_type?: "standard" | "bid" | string | null;
+  bid_starting_price?: number | null;
+  bid_starts_at?: string | null;
+  bid_ends_at?: string | null;
+  bid_sale_limit?: number | null;
+  bid_status?: "open" | "sold" | "paid" | string | null;
+  bid_winner_id?: string | null;
+  bid_winner_name?: string | null;
+  bid_sold_at?: string | null;
+  bid_payment_due_at?: string | null;
+  bid_paid_at?: string | null;
+  /** Set when the winning bidder says they have paid (bank transfer). */
+  bid_buyer_marked_paid_at?: string | null;
+  /** Highest bid so far (from the feed view). */
+  top_bid?: number | null;
+  bid_count?: number | null;
 };
+
+export function isBidPost(video: { post_type?: string | null }): boolean {
+  return video.post_type === "bid";
+}
 
 export function isImagePost(row: {
   media_kind?: string | null;

@@ -4,9 +4,12 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
 import {
   ArrowRight,
+  Banknote,
+  CalendarClock,
   Camera,
   Check,
   CircleHelp,
+  Gavel,
   Globe,
   Menu,
   Pencil,
@@ -31,6 +34,7 @@ import { cn } from "@/lib/utils";
 import { uploadProductImage } from "@/services/product-image-service";
 import { createProduct, listProducts, updateProductImageUrl } from "@/services/product-service";
 import { MAX_POST_IMAGES, submitStudioVideo } from "@/services/video-studio-service";
+import type { StudioBidInput } from "@/services/video-studio-service";
 import type { Product } from "@/types/database";
 import { formatNgn } from "@/utils/money";
 
@@ -92,7 +96,18 @@ export function SellerVideoStudioScreen({
   const [permNote, setPermNote] = useState<string | null>(null);
   const [progress, setProgress] = useState<{ pct: number; label: string } | null>(null);
   const [step, setStep] = useState<"compose" | "review">("compose");
-  const [errors, setErrors] = useState<{ product?: string; media?: string; caption?: string }>({});
+  const [postMode, setPostMode] = useState<"standard" | "bid">("standard");
+  const [postPrice, setPostPrice] = useState("");
+  const [bidStarting, setBidStarting] = useState("");
+  const [bidStartsAt, setBidStartsAt] = useState("");
+  const [bidEndsAt, setBidEndsAt] = useState("");
+  const [bidSaleLimit, setBidSaleLimit] = useState("");
+  const [errors, setErrors] = useState<{
+    product?: string;
+    media?: string;
+    caption?: string;
+    bid?: string;
+  }>({});
 
   const productsQuery = useQuery({
     queryKey: ["create-products", businessId],
@@ -217,10 +232,22 @@ export function SellerVideoStudioScreen({
     if (!productId && !hasNew) next.product = "Pick a product, or type a name and price.";
     if (!file) next.media = "Add a photo or a short video.";
     if (caption.length > CAPTION_MAX) next.caption = `Caption must be ${CAPTION_MAX} characters or less.`;
+    if (postMode === "bid") {
+      const start = Number(bidStarting.replace(/,/g, ""));
+      const limit = Number(bidSaleLimit.replace(/,/g, ""));
+      if (!(start > 0)) next.bid = "Enter a starting price.";
+      else if (!(limit > 0)) next.bid = "Enter the sale limit — the price that closes the bid.";
+      else if (limit < start) next.bid = "Sale limit must be at least the starting price.";
+      else if (!bidStartsAt) next.bid = "Choose when bidding starts.";
+      else if (!bidEndsAt) next.bid = "Choose when bidding finishes.";
+      else if (new Date(bidEndsAt).getTime() <= new Date(bidStartsAt).getTime())
+        next.bid = "Finish time must be after the start time.";
+    }
     setErrors(next);
     if (next.product) toast.error(next.product);
     else if (next.media) toast.error(next.media);
     else if (next.caption) toast.error(next.caption);
+    else if (next.bid) toast.error(next.bid);
     return Object.keys(next).length === 0;
   }
 
@@ -358,6 +385,16 @@ export function SellerVideoStudioScreen({
     }
     const hashtags = tags.map((t) => `#${t.replace(/\s+/g, "")}`).join(" ");
     const fullCaption = [caption.trim() || (makingNew ? newName.trim() : ""), hashtags].filter(Boolean).join(" ");
+    const isBid = postMode === "bid";
+    const standPrice = postPrice.trim() ? Number(postPrice.replace(/,/g, "")) : null;
+    const bidInput: StudioBidInput | null = isBid
+      ? {
+          startingPrice: Number(bidStarting.replace(/,/g, "")),
+          startsAt: new Date(bidStartsAt).toISOString(),
+          endsAt: new Date(bidEndsAt).toISOString(),
+          saleLimit: Number(bidSaleLimit.replace(/,/g, "")),
+        }
+      : null;
     const r = await submitStudioVideo({
       businessId,
       profileId,
@@ -370,6 +407,9 @@ export function SellerVideoStudioScreen({
       ),
       attribution: "business",
       rightsAttested: true,
+      price: isBid ? null : standPrice,
+      postType: isBid ? "bid" : "standard",
+      ...(bidInput ? { bid: bidInput } : {}),
       onProgress: (pct, label) => setProgress({ pct, label }),
     });
     setBusy(false);
@@ -380,9 +420,11 @@ export function SellerVideoStudioScreen({
     }
     haptic("success");
     toast.success(
-      tagId
-        ? "Posted. Customers can see it on For You and in your shop."
-        : "Posted to For You.",
+      isBid
+        ? "Bidding post is live. Buyers can bid on it now."
+        : tagId
+          ? "Posted. Customers can see it on For You and in your shop."
+          : "Posted to For You.",
     );
     if (r.videoId) sessionStorage.setItem("tijar-for-you-video-id", r.videoId);
     await queryClient.invalidateQueries({ queryKey: ["video-feed"] });
@@ -391,6 +433,7 @@ export function SellerVideoStudioScreen({
     await queryClient.invalidateQueries({ queryKey: ["marketplace-products"] });
     await queryClient.invalidateQueries({ queryKey: ["create-products", businessId] });
     await queryClient.invalidateQueries({ queryKey: ["products-dashboard", businessId] });
+    await queryClient.invalidateQueries({ queryKey: ["my-bid-posts", businessId] });
     void navigate({ to: "/shop", search: r.videoId ? { v: r.videoId } : {} });
   }
 
@@ -456,6 +499,10 @@ export function SellerVideoStudioScreen({
             kind={kind}
             caption={caption}
             tags={tags}
+            postMode={postMode}
+            postPrice={postPrice}
+            bidStarting={bidStarting}
+            bidSaleLimit={bidSaleLimit}
             busy={busy}
             progress={progress}
             onSaveChange={setSaveToProducts}
@@ -472,9 +519,41 @@ export function SellerVideoStudioScreen({
                 <h1 className="text-[1.35rem] font-extrabold leading-tight tracking-tight text-[#0B1F4D]">
                   Create post
                 </h1>
-                <p className="mt-0.5 text-[13px] text-[#6B7280]">Photo or video. Pick a product, then post.</p>
+                <p className="mt-0.5 text-[13px] text-[#6B7280]">
+                  Photo or video, a caption and a price — or run a bidding post.
+                </p>
               </div>
             </div>
+
+            <div className="mt-4 grid grid-cols-2 gap-1 rounded-xl bg-[#F3F4F6] p-1">
+              <button
+                type="button"
+                className={cn(
+                  "min-h-10 rounded-lg text-[13px] font-extrabold transition",
+                  postMode === "standard" ? "bg-white text-[#0B1F4D] shadow-sm" : "text-[#6B7280]",
+                )}
+                onClick={() => setPostMode("standard")}
+              >
+                Photo / video post
+              </button>
+              <button
+                type="button"
+                className={cn(
+                  "min-h-10 rounded-lg text-[13px] font-extrabold transition",
+                  postMode === "bid" ? "bg-white text-[#0B1F4D] shadow-sm" : "text-[#6B7280]",
+                )}
+                onClick={() => setPostMode("bid")}
+              >
+                Bidding post
+              </button>
+            </div>
+            {postMode === "bid" ? (
+              <p className="mt-2 rounded-2xl bg-[#F3FBF6] px-3 py-2 text-[12px] leading-relaxed text-[#1F7A4D]">
+                Buyers bid on this item. The first bid that reaches your sale limit closes it instantly and shows
+                “Sold to …”. The winner has 5 minutes to pay, or you can mark it unpaid and the item returns to the
+                market.
+              </p>
+            ) : null}
 
             <section className="mt-5" aria-labelledby="product-heading">
               <h2 id="product-heading" className="flex items-center gap-1.5 text-[15px] font-extrabold text-[#0B1F4D]">
@@ -780,6 +859,72 @@ export function SellerVideoStudioScreen({
               {errors.media ? <p className="mt-1 text-[12px] font-semibold text-red-600">{errors.media}</p> : null}
             </section>
 
+            {postMode === "bid" ? (
+              <section className="mt-5" aria-labelledby="bid-heading">
+                <h2 id="bid-heading" className="flex items-center gap-1.5 text-[15px] font-extrabold text-[#0B1F4D]">
+                  <Gavel className="size-4 text-[#1F7A4D]" />
+                  Bidding
+                </h2>
+                <div className="mt-2 space-y-2">
+                  <Input
+                    className="min-h-11 rounded-xl"
+                    value={bidStarting}
+                    inputMode="decimal"
+                    onChange={(e) => setBidStarting(e.target.value)}
+                    placeholder="Starting price in ₦"
+                  />
+                  <Input
+                    className="min-h-11 rounded-xl"
+                    value={bidSaleLimit}
+                    inputMode="decimal"
+                    onChange={(e) => setBidSaleLimit(e.target.value)}
+                    placeholder="Sale limit in ₦ — bid that closes it"
+                  />
+                  <label className="block text-[12px] font-bold text-[#6B7280]">
+                    Bidding starts
+                    <Input
+                      className="mt-1 min-h-11 rounded-xl text-[#0B1F4D]"
+                      type="datetime-local"
+                      value={bidStartsAt}
+                      onChange={(e) => setBidStartsAt(e.target.value)}
+                    />
+                  </label>
+                  <label className="block text-[12px] font-bold text-[#6B7280]">
+                    Bidding finishes
+                    <Input
+                      className="mt-1 min-h-11 rounded-xl text-[#0B1F4D]"
+                      type="datetime-local"
+                      value={bidEndsAt}
+                      onChange={(e) => setBidEndsAt(e.target.value)}
+                    />
+                  </label>
+                </div>
+                <p className="mt-1.5 flex items-start gap-1.5 text-[12px] text-[#9CA3AF]">
+                  <CalendarClock className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+                  When a bid reaches the sale limit, it sells instantly and shows “Sold to …”. If no bid reaches it by
+                  the finish time, nothing is sold.
+                </p>
+                {errors.bid ? <p className="mt-1 text-[12px] font-semibold text-red-600">{errors.bid}</p> : null}
+              </section>
+            ) : (
+              <section className="mt-5" aria-labelledby="price-heading">
+                <h2 id="price-heading" className="flex items-center gap-1.5 text-[15px] font-extrabold text-[#0B1F4D]">
+                  <Banknote className="size-4 text-[#1F7A4D]" />
+                  Price
+                </h2>
+                <Input
+                  className="mt-2 min-h-11 rounded-xl"
+                  value={postPrice}
+                  inputMode="decimal"
+                  onChange={(e) => setPostPrice(e.target.value)}
+                  placeholder="Price in ₦ (optional)"
+                />
+                <p className="mt-1.5 text-[12px] text-[#9CA3AF]">
+                  Shown on the post so buyers see the price at a glance.
+                </p>
+              </section>
+            )}
+
             <section className="mt-5" aria-labelledby="caption-heading">
               <h2 id="caption-heading" className="flex items-center gap-1.5 text-[15px] font-extrabold text-[#0B1F4D]">
                 <Pencil className="size-4 text-[#1F7A4D]" />
@@ -866,6 +1011,10 @@ function ReviewStep({
   kind,
   caption,
   tags,
+  postMode,
+  postPrice,
+  bidStarting,
+  bidSaleLimit,
   busy,
   progress,
   onSaveChange,
@@ -880,6 +1029,10 @@ function ReviewStep({
   kind: "image" | "video" | null;
   caption: string;
   tags: string[];
+  postMode: "standard" | "bid";
+  postPrice: string;
+  bidStarting: string;
+  bidSaleLimit: string;
   busy: boolean;
   progress: { pct: number; label: string } | null;
   onSaveChange: (next: boolean) => void;
@@ -888,13 +1041,17 @@ function ReviewStep({
 }) {
   const listingName = product?.name ?? newName.trim();
   const isNew = !product && Boolean(newName.trim());
+  const isBid = postMode === "bid";
+  const money = (raw: string) => (raw.trim() ? formatNgn(Number(raw.replace(/,/g, ""))) : "—");
   return (
     <div className="pt-3">
       <h1 className="text-[1.35rem] font-extrabold text-[#0B1F4D]">Ready to post?</h1>
       <p className="mt-1 text-[13px] text-[#6B7280]">
-        {listingName
-          ? `This goes to For You${product || saveToProducts ? " with Buy now" : ""}.`
-          : "This goes to For You."}
+        {isBid
+          ? "This goes to For You as a bidding post. Buyers bid on it."
+          : listingName
+            ? `This goes to For You${product || saveToProducts ? " with Buy now" : ""}.`
+            : "This goes to For You."}
       </p>
       {previewUrl ? (
         kind === "video" ? (
@@ -934,6 +1091,16 @@ function ReviewStep({
         <p className="mt-3 text-[13px] text-[#6B7280]">This is already in your Products list.</p>
       ) : null}
       {caption ? <p className="mt-2 text-sm text-[#4B5563]">{caption}</p> : null}
+      {isBid ? (
+        <div className="mt-3 rounded-2xl border border-[#EEF1F5] bg-[#F3FBF6] p-3 text-[13px] text-[#0B1F4D]">
+          <p className="font-extrabold">Bidding post</p>
+          <p className="mt-0.5 text-[#1F7A4D]">
+            Starting {money(bidStarting)} · sells instantly at {money(bidSaleLimit)}
+          </p>
+        </div>
+      ) : postPrice.trim() ? (
+        <p className="mt-2 text-[13px] font-extrabold text-[#1F7A4D]">Price {money(postPrice)}</p>
+      ) : null}
       {tags.length ? (
         <p className="mt-2 text-[12px] text-[#6B7280]">{tags.map((t) => `#${t.replace(/\s+/g, "")}`).join(" ")}</p>
       ) : null}

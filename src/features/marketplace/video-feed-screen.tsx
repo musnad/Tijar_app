@@ -7,6 +7,7 @@ import {
   Bell,
   ChevronRight,
   Flag,
+  Gavel,
   Heart,
   MapPin,
   MessageCircle,
@@ -43,7 +44,7 @@ import { MarketplaceShell } from "@/features/marketplace/marketplace-shell";
 import { useAuth } from "@/features/auth/auth-context";
 import { displayShopName, isBlankShopName, shopLinkSlug } from "@/lib/shop-names";
 import { cn } from "@/lib/utils";
-import { addToCart, fetchCart, fetchMarketplaceProducts, toggleFavoriteProduct } from "@/services/marketplace-service";
+import { addToCart, fetchBusinessPayoutAccount, fetchCart, fetchMarketplaceProducts, toggleFavoriteProduct } from "@/services/marketplace-service";
 import { formatServiceDates, serviceLabel } from "@/lib/catalogue/service-schedule";
 import { parseVariantList } from "@/lib/catalogue/variants";
 import { TijarLogo } from "@/components/brand-logo";
@@ -66,6 +67,7 @@ import {
   recordFeedSignal,
   reportVideo,
   isImagePost,
+  isBidPost,
   productGallery,
   resolveCoverSrc,
   resolvePostGallery,
@@ -91,6 +93,15 @@ import {
   type PlaceOrderListing,
 } from "@/services/place-order-service";
 import { useStartShopChat } from "@/features/marketplace/use-start-shop-chat";
+import {
+  bidPhase,
+  bidPaymentSecondsLeft,
+  confirmBidPayment,
+  markBidPaid,
+  placeBid,
+  releaseBidUnpaid,
+} from "@/services/bid-service";
+import { usePrimaryBusiness } from "@/hooks/use-primary-business";
 
 type FeedTab = "foryou" | "following" | "nearby";
 
@@ -160,6 +171,35 @@ function timeAgo(iso: string | null | undefined): string {
   const hours = Math.floor(minutes / 60);
   if (hours < 24) return `${hours}h ago`;
   return `${Math.floor(hours / 24)}d ago`;
+}
+
+/** Live countdown (in seconds) to a future timestamp, ticking every second. */
+function useSecondsTo(target: string | null | undefined): number {
+  const compute = useCallback(() => {
+    if (!target) return 0;
+    const ms = new Date(target).getTime() - Date.now();
+    return ms > 0 ? Math.ceil(ms / 1000) : 0;
+  }, [target]);
+  const [secs, setSecs] = useState(compute);
+  useEffect(() => {
+    setSecs(compute());
+    if (!target) return;
+    const id = window.setInterval(() => setSecs(compute()), 1000);
+    return () => window.clearInterval(id);
+  }, [compute, target]);
+  return secs;
+}
+
+function fmtCountdown(secs: number): string {
+  if (secs <= 0) return "0s";
+  const d = Math.floor(secs / 86400);
+  const h = Math.floor((secs % 86400) / 3600);
+  const m = Math.floor((secs % 3600) / 60);
+  const s = secs % 60;
+  if (d > 0) return `${d}d ${h}h`;
+  if (h > 0) return `${h}h ${m}m`;
+  if (m > 0) return `${m}m ${s}s`;
+  return `${s}s`;
 }
 
 function CaptionText({ text, light }: { text: string; light?: boolean }) {
@@ -905,6 +945,294 @@ function FeedTopBar({ tab, onTab }: { tab: FeedTab; onTab: (t: FeedTab) => void 
   );
 }
 
+const BidPanel = memo(function BidPanel({ video }: { video: PublicFeedVideo }) {
+  const { profile } = useAuth();
+  const queryClient = useQueryClient();
+  const businessQuery = usePrimaryBusiness(profile?.id);
+  const phase = bidPhase(video);
+  const isOwner = Boolean(profile?.id && businessQuery.data?.business?.id === video.business_id);
+  const isWinner = Boolean(profile?.id && video.bid_winner_id === profile.id);
+
+  const starting = video.bid_starting_price != null ? Number(video.bid_starting_price) : 0;
+  const limit = video.bid_sale_limit != null ? Number(video.bid_sale_limit) : null;
+  const topBid = video.top_bid != null ? Number(video.top_bid) : null;
+  const minNext = Math.max(topBid != null ? topBid + 1 : starting, starting);
+
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [amount, setAmount] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const endsIn = useSecondsTo(video.bid_ends_at);
+  const startsIn = useSecondsTo(video.bid_starts_at);
+  const payIn = useSecondsTo(bidPaymentSecondsLeft(video) > 0 ? video.bid_payment_due_at : null);
+
+  async function refresh() {
+    await queryClient.invalidateQueries({ queryKey: ["video-feed"] });
+  }
+
+  async function submitBid() {
+    const value = Number(amount.replace(/,/g, ""));
+    if (!(value > 0)) {
+      toast.error("Enter a bid amount.");
+      return;
+    }
+    setBusy(true);
+    const r = await placeBid(video.id, value);
+    setBusy(false);
+    if (r.error) {
+      toast.error(r.error);
+      return;
+    }
+    setSheetOpen(false);
+    setAmount("");
+    haptic("success");
+    toast.success("Bid placed.");
+    await refresh();
+  }
+
+  const chip =
+    phase === "paid"
+      ? { label: "Paid", cls: "bg-[#1F7A4D] text-white" }
+      : phase === "sold"
+        ? { label: "Sold", cls: "bg-[#0B1F4D] text-white" }
+        : phase === "upcoming"
+          ? { label: "Starts soon", cls: "bg-[#EEF1F5] text-[#0B1F4D]" }
+          : phase === "ended"
+            ? { label: "Ended", cls: "bg-[#EEF1F5] text-[#6B7280]" }
+            : { label: "Live", cls: "bg-[#1F7A4D] text-white" };
+
+  return (
+    <div className="rounded-2xl border border-[#E5E7EB] bg-[#F8FAF9] p-3">
+      <div className="flex items-center justify-between gap-2">
+        <span className="inline-flex items-center gap-1.5 text-[13px] font-extrabold text-[#0B1F4D]">
+          <Gavel className="size-4 text-[#1F7A4D]" />
+          Bidding
+        </span>
+        <span className={cn("rounded-full px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wide", chip.cls)}>
+          {chip.label}
+        </span>
+      </div>
+
+      {phase === "sold" || phase === "paid" ? (
+        <p className="mt-2 text-[15px] font-extrabold text-[#0B1F4D]">
+          Sold to {video.bid_winner_name || "the top bidder"}
+        </p>
+      ) : null}
+
+      <div className="mt-2 flex items-end justify-between gap-2">
+        <div className="min-w-0">
+          <p className="text-[11px] uppercase tracking-wide text-[#6B7280]">
+            {topBid != null ? "Current bid" : "Starting price"}
+          </p>
+          <p className="text-[18px] font-black text-[#1F7A4D]">{formatNgn(topBid ?? starting)}</p>
+        </div>
+        <div className="shrink-0 text-right">
+          {phase === "upcoming" ? (
+            <>
+              <p className="text-[11px] uppercase tracking-wide text-[#6B7280]">Starts in</p>
+              <p className="text-[13px] font-extrabold text-[#0B1F4D]">{fmtCountdown(startsIn)}</p>
+            </>
+          ) : phase === "open" ? (
+            <>
+              <p className="text-[11px] uppercase tracking-wide text-[#6B7280]">Ends in</p>
+              <p className="text-[13px] font-extrabold text-[#0B1F4D]">{fmtCountdown(endsIn)}</p>
+            </>
+          ) : null}
+        </div>
+      </div>
+
+      {limit != null && (phase === "open" || phase === "upcoming") ? (
+        <p className="mt-1 text-[11px] font-semibold text-[#6B7280]">
+          Sells instantly at {formatNgn(limit)}
+          {video.bid_count ? ` · ${video.bid_count} ${video.bid_count === 1 ? "bid" : "bids"}` : ""}
+        </p>
+      ) : null}
+
+      {phase === "sold" && payIn > 0 ? (
+        <p className="mt-2 text-[12px] font-semibold text-amber-700">
+          {video.bid_buyer_marked_paid_at
+            ? "Winner says they have paid — confirm to finish."
+            : `Winner has ${fmtCountdown(payIn)} to pay.`}
+        </p>
+      ) : null}
+
+      {phase === "open" ? (
+        <>
+          <Button
+            type="button"
+            className="mt-3 min-h-11 w-full rounded-xl bg-[#1F7A4D] font-extrabold text-white hover:bg-[#1F7A4D]/90"
+            onClick={() => {
+              setAmount(String(minNext));
+              setSheetOpen(true);
+            }}
+          >
+            Place a bid
+          </Button>
+          <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
+            <SheetContent side="bottom" className="rounded-t-3xl">
+              <SheetHeader>
+                <SheetTitle>Place a bid</SheetTitle>
+              </SheetHeader>
+              <div className="mt-3 space-y-3 px-1 pb-6">
+                <p className="text-[13px] text-muted-foreground">
+                  Starting {formatNgn(starting)}
+                  {topBid != null ? ` · highest bid ${formatNgn(topBid)}` : ""}
+                </p>
+                <Input
+                  inputMode="decimal"
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                  placeholder={`${formatNgn(minNext)} or more`}
+                  className="min-h-12 rounded-xl"
+                />
+                <Button
+                  type="button"
+                  className="min-h-12 w-full rounded-xl bg-[#1F7A4D] font-extrabold text-white hover:bg-[#1F7A4D]/90"
+                  disabled={busy}
+                  onClick={() => void submitBid()}
+                >
+                  {busy ? "Placing…" : "Place bid"}
+                </Button>
+                {limit != null ? (
+                  <p className="text-[11px] text-muted-foreground">
+                    A bid of {formatNgn(limit)} or more buys it instantly.
+                  </p>
+                ) : null}
+              </div>
+            </SheetContent>
+          </Sheet>
+        </>
+      ) : null}
+
+      {phase === "upcoming" ? (
+        <p className="mt-3 rounded-xl bg-white px-3 py-2 text-center text-[13px] font-bold text-[#6B7280]">
+          Bidding opens soon
+        </p>
+      ) : null}
+
+      {phase === "ended" ? (
+        <p className="mt-3 rounded-xl bg-white px-3 py-2 text-center text-[13px] font-bold text-[#6B7280]">
+          Bidding finished — no sale
+        </p>
+      ) : null}
+
+      {phase === "sold" && isWinner ? <WinnerPayment video={video} /> : null}
+      {phase === "sold" && isOwner ? <OwnerSoldActions video={video} /> : null}
+    </div>
+  );
+});
+
+function WinnerPayment({ video }: { video: PublicFeedVideo }) {
+  const queryClient = useQueryClient();
+  const accountQuery = useQuery({
+    queryKey: ["payout-account", video.business_id],
+    queryFn: async () => (await fetchBusinessPayoutAccount(video.business_id)).account,
+  });
+  const account = accountQuery.data ?? null;
+  const markedPaid = Boolean(video.bid_buyer_marked_paid_at);
+  const [busy, setBusy] = useState(false);
+
+  async function sayPaid() {
+    setBusy(true);
+    const r = await markBidPaid(video.id);
+    setBusy(false);
+    if (r.error) {
+      toast.error(r.error);
+      return;
+    }
+    haptic("success");
+    toast.success("Told the shop you have paid. They will confirm.");
+    await queryClient.invalidateQueries({ queryKey: ["video-feed"] });
+  }
+
+  return (
+    <div className="mt-3 rounded-xl border border-[#E5E7EB] bg-white p-3">
+      <p className="text-[13px] font-extrabold text-[#0B1F4D]">You won — pay to keep it</p>
+      {account?.payout_account_number ? (
+        <>
+          <dl className="mt-2 space-y-1 text-[13px]">
+            <div className="flex justify-between gap-2">
+              <dt className="text-[#6B7280]">Bank</dt>
+              <dd className="font-bold">{account.payout_bank_name}</dd>
+            </div>
+            <div className="flex justify-between gap-2">
+              <dt className="text-[#6B7280]">Account name</dt>
+              <dd className="font-bold">{account.payout_account_name}</dd>
+            </div>
+            <div className="flex justify-between gap-2">
+              <dt className="text-[#6B7280]">Account number</dt>
+              <dd className="font-extrabold tracking-wide">{account.payout_account_number}</dd>
+            </div>
+          </dl>
+          <Button
+            type="button"
+            variant="outline"
+            className="mt-2 min-h-10 w-full rounded-xl"
+            onClick={() => {
+              void navigator.clipboard.writeText(account.payout_account_number ?? "");
+              toast.success("Account number copied");
+            }}
+          >
+            Copy account number
+          </Button>
+        </>
+      ) : (
+        <p className="mt-1 text-[12px] text-[#6B7280]">Ask the shop for their transfer details.</p>
+      )}
+      <Button
+        type="button"
+        className="mt-2 min-h-11 w-full rounded-xl bg-[#1F7A4D] font-bold text-white hover:bg-[#1F7A4D]/90"
+        disabled={busy || markedPaid}
+        onClick={() => void sayPaid()}
+      >
+        {markedPaid ? "Paid — waiting for shop" : busy ? "Sending…" : "I have paid"}
+      </Button>
+    </div>
+  );
+}
+
+function OwnerSoldActions({ video }: { video: PublicFeedVideo }) {
+  const queryClient = useQueryClient();
+  const [busy, setBusy] = useState<"paid" | "release" | null>(null);
+  const markedPaid = Boolean(video.bid_buyer_marked_paid_at);
+
+  async function run(kind: "paid" | "release") {
+    setBusy(kind);
+    const r = kind === "paid" ? await confirmBidPayment(video.id) : await releaseBidUnpaid(video.id);
+    setBusy(null);
+    if (r.error) {
+      toast.error(r.error);
+      return;
+    }
+    haptic("success");
+    toast.success(kind === "paid" ? "Sale confirmed." : "Item is back on the market.");
+    await queryClient.invalidateQueries({ queryKey: ["video-feed"] });
+    await queryClient.invalidateQueries({ queryKey: ["marketplace-products"] });
+  }
+
+  return (
+    <div className="mt-2 grid grid-cols-2 gap-2">
+      <Button
+        type="button"
+        className="min-h-10 rounded-xl bg-[#1F7A4D] text-xs font-extrabold text-white hover:bg-[#1F7A4D]/90"
+        disabled={busy != null}
+        onClick={() => void run("paid")}
+      >
+        {busy === "paid" ? "Saving…" : markedPaid ? "Confirm payment" : "Mark paid"}
+      </Button>
+      <Button
+        type="button"
+        variant="outline"
+        className="min-h-10 rounded-xl text-xs font-extrabold"
+        disabled={busy != null}
+        onClick={() => void run("release")}
+      >
+        {busy === "release" ? "Working…" : "Not paid — relist"}
+      </Button>
+    </div>
+  );
+}
+
 const VideoSlide = memo(function VideoSlide({
   video,
   active,
@@ -1061,6 +1389,11 @@ const VideoSlide = memo(function VideoSlide({
         {burst ? (
           <Heart className="pointer-events-none absolute left-1/2 top-1/2 size-16 -translate-x-1/2 -translate-y-1/2 fill-red-500 text-red-500 will-change-transform [animation:feed-heart_450ms_ease-out]" />
         ) : null}
+        {!isBidPost(video) && video.price != null ? (
+          <span className="pointer-events-none absolute left-3 top-3 rounded-full bg-black/60 px-2.5 py-1 text-[13px] font-extrabold text-white">
+            {formatNgn(Number(video.price))}
+          </span>
+        ) : null}
       </div>
 
       <div className="flex items-center justify-between gap-1 px-2">
@@ -1117,7 +1450,9 @@ const VideoSlide = memo(function VideoSlide({
       ) : null}
 
       <div className="shrink-0 px-3 pb-3 pt-1">
-        {featured ? (
+        {isBidPost(video) ? (
+          <BidPanel video={video} />
+        ) : featured ? (
           <FeedProductCard product={featured} onAdd={() => actions.onAddProduct(video, featured)} />
         ) : (
           <button
