@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-import { assertTranslateOrigin, clientIp, jsonSecure } from "@/lib/nkenne/api-security";
-import { checkRateLimit } from "@/lib/nkenne/rate-limit";
+import { assertTranslateOrigin, clientIp, jsonSecure } from "@/lib/api/security";
+import { checkRateLimit } from "@/lib/api/rate-limit";
 import { grokDownloadVideo, grokPollVideo, XaiError } from "@/lib/xai/client";
 
 export const Route = createFileRoute("/api/studio/video/$requestId")({

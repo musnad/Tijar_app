@@ -12,7 +12,7 @@ An AI-assisted business operating system and local commerce platform for African
 - Digital business profiles and shareable storefronts
 - TIJAR map and local marketplace with location-based discovery
 - AI business management: sales, expenses, stock, orders, customers
-- African-language translation (NKENNEAi where supported), voice input and spoken responses
+- African-language translation (ChatGPT primary, Grok fallback), voice input and spoken responses
 - AI business education and coaching
 - Google Business Profile integration where eligible and supported
 - TIJAR Sense: explicit voice/text requests, nearby business matching, opt-in notifications
@@ -51,7 +51,7 @@ Two clients share **one Supabase backend**:
 | Public storefronts | No public profile route. `/business-visibility` is a marketing page with a hard-coded example |
 | TIJAR map / marketplace / discovery | Absent. `businesses.location` is free text; no latitude/longitude anywhere |
 | Orders | No orders model; sales are recorded as `transactions` only |
-| NKENNEAi translation | Absent; i18n is static message files |
+| African-language translation | Implemented in `src/lib/translation/*` (ChatGPT primary, Grok fallback); i18n is static message files |
 | Voice input / spoken responses | Absent (no speech code in web) |
 | Google Business Profile | Absent |
 | TIJAR Sense / notifications | Absent; no notification outbox, push, SMS or email jobs |

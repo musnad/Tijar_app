@@ -30,7 +30,7 @@ import { usePrimaryBusiness } from "@/hooks/use-primary-business";
 import { invalidateBusinessQueries } from "@/lib/invalidate-business-queries";
 import { useTranslation } from "@/lib/i18n/context";
 import type { Locale } from "@/lib/i18n/types";
-import { NKENNE_LANGUAGES, type NkenneLanguage } from "@/lib/nkenne/languages";
+import { isTijarLanguage, TIJAR_LANGUAGE_NAMES, type TijarLanguageName } from "@/lib/translation/languages";
 import { cn } from "@/lib/utils";
 import { createTransaction, fetchPeriodAnalytics, fetchTodayTotals } from "@/services/transaction-service";
 import { translateTextClient } from "@/services/translate-service";
@@ -45,7 +45,7 @@ import {
   type VoiceIntentType,
 } from "@/utils/voice-intent";
 
-const SPEAK_LANGS = ["English", "Hausa", "Swahili", "Yoruba", "Nigerian Pidgin"] as const;
+const SPEAK_LANGS = TIJAR_LANGUAGE_NAMES;
 
 const LOCALE_TO_SPEAK_LANG: Partial<Record<Locale, string>> = {
   en: "English",
@@ -80,9 +80,7 @@ function nowTime(): string {
 }
 
 function canTranslatePair(from: string, to: string): boolean {
-  if (from === to) return false;
-  const supported = NKENNE_LANGUAGES as readonly string[];
-  return supported.includes(from) && supported.includes(to);
+  return from !== to && isTijarLanguage(from) && isTijarLanguage(to);
 }
 
 export function AssistantScreen() {
@@ -171,11 +169,11 @@ export function AssistantScreen() {
       customerCreditTotal: null,
       healthScore: null,
     });
-    if (speakLang === "Yoruba" || speakLang === "Swahili" || speakLang === "Nigerian Pidgin") {
+    if (canTranslatePair("English", speakLang)) {
       const translated = await translateTextClient({
         text: english,
         fromLanguage: "English",
-        toLanguage: speakLang as NkenneLanguage,
+        toLanguage: speakLang as TijarLanguageName,
       });
       sayBooks(translated.ok ? translated.translatedText : english);
       return;
@@ -203,7 +201,7 @@ export function AssistantScreen() {
     setSpeakingStatus(t("app.assistant.translatingForBooks"));
     const result = await translateTextClient({
       text,
-      fromLanguage: speakLang as NkenneLanguage,
+      fromLanguage: speakLang as TijarLanguageName,
       toLanguage: "English",
     });
     setSpeakingStatus(null);
@@ -303,16 +301,14 @@ export function AssistantScreen() {
     if (canTranslatePair(from, to)) {
       const result = await translateTextClient({
         text,
-        fromLanguage: from as NkenneLanguage,
-        toLanguage: to as NkenneLanguage,
+        fromLanguage: from as TijarLanguageName,
+        toLanguage: to as TijarLanguageName,
       });
       if (result.ok) {
         spoken = result.translatedText;
       } else {
         toast.message(t("app.assistant.speakOriginalFallback"));
       }
-    } else if (from !== to && (from === "Hausa" || to === "Hausa")) {
-      toast.message(t("app.assistant.hausaVoiceOnly"));
     }
     setChatLast({ from, to, original: text, translated: spoken });
     setBusy(false);
@@ -359,7 +355,6 @@ export function AssistantScreen() {
 
   const draftMeta = draft && draft.intent !== "unknown" ? INTENT_META[draft.intent] : null;
   const DraftIcon = draftMeta?.icon ?? Sparkles;
-  const showHausaNote = mode === "chat" && (langA === "Hausa" || langB === "Hausa");
 
   return (
     <div className="mx-auto flex max-w-xl flex-col pb-6">
@@ -419,12 +414,6 @@ export function AssistantScreen() {
           <MessagesSquare className="size-4" /> {t("app.assistant.modeChat")}
         </button>
       </div>
-
-      {showHausaNote && (
-        <p className="mt-3 rounded-xl bg-accent p-3 text-xs text-foreground dark:bg-primary/15 dark:text-primary-foreground">
-          {t("app.assistant.hausaVoiceOnly")}
-        </p>
-      )}
 
       {/* Conversation thread */}
       <section

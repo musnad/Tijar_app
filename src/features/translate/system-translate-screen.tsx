@@ -5,22 +5,21 @@ import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { useTranslation } from "@/lib/i18n/context";
-import { NKENNE_LANGUAGES, type NkenneLanguage } from "@/lib/nkenne/languages";
+import { TIJAR_LANGUAGE_NAMES, type TijarLanguageName } from "@/lib/translation/languages";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { isSupabaseEnvPresent } from "@/lib/supabase/runtime-env";
 
 /**
- * Admin tool to translate Tijar system/UI strings with NKENNEAi.
+ * Admin tool to translate Tijar system/UI strings with ChatGPT (Grok fallback).
  * Output is reviewed by a human, then committed into
  * src/lib/i18n/messages/*.ts — runtime UI never machine-translates
- * silently. Hausa UI strings are maintained in messages/ha.ts because
- * the documented NKENNEAi API does not include Hausa yet.
+ * silently.
  */
 export function SystemTranslateScreen() {
   const { t } = useTranslation();
   const [source, setSource] = useState("Fresh rice\nHow much is this?\nThank you, come again");
-  const [from, setFrom] = useState<NkenneLanguage>("English");
-  const [to, setTo] = useState<NkenneLanguage>("Swahili");
+  const [from, setFrom] = useState<TijarLanguageName>("English");
+  const [to, setTo] = useState<TijarLanguageName>("Swahili");
   const [output, setOutput] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -68,11 +67,11 @@ export function SystemTranslateScreen() {
         {t("app.translator.systemIntroExample")} <code className="rounded bg-muted px-1">sw.ts</code>{t("app.translator.systemIntroHausa")} <code className="rounded bg-muted px-1">ha.ts</code> {t("app.translator.systemIntroEnd")}
       </p>
       <div className="flex flex-wrap gap-2">
-        <select value={from} onChange={(e) => setFrom(e.target.value as NkenneLanguage)} className="min-h-11 rounded-xl border border-input bg-background px-2" aria-label={t("app.translator.fromLabel")}>
-          {NKENNE_LANGUAGES.map((l) => <option key={l} value={l}>{l}</option>)}
+        <select value={from} onChange={(e) => setFrom(e.target.value as TijarLanguageName)} className="min-h-11 rounded-xl border border-input bg-background px-2" aria-label={t("app.translator.fromLabel")}>
+          {TIJAR_LANGUAGE_NAMES.map((l) => <option key={l} value={l}>{l}</option>)}
         </select>
-        <select value={to} onChange={(e) => setTo(e.target.value as NkenneLanguage)} className="min-h-11 rounded-xl border border-input bg-background px-2" aria-label={t("app.translator.toLabel")}>
-          {NKENNE_LANGUAGES.filter((l) => l !== from).map((l) => <option key={l} value={l}>{l}</option>)}
+        <select value={to} onChange={(e) => setTo(e.target.value as TijarLanguageName)} className="min-h-11 rounded-xl border border-input bg-background px-2" aria-label={t("app.translator.toLabel")}>
+          {TIJAR_LANGUAGE_NAMES.filter((l) => l !== from).map((l) => <option key={l} value={l}>{l}</option>)}
         </select>
         <Button type="button" className="min-h-11 rounded-xl font-bold" disabled={busy} onClick={run}>{busy ? t("app.translator.translating") : t("app.translator.translateStrings")}</Button>
       </div>

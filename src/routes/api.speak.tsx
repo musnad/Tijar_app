@@ -7,11 +7,11 @@ import {
   clientIp,
   jsonSecure,
   readJsonBody,
-} from "@/lib/nkenne/api-security";
-import { speakTextServer } from "@/lib/nkenne/speech-service";
+} from "@/lib/api/security";
+import { speakTextServer } from "@/lib/translation/speech";
 
 /**
- * POST /api/speak — NKENNE Speech Studio TTS.
+ * POST /api/speak — ElevenLabs cloned voice, falling back to OpenAI TTS.
  * Body: { text, language, speakingRate? }
  * Success: raw audio bytes (audio/wav or audio/mpeg)
  * Errors: JSON { error: { code, message } }

@@ -5,21 +5,21 @@ import { useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { useTranslation } from "@/lib/i18n/context";
-import { isNkenneLanguage } from "@/lib/nkenne/languages";
+import { isTijarLanguage } from "@/lib/translation/languages";
 import { startAudioRecording, transcribeAudioClient } from "./use-speech";
 
 const MAX_SECONDS = 60;
 
 type VoiceTranslateProps = {
   onUseTranscript: (text: string) => void;
-  /** Spoken language (NKENNE display name). */
+  /** Spoken language (TIJAR display name). */
   language?: string;
   /** Optional: translate speech into this language before offering the text. */
   toLanguage?: string;
 };
 
 /**
- * Explicit push-to-talk recording → NKENNE Speech Studio STT
+ * Explicit push-to-talk recording → Whisper STT
  * (or speech-translate when toLanguage is set). Transcript is always
  * shown for review before the user chooses to use it.
  */
@@ -41,7 +41,7 @@ export function VoiceTranslate({
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   async function start() {
-    if (!isNkenneLanguage(language)) {
+    if (!isTijarLanguage(language)) {
       setState({
         kind: "error",
         message: t("app.translator.voiceLanguageUnsupported"),

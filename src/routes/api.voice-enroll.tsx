@@ -4,8 +4,8 @@ import {
   assertTranslateOrigin,
   clientIp,
   jsonSecure,
-} from "@/lib/nkenne/api-security";
-import { checkRateLimit } from "@/lib/nkenne/rate-limit";
+} from "@/lib/api/security";
+import { checkRateLimit } from "@/lib/api/rate-limit";
 import { elevenLabsCloneVoice, isElevenLabsConfigured } from "@/lib/elevenlabs/client";
 
 /**

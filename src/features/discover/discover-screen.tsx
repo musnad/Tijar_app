@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { AREA_PRESETS } from "@/lib/maps/provider";
 import { listBusinessCategories } from "@/services/business-service";
-import { NKENNE_LANGUAGES, type NkenneLanguage } from "@/lib/nkenne/languages";
+import { TIJAR_LANGUAGE_NAMES, type TijarLanguageName } from "@/lib/translation/languages";
 import { fetchListingProductNames, fetchPublishedBusinesses } from "@/services/discover-service";
 import { translateTextClient } from "@/services/translate-service";
 import { useTranslation } from "@/lib/i18n/context";
@@ -26,7 +26,7 @@ export function DiscoverScreen() {
   const [centre, setCentre] = useState<{ lat: number; lng: number } | null>(null);
   const [centreLabel, setCentreLabel] = useState<string>("");
   const [geoMessage, setGeoMessage] = useState<string>("");
-  const [searchLang, setSearchLang] = useState<NkenneLanguage>("English");
+  const [searchLang, setSearchLang] = useState<TijarLanguageName>("English");
   const [translatedQuery, setTranslatedQuery] = useState<string | null>(null);
   const [searchNote, setSearchNote] = useState<string>("");
 
@@ -130,11 +130,11 @@ export function DiscoverScreen() {
         </select>
         <select
           value={searchLang}
-          onChange={(e) => { setSearchLang(e.target.value as NkenneLanguage); setTranslatedQuery(null); setSearchNote(""); }}
+          onChange={(e) => { setSearchLang(e.target.value as TijarLanguageName); setTranslatedQuery(null); setSearchNote(""); }}
           className="min-h-11 w-full rounded-xl border border-input bg-background px-3 text-sm sm:w-auto"
           aria-label={t("app.discover.searchLanguageAriaLabel")}
         >
-          {NKENNE_LANGUAGES.map((l) => (
+          {TIJAR_LANGUAGE_NAMES.map((l) => (
             <option key={l} value={l}>{t("app.discover.searchIn").replace("{language}", l)}</option>
           ))}
         </select>

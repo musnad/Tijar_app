@@ -6,7 +6,7 @@ import {
   jsonSecure,
   readJsonBody,
   TRANSLATE_MAX_BODY_BYTES,
-} from "@/lib/nkenne/api-security";
+} from "@/lib/api/security";
 import { openaiChat } from "@/lib/openai/client";
 
 export const Route = createFileRoute("/api/assistant/chat")({

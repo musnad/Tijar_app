@@ -5,7 +5,7 @@ import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { useTranslation } from "@/lib/i18n/context";
-import { NKENNE_LANGUAGES, nkenneLanguageForLocale, type NkenneLanguage } from "@/lib/nkenne/languages";
+import { languageForLocale, TIJAR_LANGUAGE_NAMES, type TijarLanguageName } from "@/lib/translation/languages";
 import { translateTextClient } from "@/services/translate-service";
 
 /**
@@ -21,16 +21,16 @@ export function TranslateText({
   onUseTranslation,
 }: {
   text: string;
-  fromLanguage?: NkenneLanguage;
+  fromLanguage?: TijarLanguageName;
   label?: string;
   allowSourceSelect?: boolean;
   /** Optional owner action ("Use this text") — always an explicit click. */
   onUseTranslation?: (translated: string) => void;
 }) {
   const { locale } = useTranslation();
-  const [fromLanguage, setFromLanguage] = useState<NkenneLanguage>(fromProp);
-  const defaultTarget = nkenneLanguageForLocale(locale) ?? "English";
-  const [target, setTarget] = useState<NkenneLanguage>(
+  const [fromLanguage, setFromLanguage] = useState<TijarLanguageName>(fromProp);
+  const defaultTarget = languageForLocale(locale) ?? "English";
+  const [target, setTarget] = useState<TijarLanguageName>(
     defaultTarget === fromProp ? "English" : defaultTarget,
   );
   const [state, setState] = useState<
@@ -53,22 +53,22 @@ export function TranslateText({
         {allowSourceSelect && (
           <select
             value={fromLanguage}
-            onChange={(e) => setFromLanguage(e.target.value as NkenneLanguage)}
+            onChange={(e) => setFromLanguage(e.target.value as TijarLanguageName)}
             className="min-h-9 rounded-lg border border-input bg-background px-2 text-xs"
             aria-label="Translate from"
           >
-            {NKENNE_LANGUAGES.map((l) => (
+            {TIJAR_LANGUAGE_NAMES.map((l) => (
               <option key={l} value={l}>{l}</option>
             ))}
           </select>
         )}
         <select
           value={target}
-          onChange={(e) => setTarget(e.target.value as NkenneLanguage)}
+          onChange={(e) => setTarget(e.target.value as TijarLanguageName)}
           className="min-h-9 rounded-lg border border-input bg-background px-2 text-xs"
           aria-label="Translate to"
         >
-          {NKENNE_LANGUAGES.filter((l) => l !== fromLanguage).map((l) => (
+          {TIJAR_LANGUAGE_NAMES.filter((l) => l !== fromLanguage).map((l) => (
             <option key={l} value={l}>{l}</option>
           ))}
         </select>

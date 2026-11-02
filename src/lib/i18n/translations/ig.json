@@ -756,7 +756,6 @@
  "app.assistant.translateSpeak": "Tụgharịa & kwuo",
  "app.assistant.swapLanguages": "Gbanwee asụsụ",
  "app.assistant.chatHint": "Ị na-ekwu {from} → ha na-anụ {to} (olu naanị — enweghị ederede)",
- "app.assistant.hausaVoiceOnly": "Olu Hausa (kwuo & gee) na-arụ ọrụ na ekwentị a. Ntụgharị ederede Hausa adịbeghị na API NKENNEAi — ihe mbụ ka dị.",
  "app.assistant.sameLanguageHint": "Akụkụ abụọ na-eji otu asụsụ — a na-ekwu ihe mbụ n'olu.",
  "app.assistant.emptyChatSpeakOnly": "Dị njikere — pịa Kwuo, wee Tụgharịa & kwuo. Ị ga-anụ naanị asụsụ nke ọzọ.",
  "app.assistant.chatHintSpeakOnly": "Enweghị ederede. Naanị ntụgharị olu na-egwu.",

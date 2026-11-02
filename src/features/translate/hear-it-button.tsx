@@ -28,7 +28,7 @@ export function HearItButton({
 }: HearItButtonProps) {
   const { speak, stop, speaking, supported } = useSpeechPlayback();
 
-  // Browser TTS or NKENNE Speech Studio (audio element) — always offer Hear when we have text.
+  // Browser TTS or server voice (audio element) — always offer Hear when we have text.
   if (!text.trim()) return null;
   if (!supported && typeof Audio === "undefined") return null;
 

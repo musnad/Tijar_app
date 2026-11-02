@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-import { jsonSecure } from "@/lib/nkenne/api-security";
+import { jsonSecure } from "@/lib/api/security";
 import { readOpenAiConfig } from "@/lib/openai/client";
 import { isXaiConfigured } from "@/lib/xai/client";
 

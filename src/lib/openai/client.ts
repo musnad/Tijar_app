@@ -8,7 +8,7 @@
  * Never log prompts, transcripts, or the secret.
  */
 
-import { sanitizeSecret } from "@/lib/nkenne/client";
+import { sanitizeSecret } from "@/lib/secrets";
 import {
   OPENAI_LANGUAGES,
   isOpenAiLanguage,
@@ -289,7 +289,7 @@ export type OpenAiSttResult = { text: string };
 /** Transcribe speech with Whisper. */
 export async function openaiStt(
   config: OpenAiClientConfig,
-  input: { audio: Blob; language?: string; mimeType?: string; filename?: string },
+  input: { audio: Blob; language?: string; languageCode?: string; mimeType?: string; filename?: string },
 ): Promise<OpenAiSttResult> {
   const resolved = resolveConfig(config);
   const form = new FormData();
@@ -309,7 +309,12 @@ export async function openaiStt(
   form.append("file", file);
   form.append("model", resolved.sttModel);
   form.append("response_format", "json");
-  if (input.language && isOpenAiLanguage(input.language)) {
+  // Prefer an explicit Whisper hint (full TIJAR catalogue); fall back to the
+  // display-name mapping, and let Whisper auto-detect when neither is known.
+  const explicit = input.languageCode?.trim();
+  if (explicit) {
+    form.append("language", explicit);
+  } else if (input.language && isOpenAiLanguage(input.language)) {
     const code = WHISPER_LANG[input.language];
     if (code) form.append("language", code);
   }
@@ -345,10 +350,10 @@ export async function openaiTts(
   config: OpenAiClientConfig,
   input: {
     text: string;
-    language?: string;
-    speakingRate?: number;
+    language?: string | undefined;
+    speakingRate?: number | undefined;
     /** OpenAI stock voice id (nova, alloy, …). */
-    voice?: string;
+    voice?: string | undefined;
   },
 ): Promise<OpenAiTtsResult> {
   const cleaned = input.text.replace(/\s+/g, " ").trim();

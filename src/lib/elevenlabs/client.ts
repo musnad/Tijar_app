@@ -4,7 +4,7 @@
  * and /api/speak can use it. Without the key, OpenAI stock voices are used.
  */
 
-import { sanitizeSecret } from "@/lib/nkenne/client";
+import { sanitizeSecret } from "@/lib/secrets";
 import { readEnvString } from "@/lib/supabase/runtime-env";
 
 const DEFAULT_BASE = "https://api.elevenlabs.io/v1";

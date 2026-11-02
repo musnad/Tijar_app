@@ -8,8 +8,8 @@ import {
   readJsonBody,
   requireAuthenticatedUser,
   resolveTranslateRateKey,
-} from "@/lib/nkenne/api-security";
-import { translateBatch } from "@/lib/nkenne/service";
+} from "@/lib/api/security";
+import { translateBatch } from "@/lib/translation/service";
 
 /**
  * POST /api/translate-batch { texts[], fromLanguage, toLanguage } — max 20.

@@ -30,7 +30,7 @@ Copy from `.env.example` → set in hosting UI (Vercel, Railway, Render, etc.).
    | `VITE_APP_ENV` | `production` |
    | `OPENAI_API_KEY` | `sk-…` from OpenAI (server-only; powers translate + voice AI) |
    | `ELEVENLABS_API_KEY` | `sk_…` from ElevenLabs (personal voice clone for speak-back) |
-   | `NKENNEAI_API_KEY` | optional fallback for NKENNE African speech/text |
+   | `XAI_API_KEY` | `xai-…` from xAI Grok (translation fallback + media studio; optional) |
 
 3. **Deployments** → ⋮ on latest → **Redeploy** (must rebuild so Vite picks up `VITE_*`).
 

@@ -1091,7 +1091,6 @@
  "app.assistant.translateSpeak": "Fir & haalu",
  "app.assistant.swapLanguages": "Waylu ɗemɗe",
  "app.assistant.chatHint": "A haalata {from} → ɓe nanndata {to} (daande tan — alaa binndol)",
- "app.assistant.hausaVoiceOnly": "Daande Hausa (haalu & heɗo) ena huuwa e telefon oo. Firo binndol Hausa naatnaaka tawo e API NKENNEAi — asliwol ena yiyee.",
  "app.assistant.sameLanguageHint": "Banceeje ɗiɗi kuutortoo ɗemngal gootal — asliwol kaaletee e daande.",
  "app.assistant.emptyChatSpeakOnly": "Timmi — ñippu Haalu, caggal ɗum Fir & haalu. A nanndata tan ɗemngal goɗngal.",
  "app.assistant.chatHintSpeakOnly": "Alaa binndol e yaynirde. Firo daande tan ena fijee.",

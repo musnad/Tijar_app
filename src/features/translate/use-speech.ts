@@ -2,32 +2,20 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { isNkenneLanguage } from "@/lib/nkenne/languages";
+import { bcp47For, isTijarLanguage } from "@/lib/translation/languages";
 import { isOpenAiLanguage } from "@/lib/openai/languages";
 
-/** BCP-47 codes for browser speech engines (distinct from API language names). */
-export const SPEECH_LOCALES: Record<string, string> = {
-  English: "en-NG",
-  Hausa: "ha-NG",
-  Igbo: "ig-NG",
-  Swahili: "sw-KE",
-  Yoruba: "yo-NG",
-  "Nigerian Pidgin": "en-NG",
-  Arabic: "ar-SA",
-  Fulfulde: "ff-NG",
-};
-
 /**
- * Languages the server can speak / hear via OpenAI (primary) or NKENNE
- * (fallback). Browser Web Speech is used when the server call fails.
+ * Languages the server can speak / hear via ElevenLabs / OpenAI TTS and
+ * Whisper STT. Browser Web Speech is used when the server call fails.
  */
-export function nkenneSpeechLanguage(languageName: string): boolean {
-  return isNkenneLanguage(languageName) || isOpenAiLanguage(languageName);
+export function serverSpeechLanguage(languageName: string): boolean {
+  return isTijarLanguage(languageName) || isOpenAiLanguage(languageName);
 }
 
 /** Fallback chain when a device lacks the exact locale (common on Android). */
 export function speechLocaleCandidates(languageName: string): string[] {
-  const primary = SPEECH_LOCALES[languageName] ?? "en-NG";
+  const primary = bcp47For(languageName);
   const base = primary.split("-")[0] ?? primary;
   const candidates = [primary, base, "en-NG", "en-GB", "en-US", "en"].filter(
     (v, i, arr) => v && arr.indexOf(v) === i,
@@ -115,7 +103,7 @@ export function scoreVoiceForLocale(voice: SpeechSynthesisVoice, locale: string)
 export function pickBestVoice(languageName: string, voices: SpeechSynthesisVoice[]): SpeechSynthesisVoice | null {
   if (voices.length === 0) return null;
   const locales = speechLocaleCandidates(languageName);
-  const primary = SPEECH_LOCALES[languageName] ?? "en-NG";
+  const primary = bcp47For(languageName);
   const primaryBase = primary.split("-")[0] ?? primary;
   // Prefer same-language voices first; only fall back to English if none exist.
   const preferred = locales.filter((l) => l === primary || l === primaryBase || l.startsWith(`${primaryBase}-`));
@@ -173,7 +161,7 @@ function notifySpeaking(speaking: boolean) {
   for (const listener of speakingListeners) listener(speaking);
 }
 
-function stopNkenneAudio(): void {
+function stopServerAudio(): void {
   if (activeAudio) {
     try {
       activeAudio.pause();
@@ -191,7 +179,7 @@ function stopNkenneAudio(): void {
 }
 
 export function stopSpeaking(): void {
-  stopNkenneAudio();
+  stopServerAudio();
   if (typeof window === "undefined" || !("speechSynthesis" in window)) {
     notifySpeaking(false);
     return;
@@ -207,14 +195,14 @@ export function isSpeakingNow(): boolean {
   return window.speechSynthesis.speaking || window.speechSynthesis.pending;
 }
 
-/** Play server TTS (OpenAI / personal clone / NKENNE) via /api/speak. */
-async function speakViaNkenne(
+/** Play server TTS (ElevenLabs clone / OpenAI) via /api/speak. */
+async function speakViaServer(
   text: string,
   languageName: string,
   rate?: number,
   voiceOpts?: { voice?: string | null; customVoiceId?: string | null },
 ): Promise<boolean> {
-  if (typeof window === "undefined" || !nkenneSpeechLanguage(languageName)) return false;
+  if (typeof window === "undefined" || !serverSpeechLanguage(languageName)) return false;
   let res: Response;
   try {
     res = await fetch("/api/speak", {
@@ -234,7 +222,7 @@ async function speakViaNkenne(
   const contentType = res.headers.get("content-type") || "";
   if (!res.ok || contentType.includes("application/json")) return false;
 
-  stopNkenneAudio();
+  stopServerAudio();
   if (typeof window !== "undefined" && "speechSynthesis" in window) {
     try {
       window.speechSynthesis.cancel();
@@ -282,7 +270,7 @@ export type SpeakOptions = {
 };
 
 /**
- * Speak text aloud. Prefers server TTS (personal clone → OpenAI → NKENNE),
+ * Speak text aloud. Prefers server TTS (personal ElevenLabs clone → OpenAI TTS),
  * then falls back to the device speech engine.
  */
 export async function speakText(
@@ -295,8 +283,8 @@ export async function speakText(
 
   stopSpeaking();
 
-  if (nkenneSpeechLanguage(languageName)) {
-    const nkenneRate =
+  if (serverSpeechLanguage(languageName)) {
+    const serverRate =
       options.rate !== undefined ? Math.min(2, Math.max(0.5, options.rate)) : 1;
     // Lazy import avoids circular deps with personal-voice helpers.
     let prefs: { preferredTtsVoice: string | null; customVoiceId: string | null } = {
@@ -309,7 +297,7 @@ export async function speakText(
     } catch {
       /* ignore */
     }
-    const ok = await speakViaNkenne(cleaned, languageName, nkenneRate, {
+    const ok = await speakViaServer(cleaned, languageName, serverRate, {
       voice: options.voice ?? prefs.preferredTtsVoice,
       customVoiceId: options.customVoiceId ?? prefs.customVoiceId,
     });
@@ -327,7 +315,7 @@ export async function speakText(
   }
 
   const voices = await loadVoices();
-  const locale = SPEECH_LOCALES[languageName] ?? "en-NG";
+  const locale = bcp47For(languageName);
   const voice = pickBestVoice(languageName, voices);
 
   const utter = new SpeechSynthesisUtterance(cleaned);
@@ -365,12 +353,12 @@ export async function speakText(
 }
 
 const MAX_RECORD_MS = 60_000;
-/** Auto-stop for NKENNE fallback recording when the user does not tap Stop. */
-const NKENNE_AUTO_STOP_MS = 15_000;
+/** Auto-stop for server STT recording when the user does not tap Stop. */
+const SERVER_AUTO_STOP_MS = 15_000;
 
 function pickRecorderMime(): string | undefined {
   if (typeof MediaRecorder === "undefined") return undefined;
-  // Prefer formats NKENNE documents (mp4/m4a, ogg) before webm when the browser allows.
+  // Prefer compact audio formats (mp4/m4a, ogg) before webm when the browser allows.
   for (const type of [
     "audio/mp4",
     "audio/aac",
@@ -499,11 +487,11 @@ export async function startAudioRecording(): Promise<{
   };
 }
 
-/** Upload a recording to NKENNE STT / speech-translate via our server. */
+/** Upload a recording to Whisper STT / speech-translate via our server. */
 export async function transcribeAudioClient(input: {
   audio: Blob;
   language: string;
-  toLanguage?: string;
+  toLanguage?: string | undefined;
 }): Promise<
   | { ok: true; transcript: string; translatedText: string | null; language: string; mode: string }
   | { ok: false; code: string; message: string }
@@ -654,7 +642,7 @@ function listenOnce(
  *
  * Order (most reliable UX first):
  * 1) Browser Web Speech when available (auto end-of-utterance — best for Learn A/B/C)
- * 2) MediaRecorder → NKENNE STT for African languages when the browser fails
+ * 2) MediaRecorder → Whisper STT for African languages when the browser fails
  *    or has no speech recognition
  */
 export function useSpeechRecognition() {
@@ -715,8 +703,8 @@ export function useSpeechRecognition() {
     throw lastError ?? new Error(mapRecognitionError(undefined, isSecure));
   }, []);
 
-  const listenNkenne = useCallback(async (languageName: string, isSecure: boolean): Promise<string> => {
-    if (!nkenneSpeechLanguage(languageName) || !canRecordAudio()) {
+  const listenViaServer = useCallback(async (languageName: string, isSecure: boolean): Promise<string> => {
+    if (!serverSpeechLanguage(languageName) || !canRecordAudio()) {
       throw Object.assign(new Error(mapRecognitionError("language-not-supported", isSecure)), {
         code: "language-not-supported",
       });
@@ -733,7 +721,7 @@ export function useSpeechRecognition() {
         recordStopRef.current = null;
         p.then(resolve, reject);
       };
-      const auto = window.setTimeout(() => finish(session.stop()), NKENNE_AUTO_STOP_MS);
+      const auto = window.setTimeout(() => finish(session.stop()), SERVER_AUTO_STOP_MS);
       recordStopRef.current = async () => {
         const b = await session.stop();
         finish(Promise.resolve(b));
@@ -774,14 +762,14 @@ export function useSpeechRecognition() {
 
       try {
         const preferServerStt =
-          nkenneSpeechLanguage(languageName) &&
+          serverSpeechLanguage(languageName) &&
           languageName !== "English" &&
           canRecordAudio();
 
         // African languages: MediaRecorder → server STT first (browser ASR is often missing).
         if (preferServerStt) {
           try {
-            return await listenNkenne(languageName, isSecure);
+            return await listenViaServer(languageName, isSecure);
           } catch (err) {
             const code = (err as Error & { code?: string }).code;
             if (code === "aborted" || code === "not-allowed" || code === "service-not-allowed") {
@@ -799,13 +787,13 @@ export function useSpeechRecognition() {
             if (code === "aborted" || code === "not-allowed" || code === "service-not-allowed") {
               throw err;
             }
-            if (!nkenneSpeechLanguage(languageName) || !canRecordAudio()) throw err;
+            if (!serverSpeechLanguage(languageName) || !canRecordAudio()) throw err;
           }
         }
 
         // English / fallback: server STT via MediaRecorder (tap Stop or wait ~8s).
-        if (nkenneSpeechLanguage(languageName) && canRecordAudio()) {
-          return await listenNkenne(languageName, isSecure);
+        if (serverSpeechLanguage(languageName) && canRecordAudio()) {
+          return await listenViaServer(languageName, isSecure);
         }
 
         throw new Error("Voice input is not supported on this device or browser. Please type instead.");
@@ -817,7 +805,7 @@ export function useSpeechRecognition() {
         setListening(false);
       }
     },
-    [listenBrowser, listenNkenne],
+    [listenBrowser, listenViaServer],
   );
 
   return { listen, stop, listening, supported };

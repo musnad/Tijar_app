@@ -23,9 +23,9 @@
 - Plan: Nitro server route (e.g. `/api/ai/chat`) that (1) authenticates the Supabase JWT, (2) runs whitelisted aggregate queries with the user's JWT (RLS applies), (3) calls the chosen LLM with figures already computed, (4) logs prompt hash + query ids. API key stays server-side (`SUPABASE_SERVICE_ROLE_KEY` discipline applies to the AI key too).
 - Provider choice is an open decision (OpenAI / Anthropic / Gemini). Do not embed any key in the client bundle or APK.
 
-### 2.2 NKENNEAi translation
-- No code, no credentials, no API contract in repo. Current i18n is static files (en/ha/yo/ig/ar/sw/ff).
-- Plan: treat NKENNEAi as a translation *aid* behind a server route with caching into message files / a `translations` table; human-review before publishing UI strings. Confirm language coverage and pricing with the vendor before committing scope.
+### 2.2 African-language translation
+- Implemented in `src/lib/translation/*` with server routes (`/api/translate`, `/api/translate-batch`); i18n is static files (en/ha/yo/ig/ar/sw/ff).
+- Plan: ChatGPT primary with Grok fallback, caching into message files / a `translations` table; human-review before publishing UI strings.
 
 ### 2.3 Voice input / spoken responses
 - No speech code anywhere. Plan: Web Speech API first (zero cost, browser support varies) or a server STT/TTS provider; always confirm drafts before writing transactions ("no silent writes", per `docs/AI_ARCHITECTURE.md`).
@@ -54,7 +54,7 @@
 | `VITE_PUBLIC_APP_URL` | `.env.local` | **Missing on Vercel** — set to `https://tijar-two.vercel.app` and redeploy |
 | `VITE_APP_ENV` | `.env.local` | **Missing on Vercel** — set `production` |
 | `SUPABASE_SERVICE_ROLE_KEY` | — | Not in use; server-only when introduced |
-| AI / NKENNE / Maps / SMS keys | — | Do not exist; never invent or commit them |
+| AI / Maps / SMS keys | — | Do not exist; never invent or commit them |
 
 Security note: the anon key was shared in chat during deployment. It is public-by-design, but rotate it in Supabase if chat exposure is a concern, and update `.env.local` + Vercel together. The service-role key must never appear in chat, client code or the APK.
 
@@ -65,4 +65,4 @@ Security note: the anon key was shared in chat during deployment. It is public-b
 3. Public storefront data (schema in `docs/DATABASE_SCHEMA.md` §7) — no external dependency
 4. Geo capture + discovery — map provider decision needed
 5. AI server route with one provider — key procurement decision needed
-6. NKENNEAi, voice, GBP, Sense — each gated on vendor/eligibility decisions above
+6. AI translation, voice, GBP, Sense — each gated on vendor/eligibility decisions above

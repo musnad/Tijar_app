@@ -1,9 +1,9 @@
-import { nkenneTranslate, type NkenneClientConfig } from "@/lib/nkenne/client";
 import {
-  OPENAI_LANGUAGES,
   openaiTranslate,
   type OpenAiClientConfig,
 } from "@/lib/openai/client";
+import { grokTranslate, type XaiClientConfig } from "@/lib/xai/client";
+import { TIJAR_LANGUAGE_NAMES } from "./languages";
 
 /**
  * Provider-independent translation interface.
@@ -17,18 +17,20 @@ export interface TranslationProvider {
   supportedLanguages(): readonly string[];
 }
 
-export function createNkenneProvider(config: NkenneClientConfig): TranslationProvider {
-  return {
-    id: "nkenneai",
-    translate: (input) => nkenneTranslate(config, input),
-    supportedLanguages: () => ["English", "Yoruba", "Swahili", "Nigerian Pidgin"] as const,
-  };
-}
-
+/** ChatGPT — TIJAR's primary translation provider. */
 export function createOpenAiProvider(config: OpenAiClientConfig = {}): TranslationProvider {
   return {
     id: "openai",
     translate: (input) => openaiTranslate(config, input),
-    supportedLanguages: () => OPENAI_LANGUAGES,
+    supportedLanguages: () => TIJAR_LANGUAGE_NAMES,
+  };
+}
+
+/** Grok (xAI) — fallback translation provider. */
+export function createGrokProvider(config: XaiClientConfig = {}): TranslationProvider {
+  return {
+    id: "grok",
+    translate: (input) => grokTranslate(input, config),
+    supportedLanguages: () => TIJAR_LANGUAGE_NAMES,
   };
 }

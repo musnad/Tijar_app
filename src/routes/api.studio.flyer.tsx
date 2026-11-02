@@ -6,8 +6,8 @@ import {
   clientIp,
   jsonSecure,
   readJsonBody,
-} from "@/lib/nkenne/api-security";
-import { checkRateLimit } from "@/lib/nkenne/rate-limit";
+} from "@/lib/api/security";
+import { checkRateLimit } from "@/lib/api/rate-limit";
 import { openaiGenerateImage } from "@/lib/openai/images";
 import { grokGenerateImage, isXaiConfigured, XaiError } from "@/lib/xai/client";
 

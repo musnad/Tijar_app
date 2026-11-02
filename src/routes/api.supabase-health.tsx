@@ -1,7 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-import { nkenneKeyFingerprint, readNkenneConfig } from "@/lib/nkenne/client";
-import { checkRateLimit } from "@/lib/nkenne/rate-limit";
+import { checkRateLimit } from "@/lib/api/rate-limit";
 import { elevenLabsKeyFingerprint } from "@/lib/elevenlabs/client";
 import { openaiKeyFingerprint, readOpenAiConfig } from "@/lib/openai/client";
 import { readXaiConfig, xaiKeyFingerprint } from "@/lib/xai/client";
@@ -20,51 +19,10 @@ export const Route = createFileRoute("/api/supabase-health")({
         const authPing = await pingSupabaseServer();
         const categories = await fetchBusinessCategoriesServer();
         // Presence / length / masked hint only — never the full secret.
-        const nkenne = readNkenneConfig();
-        const finger = nkenneKeyFingerprint(nkenne.apiKey);
         const openai = readOpenAiConfig();
         const openaiFinger = openaiKeyFingerprint(openai.apiKey);
         const elevenFinger = elevenLabsKeyFingerprint();
         const xaiFinger = xaiKeyFingerprint(readXaiConfig().apiKey);
-
-        let nkenneProbe: { ok: boolean; providerStatus: number | null; message: string } | null = null;
-        const wantsProbe = new URL(request.url).searchParams.get("nkenne") === "1";
-        if (wantsProbe) {
-          const limit = checkRateLimit("nkenne-probe", 2, 60_000);
-          if (!limit.allowed) {
-            nkenneProbe = { ok: false, providerStatus: null, message: "Probe rate-limited. Try again in a minute." };
-          } else if (!nkenne.apiKey) {
-            nkenneProbe = { ok: false, providerStatus: null, message: "NKENNEAI_API_KEY missing on server." };
-          } else {
-            try {
-              const res = await fetch(`${nkenne.baseUrl}/api/translate/with-api-key`, {
-                method: "POST",
-                headers: {
-                  Authorization: nkenne.apiKey,
-                  "Content-Type": "application/json",
-                },
-                body: JSON.stringify({
-                  text: "Hi",
-                  fromLanguage: "English",
-                  toLanguage: "Yoruba",
-                }),
-              });
-              const body = (await res.json().catch(() => null)) as { message?: string; tokensRemaining?: number } | null;
-              nkenneProbe = {
-                ok: res.ok,
-                providerStatus: res.status,
-                message:
-                  typeof body?.message === "string"
-                    ? body.message.slice(0, 120)
-                    : res.ok
-                      ? "ok"
-                      : `HTTP ${res.status}`,
-              };
-            } catch {
-              nkenneProbe = { ok: false, providerStatus: null, message: "Could not reach NKENNEAi from this server." };
-            }
-          }
-        }
 
         return Response.json({
           env: {
@@ -73,10 +31,6 @@ export const Route = createFileRoute("/api/supabase-health")({
             appEnv: import.meta.env.VITE_APP_ENV ?? "development",
             keysPresent: {
               ...supabaseEnvDiagnostics(),
-              NKENNEAI_API_KEY: finger.present,
-              NKENNEAI_API_KEY_FORMAT_OK: finger.formatOk,
-              NKENNEAI_API_KEY_LENGTH: finger.length,
-              NKENNEAI_API_KEY_HINT: finger.hint,
               OPENAI_API_KEY: openaiFinger.present,
               OPENAI_API_KEY_FORMAT_OK: openaiFinger.formatOk,
               OPENAI_API_KEY_LENGTH: openaiFinger.length,
@@ -90,7 +44,6 @@ export const Route = createFileRoute("/api/supabase-health")({
               XAI_API_KEY_LENGTH: xaiFinger.length,
               XAI_API_KEY_HINT: xaiFinger.hint,
             },
-            nkenneProbe,
           },
           auth: authPing,
           database: categories.error

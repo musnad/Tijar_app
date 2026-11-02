@@ -1,35 +1,41 @@
 # Phase 5 — Voice & African-Language Support: Status Report
 
-Honest capability matrix. Unit tests use mocked provider responses. **Live NKENNEAi text + Speech Studio TTS/STT verified 2026-10-23**.
+Honest capability matrix. Unit tests use mocked provider responses.
 
-## Provider verification (NKENNEAi)
+## Provider stack
 
-| Question | Documented / live answer |
-|----------|-------------------|
-| Text endpoint | `POST https://developers-api.nkenne.ai/api/translate/with-api-key` |
-| TTS | `POST /api/tts/v1/{language}/with-api-key` → audio bytes (WAV/MP3) |
-| STT | `POST /api/stt/v1/{language}/with-api-key` + `audio_file` → `{ transcription }` (live) / `{ text }` (docs) |
-| Speech Translations | `POST /api/st/v1/{pair}/with-api-key` → `{ translated_text }`; live pairs: `swahili↔english`, `yoruba→english`, `pidgin→english` |
-| Auth | `Authorization: <API_KEY>` (raw key) |
-| Languages | English, Yoruba, Swahili, Nigerian Pidgin |
+| Job | Primary | Fallback |
+|-----|---------|----------|
+| Text translation (any catalog pair) | ChatGPT (OpenAI) | Grok (xAI) |
+| Talk / assistant replies | ChatGPT (OpenAI) | Grok (xAI) |
+| Speech-to-text | OpenAI Whisper | — |
+| Speak-back (TTS) | ElevenLabs personal voice clone | OpenAI TTS |
+
+| Question | Answer |
+|----------|--------|
+| Text translate | `POST /api/translate`, `POST /api/translate-batch` → ChatGPT, Grok on failure |
+| TTS | `POST /api/speak` → ElevenLabs clone, OpenAI TTS fallback |
+| STT | `POST /api/translate-speech` → OpenAI Whisper |
+| Speech translate | Whisper STT → text translate in one call |
+| Auth | Server-only API keys — the browser never sees a provider key |
+| Languages | All 41 languages in `src/lib/translation/languages.ts` (Hausa first-class) |
 
 ## What is genuinely implemented
 
 | Capability | How | Languages | Tested |
 |------------|-----|-----------|--------|
-| Text translation | `/api/translate` | En ↔ Yo, Sw, Pidgin (+ pivot) | Mocked + live |
+| Text translation | `/api/translate` | Any catalog pair (including Hausa) | Mocked |
 | Batch translation | `/api/translate-batch` | Same | Mocked |
-| Speech-to-text | NKENNE STT via `/api/translate-speech` (MediaRecorder), browser Web Speech fallback | En, Yo, Sw, Pidgin (+ Hausa browser-only) | Mocked speech client; live STT Yoruba |
-| Text-to-speech | NKENNE TTS via `/api/speak`, browser `speechSynthesis` fallback | Same | Mocked + live TTS Yoruba/English/Swahili |
-| Speech translate | Prefer `/api/st/...`; else STT + text translate | Live ST pairs; others via fallback | Mocked orchestration |
+| Speech-to-text | Whisper via `/api/translate-speech` (MediaRecorder), browser Web Speech fallback | Catalog languages + browser | Mocked |
+| Text-to-speech | ElevenLabs clone via `/api/speak`, OpenAI TTS then browser `speechSynthesis` | Catalog languages + browser | Mocked |
 | Voice records | Talk → draft → Confirm | Same | Parser tests |
-| Conversation translator | `/translate` + NKENNE speak-back | Same | UI + services |
+| Conversation translator | `/translate` + speak-back | Same | UI + services |
 
 ## Not supported / not claimed
 
-- **Hausa text / NKENNE speech** — not in the API. Hausa UI + browser voice only.
-- Speech Studio is **Beta** — ST can 503; TIJAR always has text + browser fallbacks.
+- Provider voice quality for every catalog language varies; the browser speech engine remains the offline fallback.
+- Translation quality depends on the underlying model; originals are always shown alongside the translation.
 
 ## Privacy
 
-Audio is uploaded only after an explicit record/mic press (≤5 MB / ~60 s), never logged, and only to TIJAR’s server which proxies to NKENNE with the server-side key. Transcripts are shown for review before save/send where the UI requires it.
+Audio is uploaded only after an explicit record/mic press (≤5 MB / ~60 s), never logged, and only to TIJAR’s server which proxies to the providers with server-side keys. Transcripts are shown for review before save/send where the UI requires it.

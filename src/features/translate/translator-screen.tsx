@@ -6,14 +6,14 @@ import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { useTranslation } from "@/lib/i18n/context";
-import { isNkenneLanguage, type NkenneLanguage } from "@/lib/nkenne/languages";
+import { isTijarLanguage, TIJAR_LANGUAGE_NAMES, type TijarLanguageName } from "@/lib/translation/languages";
 import { cn } from "@/lib/utils";
 import { translateTextClient } from "@/services/translate-service";
 import { HearItButton } from "./hear-it-button";
 import { speakText, useSpeechRecognition } from "./use-speech";
 
-/** NKENNE text API languages first; Hausa is voice-only. */
-const LANG_OPTIONS = ["English", "Yoruba", "Swahili", "Nigerian Pidgin", "Hausa"] as const;
+/** Every language TIJAR can translate — Hausa included. */
+const LANG_OPTIONS = TIJAR_LANGUAGE_NAMES;
 
 type Result = {
   original: string;
@@ -66,13 +66,9 @@ export function TranslatorScreen() {
     setError(null);
     setBusy(true);
 
-    if (!isNkenneLanguage(fromLang) || !isNkenneLanguage(toLang)) {
-      const msg =
-        fromLang === "Hausa" || toLang === "Hausa"
-          ? `${t("app.translator.hausaNotePrefix")} ${t("app.translator.hausaTextWord")} ${t("app.translator.hausaNoteEnd")}`
-          : t("app.translator.translationFailed");
+    if (!isTijarLanguage(fromLang) || !isTijarLanguage(toLang)) {
       setResult(null);
-      setError(msg);
+      setError(t("app.translator.translationFailed"));
       setBusy(false);
       return;
     }
@@ -86,8 +82,8 @@ export function TranslatorScreen() {
 
     const response = await translateTextClient({
       text,
-      fromLanguage: fromLang as NkenneLanguage,
-      toLanguage: toLang as NkenneLanguage,
+      fromLanguage: fromLang as TijarLanguageName,
+      toLanguage: toLang as TijarLanguageName,
     });
     setBusy(false);
 

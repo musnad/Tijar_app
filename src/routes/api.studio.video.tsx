@@ -6,8 +6,8 @@ import {
   clientIp,
   jsonSecure,
   readJsonBody,
-} from "@/lib/nkenne/api-security";
-import { checkRateLimit } from "@/lib/nkenne/rate-limit";
+} from "@/lib/api/security";
+import { checkRateLimit } from "@/lib/api/rate-limit";
 import { grokStartVideo, isXaiConfigured, XaiError } from "@/lib/xai/client";
 
 const MAX_BYTES = 1_200_000;

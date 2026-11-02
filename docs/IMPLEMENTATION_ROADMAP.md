@@ -34,7 +34,7 @@ Geo capture (lat/lng + area) with consent, category/area search over **published
 
 ## Phase F — AI assistance (grounded, server-side)
 
-Nitro AI route implementing `docs/AI_ARCHITECTURE.md`: whitelisted aggregate queries with user JWT, LLM phrases only, confirm-before-write drafts for transactions. Then NKENNEAi translation aid and voice (STT/TTS) on the same confirm-first pattern. Exit: "How much did I sell this week?" answers match dashboard figures exactly in tests.
+Nitro AI route implementing `docs/AI_ARCHITECTURE.md`: whitelisted aggregate queries with user JWT, LLM phrases only, confirm-before-write drafts for transactions. Then ChatGPT/Grok translation aid and voice (STT/TTS) on the same confirm-first pattern. Exit: "How much did I sell this week?" answers match dashboard figures exactly in tests.
 
 ## Phase G — TIJAR Sense and Google Business Profile
 
@@ -61,7 +61,7 @@ Explicit request intake (text/voice), matching against published businesses, opt
 ## Decisions needed from the product owner before later phases
 
 1. AI provider and budget (Phase F) — no key exists today
-2. NKENNEAi contract: languages, pricing, API access (Phase F)
+2. Translation provider contract: languages, pricing, API access (Phase F)
 3. Map provider: OSM/MapLibre vs Google (Phase D)
 4. Payments provider for marketplace (Phase E)
 5. Whether the Android native mock flow is deleted or kept as an offline demo (recommend: delete after WebView parity is confirmed on a physical device)

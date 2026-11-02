@@ -24,7 +24,7 @@ import { TranslateText } from "@/features/translate/translate-text";
 import { VoiceTranslate } from "@/features/translate/voice-translate";
 import { useTranslation } from "@/lib/i18n/context";
 import { getMapsProvider } from "@/lib/maps/provider";
-import { nkenneLanguageForLocale } from "@/lib/nkenne/languages";
+import { languageForLocale } from "@/lib/translation/languages";
 import { cn } from "@/lib/utils";
 import { useStartShopChat } from "@/features/marketplace/use-start-shop-chat";
 import { reportListing } from "@/services/marketplace-service";
@@ -152,7 +152,7 @@ function ShopPostTile({ video, shopName }: { video: PublicFeedVideo; shopName: s
 
 export function StorefrontScreen({ slug }: { slug: string }) {
   const { t, locale } = useTranslation();
-  const voiceLang = nkenneLanguageForLocale(locale) ?? "English";
+  const voiceLang = languageForLocale(locale) ?? "English";
   const { session, profile, refreshProfile } = useAuth();
   const primaryBusiness = usePrimaryBusiness(profile?.id);
   const navigate = useNavigate();

@@ -7,14 +7,14 @@ import {
   jsonSecure,
   readJsonBody,
   resolveTranslateRateKey,
-} from "@/lib/nkenne/api-security";
-import { translateText } from "@/lib/nkenne/service";
+} from "@/lib/api/security";
+import { translateText } from "@/lib/translation/service";
 
 /**
  * POST /api/translate  { text, fromLanguage, toLanguage }
  *
  * Security:
- * - NKENNEAI_API_KEY stays server-only (never sent to the browser)
+ * - AI provider API keys stay server-only (never sent to the browser)
  * - Same-site / allowlisted Origin only
  * - JSON + size capped
  * - Rate limit bound to real client IP (JWT alone cannot bypass)

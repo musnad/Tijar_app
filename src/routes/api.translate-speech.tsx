@@ -4,11 +4,11 @@ import {
   assertTranslateOrigin,
   clientIp,
   jsonSecure,
-} from "@/lib/nkenne/api-security";
-import { transcribeOrTranslateSpeech } from "@/lib/nkenne/speech-service";
+} from "@/lib/api/security";
+import { transcribeOrTranslateSpeech } from "@/lib/translation/speech";
 
 /**
- * POST /api/translate-speech — NKENNE Speech Studio STT / Speech Translations.
+ * POST /api/translate-speech — Whisper STT + ChatGPT/Grok translation.
  *
  * multipart/form-data:
  *   audio | audio_file  — recording (≤5 MB)
