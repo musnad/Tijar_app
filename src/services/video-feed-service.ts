@@ -133,7 +133,12 @@ export async function fetchPublicVideoFeed(opts?: {
   const limit = opts?.limit ?? FEED_PAGE_SIZE;
   const before = opts?.before ?? null;
   const supabase = getSupabaseBrowserClient();
-  let query = supabase.from("public_video_feed").select("*").order("published_at", { ascending: false }).limit(limit);
+  let query = supabase
+    .from("public_video_feed")
+    .select("*")
+    .order("published_at", { ascending: false, nullsFirst: false })
+    .order("created_at", { ascending: false })
+    .limit(limit);
   if (before) query = query.lt("published_at", before);
   const fromView = await query;
   if (!fromView.error && (fromView.data?.length ?? 0) > 0) {
@@ -156,7 +161,8 @@ export async function fetchPostsForBusiness(businessId: string): Promise<PublicF
     .from("public_video_feed")
     .select("*")
     .eq("business_id", businessId)
-    .order("published_at", { ascending: false })
+    .order("published_at", { ascending: false, nullsFirst: false })
+    .order("created_at", { ascending: false })
     .limit(80);
   if (!fromView.error && (fromView.data?.length ?? 0) > 0) {
     return attachShopNames((fromView.data ?? []) as PublicFeedVideo[]);

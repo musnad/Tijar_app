@@ -84,6 +84,8 @@ import { Route as ApiPaymentsFlutterwaveRouteImport } from './routes/api.payment
 import { Route as ApiPaymentsPayoutRouteImport } from './routes/api.payments.payout'
 import { Route as ApiPaymentsStatusRouteImport } from './routes/api.payments.status'
 import { Route as ApiPaymentsWebhookRouteImport } from './routes/api.payments.webhook'
+import { Route as ApiPushNotifyRouteImport } from './routes/api.push.notify'
+import { Route as ApiPushSubscribeRouteImport } from './routes/api.push.subscribe'
 import { Route as ApiStudioFlyerRouteImport } from './routes/api.studio.flyer'
 import { Route as ApiStudioStatusRouteImport } from './routes/api.studio.status'
 import { Route as ApiStudioVideoRouteImport } from './routes/api.studio.video'
@@ -492,6 +494,16 @@ const ApiPaymentsWebhookRoute = ApiPaymentsWebhookRouteImport.update({
   path: '/api/payments/webhook',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPushNotifyRoute = ApiPushNotifyRouteImport.update({
+  id: '/api/push/notify',
+  path: '/api/push/notify',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPushSubscribeRoute = ApiPushSubscribeRouteImport.update({
+  id: '/api/push/subscribe',
+  path: '/api/push/subscribe',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiStudioFlyerRoute = ApiStudioFlyerRouteImport.update({
   id: '/api/studio/flyer',
   path: '/api/studio/flyer',
@@ -730,6 +742,8 @@ export interface FileRoutesByFullPath {
   '/api/payments/payout': typeof ApiPaymentsPayoutRoute
   '/api/payments/status': typeof ApiPaymentsStatusRoute
   '/api/payments/webhook': typeof ApiPaymentsWebhookRoute
+  '/api/push/notify': typeof ApiPushNotifyRoute
+  '/api/push/subscribe': typeof ApiPushSubscribeRoute
   '/api/studio/flyer': typeof ApiStudioFlyerRoute
   '/api/studio/status': typeof ApiStudioStatusRoute
   '/api/studio/video': typeof ApiStudioVideoRouteWithChildren
@@ -832,6 +846,8 @@ export interface FileRoutesByTo {
   '/api/payments/payout': typeof ApiPaymentsPayoutRoute
   '/api/payments/status': typeof ApiPaymentsStatusRoute
   '/api/payments/webhook': typeof ApiPaymentsWebhookRoute
+  '/api/push/notify': typeof ApiPushNotifyRoute
+  '/api/push/subscribe': typeof ApiPushSubscribeRoute
   '/api/studio/flyer': typeof ApiStudioFlyerRoute
   '/api/studio/status': typeof ApiStudioStatusRoute
   '/api/studio/video': typeof ApiStudioVideoRouteWithChildren
@@ -942,6 +958,8 @@ export interface FileRoutesById {
   '/api/payments/payout': typeof ApiPaymentsPayoutRoute
   '/api/payments/status': typeof ApiPaymentsStatusRoute
   '/api/payments/webhook': typeof ApiPaymentsWebhookRoute
+  '/api/push/notify': typeof ApiPushNotifyRoute
+  '/api/push/subscribe': typeof ApiPushSubscribeRoute
   '/api/studio/flyer': typeof ApiStudioFlyerRoute
   '/api/studio/status': typeof ApiStudioStatusRoute
   '/api/studio/video': typeof ApiStudioVideoRouteWithChildren
@@ -1053,6 +1071,8 @@ export interface FileRouteTypes {
     | '/api/payments/payout'
     | '/api/payments/status'
     | '/api/payments/webhook'
+    | '/api/push/notify'
+    | '/api/push/subscribe'
     | '/api/studio/flyer'
     | '/api/studio/status'
     | '/api/studio/video'
@@ -1155,6 +1175,8 @@ export interface FileRouteTypes {
     | '/api/payments/payout'
     | '/api/payments/status'
     | '/api/payments/webhook'
+    | '/api/push/notify'
+    | '/api/push/subscribe'
     | '/api/studio/flyer'
     | '/api/studio/status'
     | '/api/studio/video'
@@ -1264,6 +1286,8 @@ export interface FileRouteTypes {
     | '/api/payments/payout'
     | '/api/payments/status'
     | '/api/payments/webhook'
+    | '/api/push/notify'
+    | '/api/push/subscribe'
     | '/api/studio/flyer'
     | '/api/studio/status'
     | '/api/studio/video'
@@ -1329,6 +1353,8 @@ export interface RootRouteChildren {
   ApiPaymentsPayoutRoute: typeof ApiPaymentsPayoutRoute
   ApiPaymentsStatusRoute: typeof ApiPaymentsStatusRoute
   ApiPaymentsWebhookRoute: typeof ApiPaymentsWebhookRoute
+  ApiPushNotifyRoute: typeof ApiPushNotifyRoute
+  ApiPushSubscribeRoute: typeof ApiPushSubscribeRoute
   ApiStudioFlyerRoute: typeof ApiStudioFlyerRoute
   ApiStudioStatusRoute: typeof ApiStudioStatusRoute
   ApiStudioVideoRoute: typeof ApiStudioVideoRouteWithChildren
@@ -1859,6 +1885,20 @@ declare module '@tanstack/react-router' {
       path: '/api/payments/webhook'
       fullPath: '/api/payments/webhook'
       preLoaderRoute: typeof ApiPaymentsWebhookRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/push/notify': {
+      id: '/api/push/notify'
+      path: '/api/push/notify'
+      fullPath: '/api/push/notify'
+      preLoaderRoute: typeof ApiPushNotifyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/push/subscribe': {
+      id: '/api/push/subscribe'
+      path: '/api/push/subscribe'
+      fullPath: '/api/push/subscribe'
+      preLoaderRoute: typeof ApiPushSubscribeRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/studio/flyer': {
@@ -2394,6 +2434,8 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPaymentsPayoutRoute: ApiPaymentsPayoutRoute,
   ApiPaymentsStatusRoute: ApiPaymentsStatusRoute,
   ApiPaymentsWebhookRoute: ApiPaymentsWebhookRoute,
+  ApiPushNotifyRoute: ApiPushNotifyRoute,
+  ApiPushSubscribeRoute: ApiPushSubscribeRoute,
   ApiStudioFlyerRoute: ApiStudioFlyerRoute,
   ApiStudioStatusRoute: ApiStudioStatusRoute,
   ApiStudioVideoRoute: ApiStudioVideoRouteWithChildren,

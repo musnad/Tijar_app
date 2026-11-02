@@ -116,6 +116,17 @@ type FeedActions = {
   onTogglePause: () => void;
 };
 
+/** One slide in the feed, whatever its content type, so the stream can be ordered by recency. */
+type FeedItem =
+  | { kind: "place"; key: string; ts: number; listing: PlaceOrderListing }
+  | { kind: "video"; key: string; ts: number; video: PublicFeedVideo }
+  | { kind: "listing"; key: string; ts: number; product: PublicProduct };
+
+function feedTimestamp(value: string | null | undefined): number {
+  const t = value ? Date.parse(value) : NaN;
+  return Number.isNaN(t) ? 0 : t;
+}
+
 const FeedActionsContext = createContext<FeedActions | null>(null);
 
 function useFeedActions(): FeedActions {
@@ -568,6 +579,33 @@ export function VideoFeedScreen({ initialVideoId }: { initialVideoId?: string })
     return map;
   }, [showPosts, productsById, listingsByBusiness]);
 
+  // Merge posts, product listings and place-order posts into ONE stream sorted by
+  // recency, so a fresh post always lands on top instead of being grouped by type.
+  const feedItems = useMemo<FeedItem[]>(() => {
+    const items: FeedItem[] = [];
+    for (const listing of showPlaceOrders) {
+      items.push({ kind: "place", key: `place:${listing.id}`, ts: feedTimestamp(listing.created_at), listing });
+    }
+    for (const video of showPosts) {
+      items.push({
+        kind: "video",
+        key: `video:${video.id}`,
+        ts: feedTimestamp(video.published_at ?? video.created_at),
+        video,
+      });
+    }
+    for (const product of showListings) {
+      items.push({ kind: "listing", key: `listing:${product.id}`, ts: feedTimestamp(product.created_at), product });
+    }
+    return items.sort((a, b) => b.ts - a.ts);
+  }, [showPlaceOrders, showPosts, showListings]);
+
+  const videoIndexById = useMemo(() => {
+    const m = new Map<string, number>();
+    showPosts.forEach((v, i) => m.set(v.id, i));
+    return m;
+  }, [showPosts]);
+
   useEffect(() => {
     const root = scrollerRef.current;
     const el = loadMoreRef.current;
@@ -598,21 +636,40 @@ export function VideoFeedScreen({ initialVideoId }: { initialVideoId?: string })
           {feedQuery.isPending
             ? Array.from({ length: 3 }, (_, i) => <FeedSkeleton key={`sk-${i}`} />)
             : null}
-          {showPlaceOrders.map((listing) => (
-            <PlaceOrderSlide
-              key={listing.id}
-              listing={listing}
-              following={followQuery.data?.has(listing.business_id) || mockFollowing.has(listing.business_id)}
-            />
-          ))}
-          {showPosts.map((video, index) => {
+          {feedItems.map((item) => {
+            if (item.kind === "place") {
+              return (
+                <PlaceOrderSlide
+                  key={item.key}
+                  listing={item.listing}
+                  following={
+                    followQuery.data?.has(item.listing.business_id) ||
+                    mockFollowing.has(item.listing.business_id)
+                  }
+                />
+              );
+            }
+            if (item.kind === "listing") {
+              return (
+                <ListingSlide
+                  key={item.key}
+                  product={item.product}
+                  following={
+                    followQuery.data?.has(item.product.business_id) ||
+                    mockFollowing.has(item.product.business_id)
+                  }
+                />
+              );
+            }
+            const video = item.video;
+            const index = videoIndexById.get(video.id) ?? 0;
             const idx = activeIndex < 0 ? 0 : activeIndex;
             const mountMedia = index >= idx - 1 && index <= idx + 2;
             const isActive = activeId === video.id;
             const isNext = index === idx + 1;
             return (
               <VideoSlide
-                key={video.id}
+                key={item.key}
                 video={video}
                 active={isActive}
                 paused={paused}
@@ -626,15 +683,6 @@ export function VideoFeedScreen({ initialVideoId }: { initialVideoId?: string })
               />
             );
           })}
-          {showListings.map((product) => (
-            <ListingSlide
-              key={product.id}
-              product={product}
-              following={
-                followQuery.data?.has(product.business_id) || mockFollowing.has(product.business_id)
-              }
-            />
-          ))}
           {feedQuery.isPending ? null : showPosts.length === 0 && showListings.length === 0 && showPlaceOrders.length === 0 ? (
             <div className="flex h-full flex-col items-center justify-center gap-3 px-8 text-center">
               <ShoppingBag className="size-10 text-primary/40" />
