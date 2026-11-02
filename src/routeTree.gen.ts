@@ -117,6 +117,7 @@ import { Route as ShopOrderNowListingIdRouteImport } from './routes/shop/order-n
 import { Route as ShopOrdersIndexRouteImport } from './routes/shop/orders.index'
 import { Route as ShopOrdersOrderIdRouteImport } from './routes/shop/orders.$orderId'
 import { Route as ShopPProductIdRouteImport } from './routes/shop/p.$productId'
+import { Route as ShopUProfileIdRouteImport } from './routes/shop/u.$profileId'
 import { Route as ApiStudioVideoRequestIdRouteImport } from './routes/api.studio.video.$requestId'
 import { Route as AppCustomersCreditNewRouteImport } from './routes/app/customers/credit/new'
 import { Route as ShopPostPostIdEditRouteImport } from './routes/shop/post.$postId.edit'
@@ -662,6 +663,11 @@ const ShopPProductIdRoute = ShopPProductIdRouteImport.update({
   path: '/p/$productId',
   getParentRoute: () => ShopRoute,
 } as any)
+const ShopUProfileIdRoute = ShopUProfileIdRouteImport.update({
+  id: '/u/$profileId',
+  path: '/u/$profileId',
+  getParentRoute: () => ShopRoute,
+} as any)
 const ApiStudioVideoRequestIdRoute = ApiStudioVideoRequestIdRouteImport.update({
   id: '/$requestId',
   path: '/$requestId',
@@ -781,6 +787,7 @@ export interface FileRoutesByFullPath {
   '/shop/order-now/$listingId': typeof ShopOrderNowListingIdRoute
   '/shop/orders/$orderId': typeof ShopOrdersOrderIdRoute
   '/shop/p/$productId': typeof ShopPProductIdRoute
+  '/shop/u/$profileId': typeof ShopUProfileIdRoute
   '/app/admin/': typeof AppAdminIndexRoute
   '/app/customers/': typeof AppCustomersIndexRoute
   '/app/learn/': typeof AppLearnIndexRoute
@@ -887,6 +894,7 @@ export interface FileRoutesByTo {
   '/shop/order-now/$listingId': typeof ShopOrderNowListingIdRoute
   '/shop/orders/$orderId': typeof ShopOrdersOrderIdRoute
   '/shop/p/$productId': typeof ShopPProductIdRoute
+  '/shop/u/$profileId': typeof ShopUProfileIdRoute
   '/app/admin': typeof AppAdminIndexRoute
   '/app/customers': typeof AppCustomersIndexRoute
   '/app/learn': typeof AppLearnIndexRoute
@@ -1001,6 +1009,7 @@ export interface FileRoutesById {
   '/shop/order-now/$listingId': typeof ShopOrderNowListingIdRoute
   '/shop/orders/$orderId': typeof ShopOrdersOrderIdRoute
   '/shop/p/$productId': typeof ShopPProductIdRoute
+  '/shop/u/$profileId': typeof ShopUProfileIdRoute
   '/app/admin/': typeof AppAdminIndexRoute
   '/app/customers/': typeof AppCustomersIndexRoute
   '/app/learn/': typeof AppLearnIndexRoute
@@ -1116,6 +1125,7 @@ export interface FileRouteTypes {
     | '/shop/order-now/$listingId'
     | '/shop/orders/$orderId'
     | '/shop/p/$productId'
+    | '/shop/u/$profileId'
     | '/app/admin/'
     | '/app/customers/'
     | '/app/learn/'
@@ -1222,6 +1232,7 @@ export interface FileRouteTypes {
     | '/shop/order-now/$listingId'
     | '/shop/orders/$orderId'
     | '/shop/p/$productId'
+    | '/shop/u/$profileId'
     | '/app/admin'
     | '/app/customers'
     | '/app/learn'
@@ -1335,6 +1346,7 @@ export interface FileRouteTypes {
     | '/shop/order-now/$listingId'
     | '/shop/orders/$orderId'
     | '/shop/p/$productId'
+    | '/shop/u/$profileId'
     | '/app/admin/'
     | '/app/customers/'
     | '/app/learn/'
@@ -2142,6 +2154,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ShopPProductIdRouteImport
       parentRoute: typeof ShopRoute
     }
+    '/shop/u/$profileId': {
+      id: '/shop/u/$profileId'
+      path: '/u/$profileId'
+      fullPath: '/shop/u/$profileId'
+      preLoaderRoute: typeof ShopUProfileIdRouteImport
+      parentRoute: typeof ShopRoute
+    }
     '/api/studio/video/$requestId': {
       id: '/api/studio/video/$requestId'
       path: '/$requestId'
@@ -2399,6 +2418,7 @@ interface ShopRouteChildren {
   ShopIndexRoute: typeof ShopIndexRoute
   ShopBidPostIdRoute: typeof ShopBidPostIdRoute
   ShopPProductIdRoute: typeof ShopPProductIdRoute
+  ShopUProfileIdRoute: typeof ShopUProfileIdRoute
   ShopPostPostIdEditRoute: typeof ShopPostPostIdEditRoute
 }
 
@@ -2428,6 +2448,7 @@ const ShopRouteChildren: ShopRouteChildren = {
   ShopIndexRoute: ShopIndexRoute,
   ShopBidPostIdRoute: ShopBidPostIdRoute,
   ShopPProductIdRoute: ShopPProductIdRoute,
+  ShopUProfileIdRoute: ShopUProfileIdRoute,
   ShopPostPostIdEditRoute: ShopPostPostIdEditRoute,
 }
 

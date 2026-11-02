@@ -109,6 +109,57 @@ export async function updateVideoPost(
   return { error: error?.message ?? null };
 }
 
+export type BidderCard = {
+  canViewContact: boolean;
+  fullName: string;
+  avatarUrl: string | null;
+  bio: string | null;
+  phone: string | null;
+  email: string | null;
+  joinedAt: string | null;
+  bidCount: number;
+  highestBid: number | null;
+  lastBidAt: string | null;
+  isWinner: boolean;
+  shops: { id: string; name: string; slug: string | null; logoUrl: string | null }[];
+};
+
+/**
+ * The account behind a bid. The shop running the bidding (and its team) get the
+ * bidder's contact details; everyone else gets the transparent public part.
+ */
+export async function fetchBidderCard(postId: string, bidderId: string): Promise<BidderCard | null> {
+  if (!postId || !bidderId) return null;
+  const supabase = getSupabaseBrowserClient();
+  const { data, error } = await supabase.rpc("bid_bidder_card", {
+    p_post_id: postId,
+    p_bidder_id: bidderId,
+  });
+  if (error) return null;
+  const r = (data ?? {}) as Record<string, unknown>;
+  if (r["ok"] !== true) return null;
+  const rawShops = Array.isArray(r["shops"]) ? (r["shops"] as Record<string, unknown>[]) : [];
+  return {
+    canViewContact: Boolean(r["can_view_contact"]),
+    fullName: (r["full_name"] as string) ?? "A shopper",
+    avatarUrl: (r["avatar_url"] as string | null) ?? null,
+    bio: (r["bio"] as string | null) ?? null,
+    phone: (r["phone"] as string | null) ?? null,
+    email: (r["email"] as string | null) ?? null,
+    joinedAt: (r["joined_at"] as string | null) ?? null,
+    bidCount: Number(r["bid_count"] ?? 0),
+    highestBid: r["highest_bid"] != null ? Number(r["highest_bid"]) : null,
+    lastBidAt: (r["last_bid_at"] as string | null) ?? null,
+    isWinner: Boolean(r["is_winner"]),
+    shops: rawShops.map((s) => ({
+      id: s["id"] as string,
+      name: (s["name"] as string) ?? "Shop",
+      slug: (s["slug"] as string | null) ?? null,
+      logoUrl: (s["logo_url"] as string | null) ?? null,
+    })),
+  };
+}
+
 /** One post from the public feed, for the bid detail page. */
 export async function fetchVideoPostById(postId: string): Promise<PublicFeedVideo | null> {
   if (!postId) return null;

@@ -8,15 +8,18 @@ import {
   Banknote,
   ChevronRight,
   Gavel,
+  Mail,
   Pause,
   Pencil,
+  Phone,
   Play,
   ShoppingBag,
   Trash2,
   Trophy,
+  UserRound,
   Wallet,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -31,6 +34,7 @@ import {
   closeBid,
   confirmBidPayment,
   deleteVideoPost,
+  fetchBidderCard,
   fetchBidOffers,
   fetchVideoPostById,
   markBidPaid,
@@ -92,6 +96,42 @@ function timeAgo(iso: string): string {
   return `${Math.floor(hours / 24)}d ago`;
 }
 
+/** A big, bold, ticking clock — the number everyone watches. */
+function LiveCountdown({ label, secs }: { label: string; secs: number }) {
+  const danger = secs > 0 && secs <= 60;
+  return (
+    <div className="text-right">
+      <p className="text-[11px] font-bold uppercase tracking-wide text-[#6B7280]">{label}</p>
+      <p
+        className={cn(
+          "font-black tabular-nums leading-tight tracking-tight",
+          danger ? "text-2xl text-red-600" : "text-2xl text-[#0B1F4D]",
+        )}
+      >
+        {fmtDuration(secs)}
+      </p>
+    </div>
+  );
+}
+
+function BidderLink({
+  postId,
+  bidderId,
+  className,
+  children,
+}: {
+  postId: string;
+  bidderId: string;
+  className?: string;
+  children: ReactNode;
+}) {
+  return (
+    <Link to="/shop/u/$profileId" params={{ profileId: bidderId }} search={{ post: postId }} className={className}>
+      {children}
+    </Link>
+  );
+}
+
 export function BidDetailScreen({ postId }: { postId: string }) {
   const { profile } = useAuth();
   const navigate = useNavigate();
@@ -130,6 +170,14 @@ export function BidDetailScreen({ postId }: { postId: string }) {
 
   const [amount, setAmount] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
+
+  const winnerId = post?.bid_winner_id ?? null;
+  const winnerCardQuery = useQuery({
+    queryKey: ["bidder-card", postId, winnerId ?? ""],
+    enabled: Boolean(winnerId),
+    queryFn: () => fetchBidderCard(postId, winnerId as string),
+  });
+  const winnerCard = winnerCardQuery.data ?? null;
 
   useTicker(phase === "open" || phase === "upcoming" || phase === "sold");
 
@@ -244,7 +292,13 @@ export function BidDetailScreen({ postId }: { postId: string }) {
           <h1 className="truncate text-lg font-extrabold text-foreground">Bidding</h1>
           <p className="truncate text-xs text-muted-foreground">{post.business_name}</p>
         </div>
-        <span className={cn("rounded-full px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wide", chip.cls)}>
+        <span
+          className={cn(
+            "flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wide",
+            chip.cls,
+          )}
+        >
+          {phase === "open" ? <span className="size-1.5 animate-pulse rounded-full bg-white" /> : null}
           {chip.label}
         </span>
       </div>
@@ -274,15 +328,11 @@ export function BidDetailScreen({ postId }: { postId: string }) {
           </div>
           <div className="text-right">
             {phase === "upcoming" ? (
-              <>
-                <p className="text-[11px] font-bold uppercase tracking-wide text-[#6B7280]">Starts in</p>
-                <p className="text-sm font-extrabold text-[#0B1F4D]">{fmtDuration(secondsTo(post.bid_starts_at))}</p>
-              </>
+              <LiveCountdown label="Starts in" secs={secondsTo(post.bid_starts_at)} />
             ) : phase === "open" ? (
-              <>
-                <p className="text-[11px] font-bold uppercase tracking-wide text-[#6B7280]">Ends in</p>
-                <p className="text-sm font-extrabold text-[#0B1F4D]">{fmtDuration(secondsTo(post.bid_ends_at))}</p>
-              </>
+              <LiveCountdown label="Ends in" secs={secondsTo(post.bid_ends_at)} />
+            ) : phase === "sold" ? (
+              <LiveCountdown label="Pay within" secs={bidPaymentSecondsLeft(post)} />
             ) : null}
           </div>
         </div>
@@ -335,7 +385,7 @@ export function BidDetailScreen({ postId }: { postId: string }) {
           <p className="flex items-center gap-2 text-[13px] font-extrabold">
             <Trophy className="size-4 text-amber-300" /> Sold to {post.bid_winner_name}
           </p>
-          <p className="mt-1 text-2xl font-black">{formatNgn(topBid ?? starting)}</p>
+          <p className="mt-1 text-2xl font-black tabular-nums">{formatNgn(topBid ?? starting)}</p>
           {phase === "sold" ? (
             <p className="mt-2 text-[12px] text-white/80">
               {bidPaymentSecondsLeft(post) > 0
@@ -347,6 +397,35 @@ export function BidDetailScreen({ postId }: { postId: string }) {
           ) : (
             <p className="mt-2 text-[12px] text-emerald-200">Paid — money received.</p>
           )}
+
+          {post.bid_winner_id ? (
+            <BidderLink
+              postId={postId}
+              bidderId={post.bid_winner_id}
+              className="mt-3 flex items-center justify-between rounded-xl bg-white/10 px-3 py-2 text-[12px] font-extrabold"
+            >
+              <span className="flex items-center gap-2">
+                <UserRound className="size-3.5 text-amber-200" />
+                {isOwner ? "Open the winner's account" : "View the winner's account"}
+              </span>
+              <ChevronRight className="size-4" />
+            </BidderLink>
+          ) : null}
+
+          {isOwner && (winnerCard?.phone || winnerCard?.email) ? (
+            <div className="mt-2 grid gap-1.5 text-[12px] font-bold">
+              {winnerCard?.phone ? (
+                <a href={`tel:${winnerCard.phone}`} className="flex items-center gap-2 text-amber-200">
+                  <Phone className="size-3.5" /> {winnerCard.phone}
+                </a>
+              ) : null}
+              {winnerCard?.email ? (
+                <a href={`mailto:${winnerCard.email}`} className="flex items-center gap-2 break-all text-amber-200">
+                  <Mail className="size-3.5 shrink-0" /> {winnerCard.email}
+                </a>
+              ) : null}
+            </div>
+          ) : null}
         </div>
       ) : null}
 
@@ -457,6 +536,22 @@ export function BidDetailScreen({ postId }: { postId: string }) {
                 Winner: {post.bid_winner_name ?? "—"} · {formatNgn(topBid ?? starting)}
                 {post.bid_buyer_marked_paid_at ? " · they say they have paid" : " · not marked paid yet"}
               </p>
+              {post.bid_winner_id ? (
+                <BidderLink
+                  postId={postId}
+                  bidderId={post.bid_winner_id}
+                  className="mt-2 flex items-center justify-between rounded-xl border border-[#0B1F4D]/15 bg-white px-3 py-2 text-[12px] font-extrabold text-[#0B1F4D]"
+                >
+                  <span className="flex min-w-0 items-center gap-2">
+                    <UserRound className="size-3.5 shrink-0 text-[#1F7A4D]" />
+                    <span className="truncate">
+                      Winner&apos;s account
+                      {winnerCard?.phone ? ` · ${winnerCard.phone}` : ""}
+                    </span>
+                  </span>
+                  <ChevronRight className="size-4 shrink-0" />
+                </BidderLink>
+              ) : null}
               <div className="mt-2 grid grid-cols-2 gap-2">
                 <Button
                   type="button"
@@ -502,6 +597,7 @@ export function BidDetailScreen({ postId }: { postId: string }) {
             {offers.map((offer, index) => (
               <BidRow
                 key={offer.id}
+                postId={postId}
                 offer={offer}
                 rank={index + 1}
                 isTop={index === 0}
@@ -533,43 +629,54 @@ export function BidDetailScreen({ postId }: { postId: string }) {
 }
 
 function BidRow({
+  postId,
   offer,
   rank,
   isTop,
   isMine,
 }: {
+  postId: string;
   offer: BidOffer;
   rank: number;
   isTop: boolean;
   isMine: boolean;
 }) {
   return (
-    <li
-      className={cn(
-        "flex items-center gap-3 rounded-2xl border p-3",
-        isTop ? "border-[#1F7A4D]/30 bg-[#E9F7EF]" : "border-border bg-card",
-      )}
-    >
-      <span
+    <li>
+      <Link
+        to="/shop/u/$profileId"
+        params={{ profileId: offer.bidder_id }}
+        search={{ post: postId }}
         className={cn(
-          "flex size-8 shrink-0 items-center justify-center rounded-full text-[12px] font-extrabold",
-          isTop ? "bg-[#1F7A4D] text-white" : "bg-muted text-muted-foreground",
+          "flex items-center gap-3 rounded-2xl border p-3",
+          isTop ? "border-[#1F7A4D]/30 bg-[#E9F7EF]" : "border-border bg-card",
         )}
       >
-        {rank}
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="flex items-center gap-1.5 text-[13px] font-extrabold text-foreground">
-          <span className="truncate">{isMine ? `${offer.bidder_name} (you)` : offer.bidder_name}</span>
-          {isTop ? (
-            <span className="rounded-full bg-[#1F7A4D] px-1.5 py-0.5 text-[9px] font-extrabold uppercase text-white">
-              Winning
-            </span>
-          ) : null}
+        <span
+          className={cn(
+            "flex size-8 shrink-0 items-center justify-center rounded-full text-[12px] font-extrabold",
+            isTop ? "bg-[#1F7A4D] text-white" : "bg-muted text-muted-foreground",
+          )}
+        >
+          {rank}
         </span>
-        <span className="mt-0.5 block text-[11px] text-muted-foreground">{timeAgo(offer.created_at)}</span>
-      </span>
-      <span className="shrink-0 text-sm font-black text-[#0B1F4D]">{formatNgn(offer.amount)}</span>
+        <span className="min-w-0 flex-1">
+          <span className="flex items-center gap-1.5 text-[13px] font-extrabold text-foreground">
+            <span className="truncate">{isMine ? `${offer.bidder_name} (you)` : offer.bidder_name}</span>
+            {isTop ? (
+              <span className="rounded-full bg-[#1F7A4D] px-1.5 py-0.5 text-[9px] font-extrabold uppercase text-white">
+                Winning
+              </span>
+            ) : null}
+          </span>
+          <span className="mt-0.5 block text-[11px] text-muted-foreground">
+            {timeAgo(offer.created_at)}
+            {isMine ? "" : " · tap to view account"}
+          </span>
+        </span>
+        <span className="shrink-0 text-sm font-black text-[#0B1F4D]">{formatNgn(offer.amount)}</span>
+        <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
+      </Link>
     </li>
   );
 }
