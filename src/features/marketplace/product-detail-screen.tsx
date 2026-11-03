@@ -19,6 +19,7 @@ import { useTranslation } from "@/lib/i18n/context";
 import { displayShopName, shopLinkSlug } from "@/lib/shop-names";
 import { cn } from "@/lib/utils";
 import { ProductSocialBar } from "@/features/marketplace/product-social";
+import { ProductReviews } from "@/features/marketplace/product-reviews";
 import { useAccountGate } from "@/features/auth/account-gate";
 import { isProductSaved } from "@/lib/shop-social";
 import { useDoubleTap } from "@/lib/use-double-tap";
@@ -168,6 +169,9 @@ export function ProductDetailScreen({ productId }: { productId: string }) {
       return;
     }
     if (buyNow) {
+      if (!requireAccount("buy")) {
+        return;
+      }
       void navigate({ to: "/shop/buy", search: { productId: product.id } });
       return;
     }
@@ -405,6 +409,8 @@ export function ProductDetailScreen({ productId }: { productId: string }) {
               </div>
 
               <ProductSocialBar product={product} className="mt-1 -ml-2.5" />
+
+              <ProductReviews productId={product.id} />
 
               {colours.length > 0 && (
                 <div className="mt-4">

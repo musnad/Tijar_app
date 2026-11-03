@@ -154,6 +154,7 @@ export function StorefrontScreen({ slug }: { slug: string }) {
   const { t, locale } = useTranslation();
   const voiceLang = languageForLocale(locale) ?? "English";
   const { session, profile, refreshProfile } = useAuth();
+  const { requireAccount } = useAccountGate();
   const primaryBusiness = usePrimaryBusiness(profile?.id);
   const navigate = useNavigate();
   const startChat = useStartShopChat();
@@ -349,8 +350,7 @@ export function StorefrontScreen({ slug }: { slug: string }) {
   }
 
   async function onReport() {
-    if (!session || !profile || !business) {
-      void navigate({ to: "/login" });
+    if (!requireAccount("generic") || !profile || !business) {
       return;
     }
     setReporting(true);

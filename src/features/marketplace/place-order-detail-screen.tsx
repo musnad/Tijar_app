@@ -24,6 +24,7 @@ import { Input } from "@/components/ui/input";
 import { MarketplaceShell } from "@/features/marketplace/marketplace-shell";
 import { PlaceOrderSocialBar } from "@/features/marketplace/place-order-social";
 import { useAuth } from "@/features/auth/auth-context";
+import { useAccountGate } from "@/features/auth/account-gate";
 import { cn } from "@/lib/utils";
 import { fetchBusinessPayoutAccount, listAddresses } from "@/services/marketplace-service";
 import {
@@ -42,7 +43,8 @@ import { formatNgn } from "@/utils/money";
 const SLOTS = ["08:00–11:00", "11:00–14:00", "14:00–17:00", "17:00–20:00", "20:00–22:00"];
 
 export function PlaceOrderDetailScreen({ listingId }: { listingId: string }) {
-  const { profile, session } = useAuth();
+  const { profile } = useAuth();
+  const { requireAccount } = useAccountGate();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [buyerName, setBuyerName] = useState("");
@@ -125,9 +127,7 @@ export function PlaceOrderDetailScreen({ listingId }: { listingId: string }) {
       toast.error("This post is sold out.");
       return;
     }
-    if (!session || !profile) {
-      toast.error("Sign in to place your order.");
-      void navigate({ to: "/login" });
+    if (!requireAccount("buy") || !profile) {
       return;
     }
     if (buyerName.trim().length < 2) {

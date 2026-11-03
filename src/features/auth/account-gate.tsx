@@ -111,10 +111,11 @@ export function AccountGateProvider({ children }: { children: ReactNode }) {
     [session],
   );
 
-  // First-visit welcome: guests landing on the shop feed, once per browser.
+  // First-visit welcome: guests landing on the shop feed or explore, once per browser.
   useEffect(() => {
     if (loading || !configured || session) return;
-    if (pathname !== "/shop" && pathname !== "/shop/") return;
+    const entryPaths = ["/shop", "/shop/", "/shop/discover", "/shop/browse"];
+    if (!entryPaths.includes(pathname)) return;
     let seen = false;
     try {
       seen = Boolean(window.localStorage.getItem(WELCOME_SEEN_KEY));

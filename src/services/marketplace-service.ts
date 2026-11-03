@@ -586,11 +586,113 @@ export async function deleteProductComment(input: {
   return { error: error?.message ?? null };
 }
 
+/* ------------------------------------------------------------------ *
+ * Product reviews: one rating (1-5) plus an optional note per shopper.
+ * ------------------------------------------------------------------ */
+
+export type ProductReview = {
+  id: string;
+  product_id: string;
+  profile_id: string;
+  rating: number;
+  body: string | null;
+  created_at: string;
+  updated_at: string;
+  author_name?: string;
+};
+
+export type ProductReviewSummary = {
+  average: number | null;
+  count: number;
+};
+
+function productReviewMissing(message: string | undefined): boolean {
+  return !message || /product_reviews|schema cache|does not exist/i.test(message);
+}
+
+export async function fetchProductReviews(
+  productId: string,
+): Promise<{ reviews: ProductReview[]; summary: ProductReviewSummary; error: string | null }> {
+  const empty: ProductReviewSummary = { average: null, count: 0 };
+  if (isMockFeedId(productId)) return { reviews: [], summary: empty, error: null };
+  const supabase = getSupabaseBrowserClient();
+  const { data, error } = await supabase
+    .from("product_reviews")
+    .select("id, product_id, profile_id, rating, body, created_at, updated_at")
+    .eq("product_id", productId)
+    .order("created_at", { ascending: false })
+    .limit(100);
+  if (error) {
+    return {
+      reviews: [],
+      summary: empty,
+      error: productReviewMissing(error.message)
+        ? "Reviews are not set up yet. Apply migration 000060."
+        : error.message,
+    };
+  }
+  const rows = (data ?? []) as ProductReview[];
+  const ids = [...new Set(rows.map((r) => r.profile_id))];
+  let names = new Map<string, string>();
+  if (ids.length) {
+    const { data: profiles } = await supabase.from("profiles").select("id, full_name").in("id", ids);
+    names = new Map((profiles ?? []).map((p) => [p.id as string, (p.full_name as string) ?? "Shopper"]));
+  }
+  const reviews = rows.map((r) => ({ ...r, author_name: names.get(r.profile_id) ?? "Shopper" }));
+  const average = reviews.length
+    ? reviews.reduce((total, r) => total + Number(r.rating), 0) / reviews.length
+    : null;
+  return { reviews, summary: { average, count: reviews.length }, error: null };
+}
+
+export async function submitProductReview(input: {
+  productId: string;
+  profileId: string;
+  rating: number;
+  body?: string | null;
+}): Promise<{ error: string | null }> {
+  const rating = Math.round(Number(input.rating));
+  if (!Number.isFinite(rating) || rating < 1 || rating > 5) {
+    return { error: "Pick a rating from 1 to 5 stars." };
+  }
+  const trimmed = input.body?.trim() ?? "";
+  const supabase = getSupabaseBrowserClient();
+  const { error } = await supabase.from("product_reviews").upsert(
+    {
+      product_id: input.productId,
+      profile_id: input.profileId,
+      rating,
+      body: trimmed ? trimmed : null,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "product_id,profile_id" },
+  );
+  if (error && productReviewMissing(error.message)) {
+    return { error: "Reviews are not set up yet. Apply migration 000060." };
+  }
+  return { error: error?.message ?? null };
+}
+
+export async function deleteProductReview(input: {
+  productId: string;
+  profileId: string;
+}): Promise<{ error: string | null }> {
+  const supabase = getSupabaseBrowserClient();
+  const { error } = await supabase
+    .from("product_reviews")
+    .delete()
+    .eq("product_id", input.productId)
+    .eq("profile_id", input.profileId);
+  if (error && productReviewMissing(error.message)) {
+    return { error: "Reviews are not set up yet. Apply migration 000060." };
+  }
+  return { error: error?.message ?? null };
+}
+
 export async function recordProductShare(productId: string): Promise<void> {
   const supabase = getSupabaseBrowserClient();
   await supabase.rpc("record_product_share", { p_product_id: productId });
 }
-
 export function productShareUrl(productId: string): string {
   const origin = typeof window !== "undefined" ? window.location.origin : "";
   return `${origin}/shop/p/${productId}`;
