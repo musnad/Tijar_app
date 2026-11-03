@@ -802,6 +802,37 @@ export async function postPlaceOrderComment(input: {
   return { error: error?.message ?? null };
 }
 
+export async function updatePlaceOrderComment(input: {
+  commentId: string;
+  profileId: string;
+  body: string;
+}): Promise<{ error: string | null }> {
+  const text = input.body.trim();
+  if (!text) return { error: "Write a comment first." };
+  const supabase = getSupabaseBrowserClient();
+  const { error } = await supabase
+    .from("place_order_comments")
+    .update({ body: text })
+    .eq("id", input.commentId)
+    .eq("profile_id", input.profileId);
+  if (error && missingTable(error.message)) return { error: "Comments are not set up yet. Apply migration 000059." };
+  return { error: error?.message ?? null };
+}
+
+export async function deletePlaceOrderComment(input: {
+  commentId: string;
+  profileId: string;
+}): Promise<{ error: string | null }> {
+  const supabase = getSupabaseBrowserClient();
+  const { error } = await supabase
+    .from("place_order_comments")
+    .delete()
+    .eq("id", input.commentId)
+    .eq("profile_id", input.profileId);
+  if (error && missingTable(error.message)) return { error: "Comments are not set up yet. Apply migration 000044." };
+  return { error: error?.message ?? null };
+}
+
 /* ------------------------------------------------------------------ *
  * Collaborations: a shop invites another shop to share a post.
  * ------------------------------------------------------------------ */

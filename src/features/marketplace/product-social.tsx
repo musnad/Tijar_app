@@ -10,11 +10,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useAuth } from "@/features/auth/auth-context";
+import { useAccountGate } from "@/features/auth/account-gate";
 import { isMockFeedId } from "@/features/marketplace/feed-mock";
 import { haptic } from "@/lib/haptics";
 import { displayShopName } from "@/lib/shop-names";
 import { cn } from "@/lib/utils";
 import {
+  deleteProductComment,
   fetchMyLikedProductIds,
   fetchProductComments,
   fetchProductEngagement,
@@ -22,6 +24,8 @@ import {
   productShareUrl,
   recordProductShare,
   toggleProductLikeDb,
+  updateProductComment,
+  type ProductComment,
   type ProductEngagement,
 } from "@/services/marketplace-service";
 import type { PublicProduct } from "@/types/database";
@@ -52,7 +56,8 @@ export function ProductSocialBar({
   className?: string;
   compact?: boolean;
 }) {
-  const { profile, session } = useAuth();
+  const { profile } = useAuth();
+  const { requireAccount } = useAccountGate();
   const queryClient = useQueryClient();
   const [commentsOpen, setCommentsOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
@@ -91,8 +96,7 @@ export function ProductSocialBar({
   async function like(e: React.MouseEvent) {
     e.preventDefault();
     e.stopPropagation();
-    if (!session || !profile) {
-      toast.message("Sign in to like this.");
+    if (!requireAccount("like") || !profile) {
       return;
     }
     haptic();
@@ -205,9 +209,12 @@ export function ProductCommentsThread({
   shopName: string;
   onPosted?: () => void;
 }) {
-  const { profile, session } = useAuth();
+  const { profile } = useAuth();
+  const { requireAccount } = useAccountGate();
   const [body, setBody] = useState("");
   const [replyTo, setReplyTo] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editBody, setEditBody] = useState("");
   const queryClient = useQueryClient();
   const commentsQuery = useQuery({
     queryKey: ["product-comments", productId],
@@ -221,6 +228,110 @@ export function ProductCommentsThread({
   const roots = comments.filter((c) => !c.parent_id);
   const replyName = comments.find((c) => c.id === replyTo)?.author_name;
   const me = profile?.full_name?.trim() || "You";
+
+  function refresh() {
+    void queryClient.invalidateQueries({ queryKey: ["product-comments", productId] });
+    void queryClient.invalidateQueries({ queryKey: ["product-engagement", productId] });
+  }
+
+  function startEdit(commentId: string, current: string) {
+    setEditingId(commentId);
+    setEditBody(current);
+  }
+
+  async function saveEdit() {
+    if (!editingId || !profile) return;
+    const text = editBody.trim();
+    if (!text) return;
+    const { error } = await updateProductComment({ commentId: editingId, profileId: profile.id, body: text });
+    if (error) {
+      toast.error(error);
+      return;
+    }
+    setEditingId(null);
+    setEditBody("");
+    refresh();
+  }
+
+  async function remove(commentId: string) {
+    if (!profile) return;
+    if (typeof window !== "undefined" && !window.confirm("Delete this comment?")) return;
+    const { error } = await deleteProductComment({ commentId, profileId: profile.id });
+    if (error) {
+      toast.error(error);
+      return;
+    }
+    refresh();
+  }
+
+  function renderBody(comment: ProductComment, small = false) {
+    if (editingId === comment.id) {
+      return (
+        <div className="mt-1 flex items-center gap-2">
+          <Input
+            value={editBody}
+            onChange={(e) => setEditBody(e.target.value)}
+            className="h-9 rounded-full border-border text-[13px]"
+            autoFocus
+          />
+          <Button
+            type="button"
+            size="sm"
+            className="h-9 rounded-full px-3 text-[12px] font-extrabold"
+            disabled={!editBody.trim()}
+            onClick={() => void saveEdit()}
+          >
+            Save
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            className="h-9 rounded-full px-2 text-[12px] font-semibold"
+            onClick={() => {
+              setEditingId(null);
+              setEditBody("");
+            }}
+          >
+            Cancel
+          </Button>
+        </div>
+      );
+    }
+    return (
+      <p className={cn("leading-snug", small ? "text-[13px]" : "text-[14px] text-zinc-800")}>
+        <span className="font-extrabold">{comment.author_name}</span> {comment.body}
+      </p>
+    );
+  }
+
+  function renderActions(comment: ProductComment, allowReply: boolean) {
+    const mine = Boolean(profile && comment.profile_id === profile.id);
+    return (
+      <div className="mt-1 flex items-center gap-3 text-[11px] font-semibold text-muted-foreground">
+        <span>{timeAgo(comment.created_at) || "now"}</span>
+        {allowReply ? (
+          <button type="button" className="font-extrabold text-[#0B1F4D]" onClick={() => setReplyTo(comment.id)}>
+            Reply
+          </button>
+        ) : null}
+        {mine ? (
+          <>
+            <button
+              type="button"
+              className="font-extrabold text-[#0B1F4D]"
+              onClick={() => startEdit(comment.id, comment.body)}
+            >
+              Edit
+            </button>
+            <button type="button" className="font-extrabold text-destructive" onClick={() => void remove(comment.id)}>
+              Delete
+            </button>
+          </>
+        ) : null}
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -241,15 +352,8 @@ export function ProductCommentsThread({
                 {(c.author_name ?? "S").slice(0, 1).toUpperCase()}
               </span>
               <div className="min-w-0 flex-1">
-                <p className="text-[14px] leading-snug text-zinc-800">
-                  <span className="font-extrabold">{c.author_name}</span> {c.body}
-                </p>
-                <div className="mt-1 flex items-center gap-3 text-[11px] font-semibold text-muted-foreground">
-                  <span>{timeAgo(c.created_at) || "now"}</span>
-                  <button type="button" className="font-extrabold text-[#0B1F4D]" onClick={() => setReplyTo(c.id)}>
-                    Reply
-                  </button>
-                </div>
+                {renderBody(c)}
+                {renderActions(c, true)}
                 <ul className="mt-3 space-y-3">
                   {comments
                     .filter((r) => r.parent_id === c.id)
@@ -258,11 +362,9 @@ export function ProductCommentsThread({
                         <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-zinc-200 text-[11px] font-extrabold text-[#0B1F4D]">
                           {(r.author_name ?? "S").slice(0, 1).toUpperCase()}
                         </span>
-                        <div className="min-w-0">
-                          <p className="text-[13px] leading-snug">
-                            <span className="font-extrabold">{r.author_name}</span> {r.body}
-                          </p>
-                          <p className="mt-0.5 text-[11px] text-muted-foreground">{timeAgo(r.created_at) || "now"}</p>
+                        <div className="min-w-0 flex-1">
+                          {renderBody(r, true)}
+                          {renderActions(r, false)}
                         </div>
                       </li>
                     ))}
@@ -276,8 +378,7 @@ export function ProductCommentsThread({
         className="flex items-center gap-2 border-t border-border bg-white px-3 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]"
         onSubmit={async (e) => {
           e.preventDefault();
-          if (!session || !profile) {
-            toast.message("Sign in to comment.");
+          if (!requireAccount("comment") || !profile) {
             return;
           }
           const { error } = await postProductComment({

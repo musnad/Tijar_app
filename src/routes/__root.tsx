@@ -17,6 +17,7 @@ import { isTijarNativeApp } from "@/lib/tijar-native-app";
 import appCss from "../styles.css?url";
 import { SiteFooter, SiteHeader } from "../components/site-shell";
 import { AuthProvider, useAuth } from "@/features/auth/auth-context";
+import { AccountGateProvider } from "@/features/auth/account-gate";
 import { PresenceBeacon } from "@/features/app/presence-beacon";
 import { SitePreferencesProvider, useTranslation } from "../lib/i18n/context";
 import { enMessages } from "../lib/i18n/messages/en";
@@ -33,7 +34,7 @@ function NotFoundContent() {
         <p className="mt-2 text-sm text-muted-foreground">{t("errors.notFoundDesc")}</p>
         <div className="mt-6">
           <Link
-            to="/"
+            to="/shop"
             className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
           >
             {t("errors.goHome")}
@@ -75,7 +76,7 @@ function ErrorContent({ error, reset }: ErrorComponentProps) {
             {copy.tryAgain}
           </button>
           <a
-            href="/"
+            href="/shop"
             className="inline-flex items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
           >
             {copy.goHome}
@@ -236,7 +237,9 @@ function RootComponent() {
     <QueryClientProvider client={queryClient}>
       <SitePreferencesProvider>
         <AuthProvider>
-          <RootLayout />
+          <AccountGateProvider>
+            <RootLayout />
+          </AccountGateProvider>
           <Toaster richColors position="top-center" />
         </AuthProvider>
       </SitePreferencesProvider>

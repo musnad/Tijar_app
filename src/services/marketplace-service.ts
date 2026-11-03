@@ -555,6 +555,37 @@ export async function postProductComment(input: {
   return { error: error?.message ?? null };
 }
 
+export async function updateProductComment(input: {
+  commentId: string;
+  profileId: string;
+  body: string;
+}): Promise<{ error: string | null }> {
+  const text = input.body.trim();
+  if (!text) return { error: "Write a comment first." };
+  const supabase = getSupabaseBrowserClient();
+  const { error } = await supabase
+    .from("product_comments")
+    .update({ body: text })
+    .eq("id", input.commentId)
+    .eq("profile_id", input.profileId);
+  if (error && productSocialMissing(error.message)) return { error: "Comments are not set up yet. Apply migration 000059." };
+  return { error: error?.message ?? null };
+}
+
+export async function deleteProductComment(input: {
+  commentId: string;
+  profileId: string;
+}): Promise<{ error: string | null }> {
+  const supabase = getSupabaseBrowserClient();
+  const { error } = await supabase
+    .from("product_comments")
+    .delete()
+    .eq("id", input.commentId)
+    .eq("profile_id", input.profileId);
+  if (error && productSocialMissing(error.message)) return { error: "Comments are not set up yet. Apply migration 000048." };
+  return { error: error?.message ?? null };
+}
+
 export async function recordProductShare(productId: string): Promise<void> {
   const supabase = getSupabaseBrowserClient();
   await supabase.rpc("record_product_share", { p_product_id: productId });

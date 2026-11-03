@@ -44,6 +44,7 @@ import {
 } from "@/components/ui/sheet";
 import { MarketplaceShell } from "@/features/marketplace/marketplace-shell";
 import { useAuth } from "@/features/auth/auth-context";
+import { useAccountGate } from "@/features/auth/account-gate";
 import { displayShopName, isBlankShopName, shopLinkSlug } from "@/lib/shop-names";
 import { cn } from "@/lib/utils";
 import { addToCart, fetchBusinessPayoutAccount, fetchCart, fetchMarketplaceProducts, toggleFavoriteProduct } from "@/services/marketplace-service";
@@ -62,8 +63,10 @@ import {
   fetchMyLikedVideoIds,
   fetchMySavedVideoIds,
   fetchVideoComments,
+  deleteVideoComment,
   muteProfile,
   postVideoComment,
+  updateVideoComment,
   FEED_PAGE_SIZE,
   rankAndLoadFeed,
   recordFeedSignal,
@@ -78,6 +81,7 @@ import {
   toggleVideoLike,
   toggleVideoSave,
   type PublicFeedVideo,
+  type VideoComment,
 } from "@/services/video-feed-service";
 import type { PublicProduct } from "@/types/database";
 import { ensureSavedProduct, listFollowedShopIds, loadUserSocial } from "@/lib/shop-social";
@@ -236,6 +240,7 @@ function variantSummary(product: PublicProduct): string | null {
 
 export function VideoFeedScreen({ initialVideoId }: { initialVideoId?: string }) {
   const { profile, session } = useAuth();
+  const { requireAccount } = useAccountGate();
   const { t } = useTranslation();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -444,8 +449,7 @@ export function VideoFeedScreen({ initialVideoId }: { initialVideoId?: string })
 
   function requireUser(): boolean {
     if (!session || !profile) {
-      toast.message("Sign in to do that.");
-      void navigate({ to: "/login" });
+      requireAccount("generic");
       return false;
     }
     return true;
@@ -786,6 +790,7 @@ export function VideoFeedScreen({ initialVideoId }: { initialVideoId?: string })
               videoId={active.id}
               shopName={active.business_name}
               onPosted={() => patchFeedStat(active.id, "comment_count", 1)}
+              onDeleted={() => patchFeedStat(active.id, "comment_count", -1)}
             />
           ) : null}
         </SheetContent>
@@ -913,7 +918,8 @@ export function VideoFeedScreen({ initialVideoId }: { initialVideoId?: string })
 }
 
 function FeedTopBar({ tab, onTab }: { tab: FeedTab; onTab: (t: FeedTab) => void }) {
-  const { profile, session } = useAuth();
+  const { profile } = useAuth();
+  const { requireAccount } = useAccountGate();
   const { t } = useTranslation();
   const unreadQuery = useQuery({
     queryKey: ["activity-inbox", profile?.id],
@@ -973,7 +979,10 @@ function FeedTopBar({ tab, onTab }: { tab: FeedTab; onTab: (t: FeedTab) => void 
           ) : null}
         </Link>
         <Link
-          to={session ? "/shop/profile" : "/login"}
+          to="/shop/profile"
+          onClick={(event) => {
+            if (!requireAccount("profile")) event.preventDefault();
+          }}
           aria-label={t("shop.feed.profile")}
           className="flex size-9 min-h-9 min-w-9 items-center justify-center overflow-hidden rounded-full bg-[color:var(--brand-navy,#001B3A)] text-[10px] font-bold text-white"
         >
@@ -1823,7 +1832,8 @@ function ProductList({
   products: PublicProduct[];
   onAdded: () => void;
 }) {
-  const { profile, session } = useAuth();
+  const { profile } = useAuth();
+  const { requireAccount } = useAccountGate();
   const navigate = useNavigate();
   const { t } = useTranslation();
 
@@ -1873,8 +1883,7 @@ function ProductList({
                     toast.error("This listing is not available.");
                     return;
                   }
-                  if (!session || !profile) {
-                    toast.message("Sign in to add items to your cart.");
+                  if (!requireAccount("cart") || !profile) {
                     return;
                   }
                   const { error } = await addToCart(profile.id, {
@@ -1899,8 +1908,7 @@ function ProductList({
                 variant="outline"
                 className="rounded-lg"
                 onClick={async () => {
-                  if (!session || !profile) {
-                    void navigate({ to: "/login" });
+                  if (!requireAccount("generic") || !profile) {
                     return;
                   }
                   const { error } = await toggleFavoriteProduct(profile.id, product.id);
@@ -1929,14 +1937,19 @@ function CommentsThread({
   videoId,
   shopName,
   onPosted,
+  onDeleted,
 }: {
   videoId: string;
   shopName: string;
   onPosted?: () => void;
+  onDeleted?: () => void;
 }) {
-  const { profile, session } = useAuth();
+  const { profile } = useAuth();
+  const { requireAccount } = useAccountGate();
   const [body, setBody] = useState("");
   const [replyTo, setReplyTo] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editBody, setEditBody] = useState("");
   const queryClient = useQueryClient();
   const commentsQuery = useQuery({
     queryKey: ["video-comments", videoId],
@@ -1952,6 +1965,107 @@ function CommentsThread({
   const replyName = comments.find((c) => c.id === replyTo)?.author_name;
   const me = profile?.full_name?.trim() || "You";
 
+  function startEdit(commentId: string, current: string) {
+    setEditingId(commentId);
+    setEditBody(current);
+  }
+
+  async function saveEdit() {
+    if (!editingId || !profile) return;
+    const text = editBody.trim();
+    if (!text) return;
+    const { error } = await updateVideoComment({ commentId: editingId, profileId: profile.id, body: text });
+    if (error) {
+      toast.error(error);
+      return;
+    }
+    setEditingId(null);
+    setEditBody("");
+    void queryClient.invalidateQueries({ queryKey: ["video-comments", videoId] });
+  }
+
+  async function remove(commentId: string) {
+    if (!profile) return;
+    if (typeof window !== "undefined" && !window.confirm("Delete this comment?")) return;
+    const { error } = await deleteVideoComment({ commentId, profileId: profile.id });
+    if (error) {
+      toast.error(error);
+      return;
+    }
+    onDeleted?.();
+    void queryClient.invalidateQueries({ queryKey: ["video-comments", videoId] });
+    void queryClient.invalidateQueries({ queryKey: ["activity-inbox"] });
+  }
+
+  function renderBody(comment: VideoComment, small = false) {
+    if (editingId === comment.id) {
+      return (
+        <div className="mt-1 flex items-center gap-2">
+          <Input
+            value={editBody}
+            onChange={(e) => setEditBody(e.target.value)}
+            className="h-9 rounded-full border-border text-[13px]"
+            autoFocus
+          />
+          <Button
+            type="button"
+            size="sm"
+            className="h-9 rounded-full px-3 text-[12px] font-extrabold"
+            disabled={!editBody.trim()}
+            onClick={() => void saveEdit()}
+          >
+            Save
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            className="h-9 rounded-full px-2 text-[12px] font-semibold"
+            onClick={() => {
+              setEditingId(null);
+              setEditBody("");
+            }}
+          >
+            Cancel
+          </Button>
+        </div>
+      );
+    }
+    return (
+      <p className={cn("leading-snug", small ? "text-[13px]" : "text-[14px] text-zinc-800")}>
+        <span className="font-extrabold">{comment.author_name}</span> {comment.body}
+      </p>
+    );
+  }
+
+  function renderActions(comment: VideoComment, allowReply: boolean) {
+    const mine = Boolean(profile && comment.profile_id === profile.id);
+    return (
+      <div className="mt-1 flex items-center gap-3 text-[11px] font-semibold text-muted-foreground">
+        <span>{timeAgo(comment.created_at) || "now"}</span>
+        {allowReply ? (
+          <button type="button" className="font-extrabold text-[#0B1F4D]" onClick={() => setReplyTo(comment.id)}>
+            Reply
+          </button>
+        ) : null}
+        {mine ? (
+          <>
+            <button
+              type="button"
+              className="font-extrabold text-[#0B1F4D]"
+              onClick={() => startEdit(comment.id, comment.body)}
+            >
+              Edit
+            </button>
+            <button type="button" className="font-extrabold text-destructive" onClick={() => void remove(comment.id)}>
+              Delete
+            </button>
+          </>
+        ) : null}
+      </div>
+    );
+  }
+
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <ul className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-3">
@@ -1966,15 +2080,8 @@ function CommentsThread({
                 {(c.author_name ?? "S").slice(0, 1).toUpperCase()}
               </span>
               <div className="min-w-0 flex-1">
-                <p className="text-[14px] leading-snug text-zinc-800">
-                  <span className="font-extrabold">{c.author_name}</span> {c.body}
-                </p>
-                <div className="mt-1 flex items-center gap-3 text-[11px] font-semibold text-muted-foreground">
-                  <span>{timeAgo(c.created_at) || "now"}</span>
-                  <button type="button" className="font-extrabold text-[#0B1F4D]" onClick={() => setReplyTo(c.id)}>
-                    Reply
-                  </button>
-                </div>
+                {renderBody(c)}
+                {renderActions(c, true)}
                 <ul className="mt-3 space-y-3">
                   {comments
                     .filter((r) => r.parent_id === c.id)
@@ -1983,11 +2090,9 @@ function CommentsThread({
                         <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-zinc-200 text-[11px] font-extrabold text-[#0B1F4D]">
                           {(r.author_name ?? "S").slice(0, 1).toUpperCase()}
                         </span>
-                        <div className="min-w-0">
-                          <p className="text-[13px] leading-snug">
-                            <span className="font-extrabold">{r.author_name}</span> {r.body}
-                          </p>
-                          <p className="mt-0.5 text-[11px] text-muted-foreground">{timeAgo(r.created_at) || "now"}</p>
+                        <div className="min-w-0 flex-1">
+                          {renderBody(r, true)}
+                          {renderActions(r, false)}
                         </div>
                       </li>
                     ))}
@@ -2001,8 +2106,7 @@ function CommentsThread({
         className="flex items-center gap-2 border-t border-border bg-white px-3 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]"
         onSubmit={async (e) => {
           e.preventDefault();
-          if (!session || !profile) {
-            toast.message("Sign in to comment.");
+          if (!requireAccount("comment") || !profile) {
             return;
           }
           const { error } = await postVideoComment({

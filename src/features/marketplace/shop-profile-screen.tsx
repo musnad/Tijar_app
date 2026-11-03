@@ -20,6 +20,7 @@ import {
   UserRound,
   UtensilsCrossed,
 } from "lucide-react";
+import { useEffect } from "react";
 import type { LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 
@@ -57,7 +58,13 @@ function Frame({ children }: { children: ReactNode }) {
 export function ShopProfileScreen() {
   const { t } = useTranslation();
   const { profile, session, loading } = useAuth();
+  const { requireAccount } = useAccountGate();
   const shopQuery = usePrimaryBusiness(profile?.id);
+
+  useEffect(() => {
+    if (loading || session) return;
+    requireAccount("profile");
+  }, [loading, session, requireAccount]);
 
   const favQuery = useQuery({
     queryKey: ["marketplace-fav-count", profile?.id],

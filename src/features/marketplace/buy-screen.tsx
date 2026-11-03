@@ -23,7 +23,7 @@ import { useTranslation } from "@/lib/i18n/context";
 export function BuyScreen({ productId }: { productId?: string }) {
   const { t } = useTranslation();
   const { profile, session } = useAuth();
-  const navigate = useNavigate();
+  const { requireAccount } = useAccountGate();
   const queryClient = useQueryClient();
   const [qty, setQty] = useState(1);
   const [fulfilment, setFulfilment] = useState<"pickup" | "seller_delivery">("pickup");
@@ -58,8 +58,7 @@ export function BuyScreen({ productId }: { productId?: string }) {
     if (productId && typeof window !== "undefined") {
       sessionStorage.setItem("tijar-after-login", `/shop/buy?productId=${encodeURIComponent(productId)}`);
     }
-    toast.error(t("shop.buy.signIn"));
-    void navigate({ to: "/login" });
+    requireAccount("buy");
   }
 
   async function confirm() {

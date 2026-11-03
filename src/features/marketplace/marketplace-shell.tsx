@@ -11,6 +11,7 @@ import { AppLanguageButton } from "@/features/app-layout/app-language-button";
 import { AccountModeSwitch } from "@/features/marketplace/account-mode-switch";
 import { NotificationPopup } from "@/features/marketplace/notification-popup";
 import { useAuth } from "@/features/auth/auth-context";
+import { useAccountGate } from "@/features/auth/account-gate";
 import { isTijarNativeApp } from "@/lib/tijar-native-app";
 import { useTranslation } from "@/lib/i18n/context";
 import { cn } from "@/lib/utils";
@@ -34,6 +35,7 @@ function refreshHome(event: MouseEvent<HTMLAnchorElement>) {
 
 function MarketplaceTopBar({ leftSlot }: { leftSlot?: ReactNode }) {
   const { profile, session } = useAuth();
+  const { requireAccount } = useAccountGate();
   const { t } = useTranslation();
   const name = profile?.full_name ?? "";
 
@@ -51,10 +53,12 @@ function MarketplaceTopBar({ leftSlot }: { leftSlot?: ReactNode }) {
         <AccountModeSwitch className="hidden min-[420px]:inline-flex" />
         <AppLanguageButton />
         {!session ? (
-          <Button size="sm" className="h-9 rounded-full px-3 text-xs font-bold" asChild>
-            <Link to="/register" search={{ intent: "customer" } as never}>
-              {t("shop.signup")}
-            </Link>
+          <Button
+            size="sm"
+            className="h-9 rounded-full px-3 text-xs font-bold"
+            onClick={() => requireAccount("generic")}
+          >
+            {t("shop.signup")}
           </Button>
         ) : (
           <Link
@@ -89,6 +93,7 @@ export function MarketplaceShell({
 }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const { profile } = useAuth();
+  const { requireAccount } = useAccountGate();
   const { t } = useTranslation();
   const nativeApp = isTijarNativeApp();
   const unreadQuery = useQuery({
@@ -170,7 +175,15 @@ export function MarketplaceShell({
               <Link
                 key={`${tab.to}-${tab.label}`}
                 to={tab.to}
-                onClick={tab.to === "/shop" ? refreshHome : undefined}
+                onClick={(event) => {
+                  if (tab.to === "/shop") {
+                    refreshHome(event);
+                    return;
+                  }
+                  if (tab.to === "/shop/profile" && !requireAccount("profile")) {
+                    event.preventDefault();
+                  }
+                }}
                 activeOptions={{ exact: Boolean("exact" in tab && tab.exact) }}
                 className={cn(
                   "relative flex min-h-11 min-w-11 touch-manipulation flex-col items-center justify-center gap-0.5 py-1 text-[10px] font-semibold",

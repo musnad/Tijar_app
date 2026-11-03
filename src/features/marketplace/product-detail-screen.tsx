@@ -19,6 +19,7 @@ import { useTranslation } from "@/lib/i18n/context";
 import { displayShopName, shopLinkSlug } from "@/lib/shop-names";
 import { cn } from "@/lib/utils";
 import { ProductSocialBar } from "@/features/marketplace/product-social";
+import { useAccountGate } from "@/features/auth/account-gate";
 import { isProductSaved } from "@/lib/shop-social";
 import { useDoubleTap } from "@/lib/use-double-tap";
 import {
@@ -49,7 +50,8 @@ function colourHex(label: string): string {
 
 export function ProductDetailScreen({ productId }: { productId: string }) {
   const { t } = useTranslation();
-  const { profile, session } = useAuth();
+  const { profile } = useAuth();
+  const { requireAccount } = useAccountGate();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const scroller = useRef<HTMLDivElement>(null);
@@ -138,8 +140,7 @@ export function ProductDetailScreen({ productId }: { productId: string }) {
     haptic("success");
     setHeartBurst(true);
     window.setTimeout(() => setHeartBurst(false), 700);
-    if (!session || !profile) {
-      toast.message("Sign in to like this.");
+    if (!requireAccount("like") || !profile) {
       return;
     }
     void likeMarketplaceProduct(profile.id, productId).then(({ error }) => {
@@ -170,9 +171,7 @@ export function ProductDetailScreen({ productId }: { productId: string }) {
       void navigate({ to: "/shop/buy", search: { productId: product.id } });
       return;
     }
-    if (!session || !profile) {
-      toast.message("Sign in to add items to your cart.");
-      void navigate({ to: "/login" });
+    if (!requireAccount("cart") || !profile) {
       return;
     }
     setBusy("cart");
@@ -205,9 +204,7 @@ export function ProductDetailScreen({ productId }: { productId: string }) {
       toast.error("This listing is not available.");
       return;
     }
-    if (!session || !profile) {
-      toast.message("Sign in to save products.");
-      void navigate({ to: "/login" });
+    if (!requireAccount("generic") || !profile) {
       return;
     }
     const { favorited, error } = await toggleFavoriteProduct(profile.id, productId);

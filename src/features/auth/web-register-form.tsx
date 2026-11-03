@@ -20,7 +20,11 @@ import {
   lgasForState,
 } from "@/lib/nigeria-locations";
 
-export function WebRegisterForm() {
+export function WebRegisterForm({
+  initialAccountMode = "customer",
+}: {
+  initialAccountMode?: "customer" | "business";
+} = {}) {
   const { t } = useTranslation();
   const { configured, configLoading } = useAuth();
   const [fullName, setFullName] = useState("");
@@ -29,7 +33,7 @@ export function WebRegisterForm() {
   const [password, setPassword] = useState("");
   const [stateName, setStateName] = useState("");
   const [lga, setLga] = useState("");
-  const [accountMode, setAccountMode] = useState<"customer" | "business">("customer");
+  const [accountMode, setAccountMode] = useState<"customer" | "business">(initialAccountMode);
   const [agreeTerms, setAgreeTerms] = useState(false);
   const [passwordVisible, setPasswordVisible] = useState(false);
   const [loading, setLoading] = useState(false);

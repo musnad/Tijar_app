@@ -45,6 +45,7 @@ function checkoutKey(): string {
 
 export function CheckoutScreen() {
   const { profile } = useAuth();
+  const { requireAccount } = useAccountGate();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const actorId = profile?.id ?? "guest";
@@ -133,8 +134,7 @@ export function CheckoutScreen() {
 
     if (!profile) {
       setBusy(false);
-      toast.error("Sign in to place an order.");
-      void navigate({ to: "/login" });
+      requireAccount("buy");
       return;
     }
     if (items.some((i) => isMockFeedId(i.product_id) || isMockFeedId(i.id))) {

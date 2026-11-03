@@ -1,12 +1,11 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 
-import { SocialLanding } from "@/features/marketing/social-landing";
 import { enMessages } from "@/lib/i18n/messages/en";
 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: enMessages.meta.home.title },
+      { title: enMessages.meta.siteName },
       { name: "description", content: enMessages.meta.home.description },
       { property: "og:title", content: enMessages.meta.home.ogTitle },
       { property: "og:description", content: enMessages.meta.home.ogDescription },
@@ -16,5 +15,7 @@ export const Route = createFileRoute("/")({
       { name: "twitter:image", content: "/tijar-logo.png" },
     ],
   }),
-  component: SocialLanding,
+  beforeLoad: () => {
+    throw redirect({ to: "/shop" });
+  },
 });
