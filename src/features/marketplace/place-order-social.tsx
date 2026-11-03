@@ -2,7 +2,7 @@
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Heart, MessageCircle, Send, Share2 } from "lucide-react";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -80,6 +80,7 @@ export function PlaceOrderSocialBar({
   const queryClient = useQueryClient();
   const [commentsOpen, setCommentsOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
+  const likeBusy = useRef(false);
   const likesQuery = useQuery({
     queryKey: ["place-order-likes", profile?.id],
     enabled: Boolean(profile?.id),
@@ -94,19 +95,27 @@ export function PlaceOrderSocialBar({
     if (!requireAccount("like") || !profile) {
       return;
     }
+    if (likeBusy.current) return;
+    likeBusy.current = true;
+    const wasLiked = likesQuery.data?.has(listing.id) ?? false;
     haptic();
-    const { liked: next, error } = await togglePlaceOrderLike(profile.id, listing.id);
-    if (error) {
-      toast.error(error);
-      return;
+    try {
+      const { liked: next, error } = await togglePlaceOrderLike(profile.id, listing.id);
+      if (error) {
+        toast.error(error);
+        return;
+      }
+      queryClient.setQueryData(["place-order-likes", profile.id], (prev: Set<string> | undefined) => {
+        const copy = new Set(prev ?? []);
+        if (next) copy.add(listing.id);
+        else copy.delete(listing.id);
+        return copy;
+      });
+      // One like per shopper: only move the counter when the state flips.
+      if (next !== wasLiked) patchListingCounts(queryClient, listing.id, "like_count", next ? 1 : -1);
+    } finally {
+      likeBusy.current = false;
     }
-    queryClient.setQueryData(["place-order-likes", profile.id], (prev: Set<string> | undefined) => {
-      const copy = new Set(prev ?? []);
-      if (next) copy.add(listing.id);
-      else copy.delete(listing.id);
-      return copy;
-    });
-    patchListingCounts(queryClient, listing.id, "like_count", next ? 1 : -1);
   }
 
   function share() {

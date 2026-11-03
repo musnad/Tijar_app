@@ -149,6 +149,13 @@ export function NewProductForm({
       return;
     }
 
+    if (photos.length === 0) {
+      const msg = "Add at least one product photo.";
+      setFormError(msg);
+      toast.error(msg);
+      return;
+    }
+
     // Soft-clean optional fields so a typo in price never blocks saving the product.
     const cleanedSale = softMoney(salePrice);
     const cleanedCost = softMoney(costPrice);
@@ -482,7 +489,7 @@ export function NewProductForm({
         </FormSection>
       )}
 
-      <FormSection title={t("app.products.photoSection")} hint={t("app.products.photoHint")}>
+      <FormSection title={`${t("app.products.photoSection")} *`} hint={`${t("app.products.photoHint")} At least one photo is required.`}>
         <div className="rounded-2xl bg-muted/40 p-4">
           <ProductPhotosField photos={photos} onChange={setPhotos} />
         </div>
@@ -537,7 +544,7 @@ export function NewProductForm({
         />
         <label className="mt-3 flex items-center gap-2 text-sm">
           <input type="checkbox" checked={isPublished} onChange={(e) => setIsPublished(e.target.checked)} />
-          Publish on marketplace as soon as this has a price
+          Publish on the marketplace now
         </label>
       </FormSection>
 

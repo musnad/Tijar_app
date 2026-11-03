@@ -68,6 +68,10 @@ export function EditProductForm({ businessId, productId }: { businessId: string;
 
   async function save(publish?: boolean) {
     if (!product) return;
+    if (photos.length === 0) {
+      toast.error("Add at least one product photo.");
+      return;
+    }
     if (publish && !canPublishProduct({
       name,
       sale_price: Number.isFinite(priceNum as number) ? priceNum : null,

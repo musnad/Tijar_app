@@ -61,6 +61,7 @@ export function ProductSocialBar({
   const queryClient = useQueryClient();
   const [commentsOpen, setCommentsOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
+  const likeBusy = useRef(false);
 
   const likesQuery = useQuery({
     queryKey: ["product-likes", profile?.id],
@@ -99,19 +100,28 @@ export function ProductSocialBar({
     if (!requireAccount("like") || !profile) {
       return;
     }
+    if (likeBusy.current) return;
+    likeBusy.current = true;
+    const wasLiked = likesQuery.data?.has(product.id) ?? false;
     haptic();
-    const { liked: next, error } = await toggleProductLikeDb(profile.id, product.id);
-    if (error) {
-      toast.error(error);
-      return;
+    try {
+      const { liked: next, error } = await toggleProductLikeDb(profile.id, product.id);
+      if (error) {
+        toast.error(error);
+        return;
+      }
+      queryClient.setQueryData(["product-likes", profile.id], (prev: Set<string> | undefined) => {
+        const copy = new Set(prev ?? []);
+        if (next) copy.add(product.id);
+        else copy.delete(product.id);
+        return copy;
+      });
+      // Only move the counter when the liked state actually flips, so a shopper
+      // can never count more than one like per product.
+      if (next !== wasLiked) patch("like_count", next ? 1 : -1);
+    } finally {
+      likeBusy.current = false;
     }
-    queryClient.setQueryData(["product-likes", profile.id], (prev: Set<string> | undefined) => {
-      const copy = new Set(prev ?? []);
-      if (next) copy.add(product.id);
-      else copy.delete(product.id);
-      return copy;
-    });
-    patch("like_count", next ? 1 : -1);
   }
 
   function share(e: React.MouseEvent) {

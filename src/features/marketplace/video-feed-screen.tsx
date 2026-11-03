@@ -259,6 +259,7 @@ export function VideoFeedScreen({ initialVideoId }: { initialVideoId?: string })
   const businessQuery = usePrimaryBusiness(profile?.id);
   const [feedTab, setFeedTab] = useState<FeedTab>("foryou");
   const [mockLiked, setMockLiked] = useState(() => new Set(loadUserSocial("guest").likedVideos));
+  const likeBusyRef = useRef(false);
   const [mockFollowing, setMockFollowing] = useState(() => new Set(listFollowedShopIds("guest")));
   const loadMoreRef = useRef<HTMLDivElement>(null);
 
@@ -497,18 +498,26 @@ export function VideoFeedScreen({ initialVideoId }: { initialVideoId?: string })
       onLike: (video) => {
         void (async () => {
           if (!requireUser() || !profile) return;
+          if (likeBusyRef.current) return;
+          likeBusyRef.current = true;
+          const wasLiked = queryClient.getQueryData<Set<string>>(["video-likes", profile.id])?.has(video.id) ?? false;
           haptic();
-          const { liked, error } = await toggleVideoLike(profile.id, video.id);
-          if (error) toast.error(error);
-          else {
-            void recordFeedSignal(video.id, "like");
-            setMockLiked((prev) => {
-              const copy = new Set(prev);
-              if (liked) copy.add(video.id);
-              else copy.delete(video.id);
-              return copy;
-            });
-            patchFeedLike(video.id, liked);
+          try {
+            const { liked, error } = await toggleVideoLike(profile.id, video.id);
+            if (error) toast.error(error);
+            else {
+              void recordFeedSignal(video.id, "like");
+              setMockLiked((prev) => {
+                const copy = new Set(prev);
+                if (liked) copy.add(video.id);
+                else copy.delete(video.id);
+                return copy;
+              });
+              // One like per shopper: only move the counter when the state flips.
+              if (liked !== wasLiked) patchFeedLike(video.id, liked);
+            }
+          } finally {
+            likeBusyRef.current = false;
           }
         })();
       },

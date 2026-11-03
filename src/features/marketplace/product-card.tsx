@@ -31,6 +31,7 @@ export function ProductCard({
   const { t } = useTranslation();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const startChat = useStartShopChat();
 
   async function quickAdd(e: React.MouseEvent) {
     e.preventDefault();
@@ -109,7 +110,7 @@ export function ProductCard({
           <p className="line-clamp-2 text-[13px] font-bold leading-snug text-foreground">{product.name}</p>
           <p className="mt-1 text-[15px] font-extrabold tracking-tight text-primary">
             {product.sale_price == null
-              ? "Ask seller"
+              ? "Contact for price"
               : Number(product.sale_price) === 0
                 ? "Free"
                 : formatNgn(Number(product.sale_price))}
@@ -174,7 +175,29 @@ export function ProductCard({
           >
             {Number(product.sale_price) === 0 ? "Request this item" : t("shop.feed.buyNow")}
           </button>
-        ) : null}
+        ) : (
+          <button
+            type="button"
+            className="mt-1 min-h-9 w-full rounded-full border border-primary text-[11px] font-extrabold text-primary"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              if (isMockFeedId(product.id)) {
+                toast.error("This listing is not available.");
+                return;
+              }
+              void startChat({
+                businessId: product.business_id,
+                businessName: product.business_name,
+                logoUrl: product.business_logo_url,
+                businessSlug: product.business_slug,
+                productId: product.id,
+              });
+            }}
+          >
+            Contact seller
+          </button>
+        )}
       </div>
     </div>
   );

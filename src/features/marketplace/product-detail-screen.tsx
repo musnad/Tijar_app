@@ -20,6 +20,7 @@ import { displayShopName, shopLinkSlug } from "@/lib/shop-names";
 import { cn } from "@/lib/utils";
 import { ProductSocialBar } from "@/features/marketplace/product-social";
 import { ProductReviews } from "@/features/marketplace/product-reviews";
+import { useStartShopChat } from "@/features/marketplace/use-start-shop-chat";
 import { useAccountGate } from "@/features/auth/account-gate";
 import { isProductSaved } from "@/lib/shop-social";
 import { useDoubleTap } from "@/lib/use-double-tap";
@@ -354,7 +355,7 @@ export function ProductDetailScreen({ productId }: { productId: string }) {
 
               <div className="mt-1 flex flex-wrap items-center gap-2">
                 <p className="text-[28px] font-black tabular-nums leading-none text-[color:var(--brand-navy,#001B3A)]">
-                  {livePrice != null ? formatNgn(livePrice) : "Ask seller"}
+                  {livePrice != null ? formatNgn(livePrice) : "Contact for price"}
                 </p>
                 {off != null ? (
                   <span className="rounded-full bg-primary px-2 py-0.5 text-[11px] font-extrabold text-white">
@@ -456,26 +457,51 @@ export function ProductDetailScreen({ productId }: { productId: string }) {
         </div>
 
         {product && (
-          <div className="grid shrink-0 grid-cols-2 gap-2 px-4 py-2 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
-            <Button
-              type="button"
-              className="min-h-12 rounded-2xl bg-[color:var(--brand-navy,#001B3A)] font-extrabold text-white hover:bg-[color:var(--brand-navy,#001B3A)]/90"
-              disabled={!inStock || livePrice == null || busy !== null}
-              onClick={() => void add(false)}
-            >
-              <ShoppingBag className="mr-1.5 size-4" />
-              {busy === "cart" ? t("shop.product.adding") : t("shop.product.addToCart")}
-            </Button>
-            <Button
-              type="button"
-              className="min-h-12 rounded-2xl bg-primary font-extrabold text-white"
-              disabled={!inStock || livePrice == null || busy !== null}
-              onClick={() => void add(true)}
-            >
-              <Zap className="mr-1.5 size-4 fill-current" />
-              {busy === "buy" ? "…" : t("shop.product.buyNow")}
-            </Button>
-          </div>
+          livePrice == null ? (
+            <div className="grid shrink-0 grid-cols-1 gap-2 px-4 py-2 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+              <Button
+                type="button"
+                className="min-h-12 rounded-2xl bg-primary font-extrabold text-white"
+                onClick={() => {
+                  if (isMockFeedId(product.id)) {
+                    toast.error("This listing is not available.");
+                    return;
+                  }
+                  void startChat({
+                    businessId: product.business_id,
+                    businessName: product.business_name,
+                    logoUrl: product.business_logo_url,
+                    businessSlug: product.business_slug,
+                    productId: product.id,
+                  });
+                }}
+              >
+                <MessageCircle className="mr-1.5 size-4" />
+                Contact seller
+              </Button>
+            </div>
+          ) : (
+            <div className="grid shrink-0 grid-cols-2 gap-2 px-4 py-2 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+              <Button
+                type="button"
+                className="min-h-12 rounded-2xl bg-[color:var(--brand-navy,#001B3A)] font-extrabold text-white hover:bg-[color:var(--brand-navy,#001B3A)]/90"
+                disabled={!inStock || livePrice == null || busy !== null}
+                onClick={() => void add(false)}
+              >
+                <ShoppingBag className="mr-1.5 size-4" />
+                {busy === "cart" ? t("shop.product.adding") : t("shop.product.addToCart")}
+              </Button>
+              <Button
+                type="button"
+                className="min-h-12 rounded-2xl bg-primary font-extrabold text-white"
+                disabled={!inStock || livePrice == null || busy !== null}
+                onClick={() => void add(true)}
+              >
+                <Zap className="mr-1.5 size-4 fill-current" />
+                {busy === "buy" ? "…" : t("shop.product.buyNow")}
+              </Button>
+            </div>
+          )
         )}
       </div>
     </MarketplaceShell>
