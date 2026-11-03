@@ -319,14 +319,16 @@ export async function ensurePersonalShop(input: {
   displayName?: string | null;
   location?: string | null;
   phone?: string | null;
+  categoryId?: string | null;
 }): Promise<{ businessId: string | null; slug: string | null; error: string | null }> {
   const supabase = getSupabaseBrowserClient();
   const phone = input.phone?.trim() || null;
   const location = input.location?.trim() || null;
+  const categoryId = input.categoryId?.trim() || null;
 
   const existing = await supabase
     .from("businesses")
-    .select("id, public_slug, public_phone, public_whatsapp")
+    .select("id, public_slug, public_phone, public_whatsapp, category_id")
     .eq("owner_id", input.profileId)
     .order("created_at", { ascending: true })
     .limit(1)
@@ -339,6 +341,7 @@ export async function ensurePersonalShop(input: {
     if (phone && !existing.data.public_phone) patch.public_phone = phone;
     if (phone && !existing.data.public_whatsapp) patch.public_whatsapp = phone;
     if (location) patch.location = location;
+    if (categoryId) patch.category_id = categoryId;
     if (Object.keys(patch).length > 0) {
       await supabase.from("businesses").update(patch).eq("id", businessId);
     }
@@ -352,6 +355,7 @@ export async function ensurePersonalShop(input: {
     location,
     public_phone: phone,
     public_whatsapp: phone,
+    category_id: categoryId,
     is_informal: true,
     is_personal: true,
     islamic_mode_enabled: false,

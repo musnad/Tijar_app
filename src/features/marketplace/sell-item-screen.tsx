@@ -1,6 +1,6 @@
 "use client";
 
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { ArrowLeft, Camera, ImagePlus, Loader2, Tag } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -20,6 +20,7 @@ import {
 import { uploadProductImage } from "@/services/product-image-service";
 import { createProduct, updateProductImageUrl } from "@/services/product-service";
 import { ensurePersonalShop } from "@/services/marketplace-service";
+import { listBusinessCategories } from "@/services/business-service";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { normalizeMoneyRaw } from "@/features/products/schemas";
 
@@ -41,8 +42,15 @@ export function SellItemScreen() {
   const [lga, setLga] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
+  const [categoryId, setCategoryId] = useState("");
   const [busy, setBusy] = useState(false);
   const [ready, setReady] = useState(false);
+
+  const categoriesQuery = useQuery({
+    queryKey: ["business-categories"],
+    queryFn: async () => (await listBusinessCategories()).data,
+  });
+  const categories = categoriesQuery.data ?? [];
 
   useEffect(() => {
     if (ready) return;
@@ -53,6 +61,7 @@ export function SellItemScreen() {
       if (parsed.lga) setLga(parsed.lga);
     }
     setPhone(business?.public_phone ?? profile?.phone ?? "");
+    if (business?.category_id) setCategoryId(business.category_id);
     setReady(true);
   }, [ready, businessQuery.isPending, business, profile]);
 
@@ -76,6 +85,7 @@ export function SellItemScreen() {
     if (!phone.trim()) return toast.error("Add a phone number so buyers can call you");
     if (!stateName) return toast.error("Select your state");
     if (!lga) return toast.error("Select your local government area");
+    if (!categoryId) return toast.error("Choose a category for your shop");
 
     setBusy(true);
     const location = formatNigerianLocation(stateName, lga);
@@ -87,6 +97,7 @@ export function SellItemScreen() {
         displayName: `${profile.full_name || "My"} items`,
         location,
         phone,
+        categoryId,
       });
       if (shop.error || !shop.businessId) {
         setBusy(false);
@@ -128,6 +139,7 @@ export function SellItemScreen() {
         public_phone: phone.trim(),
         public_whatsapp: phone.trim(),
         location,
+        category_id: categoryId,
       })
       .eq("id", businessId);
     await supabase.rpc("ensure_marketplace_listing", { p_business_id: businessId });
@@ -294,6 +306,28 @@ export function SellItemScreen() {
 
         <section className="space-y-3 rounded-2xl border border-border bg-card p-4 shadow-sm">
           <h2 className="text-sm font-extrabold">Your area & contact</h2>
+          <div>
+            <label className="text-xs font-semibold text-muted-foreground" htmlFor="item-category">
+              Shop category *
+            </label>
+            <select
+              id="item-category"
+              className="mt-1 min-h-11 w-full rounded-xl border border-input bg-background px-3 text-base"
+              value={categoryId}
+              onChange={(e) => setCategoryId(e.target.value)}
+              required
+            >
+              <option value="">{categoriesQuery.isLoading ? "Loading categories…" : "Select category"}</option>
+              {categories.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+            <p className="mt-1 text-[11px] text-muted-foreground">
+              Helps buyers find your shop when they search by category.
+            </p>
+          </div>
           <div>
             <label className="text-xs font-semibold text-muted-foreground" htmlFor="item-phone">
               Phone (buyers will call this) *

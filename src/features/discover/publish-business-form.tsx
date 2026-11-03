@@ -12,6 +12,7 @@ import { useTranslation } from "@/lib/i18n/context";
 import { getMapsProvider, type GeocodeResult } from "@/lib/maps/provider";
 import { TranslateText } from "@/features/translate/translate-text";
 import { fetchProductsDashboard } from "@/services/product-analytics-service";
+import { listBusinessCategories } from "@/services/business-service";
 import { fetchBusinessEnquiries, isSlugAvailable, updateBusinessListing } from "@/services/discover-service";
 import type { Business } from "@/types/database";
 import { isValidSlug, listingCompleteness, slugifyBusinessName } from "@/utils/discover";
@@ -34,6 +35,7 @@ export function PublishBusinessForm({ business }: { business: Business }) {
   const [slug, setSlug] = useState(business.public_slug ?? slugifyBusinessName(business.business_name));
   const [published, setPublished] = useState(business.is_published);
   const [isInformal, setIsInformal] = useState(business.is_informal !== false);
+  const [categoryId, setCategoryId] = useState(business.category_id ?? "");
   const [phone, setPhone] = useState(business.public_phone ?? "");
   const [whatsapp, setWhatsapp] = useState(business.public_whatsapp ?? "");
   const [lat, setLat] = useState<string>(business.latitude?.toString() ?? "");
@@ -48,6 +50,11 @@ export function PublishBusinessForm({ business }: { business: Business }) {
   const productsQuery = useQuery({
     queryKey: ["products-dashboard", business.id],
     queryFn: async () => (await fetchProductsDashboard(business.id)).data,
+  });
+
+  const categoriesQuery = useQuery({
+    queryKey: ["business-categories"],
+    queryFn: async () => (await listBusinessCategories()).data,
   });
 
   const enquiriesQuery = useQuery({
@@ -119,6 +126,7 @@ export function PublishBusinessForm({ business }: { business: Business }) {
       publicLocationLabel: locationLabel,
       locationApproved: approved,
       isInformal,
+      categoryId: categoryId || null,
     });
     setSaving(false);
     if (error) toast.error(error);
@@ -170,6 +178,28 @@ export function PublishBusinessForm({ business }: { business: Business }) {
             {t("app.publish.previewShopPage")} <ExternalLink className="size-3" />
           </Link>
         )}
+      </div>
+
+      <div>
+        <label className="text-sm font-semibold" htmlFor="pub-category">
+          Shop category
+        </label>
+        <select
+          id="pub-category"
+          value={categoryId}
+          onChange={(e) => setCategoryId(e.target.value)}
+          className="mt-1 min-h-11 w-full rounded-xl border border-input bg-background px-3 text-base"
+        >
+          <option value="">{categoriesQuery.isLoading ? "Loading categories…" : "Select category"}</option>
+          {(categoriesQuery.data ?? []).map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.name}
+            </option>
+          ))}
+        </select>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Buyers can find your shop when they search by category.
+        </p>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2">

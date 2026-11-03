@@ -317,6 +317,7 @@ export type UpdateListingInput = {
   publicLocationLabel?: string;
   locationApproved: boolean;
   isInformal?: boolean;
+  categoryId?: string | null;
 };
 
 export async function updateBusinessListing(
@@ -338,6 +339,9 @@ export async function updateBusinessListing(
   };
   if (typeof input.isInformal === "boolean") {
     patch.is_informal = input.isInformal;
+  }
+  if (input.categoryId !== undefined) {
+    patch.category_id = input.categoryId || null;
   }
   const { data, error } = await supabase
     .from("businesses")
