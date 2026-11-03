@@ -41,11 +41,15 @@ export function ProductCard({
       toast.message("This product has no price yet.");
       return;
     }
-    ensureSavedProduct(profile.id, product);
     if (isMockFeedId(product.id)) {
       toast.error("This listing is not available.");
       return;
     }
+    if (Number(product.sale_price) === 0) {
+      void navigate({ to: "/shop/p/$productId", params: { productId: product.id } });
+      return;
+    }
+    ensureSavedProduct(profile.id, product);
     const { error } = await addToCart(profile.id, {
       businessId: product.business_id,
       productId: product.id,
@@ -103,8 +107,12 @@ export function ProductCard({
         <div className={cn("flex flex-1 flex-col", compact ? "p-2 pb-0" : "p-2.5 pb-0")}>
           <p className="line-clamp-2 text-[13px] font-bold leading-snug text-foreground">{product.name}</p>
           <p className="mt-1 text-[15px] font-extrabold tracking-tight text-primary">
-            {product.sale_price != null ? formatNgn(Number(product.sale_price)) : "Ask seller"}
-            {product.sale_price != null && product.unit && product.unit !== "piece" ? (
+            {product.sale_price == null
+              ? "Ask seller"
+              : Number(product.sale_price) === 0
+                ? "Free"
+                : formatNgn(Number(product.sale_price))}
+            {product.sale_price != null && Number(product.sale_price) > 0 && product.unit && product.unit !== "piece" ? (
               <span className="ml-1 text-[10px] font-semibold text-muted-foreground">/{product.unit}</span>
             ) : null}
           </p>
@@ -153,10 +161,14 @@ export function ProductCard({
                 toast.error("This listing is not available.");
                 return;
               }
+              if (Number(product.sale_price) === 0) {
+                void navigate({ to: "/shop/p/$productId", params: { productId: product.id } });
+                return;
+              }
               void navigate({ to: "/shop/buy", search: { productId: product.id } });
             }}
           >
-            {t("shop.feed.buyNow")}
+            {Number(product.sale_price) === 0 ? "Request this item" : t("shop.feed.buyNow")}
           </button>
         ) : null}
       </div>

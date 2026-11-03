@@ -1006,3 +1006,112 @@ export function parseNigerianLocation(value?: string | null): { state: string; l
   }
   return { state: "", lga: "" };
 }
+
+/** Approximate state capital coordinates — used as a fallback map pin. */
+const STATE_COORDINATES: Record<string, { lat: number; lng: number }> = {
+  Abia: { lat: 5.525, lng: 7.4939 },
+  Adamawa: { lat: 9.2035, lng: 12.4954 },
+  "Akwa Ibom": { lat: 5.0377, lng: 7.9128 },
+  Anambra: { lat: 6.2109, lng: 7.074 },
+  Bauchi: { lat: 10.3103, lng: 9.8438 },
+  Bayelsa: { lat: 4.9247, lng: 6.2642 },
+  Benue: { lat: 7.7322, lng: 8.5391 },
+  Borno: { lat: 11.8311, lng: 13.151 },
+  "Cross River": { lat: 4.9757, lng: 8.3417 },
+  Delta: { lat: 6.198, lng: 6.728 },
+  Ebonyi: { lat: 6.3249, lng: 8.1137 },
+  Edo: { lat: 6.3176, lng: 5.6145 },
+  Ekiti: { lat: 7.6211, lng: 5.2214 },
+  Enugu: { lat: 6.4584, lng: 7.5464 },
+  "FCT - Abuja": { lat: 9.0765, lng: 7.3986 },
+  Gombe: { lat: 10.2897, lng: 11.1673 },
+  Imo: { lat: 5.4836, lng: 7.0332 },
+  Jigawa: { lat: 11.7566, lng: 9.3386 },
+  Kaduna: { lat: 10.5222, lng: 7.4383 },
+  Kano: { lat: 12.0022, lng: 8.592 },
+  Katsina: { lat: 12.9908, lng: 7.6018 },
+  Kebbi: { lat: 12.4539, lng: 4.1975 },
+  Kogi: { lat: 7.8023, lng: 6.7333 },
+  Kwara: { lat: 8.4966, lng: 4.5421 },
+  Lagos: { lat: 6.6018, lng: 3.3515 },
+  Nasarawa: { lat: 8.4939, lng: 8.5155 },
+  Niger: { lat: 9.6139, lng: 6.5569 },
+  Ogun: { lat: 7.1557, lng: 3.3451 },
+  Ondo: { lat: 7.2571, lng: 5.2058 },
+  Osun: { lat: 7.7667, lng: 4.5667 },
+  Oyo: { lat: 7.3775, lng: 3.947 },
+  Plateau: { lat: 9.8965, lng: 8.8583 },
+  Rivers: { lat: 4.8156, lng: 7.0498 },
+  Sokoto: { lat: 13.0059, lng: 5.2476 },
+  Taraba: { lat: 8.8833, lng: 11.3667 },
+  Yobe: { lat: 11.7479, lng: 11.9608 },
+  Zamfara: { lat: 12.1628, lng: 6.6614 },
+};
+
+const LGA_STATE_LOOKUP = new Map<string, string>();
+for (const state of NIGERIA_STATES) {
+  for (const lga of state.lgas) {
+    if (!LGA_STATE_LOOKUP.has(lga.toLowerCase())) {
+      LGA_STATE_LOOKUP.set(lga.toLowerCase(), state.name);
+    }
+  }
+}
+
+/** Approximate coordinates for a state (capital), or null when unknown. */
+export function coordinatesForState(
+  state: string | null | undefined,
+): { lat: number; lng: number } | null {
+  if (!state) return null;
+  const match = STATE_LOOKUP.get(state.trim().toLowerCase());
+  if (!match) return null;
+  return STATE_COORDINATES[match.name] ?? null;
+}
+
+/** Which state an LGA belongs to, or "" when unknown. */
+export function stateForLga(lga: string | null | undefined): string {
+  if (!lga) return "";
+  return LGA_STATE_LOOKUP.get(lga.trim().toLowerCase()) ?? "";
+}
+
+/** Every state whose name or any LGA matches the typed text (case-insensitive). */
+export function statesMatching(text: string | null | undefined): string[] {
+  const needle = text?.trim().toLowerCase() ?? "";
+  if (!needle) return [];
+  const found = new Set<string>();
+  for (const state of NIGERIA_STATES) {
+    if (state.name.toLowerCase().includes(needle)) found.add(state.name);
+  }
+  for (const [lga, state] of LGA_STATE_LOOKUP) {
+    if (lga.includes(needle)) found.add(state);
+  }
+  return [...found];
+}
+
+/** LGAs across every state that match the typed text (case-insensitive). */
+export function lgasMatching(text: string | null | undefined): string[] {
+  const needle = text?.trim().toLowerCase() ?? "";
+  if (!needle) return [];
+  const found = new Set<string>();
+  for (const state of NIGERIA_STATES) {
+    for (const lga of state.lgas) {
+      if (lga.toLowerCase().includes(needle)) found.add(lga);
+    }
+  }
+  return [...found];
+}
+
+/**
+ * Does a written shop location belong to this state / LGA?
+ * Works on free text such as "Sabon Gari, Nassarawa, Kano".
+ */
+export function locationMatchesArea(
+  locationText: string | null | undefined,
+  area: { state?: string | null; lga?: string | null },
+): boolean {
+  const text = locationText?.trim().toLowerCase() ?? "";
+  const state = area.state?.trim().toLowerCase() ?? "";
+  const lga = area.lga?.trim().toLowerCase() ?? "";
+  if (lga && text.includes(lga)) return true;
+  if (state && text.includes(state)) return true;
+  return false;
+}

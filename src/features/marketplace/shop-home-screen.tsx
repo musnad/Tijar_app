@@ -2,7 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { BadgeCheck, ChevronRight, MapPin, Search, Sparkles, Store, UtensilsCrossed } from "lucide-react";
+import { BadgeCheck, ChevronRight, MapPin, Phone, Search, Sparkles, Store, UtensilsCrossed } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -179,6 +179,15 @@ export function ShopHomeScreen() {
               <Store className="mr-1.5 size-4" /> Sectors
             </Button>
           </div>
+
+          <Button
+            className="mt-2 min-h-11 w-full rounded-2xl border border-white/35 bg-white/10 font-bold text-white hover:bg-white/20 hover:text-white"
+            asChild
+          >
+            <Link to="/shop/services">
+              <Phone className="mr-1.5 size-4" /> Find a local service · call nearby
+            </Link>
+          </Button>
 
           <div className="mt-4 grid grid-cols-2 gap-2">
             <div className="rounded-xl bg-white/12 px-2 py-2 text-center backdrop-blur-sm">

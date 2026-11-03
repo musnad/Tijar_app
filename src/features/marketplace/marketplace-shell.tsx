@@ -110,6 +110,7 @@ export function MarketplaceShell({
     pathname === "/shop/create" ||
     pathname.startsWith("/shop/create/") ||
     pathname === "/shop/create-order" ||
+    pathname === "/shop/sell-item" ||
     pathname === "/shop/business-apply";
 
   const tabs = feed

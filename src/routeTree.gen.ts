@@ -77,6 +77,8 @@ import { Route as ShopOrderNowRouteImport } from './routes/shop/order-now'
 import { Route as ShopOrdersRouteImport } from './routes/shop/orders'
 import { Route as ShopPayoutsRouteImport } from './routes/shop/payouts'
 import { Route as ShopProfileRouteImport } from './routes/shop/profile'
+import { Route as ShopSellItemRouteImport } from './routes/shop/sell-item'
+import { Route as ShopServicesRouteImport } from './routes/shop/services'
 import { Route as ShopSettingsRouteImport } from './routes/shop/settings'
 import { Route as ShopStudioRouteImport } from './routes/shop/studio'
 import { Route as ApiAssistantChatRouteImport } from './routes/api.assistant.chat'
@@ -462,6 +464,16 @@ const ShopProfileRoute = ShopProfileRouteImport.update({
   path: '/profile',
   getParentRoute: () => ShopRoute,
 } as any)
+const ShopSellItemRoute = ShopSellItemRouteImport.update({
+  id: '/sell-item',
+  path: '/sell-item',
+  getParentRoute: () => ShopRoute,
+} as any)
+const ShopServicesRoute = ShopServicesRouteImport.update({
+  id: '/services',
+  path: '/services',
+  getParentRoute: () => ShopRoute,
+} as any)
 const ShopSettingsRoute = ShopSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
@@ -751,6 +763,8 @@ export interface FileRoutesByFullPath {
   '/shop/orders': typeof ShopOrdersRouteWithChildren
   '/shop/payouts': typeof ShopPayoutsRoute
   '/shop/profile': typeof ShopProfileRoute
+  '/shop/sell-item': typeof ShopSellItemRoute
+  '/shop/services': typeof ShopServicesRoute
   '/shop/settings': typeof ShopSettingsRoute
   '/shop/studio': typeof ShopStudioRoute
   '/app/': typeof AppIndexRoute
@@ -858,6 +872,8 @@ export interface FileRoutesByTo {
   '/shop/notifications': typeof ShopNotificationsRoute
   '/shop/payouts': typeof ShopPayoutsRoute
   '/shop/profile': typeof ShopProfileRoute
+  '/shop/sell-item': typeof ShopSellItemRoute
+  '/shop/services': typeof ShopServicesRoute
   '/shop/settings': typeof ShopSettingsRoute
   '/shop/studio': typeof ShopStudioRoute
   '/app': typeof AppIndexRoute
@@ -973,6 +989,8 @@ export interface FileRoutesById {
   '/shop/orders': typeof ShopOrdersRouteWithChildren
   '/shop/payouts': typeof ShopPayoutsRoute
   '/shop/profile': typeof ShopProfileRoute
+  '/shop/sell-item': typeof ShopSellItemRoute
+  '/shop/services': typeof ShopServicesRoute
   '/shop/settings': typeof ShopSettingsRoute
   '/shop/studio': typeof ShopStudioRoute
   '/app/': typeof AppIndexRoute
@@ -1089,6 +1107,8 @@ export interface FileRouteTypes {
     | '/shop/orders'
     | '/shop/payouts'
     | '/shop/profile'
+    | '/shop/sell-item'
+    | '/shop/services'
     | '/shop/settings'
     | '/shop/studio'
     | '/app/'
@@ -1196,6 +1216,8 @@ export interface FileRouteTypes {
     | '/shop/notifications'
     | '/shop/payouts'
     | '/shop/profile'
+    | '/shop/sell-item'
+    | '/shop/services'
     | '/shop/settings'
     | '/shop/studio'
     | '/app'
@@ -1310,6 +1332,8 @@ export interface FileRouteTypes {
     | '/shop/orders'
     | '/shop/payouts'
     | '/shop/profile'
+    | '/shop/sell-item'
+    | '/shop/services'
     | '/shop/settings'
     | '/shop/studio'
     | '/app/'
@@ -1874,6 +1898,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ShopProfileRouteImport
       parentRoute: typeof ShopRoute
     }
+    '/shop/sell-item': {
+      id: '/shop/sell-item'
+      path: '/sell-item'
+      fullPath: '/shop/sell-item'
+      preLoaderRoute: typeof ShopSellItemRouteImport
+      parentRoute: typeof ShopRoute
+    }
+    '/shop/services': {
+      id: '/shop/services'
+      path: '/services'
+      fullPath: '/shop/services'
+      preLoaderRoute: typeof ShopServicesRouteImport
+      parentRoute: typeof ShopRoute
+    }
     '/shop/settings': {
       id: '/shop/settings'
       path: '/settings'
@@ -2413,6 +2451,8 @@ interface ShopRouteChildren {
   ShopOrdersRoute: typeof ShopOrdersRouteWithChildren
   ShopPayoutsRoute: typeof ShopPayoutsRoute
   ShopProfileRoute: typeof ShopProfileRoute
+  ShopSellItemRoute: typeof ShopSellItemRoute
+  ShopServicesRoute: typeof ShopServicesRoute
   ShopSettingsRoute: typeof ShopSettingsRoute
   ShopStudioRoute: typeof ShopStudioRoute
   ShopIndexRoute: typeof ShopIndexRoute
@@ -2443,6 +2483,8 @@ const ShopRouteChildren: ShopRouteChildren = {
   ShopOrdersRoute: ShopOrdersRouteWithChildren,
   ShopPayoutsRoute: ShopPayoutsRoute,
   ShopProfileRoute: ShopProfileRoute,
+  ShopSellItemRoute: ShopSellItemRoute,
+  ShopServicesRoute: ShopServicesRoute,
   ShopSettingsRoute: ShopSettingsRoute,
   ShopStudioRoute: ShopStudioRoute,
   ShopIndexRoute: ShopIndexRoute,

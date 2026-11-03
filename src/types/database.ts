@@ -124,6 +124,8 @@ export type Business = {
   published_at: string | null;
   /** Informal micro-traders / artisans — Marketplace lists these only. */
   is_informal?: boolean;
+  /** Personal home-seller shop created when someone sells from their house. */
+  is_personal?: boolean;
   payout_account_name?: string | null;
   payout_account_number?: string | null;
   payout_bank_name?: string | null;
@@ -176,6 +178,7 @@ export type PublicBusiness = {
   is_verified: boolean;
   verification_status: string;
   is_informal?: boolean;
+  is_personal?: boolean;
   distance_km?: number | null;
   product_names?: string[];
 };

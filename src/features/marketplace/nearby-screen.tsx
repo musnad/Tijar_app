@@ -2,7 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { LocateFixed, MapPin, Search, ShoppingBag, X } from "lucide-react";
+import { LocateFixed, MapPin, MessageCircle, Phone, Search, ShoppingBag, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
@@ -271,6 +271,28 @@ export function NearbyScreen() {
                   </a>
                 </Button>
               </div>
+              {selectedShop.public_phone || selectedShop.public_whatsapp ? (
+                <div className="mt-2 flex gap-2">
+                  {selectedShop.public_phone ? (
+                    <Button size="sm" className="h-9 flex-1 rounded-xl text-xs font-bold" asChild>
+                      <a href={`tel:${selectedShop.public_phone.replace(/[^\d+]/g, "")}`}>
+                        <Phone className="mr-1.5 size-3.5" /> Call
+                      </a>
+                    </Button>
+                  ) : null}
+                  {selectedShop.public_whatsapp ? (
+                    <Button size="sm" variant="outline" className="h-9 flex-1 rounded-xl text-xs font-bold" asChild>
+                      <a
+                        href={`https://wa.me/${selectedShop.public_whatsapp.replace(/\D/g, "")}`}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        <MessageCircle className="mr-1.5 size-3.5" /> WhatsApp
+                      </a>
+                    </Button>
+                  ) : null}
+                </div>
+              ) : null}
               <p className="mt-3 text-xs font-bold text-muted-foreground">
                 Products to buy ({selectedShop.products.length})
               </p>

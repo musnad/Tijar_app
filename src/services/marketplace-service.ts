@@ -15,6 +15,7 @@ import {
   listShopFollowers,
 } from "@/lib/shop-social";
 import { displayShopName, lookupShopProfiles } from "@/lib/shop-names";
+import { locationMatchesArea } from "@/lib/nigeria-locations";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { ensureOwnerMembership } from "@/services/business-service";
 import type { CheckoutQuote } from "@/lib/checkout/quote";
@@ -232,6 +233,144 @@ export async function fetchNearbyMarketplaceShops(input: {
 
   shops.sort((a, b) => a.distance_km - b.distance_km);
   return { shops: shops.slice(0, input.limit ?? 40), error: null };
+}
+
+/**
+ * Find businesses and services in a user's own area (state / LGA) plus an
+ * optional keyword — e.g. a barber in the same local government — so the
+ * shopper can open a profile and call them to come and do the job.
+ */
+export async function searchLocalBusinesses(input: {
+  state?: string | null;
+  lga?: string | null;
+  keyword?: string | null;
+  limit?: number;
+}): Promise<{ shops: PublicBusiness[]; error: string | null }> {
+  const supabase = getSupabaseBrowserClient();
+  const baseSelect =
+    "id, slug, business_name, description, location_text, public_location_label, latitude, longitude, logo_url, cover_image_url, category_id, category_name, public_phone, public_whatsapp, opening_hours, is_verified, verification_status, is_informal";
+  let { data, error } = await supabase
+    .from("public_marketplace_businesses")
+    .select(`${baseSelect}, is_personal`)
+    .order("business_name")
+    .limit(500);
+  if (error && /is_personal|schema cache|column/i.test(error.message)) {
+    const retry = await supabase
+      .from("public_marketplace_businesses")
+      .select(baseSelect)
+      .order("business_name")
+      .limit(500);
+    data = retry.data;
+    error = retry.error;
+  }
+  if (error) {
+    const fallback = await supabase
+      .from("public_business_listings")
+      .select(baseSelect)
+      .order("business_name")
+      .limit(500);
+    if (fallback.error) return { shops: [], error: fallback.error.message };
+    data = fallback.data;
+  }
+
+  const rows = (data ?? []) as PublicBusiness[];
+  const state = input.state?.trim() ?? "";
+  const lga = input.lga?.trim() ?? "";
+  const hasArea = Boolean(state || lga);
+  const keyword = input.keyword?.trim().toLowerCase() ?? "";
+  const words = keyword.split(/\s+/).filter(Boolean);
+
+  const scored: Array<{ shop: PublicBusiness; rank: number }> = [];
+  for (const shop of rows) {
+    const hay = [
+      shop.business_name,
+      shop.description ?? "",
+      shop.category_name ?? "",
+      shop.location_text ?? "",
+      shop.public_location_label ?? "",
+    ]
+      .join(" ")
+      .toLowerCase();
+    if (words.length > 0 && !words.every((w) => hay.includes(w))) continue;
+
+    let rank = 0;
+    if (hasArea) {
+      const place = shop.public_location_label ?? shop.location_text;
+      if (!locationMatchesArea(place, { state, lga })) continue;
+      rank = 1;
+      if (lga && place?.toLowerCase().includes(lga.toLowerCase())) rank = 2;
+    }
+    scored.push({ shop, rank });
+  }
+
+  scored.sort(
+    (a, b) => b.rank - a.rank || a.shop.business_name.localeCompare(b.shop.business_name),
+  );
+  return { shops: scored.slice(0, input.limit ?? 60).map((s) => s.shop), error: null };
+}
+
+/**
+ * Open (or create) the caller's own shop profile. Used when someone without a
+ * registered business sells a second-hand item from their house: the shop is
+ * flagged as personal so it stays separate from a full business account.
+ */
+export async function ensurePersonalShop(input: {
+  profileId: string;
+  displayName?: string | null;
+  location?: string | null;
+  phone?: string | null;
+}): Promise<{ businessId: string | null; slug: string | null; error: string | null }> {
+  const supabase = getSupabaseBrowserClient();
+  const phone = input.phone?.trim() || null;
+  const location = input.location?.trim() || null;
+
+  const existing = await supabase
+    .from("businesses")
+    .select("id, public_slug, public_phone, public_whatsapp")
+    .eq("owner_id", input.profileId)
+    .order("created_at", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+
+  if (existing.data?.id) {
+    const businessId = existing.data.id as string;
+    await ensureOwnerMembership(businessId, input.profileId);
+    const patch: Record<string, string> = {};
+    if (phone && !existing.data.public_phone) patch.public_phone = phone;
+    if (phone && !existing.data.public_whatsapp) patch.public_whatsapp = phone;
+    if (location) patch.location = location;
+    if (Object.keys(patch).length > 0) {
+      await supabase.from("businesses").update(patch).eq("id", businessId);
+    }
+    return { businessId, slug: (existing.data.public_slug as string | null) ?? null, error: null };
+  }
+
+  const baseName = input.displayName?.trim() || "My items";
+  const row: Record<string, unknown> = {
+    owner_id: input.profileId,
+    business_name: baseName,
+    location,
+    public_phone: phone,
+    public_whatsapp: phone,
+    is_informal: true,
+    is_personal: true,
+    islamic_mode_enabled: false,
+  };
+  let created = await supabase.from("businesses").insert(row).select("id, public_slug").single();
+  if (created.error && /is_personal|is_informal|column|schema cache/i.test(created.error.message)) {
+    const { is_personal: _p, is_informal: _i, ...fallbackRow } = row;
+    created = await supabase
+      .from("businesses")
+      .insert(fallbackRow)
+      .select("id, public_slug")
+      .single();
+  }
+  const businessId = (created.data?.id as string | undefined) ?? null;
+  if (created.error || !businessId) {
+    return { businessId: null, slug: null, error: created.error?.message ?? "Could not open your selling profile." };
+  }
+  await ensureOwnerMembership(businessId, input.profileId);
+  return { businessId, slug: (created.data?.public_slug as string | null) ?? null, error: null };
 }
 
 export async function fetchMarketplaceProduct(productId: string): Promise<{
