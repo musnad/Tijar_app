@@ -8,6 +8,9 @@ export async function signUpWithEmail(input: {
   phone?: string;
   categoryId?: string;
   location?: string;
+  /** Nigerian state + local government chosen at sign-up. */
+  state?: string;
+  lga?: string;
   /** customer → marketplace; business → onboarding (default). */
   accountMode?: "customer" | "business";
 }) {
@@ -24,6 +27,8 @@ export async function signUpWithEmail(input: {
         phone: input.phone?.trim(),
         signup_category_id: input.categoryId,
         signup_location: input.location?.trim(),
+        signup_state: input.state?.trim(),
+        signup_lga: input.lga?.trim(),
         account_mode: mode,
       },
     },

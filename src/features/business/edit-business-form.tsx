@@ -14,6 +14,12 @@ import { useAuth } from "@/features/auth/auth-context";
 import { businessProfileFormSchema } from "@/features/business/schemas";
 import { categoryDisplayName } from "@/features/onboarding/category-label";
 import { useTranslation } from "@/lib/i18n/context";
+import {
+  NIGERIA_STATE_NAMES,
+  formatNigerianLocation,
+  lgasForState,
+  parseNigerianLocation,
+} from "@/lib/nigeria-locations";
 import { uploadBusinessLogo } from "@/services/business-logo-service";
 import { listBusinessCategories, updateBusinessProfile } from "@/services/business-service";
 import type { Business } from "@/types/database";
@@ -24,8 +30,10 @@ export function EditBusinessForm({ business }: { business: Business }) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
+  const initialLocation = parseNigerianLocation(business.location);
   const [businessName, setBusinessName] = useState(business.business_name);
-  const [location, setLocation] = useState(business.location ?? "");
+  const [stateName, setStateName] = useState(initialLocation.state);
+  const [lga, setLga] = useState(initialLocation.lga);
   const [phone, setPhone] = useState(business.public_phone ?? "");
   const [whatsapp, setWhatsapp] = useState(business.public_whatsapp ?? "");
   const [description, setDescription] = useState(business.description ?? "");
@@ -49,9 +57,10 @@ export function EditBusinessForm({ business }: { business: Business }) {
 
   async function submit(e?: React.FormEvent) {
     e?.preventDefault();
+    const composedLocation = formatNigerianLocation(stateName, lga) || business.location || "";
     const parsed = businessProfileFormSchema.safeParse({
       businessName,
-      location: location || undefined,
+      location: composedLocation || undefined,
       description: description || undefined,
       categoryId: categoryId || undefined,
       islamicModeEnabled: islamicMode,
@@ -131,13 +140,43 @@ export function EditBusinessForm({ business }: { business: Business }) {
           placeholder={t("app.business.namePlaceholder")}
           required
         />
-        <label className="mt-3 block text-xs font-bold text-white/80">Location</label>
-        <Input
-          className="mt-1 min-h-12 border-0 bg-white/10 text-sm text-white placeholder:text-white/40"
-          value={location}
-          onChange={(e) => setLocation(e.target.value)}
-          placeholder={t("app.business.locationPlaceholder")}
-        />
+        <label className="mt-3 block text-xs font-bold text-white/80">State</label>
+        <div className="mt-1 grid grid-cols-2 gap-2">
+          <select
+            className="min-h-12 w-full rounded-xl border-0 bg-white/10 px-3 text-sm text-white"
+            value={stateName}
+            onChange={(e) => {
+              setStateName(e.target.value);
+              setLga("");
+            }}
+            aria-label="State"
+          >
+            <option value="" className="text-foreground">
+              Select state
+            </option>
+            {NIGERIA_STATE_NAMES.map((s) => (
+              <option key={s} value={s} className="text-foreground">
+                {s}
+              </option>
+            ))}
+          </select>
+          <select
+            className="min-h-12 w-full rounded-xl border-0 bg-white/10 px-3 text-sm text-white disabled:opacity-60"
+            value={lga}
+            onChange={(e) => setLga(e.target.value)}
+            aria-label="Local government area"
+            disabled={!stateName}
+          >
+            <option value="" className="text-foreground">
+              {stateName ? "Local government" : "Pick a state"}
+            </option>
+            {lgasForState(stateName).map((l) => (
+              <option key={l} value={l} className="text-foreground">
+                {l}
+              </option>
+            ))}
+          </select>
+        </div>
         <label className="mt-3 block text-xs font-bold text-white/80">Shop phone</label>
         <Input
           className="mt-1 min-h-12 border-0 bg-white/10 text-sm text-white placeholder:text-white/40"
