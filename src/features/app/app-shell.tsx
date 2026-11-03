@@ -2,7 +2,7 @@
 
 import { Link, useRouterState } from "@tanstack/react-router";
 import { Home, Mic, Package, ShoppingBag, User } from "lucide-react";
-import type { ReactNode } from "react";
+import type { MouseEvent, ReactNode } from "react";
 
 import { AppFab, AppLinkFab } from "@/features/app-layout/app-fab";
 import { AppTopBar } from "@/features/app-layout/app-top-bar";
@@ -31,6 +31,15 @@ function isNavActive(pathname: string, item: (typeof navItems)[number]): boolean
     return item.matchPrefixes.some((p) => pathname.startsWith(p));
   }
   return pathname.startsWith(item.to);
+}
+
+/**
+ * Home always loads a fresh page: a full visit instead of a client-side swap,
+ * so the dashboard figures are rebuilt from scratch every time.
+ */
+function refreshHome(event: MouseEvent<HTMLAnchorElement>) {
+  event.preventDefault();
+  window.location.assign("/app");
 }
 
 export function AppShell({
@@ -83,6 +92,7 @@ export function AppShell({
               <Link
                 key={item.labelKey}
                 to={item.to}
+                onClick={item.to === "/app" ? refreshHome : undefined}
                 className={cn(
                   "app-tab flex min-h-[3.5rem] flex-col items-center justify-center gap-0.5 text-[10px] font-semibold",
                   active ? "app-tab-active text-primary" : "text-muted-foreground",

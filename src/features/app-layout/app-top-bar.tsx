@@ -78,7 +78,14 @@ export function AppTopBar() {
       </Sheet>
 
       <div className="flex justify-center px-1">
-        <Link to="/app" className="block max-w-[150px]">
+        <Link
+          to="/app"
+          className="block max-w-[150px]"
+          onClick={(event) => {
+            event.preventDefault();
+            window.location.assign("/app");
+          }}
+        >
           <TijarLogo compact className="mx-auto max-w-[150px]" />
         </Link>
       </div>

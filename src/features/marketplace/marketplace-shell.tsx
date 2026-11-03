@@ -3,7 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link, useRouterState } from "@tanstack/react-router";
 import { Compass, Home, MessageCircle, PlusSquare, ShoppingBag, UserRound, Clapperboard } from "lucide-react";
-import type { ReactNode } from "react";
+import type { MouseEvent, ReactNode } from "react";
 
 import { TijarLogo } from "@/components/brand-logo";
 import { Button } from "@/components/ui/button";
@@ -23,6 +23,15 @@ function initials(name: string): string {
   return `${parts[0]![0] ?? ""}${parts[1]![0] ?? ""}`.toUpperCase();
 }
 
+/**
+ * Home always loads a fresh page: a full visit instead of a client-side swap,
+ * so the feed, unread counts and cart are rebuilt from scratch every time.
+ */
+function refreshHome(event: MouseEvent<HTMLAnchorElement>) {
+  event.preventDefault();
+  window.location.assign("/shop");
+}
+
 function MarketplaceTopBar({ leftSlot }: { leftSlot?: ReactNode }) {
   const { profile, session } = useAuth();
   const { t } = useTranslation();
@@ -33,7 +42,7 @@ function MarketplaceTopBar({ leftSlot }: { leftSlot?: ReactNode }) {
       {leftSlot ?? <div className="size-10" />}
 
       <div className="flex justify-center px-1">
-        <Link to="/shop" className="block max-w-[140px]">
+        <Link to="/shop" className="block max-w-[140px]" onClick={refreshHome}>
           <TijarLogo compact className="mx-auto max-w-[140px]" />
         </Link>
       </div>
@@ -160,6 +169,7 @@ export function MarketplaceShell({
               <Link
                 key={`${tab.to}-${tab.label}`}
                 to={tab.to}
+                onClick={tab.to === "/shop" ? refreshHome : undefined}
                 activeOptions={{ exact: Boolean("exact" in tab && tab.exact) }}
                 className={cn(
                   "relative flex min-h-11 min-w-11 touch-manipulation flex-col items-center justify-center gap-0.5 py-1 text-[10px] font-semibold",
