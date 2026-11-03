@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { MarketplaceShell } from "@/features/marketplace/marketplace-shell";
 import { useAuth } from "@/features/auth/auth-context";
+import { useAccountGate } from "@/features/auth/account-gate";
 import { isMockFeedId } from "@/features/marketplace/feed-mock";
 import { haptic } from "@/lib/haptics";
 import { clearLocalCart, listLocalCart } from "@/lib/local-cart";

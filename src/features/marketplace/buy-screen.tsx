@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { MarketplaceShell } from "@/features/marketplace/marketplace-shell";
 import { isMockFeedId } from "@/features/marketplace/feed-mock";
 import { useAuth } from "@/features/auth/auth-context";
+import { useAccountGate } from "@/features/auth/account-gate";
 import {
   fetchBusinessPayoutAccount,
   fetchMarketplaceProduct,

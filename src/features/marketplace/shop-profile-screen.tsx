@@ -29,6 +29,7 @@ import { Button } from "@/components/ui/button";
 import { AppLanguageButton } from "@/features/app-layout/app-language-button";
 import { MarketplaceShell } from "@/features/marketplace/marketplace-shell";
 import { useAuth } from "@/features/auth/auth-context";
+import { useAccountGate } from "@/features/auth/account-gate";
 import { usePrimaryBusiness } from "@/hooks/use-primary-business";
 import { canUseBusinessMode } from "@/lib/account-mode";
 import { haptic } from "@/lib/haptics";
