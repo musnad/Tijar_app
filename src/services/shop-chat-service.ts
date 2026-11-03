@@ -67,7 +67,7 @@ export async function fetchShopInbox(
   const { data: asCustomer, error: cErr } = await supabase
     .from("shop_conversations")
     .select(
-      "id, business_id, customer_id, last_preview, last_message_at, customer_last_read_at, business_last_read_at, businesses ( business_name, logo_url, slug )",
+      "id, business_id, customer_id, last_preview, last_message_at, customer_last_read_at, business_last_read_at, businesses ( business_name, logo_url, public_slug )",
     )
     .eq("customer_id", profileId)
     .order("last_message_at", { ascending: false })
@@ -83,7 +83,7 @@ export async function fetchShopInbox(
     const r = await supabase
       .from("shop_conversations")
       .select(
-        "id, business_id, customer_id, last_preview, last_message_at, customer_last_read_at, business_last_read_at, businesses ( business_name, logo_url, slug ), profiles:customer_id ( full_name )",
+        "id, business_id, customer_id, last_preview, last_message_at, customer_last_read_at, business_last_read_at, businesses ( business_name, logo_url, public_slug ), profiles:customer_id ( full_name )",
       )
       .in("business_id", myBusinessIds)
       .order("last_message_at", { ascending: false })
@@ -97,7 +97,7 @@ export async function fetchShopInbox(
     const id = row.id as string;
     if (seen.has(id)) continue;
     seen.add(id);
-    const biz = row.businesses as { business_name?: string; logo_url?: string | null; slug?: string | null } | null;
+    const biz = row.businesses as { business_name?: string; logo_url?: string | null; public_slug?: string | null } | null;
     const profile = (row as { profiles?: { full_name?: string | null } | null }).profiles;
     const asSellerRow = myBusinessIds.includes(row.business_id as string);
     const last = new Date(String(row.last_message_at)).getTime();
@@ -111,7 +111,7 @@ export async function fetchShopInbox(
       last_message_at: row.last_message_at as string,
       business_name: biz?.business_name ?? "Shop",
       logo_url: biz?.logo_url ?? null,
-      business_slug: biz?.slug ?? null,
+      business_slug: biz?.public_slug ?? null,
       customer_name: profile?.full_name ?? "Customer",
       as_seller: asSellerRow,
       unread,
@@ -139,7 +139,7 @@ export async function fetchShopMessages(
   const { data: convo, error: cErr } = await supabase
     .from("shop_conversations")
     .select(
-      "id, business_id, customer_id, last_preview, last_message_at, customer_last_read_at, business_last_read_at, businesses ( business_name, logo_url, slug )",
+      "id, business_id, customer_id, last_preview, last_message_at, customer_last_read_at, business_last_read_at, businesses ( business_name, logo_url, public_slug )",
     )
     .eq("id", conversationId)
     .maybeSingle();
@@ -157,7 +157,7 @@ export async function fetchShopMessages(
     .limit(200);
   if (mErr) return { messages: [], inbox: null, error: mErr.message };
 
-  const biz = convo.businesses as { business_name?: string; logo_url?: string | null; slug?: string | null } | null;
+  const biz = convo.businesses as { business_name?: string; logo_url?: string | null; public_slug?: string | null } | null;
   const inbox: ShopInboxRow = {
     id: convo.id as string,
     business_id: convo.business_id as string,
@@ -166,7 +166,7 @@ export async function fetchShopMessages(
     last_message_at: convo.last_message_at as string,
     business_name: biz?.business_name ?? "Shop",
     logo_url: biz?.logo_url ?? null,
-    business_slug: biz?.slug ?? null,
+    business_slug: biz?.public_slug ?? null,
     customer_name: "Customer",
     as_seller: convo.customer_id !== customerId,
     unread: false,
