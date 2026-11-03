@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 
 import { useAuth } from "@/features/auth/auth-context";
+import { useAccountGate } from "@/features/auth/account-gate";
 import { isMockFeedId } from "@/features/marketplace/feed-mock";
 import { ProductSocialBar } from "@/features/marketplace/product-social";
 import { ensureSavedProduct } from "@/lib/shop-social";
@@ -25,7 +26,8 @@ export function ProductCard({
   product: PublicProduct;
   compact?: boolean;
 }) {
-  const { profile, session } = useAuth();
+  const { profile } = useAuth();
+  const { requireAccount } = useAccountGate();
   const { t } = useTranslation();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -33,8 +35,7 @@ export function ProductCard({
   async function quickAdd(e: React.MouseEvent) {
     e.preventDefault();
     e.stopPropagation();
-    if (!session || !profile) {
-      toast.message("Sign in to add items to your cart.");
+    if (!requireAccount("cart") || !profile) {
       return;
     }
     if (product.sale_price == null) {
@@ -157,6 +158,9 @@ export function ProductCard({
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();
+              if (!requireAccount("buy")) {
+                return;
+              }
               if (isMockFeedId(product.id)) {
                 toast.error("This listing is not available.");
                 return;
