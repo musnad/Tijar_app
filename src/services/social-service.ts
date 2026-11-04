@@ -2,6 +2,7 @@ import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { toggleFollowPersonLocal, type SocialPerson } from "@/lib/shop-social";
 import { displayShopName, shopLinkSlug } from "@/lib/shop-names";
 import { isMockFeedId } from "@/features/marketplace/feed-mock";
+import type { NotificationPreferences } from "@/types/database";
 
 export type SocialConnection = {
   profileId: string;
@@ -45,6 +46,35 @@ export type ActivityNotification = {
   readAt: string | null;
   createdAt: string;
 };
+
+export type NotificationToggles = Pick<
+  NotificationPreferences,
+  "general" | "likes" | "comments" | "order_updates"
+>;
+
+/**
+ * Whether a notification kind should be shown for the given preferences.
+ * "General" is the master switch — when on, every kind is delivered. When off,
+ * only the individually enabled categories (likes / comments / orders) show.
+ */
+export function notificationKindAllowed(kind: ActivityNotificationKind, prefs: NotificationToggles): boolean {
+  if (prefs.general) return true;
+  switch (kind) {
+    case "like":
+      return prefs.likes;
+    case "comment":
+    case "comment_reply":
+      return prefs.comments;
+    case "cart":
+    case "purchase":
+    case "place_order":
+    case "place_order_paid":
+    case "order_update":
+      return prefs.order_updates;
+    default:
+      return false;
+  }
+}
 
 function handleFromName(name: string): string {
   return name.replace(/[^a-zA-Z0-9]/g, "").toLowerCase() || "member";
@@ -326,7 +356,20 @@ export async function fetchActivityNotifications(profileId: string): Promise<{
       body: r.body as string,
     };
   });
-  return { items, unread: items.filter((i) => !i.readAt).length, error: null };
+  const { data: prefRow } = await supabase
+    .from("notification_preferences")
+    .select("general, likes, comments, order_updates")
+    .eq("profile_id", profileId)
+    .maybeSingle();
+  const p = (prefRow as Partial<NotificationToggles> | null) ?? {};
+  const toggles: NotificationToggles = {
+    general: typeof p.general === "boolean" ? p.general : true,
+    likes: typeof p.likes === "boolean" ? p.likes : true,
+    comments: typeof p.comments === "boolean" ? p.comments : true,
+    order_updates: typeof p.order_updates === "boolean" ? p.order_updates : true,
+  };
+  const visible = items.filter((i) => notificationKindAllowed(i.kind, toggles));
+  return { items: visible, unread: visible.filter((i) => !i.readAt).length, error: null };
   } catch (err) {
     return { items: [], unread: 0, error: err instanceof Error ? err.message : "Could not load notifications." };
   }

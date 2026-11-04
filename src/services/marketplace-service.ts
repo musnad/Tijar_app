@@ -1475,6 +1475,9 @@ export async function fetchNotificationPreferences(profileId: string): Promise<{
 }> {
   const fallback: NotificationPreferences = {
     profile_id: profileId,
+    general: true,
+    likes: true,
+    comments: true,
     order_updates: true,
     enquiry_replies: true,
     followed_shops: true,
@@ -1487,7 +1490,23 @@ export async function fetchNotificationPreferences(profileId: string): Promise<{
     .eq("profile_id", profileId)
     .maybeSingle();
   if (error) return { prefs: fallback, error: error.message };
-  return { prefs: (data as NotificationPreferences | null) ?? fallback, error: null };
+  // Coerce in case the category columns are not present yet (migration pending).
+  const row = (data as Partial<NotificationPreferences> | null) ?? {};
+  const pick = (key: keyof NotificationPreferences, dflt: boolean) =>
+    typeof row[key] === "boolean" ? (row[key] as boolean) : dflt;
+  return {
+    prefs: {
+      profile_id: profileId,
+      general: pick("general", true),
+      likes: pick("likes", true),
+      comments: pick("comments", true),
+      order_updates: pick("order_updates", true),
+      enquiry_replies: pick("enquiry_replies", true),
+      followed_shops: pick("followed_shops", true),
+      marketing: pick("marketing", false),
+    },
+    error: null,
+  };
 }
 
 export async function saveNotificationPreferences(

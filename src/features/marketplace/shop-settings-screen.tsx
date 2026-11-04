@@ -41,6 +41,7 @@ export function ShopSettingsScreen() {
     onSuccess: async () => {
       toast.success(t("shop.settings.saved"));
       await queryClient.invalidateQueries({ queryKey: ["notification-prefs"] });
+      await queryClient.invalidateQueries({ queryKey: ["activity-popup"] });
     },
     onError: (err: Error) => toast.error(err.message),
   });
@@ -105,8 +106,32 @@ export function ShopSettingsScreen() {
               {prefs && (
                 <ul className="mt-3 space-y-3">
                   <PrivacyToggle
-                    label={t("shop.settings.orderUpdates")}
-                    checked={prefs.order_updates}
+                    label={t("shop.settings.generalNotifs")}
+                    checked={prefs.general}
+                    onChange={(general) =>
+                      save.mutate(
+                        general
+                          ? { ...prefs, general: true, likes: true, comments: true, order_updates: true }
+                          : { ...prefs, general: false },
+                      )
+                    }
+                  />
+                  <PrivacyToggle
+                    label={t("shop.settings.likes")}
+                    checked={prefs.general || prefs.likes}
+                    disabled={prefs.general}
+                    onChange={(likes) => save.mutate({ ...prefs, likes })}
+                  />
+                  <PrivacyToggle
+                    label={t("shop.settings.comments")}
+                    checked={prefs.general || prefs.comments}
+                    disabled={prefs.general}
+                    onChange={(comments) => save.mutate({ ...prefs, comments })}
+                  />
+                  <PrivacyToggle
+                    label={t("shop.settings.purchasesOrders")}
+                    checked={prefs.general || prefs.order_updates}
+                    disabled={prefs.general}
                     onChange={(order_updates) => save.mutate({ ...prefs, order_updates })}
                   />
                   <PrivacyToggle
@@ -150,16 +175,28 @@ export function ShopSettingsScreen() {
 function PrivacyToggle({
   label,
   checked,
+  disabled,
   onChange,
 }: {
   label: string;
   checked: boolean;
+  disabled?: boolean;
   onChange: (v: boolean) => void;
 }) {
   return (
-    <label className="flex min-h-11 items-center justify-between gap-3 text-sm font-medium">
+    <label
+      className={`flex min-h-11 items-center justify-between gap-3 text-sm font-medium ${
+        disabled ? "opacity-60" : ""
+      }`}
+    >
       {label}
-      <input type="checkbox" className="size-4" checked={checked} onChange={(e) => onChange(e.target.checked)} />
+      <input
+        type="checkbox"
+        className="size-4"
+        checked={checked}
+        disabled={disabled}
+        onChange={(e) => onChange(e.target.checked)}
+      />
     </label>
   );
 }

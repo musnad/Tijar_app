@@ -15,20 +15,32 @@ function Toggle({
   label,
   hint,
   checked,
+  disabled,
   onChange,
 }: {
   label: string;
   hint: string;
   checked: boolean;
+  disabled?: boolean;
   onChange: (v: boolean) => void;
 }) {
   return (
-    <label className="flex items-start justify-between gap-3 rounded-2xl border border-border bg-card p-4">
+    <label
+      className={`flex items-start justify-between gap-3 rounded-2xl border border-border bg-card p-4 ${
+        disabled ? "opacity-60" : ""
+      }`}
+    >
       <span>
         <span className="block font-bold">{label}</span>
         <span className="mt-1 block text-xs text-muted-foreground">{hint}</span>
       </span>
-      <input type="checkbox" className="mt-1 size-4" checked={checked} onChange={(e) => onChange(e.target.checked)} />
+      <input
+        type="checkbox"
+        className="mt-1 size-4"
+        checked={checked}
+        disabled={disabled}
+        onChange={(e) => onChange(e.target.checked)}
+      />
     </label>
   );
 }
@@ -56,6 +68,7 @@ export function NotificationPrefsScreen() {
       else {
         toast.success("Preferences saved");
         await queryClient.invalidateQueries({ queryKey: ["notification-prefs"] });
+        await queryClient.invalidateQueries({ queryKey: ["activity-popup"] });
       }
     },
   });
@@ -111,9 +124,48 @@ export function NotificationPrefsScreen() {
       {prefs && (
         <div className="mt-4 space-y-2">
           <Toggle
-            label="Order updates"
-            hint="When a seller accepts or updates an order request"
-            checked={prefs.order_updates}
+            label="General notifications"
+            hint="Master switch — when on you receive every notification type below."
+            checked={prefs.general}
+            onChange={(general) =>
+              save.mutate(
+                general
+                  ? { ...prefs, general: true, likes: true, comments: true, order_updates: true }
+                  : { ...prefs, general: false },
+              )
+            }
+          />
+          <Toggle
+            label="Likes"
+            hint={
+              prefs.general
+                ? "On — controlled by General notifications."
+                : "When someone likes your product, post or video"
+            }
+            checked={prefs.general || prefs.likes}
+            disabled={prefs.general}
+            onChange={(likes) => save.mutate({ ...prefs, likes })}
+          />
+          <Toggle
+            label="Comments"
+            hint={
+              prefs.general
+                ? "On — controlled by General notifications."
+                : "When someone comments or replies to you"
+            }
+            checked={prefs.general || prefs.comments}
+            disabled={prefs.general}
+            onChange={(comments) => save.mutate({ ...prefs, comments })}
+          />
+          <Toggle
+            label="Purchases & orders"
+            hint={
+              prefs.general
+                ? "On — controlled by General notifications."
+                : "When a buyer places an order or a seller updates it"
+            }
+            checked={prefs.general || prefs.order_updates}
+            disabled={prefs.general}
             onChange={(order_updates) => save.mutate({ ...prefs, order_updates })}
           />
           <Toggle
