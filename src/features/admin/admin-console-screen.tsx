@@ -418,6 +418,7 @@ export function AdminConsoleScreen() {
     const salesToday = sales.filter((t) => dayKey(t.occurred_at) === today);
     const ordersToday = orders.filter((o) => dayKey(o.created_at) === today);
     const newUsersToday = users.filter((u) => dayKey(u.created_at) === today);
+    const postedProducts = content.filter((item) => item.kind === "product");
     return {
       users: users.length,
       businesses: businesses.length,
@@ -430,6 +431,8 @@ export function AdminConsoleScreen() {
       orders: orders.length,
       ordersToday: ordersToday.length,
       gmv: orders.reduce((n, o) => n + Number(o.total), 0),
+      postedProducts: postedProducts.length,
+      postedValue: postedProducts.reduce((n, item) => n + Number(item.price ?? 0), 0),
       payments: payments.reduce((n, p) => n + Number(p.amount), 0),
       newUsersToday: newUsersToday.length,
       activeShopsToday: new Set(
@@ -439,7 +442,7 @@ export function AdminConsoleScreen() {
         ].filter(Boolean),
       ).size,
     };
-  }, [businesses, users, orders, transactions, payments, upgrades]);
+  }, [businesses, users, orders, transactions, payments, upgrades, content]);
 
   const finance = useMemo(
     () => totalsForFinance(transactions, orders, commissionRate),
@@ -748,6 +751,12 @@ export function AdminConsoleScreen() {
           <Kpi icon={BadgeCheck} label="KYC queue" value={String(stats.pendingKyc)} hint={`${stats.pendingApps} applications`} />
           <Kpi icon={Wallet} label="Sales (ledger)" value={formatNgnCompact(stats.salesVolume)} hint={`${formatNgnCompact(stats.salesToday)} today`} />
           <Kpi icon={Building2} label="Marketplace GMV" value={formatNgnCompact(stats.gmv)} hint={`${stats.ordersToday} orders today`} />
+          <Kpi
+            icon={Package}
+            label="Products posted"
+            value={formatNgnCompact(stats.postedValue)}
+            hint={`${stats.postedProducts} products listed`}
+          />
           <Kpi icon={Percent} label="Commission" value={formatNgnCompact(finance.totalCommission)} hint={`${ratePct}% of volume`} />
           <Kpi
             icon={Activity}
