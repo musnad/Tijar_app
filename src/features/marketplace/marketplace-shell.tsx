@@ -142,18 +142,21 @@ export function MarketplaceShell({
           feed || hideNav
             ? "flex max-w-lg min-h-0 flex-col p-0"
             : cn(
-                "max-w-lg pt-[max(0.75rem,env(safe-area-inset-top))] sm:px-5",
+                "max-w-lg sm:px-5",
+                nativeApp ? "pt-2" : "pt-[max(0.75rem,env(safe-area-inset-top))]",
                 !nativeApp && "lg:max-w-6xl xl:max-w-7xl",
                 mapLayout ? "px-2 pb-2" : "px-4 pb-4",
               ),
         )}
       >
-        {!hideTopBar && !feed && <MarketplaceTopBar leftSlot={leftSlot} />}
+        {/* Inside the Android app the native shell owns the top bar + tab bar,
+            so the website's own chrome is suppressed to avoid double bars. */}
+        {!hideTopBar && !feed && !nativeApp && <MarketplaceTopBar leftSlot={leftSlot} />}
         {children}
       </main>
       <NotificationPopup />
 
-      {!hideNav && <nav
+      {!hideNav && !nativeApp && <nav
         className={cn(
           "z-40 shrink-0 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-1",
           feed

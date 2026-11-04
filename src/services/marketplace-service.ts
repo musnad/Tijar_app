@@ -1481,7 +1481,7 @@ export async function fetchNotificationPreferences(profileId: string): Promise<{
     order_updates: true,
     enquiry_replies: true,
     followed_shops: true,
-    marketing: false,
+    marketing: true,
   };
   const supabase = getSupabaseBrowserClient();
   const { data, error } = await supabase
@@ -1503,7 +1503,7 @@ export async function fetchNotificationPreferences(profileId: string): Promise<{
       order_updates: pick("order_updates", true),
       enquiry_replies: pick("enquiry_replies", true),
       followed_shops: pick("followed_shops", true),
-      marketing: pick("marketing", false),
+      marketing: pick("marketing", true),
     },
     error: null,
   };
