@@ -65,12 +65,6 @@ export function VideoCreateScreen({
               <Link to="/shop/create-order">Place your order</Link>
             </Button>
           </div>
-          <Link
-            to="/shop/sell-item"
-            className="shrink-0 px-3 pb-2 text-center text-[11px] font-bold text-primary underline underline-offset-2"
-          >
-            Sell a second-hand item from home · free or paid
-          </Link>
           <SellerVideoStudioScreen
             businessId={business.id}
             profileId={profile.id}

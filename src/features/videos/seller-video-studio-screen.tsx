@@ -547,6 +547,18 @@ export function SellerVideoStudioScreen({
                 Bidding post
               </button>
             </div>
+
+            <Button
+              variant="outline"
+              className="mt-2 min-h-11 w-full rounded-xl border-[#1F7A4D]/30 text-[13px] font-extrabold text-[#1F7A4D]"
+              asChild
+            >
+              <Link to="/shop/sell-item">
+                <Tag className="mr-1.5 size-4" />
+                Sell a second-hand item from home · free or paid
+              </Link>
+            </Button>
+
             {postMode === "bid" ? (
               <p className="mt-2 rounded-2xl bg-[#F3FBF6] px-3 py-2 text-[12px] leading-relaxed text-[#1F7A4D]">
                 Buyers bid on this item. The first bid that reaches your sale limit closes it instantly and shows
