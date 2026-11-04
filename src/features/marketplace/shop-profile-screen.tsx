@@ -369,7 +369,16 @@ export function ShopProfileScreen() {
                 onCheckedChange={(general) =>
                   savePrefs.mutate(
                     general
-                      ? { ...prefs, general: true, likes: true, comments: true, order_updates: true }
+                      ? {
+                          ...prefs,
+                          general: true,
+                          likes: true,
+                          comments: true,
+                          order_updates: true,
+                          enquiry_replies: true,
+                          followed_shops: true,
+                          marketing: true,
+                        }
                       : { ...prefs, general: false },
                   )
                 }

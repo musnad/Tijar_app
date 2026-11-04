@@ -28,6 +28,7 @@ export type ActivityNotificationKind =
   | "place_order"
   | "place_order_paid"
   | "new_post"
+  | "shop_reply"
   | "order_update";
 
 export type ActivityNotification = {
@@ -49,15 +50,23 @@ export type ActivityNotification = {
 
 export type NotificationToggles = Pick<
   NotificationPreferences,
-  "general" | "likes" | "comments" | "order_updates"
+  "general" | "likes" | "comments" | "order_updates" | "enquiry_replies" | "followed_shops"
 >;
 
 /**
  * Whether a notification kind should be shown for the given preferences.
  * "General" is the master switch — when on, every kind is delivered. When off,
- * only the individually enabled categories (likes / comments / orders) show.
+ * only the individually enabled categories show:
+ *  - Likes                → like
+ *  - Comments             → comment, comment_reply
+ *  - Purchases & orders   → cart, purchase, place/paid orders, order updates, bids
+ *  - Shop replies         → shop_reply
+ *  - Shops I follow       → new_post, follow, follow_back, collab
  */
-export function notificationKindAllowed(kind: ActivityNotificationKind, prefs: NotificationToggles): boolean {
+export function notificationKindAllowed(
+  kind: ActivityNotificationKind,
+  prefs: NotificationToggles,
+): boolean {
   if (prefs.general) return true;
   switch (kind) {
     case "like":
@@ -71,6 +80,12 @@ export function notificationKindAllowed(kind: ActivityNotificationKind, prefs: N
     case "place_order_paid":
     case "order_update":
       return prefs.order_updates;
+    case "shop_reply":
+      return prefs.enquiry_replies;
+    case "new_post":
+    case "follow":
+    case "follow_back":
+      return prefs.followed_shops;
     default:
       return false;
   }
@@ -330,15 +345,17 @@ export async function fetchActivityNotifications(profileId: string): Promise<{
         ? orderId
           ? `/shop/orders/${orderId}`
           : "/shop/orders"
-        : isMarketplaceOrder
-          ? "/app/orders"
-          : isPlaceOrderish
-            ? "/shop/create-order?tab=orders"
-            : productId
-              ? `/shop/p/${productId}`
-              : videoPostId
-                ? `/shop?v=${videoPostId}`
-                : undefined;
+        : r.kind === "shop_reply"
+          ? "/shop/enquiries"
+          : isMarketplaceOrder
+            ? "/app/orders"
+            : isPlaceOrderish
+              ? "/shop/create-order?tab=orders"
+              : productId
+                ? `/shop/p/${productId}`
+                : videoPostId
+                  ? `/shop?v=${videoPostId}`
+                  : undefined;
     return {
       id: r.id as string,
       kind: r.kind as ActivityNotification["kind"],
@@ -358,15 +375,18 @@ export async function fetchActivityNotifications(profileId: string): Promise<{
   });
   const { data: prefRow } = await supabase
     .from("notification_preferences")
-    .select("general, likes, comments, order_updates")
+    .select("general, likes, comments, order_updates, enquiry_replies, followed_shops")
     .eq("profile_id", profileId)
     .maybeSingle();
   const p = (prefRow as Partial<NotificationToggles> | null) ?? {};
+  const on = (key: keyof NotificationToggles) => (typeof p[key] === "boolean" ? (p[key] as boolean) : true);
   const toggles: NotificationToggles = {
-    general: typeof p.general === "boolean" ? p.general : true,
-    likes: typeof p.likes === "boolean" ? p.likes : true,
-    comments: typeof p.comments === "boolean" ? p.comments : true,
-    order_updates: typeof p.order_updates === "boolean" ? p.order_updates : true,
+    general: on("general"),
+    likes: on("likes"),
+    comments: on("comments"),
+    order_updates: on("order_updates"),
+    enquiry_replies: on("enquiry_replies"),
+    followed_shops: on("followed_shops"),
   };
   const visible = items.filter((i) => notificationKindAllowed(i.kind, toggles));
   return { items: visible, unread: visible.filter((i) => !i.readAt).length, error: null };
