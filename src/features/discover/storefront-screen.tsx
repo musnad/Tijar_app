@@ -2,7 +2,7 @@
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { BadgeCheck, Bell, Camera, Clock, Flag, Heart, MapPin, MessageCircle, Navigation, Phone, Play, Plus, Share2 } from "lucide-react";
+import { BadgeCheck, Bell, Clock, Flag, Heart, MapPin, MessageCircle, Navigation, Phone, Play, Plus, Share2 } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
@@ -16,8 +16,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { TijarLogo } from "@/components/brand-logo";
 import { useAuth } from "@/features/auth/auth-context";
+import { useAccountGate } from "@/features/auth/account-gate";
 import { usePrimaryBusiness } from "@/hooks/use-primary-business";
 import { MarketplaceShell } from "@/features/marketplace/marketplace-shell";
 import { TranslateText } from "@/features/translate/translate-text";
@@ -396,32 +396,25 @@ export function StorefrontScreen({ slug }: { slug: string }) {
         onTouchMove={onTouchMove}
         onTouchEnd={onTouchEnd}
       >
-        <header className="sticky top-0 z-20 bg-white/95 px-4 pb-1 pt-1 backdrop-blur-md">
-          <div className="relative flex items-center justify-center py-1">
-            <div className="flex flex-col items-center">
-              <Link to="/shop" className="block w-[7.25rem]" aria-label="TIJAR home">
-                <TijarLogo compact className="mx-auto" />
-              </Link>
-              <p className="mt-0.5 text-[9px] font-extrabold uppercase tracking-[0.18em] text-[#1F7A4D]">
-                Business storefront
-              </p>
-            </div>
-            {isOwner ? (
-              <Link
-                to="/shop/create"
-                search={{ camera: true }}
-                className="absolute left-0 top-1/2 flex size-10 -translate-y-1/2 items-center justify-center rounded-full bg-[#1F7A4D] text-white"
-                aria-label="Open camera to post"
-              >
-                <Camera className="size-5" />
-              </Link>
-            ) : null}
+        <header className="sticky top-0 z-20 border-b border-[#EEF1F5] bg-white/95 px-4 py-1.5 backdrop-blur-md">
+          <div className="flex items-center gap-1">
+            <p className="min-w-0 flex-1 truncate text-[17px] font-extrabold tracking-tight text-[#0B1F4D]">
+              @{business?.slug ?? slug}
+            </p>
+            <button
+              type="button"
+              onClick={() => void onShareShop()}
+              className="flex size-10 shrink-0 items-center justify-center rounded-full text-[#0B1F4D] transition active:bg-[#F3F4F6]"
+              aria-label="Share profile"
+            >
+              <Share2 className="size-5" strokeWidth={1.9} />
+            </button>
             <Link
               to="/shop/notifications"
-              className="absolute right-0 top-1/2 flex size-10 -translate-y-1/2 items-center justify-center rounded-full text-[#0B1F4D]"
+              className="flex size-10 shrink-0 items-center justify-center rounded-full text-[#0B1F4D] transition active:bg-[#F3F4F6]"
               aria-label="Notifications"
             >
-              <Bell className="size-5" strokeWidth={1.8} />
+              <Bell className="size-5" strokeWidth={1.9} />
             </Link>
           </div>
         </header>
@@ -464,131 +457,151 @@ export function StorefrontScreen({ slug }: { slug: string }) {
           </div>
         ) : (
           <>
-            <section className="px-4 pb-3 pt-3">
-              <div className="flex items-start gap-3">
-                {business.logo_url ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={business.logo_url}
-                    alt=""
-                    className="size-[4.35rem] shrink-0 rounded-full border-[3px] border-[#1F7A4D] object-cover"
-                  />
-                ) : (
-                  <span className="flex size-[4.35rem] shrink-0 items-center justify-center rounded-full border-[3px] border-[#1F7A4D] bg-[#E8F5EE] text-xl font-extrabold text-[#0B1F4D]">
-                    {shopTitle.slice(0, 1)}
-                  </span>
-                )}
-                <div className="min-w-0 flex-1 pt-0.5">
-                  <div className="flex items-center gap-1.5">
-                    <h1 className="truncate text-[1.2rem] font-extrabold leading-tight text-[#0B1F4D]">{shopTitle}</h1>
-                    {business.is_verified ? <BadgeCheck className="size-[1.15rem] shrink-0 fill-[#1F7A4D] text-white" aria-label="Verified" /> : null}
-                  </div>
-                  <p className="mt-0.5 text-[13px] text-[#6B7280]">{business.category_name ?? t("app.storefront.defaultCategory")}</p>
-                  <div className="mt-1.5 flex items-center justify-between gap-2">
-                    <p className="flex min-w-0 items-center gap-1 text-[12px] text-[#6B7280]">
-                      <MapPin className="size-3.5 shrink-0 text-[#1F7A4D]" />
-                      <span className="truncate">{business.public_location_label ?? business.location_text ?? "Lagos, Nigeria"}</span>
-                    </p>
-                    <div className="flex shrink-0 items-center gap-2">
-                      {isOwner ? (
-                        <Link
-                          to="/shop/create"
-                          className="inline-flex h-8 min-w-[5.5rem] items-center justify-center rounded-full bg-[#1F7A4D] px-4 text-[13px] font-bold text-white"
-                        >
-                          Post
-                        </Link>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => void onFollow()}
-                          className={cn(
-                            "h-8 min-w-[5.5rem] rounded-full px-4 text-[13px] font-bold text-white transition-colors",
-                            following ? "bg-[#0B1F4D]" : "bg-[#1F7A4D]",
-                          )}
-                        >
-                          {following ? "Following" : "Follow"}
-                        </button>
-                      )}
-                      <button
-                        type="button"
-                        onClick={onSaveShop}
-                        className="flex size-8 items-center justify-center rounded-full border border-[#1F7A4D]/25 text-[#1F7A4D]"
-                        aria-label={shopSaved ? "Unsave shop" : "Save shop"}
-                      >
-                        <Heart className={cn("size-4", shopSaved && "fill-[#1F7A4D]")} />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => void onShareShop()}
-                        className="flex size-8 items-center justify-center rounded-full border border-[#1F7A4D]/25 text-[#1F7A4D]"
-                        aria-label="Share shop"
-                      >
-                        <Share2 className="size-4" />
-                      </button>
-                    </div>
-                  </div>
+            <section className="flex items-center gap-5 px-4 pb-3 pt-4">
+              {business.logo_url ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={business.logo_url}
+                  alt=""
+                  className="size-[5.25rem] shrink-0 rounded-full border-[3px] border-[#1F7A4D] object-cover"
+                />
+              ) : (
+                <span className="flex size-[5.25rem] shrink-0 items-center justify-center rounded-full border-[3px] border-[#1F7A4D] bg-[#E8F5EE] text-2xl font-extrabold text-[#0B1F4D]">
+                  {shopTitle.slice(0, 1)}
+                </span>
+              )}
+              <div className="grid min-w-0 flex-1 grid-cols-3">
+                <div className="text-center">
+                  <p className="text-[17px] font-extrabold leading-none text-[#0B1F4D]">{compactCount(postCount)}</p>
+                  <p className="mt-1 text-[11px] text-[#9CA3AF]">Posts</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-[17px] font-extrabold leading-none text-[#0B1F4D]">{productCount}</p>
+                  <p className="mt-1 text-[11px] text-[#9CA3AF]">Products</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-[17px] font-extrabold leading-none text-[#0B1F4D]">{compactCount(followerCount)}</p>
+                  <p className="mt-1 text-[11px] text-[#9CA3AF]">Followers</p>
                 </div>
               </div>
             </section>
 
-            {isOwner ? (
-              <div className="grid grid-cols-2 gap-2 px-4 pb-3">
-                <Button className="min-h-11 rounded-xl bg-[#1F7A4D] font-extrabold text-white hover:bg-[#1F7A4D]/90" asChild>
-                  <Link to="/shop/create">
-                    <Plus className="size-4" />
-                    Create Post
-                  </Link>
-                </Button>
-                <Button
-                  variant="outline"
-                  className="min-h-11 rounded-xl border-[#1F7A4D] font-extrabold text-[#1F7A4D]"
-                  asChild
-                >
-                  <Link to="/shop/create" search={{ camera: true }}>
-                    <Camera className="size-4" />
-                    Open Camera
-                  </Link>
-                </Button>
+            <section className="px-4 pb-3">
+              <div className="flex items-center gap-1.5">
+                <h1 className="truncate text-[15px] font-extrabold leading-tight text-[#0B1F4D]">{shopTitle}</h1>
+                {business.is_verified ? (
+                  <BadgeCheck className="size-4 shrink-0 fill-[#1F7A4D] text-white" aria-label="Verified" />
+                ) : null}
               </div>
-            ) : null}
-
-            <section className="grid grid-cols-3 border-y border-[#EEF1F5] py-3">
-              <div className="text-center">
-                <p className="text-[1.15rem] font-extrabold leading-none text-[#0B1F4D]">{compactCount(postCount)}</p>
-                <p className="mt-1 text-[11px] text-[#9CA3AF]">Posts</p>
-              </div>
-              <div className="border-x border-[#EEF1F5] text-center">
-                <p className="text-[1.15rem] font-extrabold leading-none text-[#0B1F4D]">{productCount}</p>
-                <p className="mt-1 text-[11px] text-[#9CA3AF]">Products</p>
-              </div>
-              <div className="text-center">
-                <p className="text-[1.15rem] font-extrabold leading-none text-[#0B1F4D]">{compactCount(followerCount)}</p>
-                <p className="mt-1 text-[11px] text-[#9CA3AF]">Followers</p>
-              </div>
+              <p className="mt-0.5 text-[12.5px] font-semibold text-[#1F7A4D]">
+                {business.category_name ?? t("app.storefront.defaultCategory")}
+              </p>
+              {business.description ? (
+                <p className="mt-1.5 whitespace-pre-line text-[13px] leading-snug text-[#374151]">
+                  {business.description}
+                </p>
+              ) : null}
+              <ul className="mt-2 space-y-1 text-[12.5px] font-medium text-[#6B7280]">
+                <li className="flex items-center gap-1.5">
+                  <MapPin className="size-3.5 shrink-0 text-[#1F7A4D]" />
+                  <span className="truncate">
+                    {business.public_location_label ?? business.location_text ?? "Lagos, Nigeria"}
+                  </span>
+                </li>
+                {business.public_phone || business.public_whatsapp ? (
+                  <li className="flex items-center gap-1.5">
+                    <Phone className="size-3.5 shrink-0 text-[#1F7A4D]" />
+                    <a
+                      href={`tel:${(business.public_phone ?? business.public_whatsapp ?? "").replace(/\s+/g, "")}`}
+                      className="truncate"
+                    >
+                      {business.public_phone ?? business.public_whatsapp}
+                    </a>
+                  </li>
+                ) : null}
+              </ul>
             </section>
 
-            {business.public_phone || business.public_whatsapp ? (
-              <section className="flex items-center gap-2 px-4 py-3">
-                <a
-                  href={`tel:${(business.public_phone ?? business.public_whatsapp ?? "").replace(/\s+/g, "")}`}
-                  className="flex min-h-10 flex-1 items-center justify-center gap-2 rounded-xl bg-[#0B1F4D] text-[13px] font-extrabold text-white"
-                >
-                  <Phone className="size-4" />
-                  {business.public_phone ?? business.public_whatsapp}
-                </a>
+            <section className="flex items-center gap-2 px-4 pb-3">
+              {isOwner ? (
+                <>
+                  <Link
+                    to="/shop/create"
+                    className="flex min-h-10 flex-1 items-center justify-center rounded-lg bg-[#1F7A4D] text-[13px] font-extrabold text-white"
+                  >
+                    <Plus className="mr-1.5 size-4" />
+                    Create Post
+                  </Link>
+                  <Link
+                    to="/app/business/edit"
+                    className="flex min-h-10 flex-1 items-center justify-center rounded-lg border border-[#1F7A4D] text-[13px] font-extrabold text-[#1F7A4D]"
+                  >
+                    Edit shop
+                  </Link>
+                </>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => void onFollow()}
+                    className={cn(
+                      "min-h-10 flex-1 rounded-lg text-[13px] font-extrabold text-white transition-colors",
+                      following ? "bg-[#0B1F4D]" : "bg-[#1F7A4D]",
+                    )}
+                  >
+                    {following ? "Following" : "Follow"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      void startChat({
+                        businessId: business.id,
+                        businessName: business.business_name,
+                        logoUrl: business.logo_url,
+                        businessSlug: business.slug,
+                      })
+                    }
+                    className="flex min-h-10 flex-1 items-center justify-center rounded-lg border border-[#0B1F4D] text-[13px] font-extrabold text-[#0B1F4D]"
+                  >
+                    <MessageCircle className="mr-1.5 size-4" />
+                    Message
+                  </button>
+                </>
+              )}
+              <button
+                type="button"
+                onClick={onSaveShop}
+                className="flex size-10 shrink-0 items-center justify-center rounded-lg border border-[#1F7A4D]/25 text-[#1F7A4D]"
+                aria-label={shopSaved ? "Unsave shop" : "Save shop"}
+              >
+                <Heart className={cn("size-4", shopSaved && "fill-[#1F7A4D]")} />
+              </button>
+            </section>
+
+            {!isOwner && (business.public_phone || business.public_whatsapp) ? (
+              <section className="flex items-center gap-2 px-4 pb-3">
+                {business.public_phone ? (
+                  <a
+                    href={`tel:${business.public_phone.replace(/\s+/g, "")}`}
+                    className="flex min-h-10 flex-1 items-center justify-center gap-2 rounded-lg bg-[#0B1F4D] text-[13px] font-extrabold text-white"
+                  >
+                    <Phone className="size-4" />
+                    Call
+                  </a>
+                ) : null}
                 {business.public_whatsapp ? (
                   <a
                     href={`https://wa.me/${business.public_whatsapp.replace(/\D/g, "")}`}
                     target="_blank"
                     rel="noreferrer"
-                    className="flex min-h-10 items-center justify-center gap-2 rounded-xl border border-[#1F7A4D] px-3 text-[13px] font-extrabold text-[#1F7A4D]"
+                    className="flex min-h-10 flex-1 items-center justify-center gap-2 rounded-lg border border-[#1F7A4D] text-[13px] font-extrabold text-[#1F7A4D]"
                   >
                     WhatsApp
                   </a>
                 ) : null}
               </section>
-            ) : isOwner ? (
-              <section className="mx-4 mb-1 flex items-start gap-2 rounded-xl border border-amber-300 bg-amber-50 px-3 py-2.5 text-[12px] font-semibold text-amber-800">
+            ) : isOwner && !business.public_phone && !business.public_whatsapp ? (
+              <section className="mx-4 mb-2 flex items-start gap-2 rounded-xl border border-amber-300 bg-amber-50 px-3 py-2.5 text-[12px] font-semibold text-amber-800">
                 <Phone className="mt-0.5 size-4 shrink-0" />
                 <span>
                   Add a contact number so customers can reach you.{" "}
