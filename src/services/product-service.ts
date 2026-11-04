@@ -135,7 +135,10 @@ export async function createProduct(
     low_stock_threshold: kind === "service" ? 0 : (input.lowStockThreshold ?? 5),
     notes: input.notes?.trim() || input.description?.trim() || null,
     description: input.description?.trim() || input.notes?.trim() || null,
-    attributes: parseAttributes(input.size, input.colour),
+    attributes: {
+      ...parseAttributes(input.size, input.colour),
+      ...(input.condition ? { condition: input.condition } : {}),
+    },
     variants: variantsFromSizeColour(input.sizes ?? "", input.colours ?? ""),
     video_url: input.videoUrl?.trim() || null,
     catalogue_category: input.catalogueCategory?.trim() || null,

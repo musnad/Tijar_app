@@ -12,17 +12,10 @@ export function productPublishErrors(p: PublishableProduct): string[] {
   if (!p.name.trim()) errors.push("Add a product name.");
   if (p.name.trim().length > 120) errors.push("Name must be 120 characters or fewer.");
   if (!p.image_url) errors.push("Add at least one product photo.");
-  if (p.sale_price != null && p.sale_price < 0) errors.push("Price cannot be negative.");
+  if (p.sale_price == null) errors.push("Add a price.");
+  else if (p.sale_price < 0) errors.push("Price cannot be negative.");
   if (p.is_active === false) errors.push("Archived products cannot be published.");
   return errors;
-}
-
-export function productPublishWarnings(p: PublishableProduct): string[] {
-  const warnings: string[] = [];
-  if (p.sale_price == null) {
-    warnings.push("No price set — shoppers will see a Contact button instead of Buy.");
-  }
-  return warnings;
 }
 
 export function canPublishProduct(p: PublishableProduct): boolean {

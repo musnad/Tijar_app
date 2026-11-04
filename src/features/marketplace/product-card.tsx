@@ -31,7 +31,6 @@ export function ProductCard({
   const { t } = useTranslation();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const startChat = useStartShopChat();
 
   async function quickAdd(e: React.MouseEvent) {
     e.preventDefault();
@@ -97,6 +96,11 @@ export function ProductCard({
                 : product.attributes?.badge?.trim() || product.category_name}
             </span>
           )}
+          {product.attributes?.condition === "used" && (
+            <span className="absolute right-2 top-2 rounded-full bg-amber-500/95 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white shadow-sm">
+              Second hand
+            </span>
+          )}
           <button
             type="button"
             aria-label={`Add ${product.name} to cart`}
@@ -109,12 +113,8 @@ export function ProductCard({
         <div className={cn("flex flex-1 flex-col", compact ? "p-2 pb-0" : "p-2.5 pb-0")}>
           <p className="line-clamp-2 text-[13px] font-bold leading-snug text-foreground">{product.name}</p>
           <p className="mt-1 text-[15px] font-extrabold tracking-tight text-primary">
-            {product.sale_price == null
-              ? "Contact for price"
-              : Number(product.sale_price) === 0
-                ? "Free"
-                : formatNgn(Number(product.sale_price))}
-            {product.sale_price != null && Number(product.sale_price) > 0 && product.unit && product.unit !== "piece" ? (
+            {Number(product.sale_price) === 0 ? "Free" : formatNgn(Number(product.sale_price))}
+            {Number(product.sale_price) > 0 && product.unit && product.unit !== "piece" ? (
               <span className="ml-1 text-[10px] font-semibold text-muted-foreground">/{product.unit}</span>
             ) : null}
           </p>
@@ -152,52 +152,28 @@ export function ProductCard({
       </Link>
       <div className={cn("flex flex-col", compact ? "px-2 pb-2" : "px-2.5 pb-2.5")}>
         <ProductSocialBar product={product} compact className="-ml-1.5" />
-        {product.sale_price != null ? (
-          <button
-            type="button"
-            className="mt-1 min-h-9 w-full rounded-full bg-primary text-[11px] font-extrabold text-white"
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              if (!requireAccount("buy")) {
-                return;
-              }
-              if (isMockFeedId(product.id)) {
-                toast.error("This listing is not available.");
-                return;
-              }
-              if (Number(product.sale_price) === 0) {
-                void navigate({ to: "/shop/p/$productId", params: { productId: product.id } });
-                return;
-              }
-              void navigate({ to: "/shop/buy", search: { productId: product.id } });
-            }}
-          >
-            {Number(product.sale_price) === 0 ? "Request this item" : t("shop.feed.buyNow")}
-          </button>
-        ) : (
-          <button
-            type="button"
-            className="mt-1 min-h-9 w-full rounded-full border border-primary text-[11px] font-extrabold text-primary"
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              if (isMockFeedId(product.id)) {
-                toast.error("This listing is not available.");
-                return;
-              }
-              void startChat({
-                businessId: product.business_id,
-                businessName: product.business_name,
-                logoUrl: product.business_logo_url,
-                businessSlug: product.business_slug,
-                productId: product.id,
-              });
-            }}
-          >
-            Contact seller
-          </button>
-        )}
+        <button
+          type="button"
+          className="mt-1 min-h-9 w-full rounded-full bg-primary text-[11px] font-extrabold text-white"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (!requireAccount("buy")) {
+              return;
+            }
+            if (isMockFeedId(product.id)) {
+              toast.error("This listing is not available.");
+              return;
+            }
+            if (Number(product.sale_price) === 0) {
+              void navigate({ to: "/shop/p/$productId", params: { productId: product.id } });
+              return;
+            }
+            void navigate({ to: "/shop/buy", search: { productId: product.id } });
+          }}
+        >
+          {Number(product.sale_price) === 0 ? "Request this item" : t("shop.feed.buyNow")}
+        </button>
       </div>
     </div>
   );

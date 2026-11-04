@@ -42,12 +42,14 @@ export function EditProductForm({ businessId, productId }: { businessId: string;
   const [serviceType, setServiceType] = useState<"general" | "course" | "mentorship">("general");
   const [startsOn, setStartsOn] = useState("");
   const [endsOn, setEndsOn] = useState("");
+  const [condition, setCondition] = useState<"new" | "used">("new");
 
   useEffect(() => {
     if (!product) return;
     setName(product.name);
     setDescription(product.description || product.notes || "");
     setSalePrice(product.sale_price != null ? String(product.sale_price) : "");
+    setCondition(product.attributes?.["condition"] === "used" ? "used" : "new");
     setServiceType(product.service_type === "course" || product.service_type === "mentorship" ? product.service_type : "general");
     setStartsOn(product.starts_on ? String(product.starts_on).slice(0, 10) : "");
     setEndsOn(product.ends_on ? String(product.ends_on).slice(0, 10) : "");
@@ -70,6 +72,10 @@ export function EditProductForm({ businessId, productId }: { businessId: string;
     if (!product) return;
     if (photos.length === 0) {
       toast.error("Add at least one product photo.");
+      return;
+    }
+    if (!Number.isFinite(priceNum as number)) {
+      toast.error("Add a price for this product.");
       return;
     }
     if (publish && !canPublishProduct({
@@ -95,7 +101,10 @@ export function EditProductForm({ businessId, productId }: { businessId: string;
       await updateProductImages(product.id, urls);
     }
     const imageUrl = urls[0] ?? null;
-    const attrs = parseAttributes(undefined, undefined);
+    const attrs = {
+      ...parseAttributes(undefined, undefined),
+      ...(condition ? { condition } : {}),
+    };
     const { error } = await updateProduct(product.id, {
       name: name.trim(),
       description: description.trim() || null,
@@ -142,7 +151,23 @@ export function EditProductForm({ businessId, productId }: { businessId: string;
       <div className="mt-4 space-y-3">
         <Input value={name} onChange={(e) => setName(e.target.value)} className="min-h-11 rounded-xl" />
         <textarea className="min-h-24 w-full rounded-xl border px-3 py-2" value={description} onChange={(e) => setDescription(e.target.value)} />
-        <Input value={salePrice} onChange={(e) => setSalePrice(e.target.value)} placeholder="Sale price (NGN)" className="min-h-11 rounded-xl" inputMode="decimal" />
+        <Input value={salePrice} onChange={(e) => setSalePrice(e.target.value)} placeholder="Sale price (NGN) *" className="min-h-11 rounded-xl" inputMode="decimal" />
+        {product.kind !== "service" && (
+          <div className="grid grid-cols-2 gap-1">
+            {([["new", "New"], ["used", "Second hand"]] as const).map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => setCondition(value)}
+                className={`rounded-lg py-2 text-[11px] font-bold ${
+                  condition === value ? "bg-primary text-primary-foreground" : "bg-muted"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
         {product.kind === "service" && (
           <>
             <div className="grid grid-cols-3 gap-1">

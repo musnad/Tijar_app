@@ -62,6 +62,7 @@ export const productFormSchema = z.object({
   notes: z.string().max(500).optional(),
   description: z.string().max(4000).optional(),
   catalogueCategory: z.string().max(80).optional(),
+  condition: z.enum(["new", "used"]).optional(),
   colour: z.string().max(40).optional(),
   size: z.string().max(40).optional(),
   sizes: z.string().max(200).optional(),

@@ -24,7 +24,7 @@ import { createProduct, updateProductImages } from "@/services/product-service";
 import type { ProductKind } from "@/types/database";
 import { saleLineTotals } from "@/utils/product-profit";
 import { formatNgn } from "@/utils/money";
-import { canPublishProduct, productPublishErrors, productPublishWarnings } from "@/lib/catalogue/publish-guard";
+import { canPublishProduct, productPublishErrors } from "@/lib/catalogue/publish-guard";
 import { parseVoiceProduct } from "@/utils/voice-product";
 
 const goodsUnits = ["piece", "bag", "carton", "kg", "litre"] as const;
@@ -74,6 +74,7 @@ export function NewProductForm({
   const [colours, setColours] = useState("");
   const [videoUrl, setVideoUrl] = useState("");
   const [isPublished, setIsPublished] = useState(false);
+  const [condition, setCondition] = useState<"new" | "used">("new");
   const [serviceType, setServiceType] = useState<"general" | "course" | "mentorship">("general");
   const [startsOn, setStartsOn] = useState("");
   const [endsOn, setEndsOn] = useState("");
@@ -95,12 +96,6 @@ export function NewProductForm({
       : null;
 
   const publishErrors = productPublishErrors({
-    name,
-    sale_price: Number.isFinite(saleNum) ? saleNum : salePrice.trim() ? null : null,
-    image_url: photos[0] ? "pending" : null,
-    is_active: true,
-  });
-  const publishWarnings = productPublishWarnings({
     name,
     sale_price: Number.isFinite(saleNum) ? saleNum : null,
     image_url: photos[0] ? "pending" : null,
@@ -156,14 +151,18 @@ export function NewProductForm({
       return;
     }
 
-    // Soft-clean optional fields so a typo in price never blocks saving the product.
+    // Clean numeric fields so bad input is caught before saving.
     const cleanedSale = softMoney(salePrice);
     const cleanedCost = softMoney(costPrice);
     const cleanedStock = kind === "goods" ? softQty(initialStock) : undefined;
     const cleanedLow = kind === "goods" ? softQty(lowThreshold) ?? "5" : undefined;
 
-    if (salePrice.trim() && !cleanedSale) {
-      toast.message(t("app.products.ignoredBadPrice"));
+    if (!cleanedSale) {
+      const msg = "Add a price for this product.";
+      setFieldErrors({ salePrice: msg });
+      setFormError(msg);
+      toast.error(msg);
+      return;
     }
     if (costPrice.trim() && !cleanedCost) {
       toast.message(t("app.products.ignoredBadPrice"));
@@ -195,6 +194,7 @@ export function NewProductForm({
       notes: notes.trim() || undefined,
       description: description.trim() || undefined,
       catalogueCategory: catalogueCategory.trim() || undefined,
+      condition,
       colour: colour.trim() || undefined,
       size: size.trim() || undefined,
       sizes: sizes.trim() || undefined,
@@ -400,7 +400,7 @@ export function NewProductForm({
         </label>
         <label className="mt-3 block">
           <span className="mb-1 block text-xs font-semibold text-muted-foreground">
-            {t("app.products.salePricePlaceholder")}
+            {t("app.products.salePricePlaceholder")} *
           </span>
           <Input
             className="min-h-12 rounded-xl bg-background"
@@ -424,6 +424,29 @@ export function NewProductForm({
           </p>
         )}
       </FormSection>
+
+      {kind === "goods" && (
+        <FormSection title="Condition" hint="Tell buyers whether this item is brand new or second hand.">
+          <div className="flex gap-2">
+            {([
+              ["new", "New"],
+              ["used", "Second hand"],
+            ] as const).map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => setCondition(value)}
+                className={cn(
+                  "flex-1 rounded-xl py-2.5 text-xs font-bold",
+                  condition === value ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground",
+                )}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </FormSection>
+      )}
 
       {kind === "service" && (serviceType === "course" || serviceType === "mentorship") && (
         <FormSection title="Course / mentorship dates" hint="Shown on the marketplace so people know when it runs.">
@@ -551,13 +574,6 @@ export function NewProductForm({
       {publishErrors.length > 0 && isPublished && (
         <ul className="list-disc space-y-1 pl-5 text-xs text-primary">
           {publishErrors.map((err) => (
-            <li key={err}>{err}</li>
-          ))}
-        </ul>
-      )}
-      {publishWarnings.length > 0 && isPublished && (
-        <ul className="list-disc space-y-1 pl-5 text-xs text-muted-foreground">
-          {publishWarnings.map((err) => (
             <li key={err}>{err}</li>
           ))}
         </ul>
