@@ -115,8 +115,9 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         rel: "stylesheet",
         href: appCss,
       },
-      { rel: "icon", href: "/tijar-logo.png", type: "image/png" },
-      { rel: "apple-touch-icon", href: "/tijar-logo.png" },
+      { rel: "icon", href: "/tijar-icon.png", type: "image/png", sizes: "512x512" },
+      { rel: "shortcut icon", href: "/favicon.ico", sizes: "64x64" },
+      { rel: "apple-touch-icon", href: "/tijar-icon.png", sizes: "512x512" },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       {
