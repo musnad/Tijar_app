@@ -141,19 +141,20 @@ export async function toggleFollowPerson(
 }
 
 async function shopsByOwner(ownerIds: string[]) {
-  if (ownerIds.length === 0) return new Map<string, { id: string; business_name: string; public_slug: string | null }>();
+  if (ownerIds.length === 0) return new Map<string, { id: string; business_name: string; public_slug: string | null; logo_url: string | null }>();
   const supabase = getSupabaseBrowserClient();
   const { data } = await supabase
     .from("businesses")
-    .select("id, owner_id, business_name, public_slug")
+    .select("id, owner_id, business_name, public_slug, logo_url")
     .in("owner_id", ownerIds);
-  const map = new Map<string, { id: string; business_name: string; public_slug: string | null }>();
+  const map = new Map<string, { id: string; business_name: string; public_slug: string | null; logo_url: string | null }>();
   for (const row of data ?? []) {
     if (!map.has(row.owner_id as string)) {
       map.set(row.owner_id as string, {
         id: row.id as string,
         business_name: row.business_name as string,
         public_slug: (row.public_slug as string | null) ?? null,
+        logo_url: (row.logo_url as string | null) ?? null,
       });
     }
   }
@@ -197,7 +198,7 @@ export async function fetchPeopleIFollow(profileId: string): Promise<{ people: S
       profileId: person.id,
       name: person.name,
       handle: person.handle,
-      avatarUrl: person.avatarUrl ?? null,
+      avatarUrl: shop?.logo_url ?? person.avatarUrl ?? null,
       shopId: shop?.id ?? null,
       shopName: shop ? displayShopName(shop.business_name) : null,
       shopSlug: shop ? shopLinkSlug(shop.public_slug, shop.id) : null,
@@ -265,7 +266,7 @@ export async function fetchFollowersForMe(profileId: string): Promise<{
       profileId: id,
       name: person.name,
       handle: person.handle,
-      avatarUrl: person.avatarUrl ?? null,
+      avatarUrl: shop?.logo_url ?? person.avatarUrl ?? null,
       shopId: shop?.id ?? null,
       shopName: shop ? displayShopName(shop.business_name) : null,
       shopSlug: shop ? shopLinkSlug(shop.public_slug, shop.id) : null,
@@ -333,8 +334,10 @@ export async function fetchActivityNotifications(profileId: string): Promise<{
       ? await supabase.from("profiles").select("id, full_name, avatar_url").in("id", actorIds)
       : { data: [] };
   const names = new Map((actors ?? []).map((p) => [p.id as string, p]));
+  const actorShops = await shopsByOwner(actorIds);
   const items: ActivityNotification[] = rows.map((r) => {
     const actor = names.get(r.actor_id as string);
+    const actorShop = actorShops.get(r.actor_id as string);
     const videoPostId = (r.video_post_id as string | null) ?? null;
     const productId = (r.product_id as string | null) ?? null;
     const orderId = (r.order_id as string | null) ?? null;
@@ -366,7 +369,7 @@ export async function fetchActivityNotifications(profileId: string): Promise<{
       orderId,
       actorId: (r.actor_id as string | null) ?? null,
       actorName: (actor?.full_name as string | null) ?? null,
-      actorAvatar: (actor?.avatar_url as string | null) ?? null,
+      actorAvatar: actorShop?.logo_url ?? (actor?.avatar_url as string | null) ?? null,
       readAt: (r.read_at as string | null) ?? null,
       createdAt: r.created_at as string,
       title: r.title as string,

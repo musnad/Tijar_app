@@ -95,7 +95,7 @@ export function EnquiriesScreen() {
                 params={{ conversationId: row.id }}
                 className="flex min-h-[4.5rem] items-center gap-3 px-4 py-3"
               >
-                <Avatar name={row.as_seller ? row.customer_name : row.business_name} src={row.as_seller ? null : row.logo_url} />
+                <Avatar name={row.as_seller ? row.customer_name : row.business_name} src={row.as_seller ? row.customer_avatar_url : row.logo_url} />
                 <div className="min-w-0 flex-1">
                   <p className="flex items-center justify-between gap-2">
                     <span className="truncate font-extrabold">
@@ -237,7 +237,7 @@ export function ShopChatThreadScreen({ conversationId }: { conversationId: strin
         >
           <ArrowLeft className="size-5" />
         </button>
-        <Avatar name={title} src={asSeller ? null : inbox?.logo_url ?? null} />
+        <Avatar name={title} src={asSeller ? inbox?.customer_avatar_url ?? null : inbox?.logo_url ?? null} />
         <div className="min-w-0">
           <p className="truncate font-extrabold leading-tight">{title}</p>
           <p className="text-[11px] text-muted-foreground">{asSeller ? "Customer on TIJAR" : "Usually replies here"}</p>
