@@ -3,7 +3,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { BadgeCheck, Bell, Clock, Flag, Heart, MapPin, MessageCircle, Navigation, Phone, Play, Plus, Share2 } from "lucide-react";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -31,6 +31,7 @@ import { reportListing } from "@/services/marketplace-service";
 import { updateBusinessProfile } from "@/services/business-service";
 import { updateProfile } from "@/services/profile-service";
 import { fetchStorefront, recordBusinessShare, submitEnquiry } from "@/services/discover-service";
+import { recordBusinessInsight } from "@/services/seller-ai-service";
 import { fetchMyBusinessIds } from "@/services/shop-chat-service";
 import { displayShopName } from "@/lib/shop-names";
 import { isFollowingShop } from "@/lib/shop-social";
@@ -215,6 +216,10 @@ export function StorefrontScreen({ slug }: { slug: string }) {
         business &&
         (primaryBusiness.data?.business?.id === business.id || myShops.data?.includes(business.id))),
   );
+  useEffect(() => {
+    if (!business?.id || isOwner) return;
+    void recordBusinessInsight(business.id, "profile_view");
+  }, [business?.id, isOwner]);
   const following = Boolean(business && (follows.data?.has(business.id) || isFollowingShop(profile?.id ?? "guest", business.id)));
   const shopSaved = business ? readIdList(SAVED_SHOPS_KEY).includes(business.id) : false;
   void savedTick;
@@ -583,6 +588,7 @@ export function StorefrontScreen({ slug }: { slug: string }) {
                 {business.public_phone ? (
                   <a
                     href={`tel:${business.public_phone.replace(/\s+/g, "")}`}
+                    onClick={() => void recordBusinessInsight(business.id, "call_click")}
                     className="flex min-h-10 flex-1 items-center justify-center gap-2 rounded-lg bg-[#0B1F4D] text-[13px] font-extrabold text-white"
                   >
                     <Phone className="size-4" />
@@ -594,6 +600,7 @@ export function StorefrontScreen({ slug }: { slug: string }) {
                     href={`https://wa.me/${business.public_whatsapp.replace(/\D/g, "")}`}
                     target="_blank"
                     rel="noreferrer"
+                    onClick={() => void recordBusinessInsight(business.id, "whatsapp_click")}
                     className="flex min-h-10 flex-1 items-center justify-center gap-2 rounded-lg border border-[#1F7A4D] text-[13px] font-extrabold text-[#1F7A4D]"
                   >
                     WhatsApp
@@ -805,14 +812,19 @@ function AboutPanel({
       <div className="flex flex-wrap gap-2">
         {business.public_phone ? (
           <Button asChild className="min-h-11 rounded-xl bg-[#0B1F4D]">
-            <a href={`tel:${business.public_phone}`}>
+            <a href={`tel:${business.public_phone}`} onClick={() => void recordBusinessInsight(business.id, "call_click")}>
               <Phone className="mr-1.5 size-4" /> {t("app.storefront.call")}
             </a>
           </Button>
         ) : null}
         {business.public_whatsapp ? (
           <Button asChild variant="outline" className="min-h-11 rounded-xl">
-            <a href={`https://wa.me/${business.public_whatsapp.replace(/[^0-9]/g, "")}`} target="_blank" rel="noreferrer">
+            <a
+              href={`https://wa.me/${business.public_whatsapp.replace(/[^0-9]/g, "")}`}
+              target="_blank"
+              rel="noreferrer"
+              onClick={() => void recordBusinessInsight(business.id, "whatsapp_click")}
+            >
               <MessageCircle className="mr-1.5 size-4" /> {t("app.storefront.whatsapp")}
             </a>
           </Button>

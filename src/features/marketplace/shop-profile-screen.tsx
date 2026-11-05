@@ -200,6 +200,7 @@ export function ShopProfileScreen() {
       ? [
           { to: "/app", label: t("shop.profile.dashboard"), icon: LayoutDashboard },
           { to: "/app/business", label: "Business account", icon: Store },
+          { to: "/app/ai", label: t("shop.profile.aiTools"), icon: Sparkles },
           { to: "/shop/studio", label: t("shop.profile.studio"), icon: Sparkles },
         ]
       : []),

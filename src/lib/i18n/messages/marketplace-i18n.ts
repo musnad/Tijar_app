@@ -258,6 +258,7 @@ const FLAT: Record<string, L7> = {
   "shop.profile.translate": row("Translate", "Fassara", "ترجم", "Túmọ̀", "Tụgharịa", "Tafsiri", "Firti"),
   "shop.profile.dashboard": row("Business dashboard", "Dashboard ɗin kasuwanci", "لوحة الأعمال", "Dasibọ́ọ̀dù iṣẹ́", "Dashboard azụmahịa", "Dashibodi ya biashara", "Dashboard njula"),
   "shop.profile.studio": row("AI Marketing Studio", "Studio ɗin tallace-tallace", "استوديو التسويق", "Studio ìpolówó AI", "Studio ahịa AI", "Studio ya uuzaji", "Studio yeeyirde"),
+  "shop.profile.aiTools": row("Speak to sell", "Yi magana ka sayar", "تحدث للبيع", "Sọ láti tà", "Kwuo ka ree", "Sema uuze", "Haal ngam yeeyde"),
   "shop.profile.loading": row("Loading profile…", "Ana loda bayani…", "جارٍ تحميل الملف…", "Ń gbé prófáìlì wọlé…", "Na-ebugo profaịlụ…", "Inapakia wasifu…", "Nana loodude heenor…"),
   "shop.profile.member": row("TIJAR member", "Memba TIJAR", "عضو تيjar", "Ọmọ ẹgbẹ́ TIJAR", "Onye otu TIJAR", "Mwanachama wa TIJAR", "Terɗe TIJAR"),
   "shop.profile.guestBio": row("Sign in to save shops, orders, and your profile.", "Shiga don adana shaguna, oda, da bayananka.", "سجّل لحفظ المتاجر والطلبات وملفك.", "Wọlé láti fi ṣọ́ọ̀bù àti òòlé pamọ́.", "Banye ka chekwaa ụlọ ahịa, iwu, na profaịlụ.", "Ingia ili kuhifadhi maduka, oda na wasifu.", "Seŋo ngam danndude teeruuji, ɗaɓɓaande, e heenor."),

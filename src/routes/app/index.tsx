@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 
 import { AppShell } from "@/features/app/app-shell";
@@ -82,6 +82,16 @@ function AppHomeContent() {
       {business && (
         <>
           <DashboardHero firstName={firstName} business={business} />
+          <Link
+            to="/app/ai"
+            className="mt-4 flex items-center justify-between rounded-2xl bg-[#0A2540] px-4 py-3 text-white"
+          >
+            <span>
+              <span className="block text-sm font-extrabold">{t("app.ai.title")}</span>
+              <span className="text-xs text-white/75">{t("app.ai.dashboardCta")}</span>
+            </span>
+            <span className="rounded-full bg-[#00B86B] px-3 py-1 text-xs font-bold">Hausa · EN</span>
+          </Link>
           <DashboardSummaryCard
             sales={analytics?.current.sales ?? 0}
             expenses={analytics?.current.expenses ?? 0}

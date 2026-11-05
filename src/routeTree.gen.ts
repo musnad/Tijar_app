@@ -33,6 +33,7 @@ import { Route as ApiTranslateBatchRouteImport } from './routes/api.translate-ba
 import { Route as ApiTranslateSpeechRouteImport } from './routes/api.translate-speech'
 import { Route as ApiVoiceEnrollRouteImport } from './routes/api.voice-enroll'
 import { Route as AppIndexRouteImport } from './routes/app/index'
+import { Route as AppAiRouteImport } from './routes/app/ai'
 import { Route as AppAssistantRouteImport } from './routes/app/assistant'
 import { Route as AppBusinessRouteImport } from './routes/app/business'
 import { Route as AppCustomersRouteRouteImport } from './routes/app/customers/route'
@@ -81,6 +82,12 @@ import { Route as ShopSellItemRouteImport } from './routes/shop/sell-item'
 import { Route as ShopServicesRouteImport } from './routes/shop/services'
 import { Route as ShopSettingsRouteImport } from './routes/shop/settings'
 import { Route as ShopStudioRouteImport } from './routes/shop/studio'
+import { Route as ApiAiCaptionRouteImport } from './routes/api.ai.caption'
+import { Route as ApiAiGraphicsRouteImport } from './routes/api.ai.graphics'
+import { Route as ApiAiListingRouteImport } from './routes/api.ai.listing'
+import { Route as ApiAiReportRouteImport } from './routes/api.ai.report'
+import { Route as ApiAiSaleRouteImport } from './routes/api.ai.sale'
+import { Route as ApiAiTranscribeRouteImport } from './routes/api.ai.transcribe'
 import { Route as ApiAssistantChatRouteImport } from './routes/api.assistant.chat'
 import { Route as ApiPaymentsFlutterwaveRouteImport } from './routes/api.payments.flutterwave'
 import { Route as ApiPaymentsPayoutRouteImport } from './routes/api.payments.payout'
@@ -242,6 +249,11 @@ const ApiVoiceEnrollRoute = ApiVoiceEnrollRouteImport.update({
 const AppIndexRoute = AppIndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => AppRouteRoute,
+} as any)
+const AppAiRoute = AppAiRouteImport.update({
+  id: '/ai',
+  path: '/ai',
   getParentRoute: () => AppRouteRoute,
 } as any)
 const AppAssistantRoute = AppAssistantRouteImport.update({
@@ -484,6 +496,36 @@ const ShopStudioRoute = ShopStudioRouteImport.update({
   path: '/studio',
   getParentRoute: () => ShopRoute,
 } as any)
+const ApiAiCaptionRoute = ApiAiCaptionRouteImport.update({
+  id: '/api/ai/caption',
+  path: '/api/ai/caption',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAiGraphicsRoute = ApiAiGraphicsRouteImport.update({
+  id: '/api/ai/graphics',
+  path: '/api/ai/graphics',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAiListingRoute = ApiAiListingRouteImport.update({
+  id: '/api/ai/listing',
+  path: '/api/ai/listing',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAiReportRoute = ApiAiReportRouteImport.update({
+  id: '/api/ai/report',
+  path: '/api/ai/report',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAiSaleRoute = ApiAiSaleRouteImport.update({
+  id: '/api/ai/sale',
+  path: '/api/ai/sale',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAiTranscribeRoute = ApiAiTranscribeRouteImport.update({
+  id: '/api/ai/transcribe',
+  path: '/api/ai/transcribe',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiAssistantChatRoute = ApiAssistantChatRouteImport.update({
   id: '/api/assistant/chat',
   path: '/api/assistant/chat',
@@ -722,6 +764,7 @@ export interface FileRoutesByFullPath {
   '/api/translate-batch': typeof ApiTranslateBatchRoute
   '/api/translate-speech': typeof ApiTranslateSpeechRoute
   '/api/voice-enroll': typeof ApiVoiceEnrollRoute
+  '/app/ai': typeof AppAiRoute
   '/app/assistant': typeof AppAssistantRoute
   '/app/business': typeof AppBusinessRouteWithChildren
   '/app/expenses': typeof AppExpensesRoute
@@ -769,6 +812,12 @@ export interface FileRoutesByFullPath {
   '/shop/studio': typeof ShopStudioRoute
   '/app/': typeof AppIndexRoute
   '/shop/': typeof ShopIndexRoute
+  '/api/ai/caption': typeof ApiAiCaptionRoute
+  '/api/ai/graphics': typeof ApiAiGraphicsRoute
+  '/api/ai/listing': typeof ApiAiListingRoute
+  '/api/ai/report': typeof ApiAiReportRoute
+  '/api/ai/sale': typeof ApiAiSaleRoute
+  '/api/ai/transcribe': typeof ApiAiTranscribeRoute
   '/api/assistant/chat': typeof ApiAssistantChatRoute
   '/api/payments/flutterwave': typeof ApiPaymentsFlutterwaveRoute
   '/api/payments/payout': typeof ApiPaymentsPayoutRoute
@@ -834,6 +883,7 @@ export interface FileRoutesByTo {
   '/api/translate-batch': typeof ApiTranslateBatchRoute
   '/api/translate-speech': typeof ApiTranslateSpeechRoute
   '/api/voice-enroll': typeof ApiVoiceEnrollRoute
+  '/app/ai': typeof AppAiRoute
   '/app/assistant': typeof AppAssistantRoute
   '/app/business': typeof AppBusinessRouteWithChildren
   '/app/expenses': typeof AppExpensesRoute
@@ -878,6 +928,12 @@ export interface FileRoutesByTo {
   '/shop/studio': typeof ShopStudioRoute
   '/app': typeof AppIndexRoute
   '/shop': typeof ShopIndexRoute
+  '/api/ai/caption': typeof ApiAiCaptionRoute
+  '/api/ai/graphics': typeof ApiAiGraphicsRoute
+  '/api/ai/listing': typeof ApiAiListingRoute
+  '/api/ai/report': typeof ApiAiReportRoute
+  '/api/ai/sale': typeof ApiAiSaleRoute
+  '/api/ai/transcribe': typeof ApiAiTranscribeRoute
   '/api/assistant/chat': typeof ApiAssistantChatRoute
   '/api/payments/flutterwave': typeof ApiPaymentsFlutterwaveRoute
   '/api/payments/payout': typeof ApiPaymentsPayoutRoute
@@ -948,6 +1004,7 @@ export interface FileRoutesById {
   '/api/translate-batch': typeof ApiTranslateBatchRoute
   '/api/translate-speech': typeof ApiTranslateSpeechRoute
   '/api/voice-enroll': typeof ApiVoiceEnrollRoute
+  '/app/ai': typeof AppAiRoute
   '/app/assistant': typeof AppAssistantRoute
   '/app/business': typeof AppBusinessRouteWithChildren
   '/app/expenses': typeof AppExpensesRoute
@@ -995,6 +1052,12 @@ export interface FileRoutesById {
   '/shop/studio': typeof ShopStudioRoute
   '/app/': typeof AppIndexRoute
   '/shop/': typeof ShopIndexRoute
+  '/api/ai/caption': typeof ApiAiCaptionRoute
+  '/api/ai/graphics': typeof ApiAiGraphicsRoute
+  '/api/ai/listing': typeof ApiAiListingRoute
+  '/api/ai/report': typeof ApiAiReportRoute
+  '/api/ai/sale': typeof ApiAiSaleRoute
+  '/api/ai/transcribe': typeof ApiAiTranscribeRoute
   '/api/assistant/chat': typeof ApiAssistantChatRoute
   '/api/payments/flutterwave': typeof ApiPaymentsFlutterwaveRoute
   '/api/payments/payout': typeof ApiPaymentsPayoutRoute
@@ -1066,6 +1129,7 @@ export interface FileRouteTypes {
     | '/api/translate-batch'
     | '/api/translate-speech'
     | '/api/voice-enroll'
+    | '/app/ai'
     | '/app/assistant'
     | '/app/business'
     | '/app/expenses'
@@ -1113,6 +1177,12 @@ export interface FileRouteTypes {
     | '/shop/studio'
     | '/app/'
     | '/shop/'
+    | '/api/ai/caption'
+    | '/api/ai/graphics'
+    | '/api/ai/listing'
+    | '/api/ai/report'
+    | '/api/ai/sale'
+    | '/api/ai/transcribe'
     | '/api/assistant/chat'
     | '/api/payments/flutterwave'
     | '/api/payments/payout'
@@ -1178,6 +1248,7 @@ export interface FileRouteTypes {
     | '/api/translate-batch'
     | '/api/translate-speech'
     | '/api/voice-enroll'
+    | '/app/ai'
     | '/app/assistant'
     | '/app/business'
     | '/app/expenses'
@@ -1222,6 +1293,12 @@ export interface FileRouteTypes {
     | '/shop/studio'
     | '/app'
     | '/shop'
+    | '/api/ai/caption'
+    | '/api/ai/graphics'
+    | '/api/ai/listing'
+    | '/api/ai/report'
+    | '/api/ai/sale'
+    | '/api/ai/transcribe'
     | '/api/assistant/chat'
     | '/api/payments/flutterwave'
     | '/api/payments/payout'
@@ -1291,6 +1368,7 @@ export interface FileRouteTypes {
     | '/api/translate-batch'
     | '/api/translate-speech'
     | '/api/voice-enroll'
+    | '/app/ai'
     | '/app/assistant'
     | '/app/business'
     | '/app/expenses'
@@ -1338,6 +1416,12 @@ export interface FileRouteTypes {
     | '/shop/studio'
     | '/app/'
     | '/shop/'
+    | '/api/ai/caption'
+    | '/api/ai/graphics'
+    | '/api/ai/listing'
+    | '/api/ai/report'
+    | '/api/ai/sale'
+    | '/api/ai/transcribe'
     | '/api/assistant/chat'
     | '/api/payments/flutterwave'
     | '/api/payments/payout'
@@ -1588,6 +1672,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/app/'
       preLoaderRoute: typeof AppIndexRouteImport
+      parentRoute: typeof AppRouteRoute
+    }
+    '/app/ai': {
+      id: '/app/ai'
+      path: '/ai'
+      fullPath: '/app/ai'
+      preLoaderRoute: typeof AppAiRouteImport
       parentRoute: typeof AppRouteRoute
     }
     '/app/assistant': {
@@ -1925,6 +2016,48 @@ declare module '@tanstack/react-router' {
       fullPath: '/shop/studio'
       preLoaderRoute: typeof ShopStudioRouteImport
       parentRoute: typeof ShopRoute
+    }
+    '/api/ai/caption': {
+      id: '/api/ai/caption'
+      path: '/api/ai/caption'
+      fullPath: '/api/ai/caption'
+      preLoaderRoute: typeof ApiAiCaptionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/ai/graphics': {
+      id: '/api/ai/graphics'
+      path: '/api/ai/graphics'
+      fullPath: '/api/ai/graphics'
+      preLoaderRoute: typeof ApiAiGraphicsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/ai/listing': {
+      id: '/api/ai/listing'
+      path: '/api/ai/listing'
+      fullPath: '/api/ai/listing'
+      preLoaderRoute: typeof ApiAiListingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/ai/report': {
+      id: '/api/ai/report'
+      path: '/api/ai/report'
+      fullPath: '/api/ai/report'
+      preLoaderRoute: typeof ApiAiReportRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/ai/sale': {
+      id: '/api/ai/sale'
+      path: '/api/ai/sale'
+      fullPath: '/api/ai/sale'
+      preLoaderRoute: typeof ApiAiSaleRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/ai/transcribe': {
+      id: '/api/ai/transcribe'
+      path: '/api/ai/transcribe'
+      fullPath: '/api/ai/transcribe'
+      preLoaderRoute: typeof ApiAiTranscribeRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/api/assistant/chat': {
       id: '/api/assistant/chat'
@@ -2331,6 +2464,7 @@ const AppVideosRouteWithChildren = AppVideosRoute._addFileChildren(
 interface AppRouteRouteChildren {
   AppCustomersRouteRoute: typeof AppCustomersRouteRouteWithChildren
   AppLearnRouteRoute: typeof AppLearnRouteRouteWithChildren
+  AppAiRoute: typeof AppAiRoute
   AppAssistantRoute: typeof AppAssistantRoute
   AppBusinessRoute: typeof AppBusinessRouteWithChildren
   AppExpensesRoute: typeof AppExpensesRoute
@@ -2359,6 +2493,7 @@ interface AppRouteRouteChildren {
 const AppRouteRouteChildren: AppRouteRouteChildren = {
   AppCustomersRouteRoute: AppCustomersRouteRouteWithChildren,
   AppLearnRouteRoute: AppLearnRouteRouteWithChildren,
+  AppAiRoute: AppAiRoute,
   AppAssistantRoute: AppAssistantRoute,
   AppBusinessRoute: AppBusinessRouteWithChildren,
   AppExpensesRoute: AppExpensesRoute,
@@ -2534,6 +2669,12 @@ const rootRouteChildren: RootRouteChildren = {
   ApiVoiceEnrollRoute: ApiVoiceEnrollRoute,
   AuthCallbackRoute: AuthCallbackRoute,
   BSlugRoute: BSlugRoute,
+  ApiAiCaptionRoute: ApiAiCaptionRoute,
+  ApiAiGraphicsRoute: ApiAiGraphicsRoute,
+  ApiAiListingRoute: ApiAiListingRoute,
+  ApiAiReportRoute: ApiAiReportRoute,
+  ApiAiSaleRoute: ApiAiSaleRoute,
+  ApiAiTranscribeRoute: ApiAiTranscribeRoute,
   ApiAssistantChatRoute: ApiAssistantChatRoute,
   ApiPaymentsFlutterwaveRoute: ApiPaymentsFlutterwaveRoute,
   ApiPaymentsPayoutRoute: ApiPaymentsPayoutRoute,

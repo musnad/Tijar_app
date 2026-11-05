@@ -26,6 +26,7 @@ import { saleLineTotals } from "@/utils/product-profit";
 import { formatNgn } from "@/utils/money";
 import { canPublishProduct, productPublishErrors } from "@/lib/catalogue/publish-guard";
 import { parseVoiceProduct } from "@/utils/voice-product";
+import { aiPostJson } from "@/lib/ai/seller-ai-client";
 
 const goodsUnits = ["piece", "bag", "carton", "kg", "litre"] as const;
 
@@ -83,6 +84,7 @@ export function NewProductForm({
   const [formError, setFormError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [voiceHint, setVoiceHint] = useState<string | null>(null);
+  const [writingCopy, setWritingCopy] = useState(false);
   const { listen, stop, listening, supported } = useSpeechRecognition();
 
   const speakLang =
@@ -128,6 +130,31 @@ export function NewProductForm({
       void speakText(t("app.products.voiceFilledSpeak"), speakLang);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : t("app.products.voiceFailed"));
+    }
+  }
+
+  async function writeCopy() {
+    if (name.trim().length < 2) {
+      toast.error(t("app.products.nameRequired"));
+      return;
+    }
+    setWritingCopy(true);
+    try {
+      const price = Number.parseFloat(softMoney(salePrice) ?? "");
+      const res = await aiPostJson<{
+        caption: { english: string; hausa: string; caption: string };
+      }>("/api/ai/caption", {
+        name: name.trim(),
+        price: Number.isFinite(price) ? price : null,
+        language: speakLang,
+      });
+      setDescription(`${res.caption.english}\n\n${res.caption.hausa}`);
+      if (res.caption.caption) setNotes(res.caption.caption);
+      toast.success(t("app.ai.writeDescription"));
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t("app.ai.saveFailed"));
+    } finally {
+      setWritingCopy(false);
     }
   }
 
@@ -527,6 +554,15 @@ export function NewProductForm({
           name="description"
           maxLength={4000}
         />
+        <Button
+          type="button"
+          variant="outline"
+          className="mt-2 min-h-11 w-full rounded-xl"
+          disabled={writingCopy}
+          onClick={() => void writeCopy()}
+        >
+          {writingCopy ? t("app.ai.writing") : t("app.ai.writeDescription")}
+        </Button>
         <Input
           className="mt-3 min-h-12 rounded-xl bg-background"
           value={notes}

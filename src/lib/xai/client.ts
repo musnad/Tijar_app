@@ -24,7 +24,8 @@ export class XaiError extends Error {
 
 export function readXaiConfig(env?: Record<string, string | undefined>): { apiKey: string | null; baseUrl: string } {
   let apiKey: string | null = null;
-  for (const name of KEY_NAMES) {
+  const names = env?.apiKey ? (["apiKey", ...KEY_NAMES] as const) : KEY_NAMES;
+  for (const name of names) {
     const v = env ? env[name] : readEnvString(name) ?? (typeof process !== "undefined" ? process.env?.[name] : undefined);
     const cleaned = sanitizeSecret(typeof v === "string" ? v : undefined);
     if (cleaned) {
@@ -43,7 +44,9 @@ export function xaiKeyFingerprint(apiKey: string | null): {
   hint: string | null;
 } {
   if (!apiKey) return { present: false, formatOk: false, length: 0, hint: null };
-  const formatOk = apiKey.length >= 20 && (/^xai[-_]/i.test(apiKey) || apiKey.startsWith("sk-"));
+  const formatOk =
+    apiKey.length >= 20 &&
+    (/^xai[-_]/i.test(apiKey) || /^grok[_-]/i.test(apiKey) || apiKey.startsWith("sk-"));
   const hint = apiKey.length >= 8 ? `${apiKey.slice(0, 3)}…${apiKey.slice(-4)}` : `${apiKey.slice(0, 2)}…`;
   return { present: true, formatOk, length: apiKey.length, hint };
 }
@@ -168,6 +171,40 @@ export async function xaiChat(
   const out = data.choices?.[0]?.message?.content?.trim();
   if (!out) throw new XaiError("PROVIDER_ERROR", "Grok returned an empty reply.", 502);
   return out;
+}
+
+export async function grokChat(input: {
+  system: string;
+  user: string;
+  json?: boolean;
+  env?: XaiClientConfig;
+}): Promise<string> {
+  const system = input.json ? `${input.system}\nReturn valid JSON only.` : input.system;
+  return xaiChat(
+    { system, user: input.user, temperature: input.json ? 0.2 : 0.4, maxTokens: input.json ? 1200 : 600 },
+    input.env ?? {},
+  );
+}
+
+export async function grokJson<T>(input: {
+  system: string;
+  user: string;
+  env?: XaiClientConfig;
+}): Promise<T> {
+  const raw = await grokChat({ ...input, json: true });
+  const trimmed = raw.trim();
+  const fenced = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  const body = (fenced?.[1] ?? trimmed).trim();
+  const start = body.indexOf("{");
+  const end = body.lastIndexOf("}");
+  if (start < 0 || end <= start) {
+    throw new XaiError("PROVIDER_ERROR", "Grok returned no JSON.", 502);
+  }
+  try {
+    return JSON.parse(body.slice(start, end + 1)) as T;
+  } catch {
+    throw new XaiError("PROVIDER_ERROR", "Grok returned invalid JSON.", 502);
+  }
 }
 
 /** Translate text with Grok. Returns the plain translated string. */
