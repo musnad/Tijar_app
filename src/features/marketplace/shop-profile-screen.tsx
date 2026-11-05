@@ -37,6 +37,7 @@ import { useAuth } from "@/features/auth/auth-context";
 import { useAccountGate } from "@/features/auth/account-gate";
 import { usePrimaryBusiness } from "@/hooks/use-primary-business";
 import { canUseBusinessMode } from "@/lib/account-mode";
+import { displayShopName, shopLinkSlug, shopUsername, usernameMatchesName } from "@/lib/shop-names";
 import { haptic } from "@/lib/haptics";
 import { useTranslation } from "@/lib/i18n/context";
 import {
@@ -48,12 +49,6 @@ import {
 } from "@/services/marketplace-service";
 import { fetchActivityNotifications, fetchFollowersForMe, fetchPeopleIFollow } from "@/services/social-service";
 import type { NotificationPreferences } from "@/types/database";
-
-function handleFromName(name: string, email: string | null): string {
-  const fromEmail = email?.split("@")[0]?.replace(/[^a-zA-Z0-9]/g, "") ?? "";
-  if (fromEmail) return fromEmail.toLowerCase();
-  return name.replace(/[^a-zA-Z0-9]/g, "").toLowerCase() || "tijar";
-}
 
 function joinedLabel(iso: string | undefined): string {
   if (!iso) return "";
@@ -152,7 +147,10 @@ export function ShopProfileScreen() {
   });
 
   async function shareProfile() {
-    const slug = shopQuery.data?.business?.public_slug;
+    const shop = shopQuery.data?.business;
+    const slug = shop
+      ? shopLinkSlug(shopUsername(shop.business_name, shop.public_slug), shop.id)
+      : "";
     const url = slug ? `${window.location.origin}/b/${slug}` : `${window.location.origin}/shop/profile`;
     try {
       if (typeof navigator !== "undefined" && navigator.share) {
@@ -175,8 +173,14 @@ export function ShopProfileScreen() {
   }
 
   const demo = !session || !profile;
-  const name = demo ? t("shop.profile.member") : profile.full_name?.trim() || t("shop.profile.member");
-  const username = demo ? t("shop.profile.guest") : handleFromName(name, profile.email);
+  const shop = shopQuery.data?.business;
+  const name = demo
+    ? t("shop.profile.member")
+    : shop
+      ? displayShopName(shop.business_name, profile.full_name)
+      : profile.full_name?.trim() || t("shop.profile.member");
+  const username = demo ? t("shop.profile.guest") : shopUsername(name, shop?.public_slug);
+  const showDisplayName = !usernameMatchesName(name, username);
   const verified = !demo && canUseBusinessMode(profile);
   const followers = followersQuery.data?.length ?? 0;
   const following = (followsQuery.data?.length ?? 0) + (peopleFollowQuery.data?.length ?? 0);
@@ -285,8 +289,12 @@ export function ShopProfileScreen() {
         </section>
 
         <section className="px-5 pt-3.5">
-          <p className="text-[15px] font-extrabold leading-tight text-[color:var(--brand-navy,#001B3A)]">{name}</p>
-          <p className="mt-1 text-[13px] leading-snug text-foreground">{bio}</p>
+          {showDisplayName ? (
+            <p className="text-[15px] font-extrabold leading-tight text-[color:var(--brand-navy,#001B3A)]">{name}</p>
+          ) : null}
+          <p className={showDisplayName ? "mt-1 text-[13px] leading-snug text-foreground" : "text-[13px] leading-snug text-foreground"}>
+            {bio}
+          </p>
           <ul className="mt-2 space-y-1 text-[12.5px] font-medium text-muted-foreground">
             <li className="flex items-center gap-1.5">
               <MapPin className="size-3.5 shrink-0 text-primary" aria-hidden />

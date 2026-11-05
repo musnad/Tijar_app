@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { FormSection } from "@/features/app-layout/form-section";
 import { BusinessLogoField } from "@/features/business/business-logo-field";
+import { UsernameField, type UsernameStatus } from "@/features/business/username-field";
 import { TranslateText } from "@/features/translate/translate-text";
 import { useAuth } from "@/features/auth/auth-context";
 import { businessProfileFormSchema } from "@/features/business/schemas";
@@ -20,9 +21,11 @@ import {
   lgasForState,
   parseNigerianLocation,
 } from "@/lib/nigeria-locations";
+import { shopUsername } from "@/lib/shop-names";
 import { uploadBusinessLogo } from "@/services/business-logo-service";
 import { listBusinessCategories, updateBusinessProfile } from "@/services/business-service";
 import type { Business } from "@/types/database";
+import { slugifyBusinessName } from "@/utils/discover";
 
 export function EditBusinessForm({ business }: { business: Business }) {
   const { t } = useTranslation();
@@ -41,6 +44,8 @@ export function EditBusinessForm({ business }: { business: Business }) {
   const [islamicMode, setIslamicMode] = useState(Boolean(business.islamic_mode_enabled));
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoCleared, setLogoCleared] = useState(false);
+  const [username, setUsername] = useState(shopUsername(business.business_name, business.public_slug));
+  const [usernameStatus, setUsernameStatus] = useState<UsernameStatus>("idle");
   const [saving, setSaving] = useState(false);
 
   const { data: categories = [] } = useQuery({
@@ -73,6 +78,10 @@ export function EditBusinessForm({ business }: { business: Business }) {
       toast.error("Add a contact phone or WhatsApp number so customers can reach your shop.");
       return;
     }
+    if (usernameStatus === "taken" || usernameStatus === "invalid") {
+      toast.error(usernameStatus === "taken" ? "That username is not available." : "Pick a valid username.");
+      return;
+    }
 
     setSaving(true);
     let logoUrl: string | null | undefined = undefined;
@@ -100,6 +109,7 @@ export function EditBusinessForm({ business }: { business: Business }) {
         logoUrl,
         publicPhone: phone.trim() || null,
         publicWhatsapp: whatsapp.trim() || null,
+        publicSlug: slugifyBusinessName(username) || slugifyBusinessName(parsed.data.businessName),
       },
       profile?.id,
     );
@@ -140,6 +150,15 @@ export function EditBusinessForm({ business }: { business: Business }) {
           placeholder={t("app.business.namePlaceholder")}
           required
         />
+        <label className="mt-3 block text-xs font-bold text-white/80">Username</label>
+        <div className="mt-1">
+          <UsernameField
+            value={username}
+            exceptBusinessId={business.id}
+            onChange={setUsername}
+            onStatusChange={setUsernameStatus}
+          />
+        </div>
         <label className="mt-3 block text-xs font-bold text-white/80">State</label>
         <div className="mt-1 grid grid-cols-2 gap-2">
           <select
@@ -259,7 +278,11 @@ export function EditBusinessForm({ business }: { business: Business }) {
         </div>
       </FormSection>
 
-      <Button type="submit" className="min-h-12 w-full rounded-xl text-base font-bold" disabled={saving}>
+      <Button
+        type="submit"
+        className="min-h-12 w-full rounded-xl text-base font-bold"
+        disabled={saving || usernameStatus === "taken" || usernameStatus === "invalid" || usernameStatus === "checking"}
+      >
         {saving ? "Saving…" : t("app.business.save")}
       </Button>
     </form>

@@ -1,7 +1,9 @@
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import type { OnboardingAnswers } from "@/features/onboarding/schemas";
 import type { MemberRole } from "@/lib/business/capabilities";
+import { isSlugAvailable } from "@/services/discover-service";
 import type { Business, BusinessCategory, BusinessDna } from "@/types/database";
+import { isValidSlug, slugifyBusinessName } from "@/utils/discover";
 
 export async function listBusinessCategories(): Promise<{
   data: BusinessCategory[];
@@ -131,6 +133,7 @@ export type UpdateBusinessProfileInput = {
   logoUrl?: string | null;
   publicPhone?: string | null;
   publicWhatsapp?: string | null;
+  publicSlug?: string | null;
 };
 
 export async function updateBusinessProfile(
@@ -148,6 +151,18 @@ export async function updateBusinessProfile(
     return { business: null, error: "Enter your business name." };
   }
 
+  let nextSlug: string | undefined;
+  if (input.publicSlug !== undefined) {
+    nextSlug = slugifyBusinessName(input.publicSlug ?? "") || slugifyBusinessName(name);
+    if (!isValidSlug(nextSlug)) {
+      return { business: null, error: "Username needs at least 2 letters or numbers." };
+    }
+    const free = await isSlugAvailable(nextSlug, businessId);
+    if (!free) {
+      return { business: null, error: "That username is not available." };
+    }
+  }
+
   const clearLogo = input.logoUrl === null;
   const rpc = await supabase.rpc("save_business_profile", {
     p_business_id: businessId,
@@ -162,6 +177,15 @@ export async function updateBusinessProfile(
     p_public_whatsapp: input.publicWhatsapp?.trim() ?? "",
   });
   if (!rpc.error && rpc.data) {
+    if (nextSlug) {
+      const extra = await supabase
+        .from("businesses")
+        .update({ public_slug: nextSlug })
+        .eq("id", businessId)
+        .select("*")
+        .maybeSingle();
+      if (!extra.error && extra.data) return { business: extra.data as Business, error: null };
+    }
     return { business: rpc.data as Business, error: null };
   }
 
@@ -175,6 +199,7 @@ export async function updateBusinessProfile(
   };
   if (input.categoryId?.trim()) patch.category_id = input.categoryId;
   if (input.logoUrl !== undefined) patch.logo_url = input.logoUrl;
+  if (nextSlug) patch.public_slug = nextSlug;
 
   const { data, error } = await supabase
     .from("businesses")
@@ -196,6 +221,9 @@ export async function updateBusinessProfile(
   }
   if (/not allowed|row-level security|permission/i.test(message)) {
     return { business: null, error: "Could not edit this shop. Sign in as the owner and try again." };
+  }
+  if (/duplicate|unique/i.test(message)) {
+    return { business: null, error: "That username is not available." };
   }
   return { business: null, error: message };
 }

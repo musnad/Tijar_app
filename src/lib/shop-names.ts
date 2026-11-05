@@ -1,4 +1,7 @@
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import { slugifyBusinessName } from "@/utils/discover";
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export function isBlankShopName(name?: string | null): boolean {
   const n = name?.trim() ?? "";
@@ -13,6 +16,19 @@ export function displayShopName(name?: string | null, personName?: string | null
 
 export function shopLinkSlug(slug?: string | null, businessId?: string | null): string {
   return slug?.trim() || businessId?.trim() || "";
+}
+
+/** Public @username: business name, never a raw UUID. */
+export function shopUsername(name?: string | null, slug?: string | null): string {
+  const raw = slug?.trim().replace(/^@/, "") ?? "";
+  if (raw && !UUID_RE.test(raw)) return raw.toLowerCase();
+  return slugifyBusinessName(name ?? "") || "shop";
+}
+
+export function usernameMatchesName(name?: string | null, handle?: string | null): boolean {
+  const a = slugifyBusinessName(name ?? "");
+  const b = slugifyBusinessName((handle ?? "").replace(/^@/, ""));
+  return Boolean(a) && a === b;
 }
 
 function mergeShopRow(map: Map<string, ShopNameRow>, row: ShopNameRow) {

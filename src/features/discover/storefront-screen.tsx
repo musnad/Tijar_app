@@ -33,7 +33,7 @@ import { updateProfile } from "@/services/profile-service";
 import { fetchStorefront, recordBusinessShare, submitEnquiry } from "@/services/discover-service";
 import { recordBusinessInsight } from "@/services/seller-ai-service";
 import { fetchMyBusinessIds } from "@/services/shop-chat-service";
-import { displayShopName } from "@/lib/shop-names";
+import { displayShopName, shopUsername, usernameMatchesName } from "@/lib/shop-names";
 import { isFollowingShop } from "@/lib/shop-social";
 import {
   fetchMyFollowedBusinessIds,
@@ -241,6 +241,7 @@ export function StorefrontScreen({ slug }: { slug: string }) {
   const productCount = products.length;
   const postCount = videos.length;
   const shopTitle = displayShopName(business?.business_name, videos[0]?.business_name ?? products[0]?.business_name);
+  const handle = shopUsername(shopTitle, business?.slug ?? slug);
 
   async function onEnquiry(e: React.FormEvent) {
     e.preventDefault();
@@ -404,7 +405,7 @@ export function StorefrontScreen({ slug }: { slug: string }) {
         <header className="sticky top-0 z-20 border-b border-[#EEF1F5] bg-white/95 px-4 py-1.5 backdrop-blur-md">
           <div className="flex items-center gap-1">
             <p className="min-w-0 flex-1 truncate text-[17px] font-extrabold tracking-tight text-[#0B1F4D]">
-              @{business?.slug ?? slug}
+              {handle ? `@${handle}` : shopTitle || "Shop"}
             </p>
             <button
               type="button"
@@ -492,12 +493,21 @@ export function StorefrontScreen({ slug }: { slug: string }) {
             </section>
 
             <section className="px-4 pb-3">
-              <div className="flex items-center gap-1.5">
-                <h1 className="truncate text-[15px] font-extrabold leading-tight text-[#0B1F4D]">{shopTitle}</h1>
-                {business.is_verified ? (
-                  <BadgeCheck className="size-4 shrink-0 fill-[#1F7A4D] text-white" aria-label="Verified" />
-                ) : null}
-              </div>
+              {usernameMatchesName(shopTitle, handle) ? (
+                business.is_verified ? (
+                  <p className="flex items-center gap-1.5 text-[12.5px] font-semibold text-[#1F7A4D]">
+                    <BadgeCheck className="size-4 shrink-0 fill-[#1F7A4D] text-white" aria-label="Verified" />
+                    Verified
+                  </p>
+                ) : null
+              ) : (
+                <div className="flex items-center gap-1.5">
+                  <h1 className="truncate text-[15px] font-extrabold leading-tight text-[#0B1F4D]">{shopTitle}</h1>
+                  {business.is_verified ? (
+                    <BadgeCheck className="size-4 shrink-0 fill-[#1F7A4D] text-white" aria-label="Verified" />
+                  ) : null}
+                </div>
+              )}
               <p className="mt-0.5 text-[12.5px] font-semibold text-[#1F7A4D]">
                 {business.category_name ?? t("app.storefront.defaultCategory")}
               </p>

@@ -13,6 +13,7 @@ import { getMapsProvider, type GeocodeResult } from "@/lib/maps/provider";
 import { TranslateText } from "@/features/translate/translate-text";
 import { fetchProductsDashboard } from "@/services/product-analytics-service";
 import { listBusinessCategories } from "@/services/business-service";
+import { UsernameField } from "@/features/business/username-field";
 import { fetchBusinessEnquiries, isSlugAvailable, updateBusinessListing } from "@/services/discover-service";
 import type { Business } from "@/types/database";
 import { isValidSlug, listingCompleteness, slugifyBusinessName } from "@/utils/discover";
@@ -169,9 +170,8 @@ export function PublishBusinessForm({ business }: { business: Business }) {
 
       <div>
         <label className="text-sm font-semibold" htmlFor="slug">{t("app.publish.shopLink")}</label>
-        <div className="mt-1 flex items-center gap-2">
-          <span className="text-sm text-muted-foreground">tijar…/b/</span>
-          <Input id="slug" value={slug} onChange={(e) => setSlug(e.target.value)} className="min-h-11 rounded-xl text-base" placeholder="aisha-foods" />
+        <div className="mt-1">
+          <UsernameField tone="light" value={slug} exceptBusinessId={business.id} onChange={setSlug} />
         </div>
         {published && slug && (
           <Link to="/b/$slug" params={{ slug }} className="mt-1 inline-flex items-center gap-1 text-xs font-semibold text-primary">

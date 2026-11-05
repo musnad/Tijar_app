@@ -1,6 +1,6 @@
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { toggleFollowPersonLocal, type SocialPerson } from "@/lib/shop-social";
-import { displayShopName, shopLinkSlug } from "@/lib/shop-names";
+import { displayShopName, shopLinkSlug, shopUsername } from "@/lib/shop-names";
 import { isMockFeedId } from "@/features/marketplace/feed-mock";
 import type { NotificationPreferences } from "@/types/database";
 
@@ -92,7 +92,7 @@ export function notificationKindAllowed(
 }
 
 function handleFromName(name: string): string {
-  return name.replace(/[^a-zA-Z0-9]/g, "").toLowerCase() || "member";
+  return shopUsername(name);
 }
 
 function asPerson(row: {
@@ -197,7 +197,7 @@ export async function fetchPeopleIFollow(profileId: string): Promise<{ people: S
     return {
       profileId: person.id,
       name: person.name,
-      handle: person.handle,
+      handle: shop ? shopUsername(shop.business_name, shop.public_slug) : person.handle,
       avatarUrl: shop?.logo_url ?? person.avatarUrl ?? null,
       shopId: shop?.id ?? null,
       shopName: shop ? displayShopName(shop.business_name) : null,
@@ -265,7 +265,7 @@ export async function fetchFollowersForMe(profileId: string): Promise<{
     return {
       profileId: id,
       name: person.name,
-      handle: person.handle,
+      handle: shop ? shopUsername(shop.business_name, shop.public_slug) : person.handle,
       avatarUrl: shop?.logo_url ?? person.avatarUrl ?? null,
       shopId: shop?.id ?? null,
       shopName: shop ? displayShopName(shop.business_name) : null,

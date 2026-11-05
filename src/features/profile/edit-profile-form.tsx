@@ -8,14 +8,17 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { FormSection } from "@/features/app-layout/form-section";
+import { UsernameField, type UsernameStatus } from "@/features/business/username-field";
 import { ProfileAvatarField } from "@/features/profile/profile-avatar-field";
 import { profileFormSchema } from "@/features/profile/schemas";
 import { useAuth } from "@/features/auth/auth-context";
 import { useTranslation } from "@/lib/i18n/context";
 import { uploadProfileAvatar } from "@/services/profile-avatar-service";
+import { shopUsername } from "@/lib/shop-names";
 import { updateBusinessProfile } from "@/services/business-service";
 import { updateProfile } from "@/services/profile-service";
 import type { Business, Profile } from "@/types/database";
+import { slugifyBusinessName } from "@/utils/discover";
 
 export function EditProfileForm({
   profile,
@@ -32,6 +35,10 @@ export function EditProfileForm({
   const { refreshProfile } = useAuth();
 
   const [businessName, setBusinessName] = useState(business?.business_name ?? "");
+  const [username, setUsername] = useState(
+    business ? shopUsername(business.business_name, business.public_slug) : "",
+  );
+  const [usernameStatus, setUsernameStatus] = useState<UsernameStatus>("idle");
   const [fullName, setFullName] = useState(profile.full_name);
   const [phone, setPhone] = useState(profile.phone ?? "");
   const [bio, setBio] = useState(profile.bio ?? "");
@@ -73,7 +80,12 @@ export function EditProfileForm({
       toast.error(error.message);
       return;
     }
-    if (business && businessName.trim().length >= 2 && businessName.trim() !== business.business_name) {
+    if (business && businessName.trim().length >= 2) {
+      if (usernameStatus === "taken" || usernameStatus === "invalid") {
+        setSaving(false);
+        toast.error(usernameStatus === "taken" ? "That username is not available." : "Pick a valid username.");
+        return;
+      }
       const biz = await updateBusinessProfile(
         business.id,
         {
@@ -82,6 +94,7 @@ export function EditProfileForm({
           description: business.description ?? undefined,
           categoryId: business.category_id ?? undefined,
           islamicModeEnabled: business.islamic_mode_enabled,
+          publicSlug: slugifyBusinessName(username) || slugifyBusinessName(businessName),
         },
         profile.id,
       );
@@ -119,6 +132,16 @@ export function EditProfileForm({
             onChange={(e) => setBusinessName(e.target.value)}
             placeholder={t("app.business.namePlaceholder")}
           />
+          <label className="mt-3 block text-xs font-bold text-muted-foreground">Username</label>
+          <div className="mt-1">
+            <UsernameField
+              tone="light"
+              value={username}
+              exceptBusinessId={business.id}
+              onChange={setUsername}
+              onStatusChange={setUsernameStatus}
+            />
+          </div>
         </FormSection>
       ) : null}
 
@@ -151,7 +174,7 @@ export function EditProfileForm({
       <Button
         type="button"
         className="min-h-12 w-full rounded-xl text-base font-bold"
-        disabled={saving}
+        disabled={saving || (Boolean(business) && (usernameStatus === "taken" || usernameStatus === "invalid" || usernameStatus === "checking"))}
         onClick={() => void submit()}
       >
         {t("app.profile.save")}

@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { FeedImage } from "@/components/media/feed-image";
 import { MarketplaceShell } from "@/features/marketplace/marketplace-shell";
 import { useAuth } from "@/features/auth/auth-context";
+import { usernameMatchesName } from "@/lib/shop-names";
 import { cn } from "@/lib/utils";
 import { fetchFollowedBusinesses } from "@/services/marketplace-service";
 import { toggleFollowBusiness } from "@/services/video-feed-service";
@@ -226,6 +227,8 @@ export function FollowersScreen() {
 
 function ConnectionRow({ person, onAction }: { person: SocialConnection; onAction: () => void }) {
   const hrefShop = person.shopSlug;
+  const title = person.shopName ?? person.name;
+  const hideName = usernameMatchesName(title, person.handle);
   return (
     <li className="flex items-center gap-3 rounded-2xl border border-border bg-card p-3">
       {hrefShop ? (
@@ -236,10 +239,16 @@ function ConnectionRow({ person, onAction }: { person: SocialConnection; onActio
         <Avatar name={person.name} src={person.avatarUrl} />
       )}
       <div className="min-w-0 flex-1">
-        <p className="truncate font-bold">{person.shopName ?? person.name}</p>
+        {hideName ? (
+          <p className="truncate font-bold">@{person.handle}</p>
+        ) : (
+          <>
+            <p className="truncate font-bold">{title}</p>
+            <p className="truncate text-xs text-muted-foreground">@{person.handle}</p>
+          </>
+        )}
         <p className="truncate text-xs text-muted-foreground">
-          @{person.handle}
-          {person.source === "shop" ? " · follows your shop" : " · follows you"}
+          {person.source === "shop" ? "follows your shop" : "follows you"}
           {person.theyFollowYou && person.followingThem ? " · friends" : ""}
         </p>
       </div>
