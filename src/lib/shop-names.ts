@@ -131,26 +131,58 @@ export async function lookupShopProfiles(ids: string[]): Promise<Map<string, Sho
   }
 
   unnamed = unique.filter((id) => isBlankShopName(map.get(id)?.business_name));
-  if (unnamed.length === 0) return map;
+  if (unnamed.length > 0) {
+    const owners = await supabase.from("businesses").select("id, owner_id").in("id", unnamed);
+    const ownerIds = [...new Set((owners.data ?? []).map((r) => r.owner_id as string).filter(Boolean))];
+    if (ownerIds.length > 0) {
+      const profiles = await supabase.from("profiles").select("id, full_name, avatar_url").in("id", ownerIds);
+      const nameByOwner = new Map((profiles.data ?? []).map((p) => [p.id as string, (p.full_name as string | null) ?? ""]));
+      const photoByOwner = new Map(
+        (profiles.data ?? []).map((p) => [p.id as string, (p.avatar_url as string | null) ?? ""]),
+      );
+      for (const row of owners.data ?? []) {
+        const person = nameByOwner.get(row.owner_id as string)?.trim();
+        const photo = photoByOwner.get(row.owner_id as string)?.trim() || null;
+        if (!person && !photo) continue;
+        const current = map.get(row.id as string);
+        mergeShopRow(map, {
+          id: row.id as string,
+          business_name: person || current?.business_name || "",
+          slug: current?.slug ?? null,
+          logo_url: current?.logo_url || photo,
+          verification_status: current?.verification_status ?? null,
+          category_id: current?.category_id ?? null,
+          category_name: current?.category_name ?? null,
+        });
+      }
+    }
+  }
 
-  const owners = await supabase.from("businesses").select("id, owner_id").in("id", unnamed);
-  const ownerIds = [...new Set((owners.data ?? []).map((r) => r.owner_id as string).filter(Boolean))];
-  if (ownerIds.length === 0) return map;
-  const profiles = await supabase.from("profiles").select("id, full_name").in("id", ownerIds);
-  const nameByOwner = new Map((profiles.data ?? []).map((p) => [p.id as string, (p.full_name as string | null) ?? ""]));
-  for (const row of owners.data ?? []) {
-    const person = nameByOwner.get(row.owner_id as string)?.trim();
-    if (!person) continue;
-    const current = map.get(row.id as string);
-    mergeShopRow(map, {
-      id: row.id as string,
-      business_name: person,
-      slug: current?.slug ?? null,
-      logo_url: current?.logo_url ?? null,
-      verification_status: current?.verification_status ?? null,
-      category_id: current?.category_id ?? null,
-      category_name: current?.category_name ?? null,
-    });
+  const needLogo = unique.filter((id) => !map.get(id)?.logo_url);
+  if (needLogo.length > 0) {
+    const owned = await supabase.from("businesses").select("id, logo_url, owner_id").in("id", needLogo);
+    const ownerIds = [...new Set((owned.data ?? []).map((r) => r.owner_id as string).filter(Boolean))];
+    const photos = ownerIds.length
+      ? await supabase.from("profiles").select("id, avatar_url").in("id", ownerIds)
+      : { data: [] as Array<{ id: string; avatar_url: string | null }> };
+    const photoByOwner = new Map(
+      (photos.data ?? []).map((p) => [p.id as string, ((p.avatar_url as string | null) ?? "").trim()]),
+    );
+    for (const row of owned.data ?? []) {
+      const photo = ((row.logo_url as string | null) ?? "").trim() || photoByOwner.get(row.owner_id as string) || null;
+      if (!photo) continue;
+      const current = map.get(row.id as string);
+      mergeShopRow(map, {
+        id: row.id as string,
+        business_name: current?.business_name ?? "",
+        slug: current?.slug ?? null,
+        logo_url: photo,
+        is_verified: current?.is_verified,
+        verification_status: current?.verification_status ?? null,
+        category_id: current?.category_id ?? null,
+        category_name: current?.category_name ?? null,
+      });
+    }
   }
 
   return map;
@@ -165,6 +197,19 @@ export async function lookupProfileNames(ids: string[]): Promise<Map<string, str
   for (const row of data ?? []) {
     const name = (row.full_name as string | null)?.trim();
     if (name) map.set(row.id as string, name);
+  }
+  return map;
+}
+
+export async function lookupProfilePhotos(ids: string[]): Promise<Map<string, string>> {
+  const unique = [...new Set(ids.filter(Boolean))];
+  const map = new Map<string, string>();
+  if (unique.length === 0) return map;
+  const supabase = getSupabaseBrowserClient();
+  const { data } = await supabase.from("profiles").select("id, avatar_url").in("id", unique);
+  for (const row of data ?? []) {
+    const photo = (row.avatar_url as string | null)?.trim();
+    if (photo) map.set(row.id as string, photo);
   }
   return map;
 }

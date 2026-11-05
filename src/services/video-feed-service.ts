@@ -6,7 +6,7 @@ import {
   loadUserSocial,
   toggleFollowShopLocal,
 } from "@/lib/shop-social";
-import { displayShopName, isBlankShopName, lookupProfileNames, lookupShopProfiles } from "@/lib/shop-names";
+import { displayShopName, isBlankShopName, lookupProfileNames, lookupProfilePhotos, lookupShopProfiles } from "@/lib/shop-names";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { submitStudioVideo } from "@/services/video-studio-service";
 import type { PublicProduct } from "@/types/database";
@@ -286,7 +286,11 @@ async function attachShopNames(videos: PublicFeedVideo[]): Promise<PublicFeedVid
   const businessIds = [...new Set(videos.map((v) => v.business_id).filter(Boolean))];
   const found = businessIds.length ? await lookupShopProfiles(businessIds) : new Map();
   const stillBlank = videos.filter((v) => isBlankShopName(found.get(v.business_id)?.business_name ?? v.business_name));
-  const people = stillBlank.length ? await lookupProfileNames(stillBlank.map((v) => v.profile_id)) : new Map();
+  const needPhoto = videos.filter((v) => !(found.get(v.business_id)?.logo_url || v.business_logo_url));
+  const [people, photos] = await Promise.all([
+    stillBlank.length ? lookupProfileNames(stillBlank.map((v) => v.profile_id)) : Promise.resolve(new Map<string, string>()),
+    needPhoto.length ? lookupProfilePhotos(needPhoto.map((v) => v.profile_id)) : Promise.resolve(new Map<string, string>()),
+  ]);
   return videos.map((video) => {
     const shop = found.get(video.business_id);
     const person = people.get(video.profile_id) ?? null;
@@ -296,7 +300,8 @@ async function attachShopNames(videos: PublicFeedVideo[]): Promise<PublicFeedVid
       image_urls: asUrlList(video.image_urls),
       business_name: displayShopName(shop?.business_name ?? video.business_name, person),
       slug: shop?.slug || video.slug || video.business_id,
-      business_logo_url: shop?.logo_url ?? video.business_logo_url,
+      business_logo_url:
+        shop?.logo_url || video.business_logo_url || photos.get(video.profile_id) || null,
       is_verified: shop?.is_verified ?? video.is_verified,
       verification_status: shop?.verification_status ?? video.verification_status,
       category_id: shop?.category_id ?? video.category_id,

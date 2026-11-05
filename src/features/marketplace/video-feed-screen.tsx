@@ -1360,13 +1360,17 @@ const VideoSlide = memo(function VideoSlide({
       className="w-full shrink-0 border-b border-border bg-white pb-3"
     >
       <div className="flex items-center gap-2 px-3 py-2">
+        <FeedShopAvatar
+          name={shopName}
+          src={video.business_logo_url}
+          slug={shopLinkSlug(video.slug, video.business_id)}
+        />
         <Link
           to="/b/$slug"
           params={{ slug: shopLinkSlug(video.slug, video.business_id) }}
-          className="flex min-w-0 flex-1 items-center gap-2"
+          className="min-w-0 flex-1"
         >
-          <SellerAvatar video={video} />
-          <SellerMeta name={displayShopName(video.business_name)} verified={video.is_verified} when={when} place={place} />
+          <SellerMeta name={shopName} verified={video.is_verified} when={when} place={place} />
         </Link>
         <button
           type="button"
@@ -1543,15 +1547,34 @@ const VideoSlide = memo(function VideoSlide({
   );
 });
 
-function SellerAvatar({ video }: { video: PublicFeedVideo }) {
+function FeedShopAvatar({
+  name,
+  src,
+  slug,
+}: {
+  name: string;
+  src?: string | null;
+  slug: string;
+}) {
+  const [broken, setBroken] = useState(false);
+  const photo = Boolean(src) && !broken;
+  const initial = (name.trim().slice(0, 1) || "S").toUpperCase();
   return (
-    <span className="flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[color:var(--brand-navy,#001B3A)] text-sm font-extrabold text-white ring-1 ring-border">
-      {video.business_logo_url ? (
-        <FeedImage src={video.business_logo_url} alt="" className="size-full" eager width={96} />
-      ) : (
-        video.business_name.slice(0, 1)
-      )}
-    </span>
+    <Link
+      to="/b/$slug"
+      params={{ slug }}
+      aria-label={name}
+      className="relative shrink-0 rounded-full bg-gradient-to-tr from-[#1F7A4D] via-[#00B86B] to-[#0B1F4D] p-[2px]"
+    >
+      <span className="flex size-11 items-center justify-center overflow-hidden rounded-full bg-[#0B1F4D] text-sm font-extrabold text-white ring-2 ring-white">
+        {photo ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={src!} alt="" className="size-full object-cover" onError={() => setBroken(true)} />
+        ) : (
+          initial
+        )}
+      </span>
+    </Link>
   );
 }
 
@@ -1692,14 +1715,8 @@ const PlaceOrderSlide = memo(function PlaceOrderSlide({
       className="w-full shrink-0 border-b border-border bg-white pb-3"
     >
       <div className="flex items-center gap-2 px-3 py-2">
-        <Link to="/b/$slug" params={{ slug }} className="flex min-w-0 flex-1 items-center gap-2">
-          <span className="flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[color:var(--brand-navy,#001B3A)] text-sm font-extrabold text-white">
-            {listing.shop_logo ? (
-              <FeedImage src={listing.shop_logo} alt="" eager width={96} />
-            ) : (
-              listing.shop_name.slice(0, 1)
-            )}
-          </span>
+        <FeedShopAvatar name={listing.shop_name} src={listing.shop_logo} slug={slug} />
+        <Link to="/b/$slug" params={{ slug }} className="min-w-0 flex-1">
           <span className="min-w-0">
             <span className="block truncate text-[15px] font-extrabold text-foreground">{listing.shop_name}</span>
             <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
@@ -1797,14 +1814,8 @@ const ListingSlide = memo(function ListingSlide({
       className="w-full shrink-0 border-b border-border bg-white pb-3"
     >
       <div className="flex items-center gap-2 px-3 py-2">
-        <Link to="/b/$slug" params={{ slug }} className="flex min-w-0 flex-1 items-center gap-2">
-          <span className="flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[color:var(--brand-navy,#001B3A)] text-sm font-extrabold text-white">
-            {product.business_logo_url ? (
-              <FeedImage src={product.business_logo_url} alt="" eager width={96} />
-            ) : (
-              shop.slice(0, 1)
-            )}
-          </span>
+        <FeedShopAvatar name={shop} src={product.business_logo_url} slug={slug} />
+        <Link to="/b/$slug" params={{ slug }} className="min-w-0 flex-1">
           <span className="min-w-0">
             <span className="block truncate text-[15px] font-extrabold text-foreground">{shop}</span>
             <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
