@@ -48,7 +48,13 @@ import {
 import { MarketplaceShell } from "@/features/marketplace/marketplace-shell";
 import { useAuth } from "@/features/auth/auth-context";
 import { useAccountGate } from "@/features/auth/account-gate";
-import { displayShopName, isBlankShopName, shopLinkSlug } from "@/lib/shop-names";
+import { StoriesRow } from "@/features/marketplace/stories-row";
+import { StoryViewer } from "@/features/marketplace/story-viewer";
+import { useViewerLocation } from "@/hooks/use-viewer-location";
+import { displayShopName, isBlankShopName, lookupShopProfiles, shopLinkSlug } from "@/lib/shop-names";
+import { NEARBY_RADIUS_KM } from "@/lib/feed/rank-video-feed";
+import { fetchLiveStoryRings, type StoryRing } from "@/services/story-service";
+import { formatDistance, haversineKm } from "@/utils/discover";
 import { cn } from "@/lib/utils";
 import { addToCart, fetchBusinessPayoutAccount, fetchCart, fetchMarketplaceProducts, toggleFavoriteProduct } from "@/services/marketplace-service";
 import { formatServiceDates, serviceLabel } from "@/lib/catalogue/service-schedule";
@@ -266,6 +272,8 @@ export function VideoFeedScreen({ initialVideoId }: { initialVideoId?: string })
   const [deleting, setDeleting] = useState(false);
   const businessQuery = usePrimaryBusiness(profile?.id);
   const [feedTab, setFeedTab] = useState<FeedTab>("foryou");
+  const location = useViewerLocation(true);
+  const [storyBusinessId, setStoryBusinessId] = useState<string | null>(null);
   const [mockLiked, setMockLiked] = useState(() => new Set(loadUserSocial("guest").likedVideos));
   const likeBusyRef = useRef(false);
   const [mockFollowing, setMockFollowing] = useState(() => new Set(listFollowedShopIds("guest")));
@@ -278,11 +286,20 @@ export function VideoFeedScreen({ initialVideoId }: { initialVideoId?: string })
   }, [profile?.id]);
 
   const feedQuery = useInfiniteQuery({
-    queryKey: ["video-feed", profile?.id ?? "anon"],
+    queryKey: [
+      "video-feed",
+      profile?.id ?? "anon",
+      feedTab,
+      location.coords?.lat ?? null,
+      location.coords?.lng ?? null,
+    ],
     queryFn: async ({ pageParam }) => {
       const r = await rankAndLoadFeed(profile?.id ?? null, {
         limit: FEED_PAGE_SIZE,
         before: pageParam,
+        viewerLat: location.coords?.lat ?? null,
+        viewerLng: location.coords?.lng ?? null,
+        nearbyOnly: feedTab === "nearby",
       });
       if (r.error) throw new Error(r.error);
       return r;
@@ -353,6 +370,31 @@ export function VideoFeedScreen({ initialVideoId }: { initialVideoId?: string })
   const followQuery = useQuery({
     queryKey: ["video-follows", profile?.id ?? "guest"],
     queryFn: async () => fetchMyFollowedBusinessIds(profile?.id ?? "guest"),
+  });
+  const storiesQuery = useQuery({
+    queryKey: [
+      "live-stories",
+      profile?.id ?? "anon",
+      location.coords?.lat ?? null,
+      [...(followQuery.data ?? new Set<string>())].join(","),
+    ],
+    queryFn: async () => {
+      const r = await fetchLiveStoryRings({
+        profileId: profile?.id ?? null,
+        followedIds: followQuery.data ?? new Set<string>(),
+        viewerLat: location.coords?.lat ?? null,
+        viewerLng: location.coords?.lng ?? null,
+      });
+      if (r.error) throw new Error(r.error);
+      return r.rings;
+    },
+    staleTime: 30_000,
+  });
+  const listingGeoQuery = useQuery({
+    queryKey: ["listing-shop-geo", liveListings.map((p) => p.business_id).join(",")],
+    enabled: feedTab === "nearby" && liveListings.length > 0,
+    queryFn: () => lookupShopProfiles(liveListings.map((p) => p.business_id)),
+    staleTime: 60_000,
   });
   const cartQuery = useQuery({
     queryKey: ["marketplace-cart", profile?.id],
@@ -635,16 +677,38 @@ export function VideoFeedScreen({ initialVideoId }: { initialVideoId?: string })
   const taggedIds = new Set(productIds);
   const extraListings = liveListings.filter((p) => !taggedIds.has(p.id));
   const followed = followQuery.data ?? new Set<string>();
+  const viewerHere = location.coords;
+  const nearbyKm = (lat?: number | null, lng?: number | null) => {
+    if (!viewerHere || lat == null || lng == null) return null;
+    return haversineKm(viewerHere, { lat, lng });
+  };
   const showPosts =
-    feedTab === "nearby"
-      ? []
-      : feedTab === "following"
-        ? videos.filter((v) => followed.has(v.business_id))
-        : videos;
-  const showListings =
-    feedTab === "nearby" ? liveListings : feedTab === "foryou" ? extraListings : [];
-  const showPlaceOrders =
-    feedTab === "following" ? [] : (placeOrdersQuery.data ?? []);
+    feedTab === "following" ? videos.filter((v) => followed.has(v.business_id)) : videos;
+  const showListings = (() => {
+    if (feedTab === "following") return [];
+    const source = feedTab === "nearby" ? liveListings : extraListings;
+    if (feedTab !== "nearby") return source;
+    if (viewerHere) {
+      return source.filter((p) => {
+        const shop = listingGeoQuery.data?.get(p.business_id);
+        const km = nearbyKm(shop?.latitude ?? null, shop?.longitude ?? null);
+        return km != null && km <= NEARBY_RADIUS_KM;
+      });
+    }
+    return source.filter((p) => followed.has(p.business_id));
+  })();
+  const showPlaceOrders = (() => {
+    if (feedTab === "following") return [];
+    const source = placeOrdersQuery.data ?? [];
+    if (feedTab !== "nearby") return source;
+    if (viewerHere) {
+      return source.filter((l) => {
+        const km = nearbyKm(l.latitude, l.longitude);
+        return km != null && km <= NEARBY_RADIUS_KM;
+      });
+    }
+    return source.filter((l) => followed.has(l.business_id));
+  })();
   const activeIndex = showPosts.findIndex((v) => v.id === activeId);
   const productsByVideo = useMemo(() => {
     const map = new Map<string, PublicProduct[]>();
@@ -701,6 +765,25 @@ export function VideoFeedScreen({ initialVideoId }: { initialVideoId?: string })
     <MarketplaceShell cartCount={cartCount} hideTopBar variant="feed">
       <div className="relative mx-auto flex min-h-0 w-full max-w-lg flex-1 flex-col overflow-hidden bg-white text-foreground">
         <FeedTopBar tab={feedTab} onTab={setFeedTab} />
+        {feedTab === "nearby" && location.status === "denied" ? (
+          <button
+            type="button"
+            onClick={() => location.request()}
+            className="w-full bg-[#0A2540] px-4 py-2 text-left text-[12px] font-semibold text-white"
+          >
+            Location is off. Showing shops you follow. Tap to enable Nearby.
+          </button>
+        ) : null}
+        {feedTab === "nearby" && location.status === "granted" && location.coords ? (
+          <p className="bg-[#E8F5EE] px-4 py-1.5 text-[12px] font-semibold text-[#1F7A4D]">
+            Shops within {NEARBY_RADIUS_KM} km of you
+          </p>
+        ) : null}
+        <StoriesRow
+          rings={storiesQuery.data ?? []}
+          canCreate={Boolean(businessQuery.data?.business)}
+          onOpen={setStoryBusinessId}
+        />
 
         <FeedActionsContext.Provider value={feedActions}>
         <div
@@ -768,7 +851,9 @@ export function VideoFeedScreen({ initialVideoId }: { initialVideoId?: string })
               </p>
               <p className="text-sm text-muted-foreground">
                 {feedTab === "nearby"
-                  ? "Open Nearby to find shops around you."
+                  ? location.status === "denied"
+                    ? "Turn on location to see shops around you, or follow shops you already know."
+                    : "No live posts within 15 km yet. Follow shops or open the map."
                   : "When a shop posts a photo or video, it appears here."}
               </p>
               <Button asChild className="min-h-11 rounded-full bg-primary font-bold hover:bg-primary/90">
@@ -925,6 +1010,18 @@ export function VideoFeedScreen({ initialVideoId }: { initialVideoId?: string })
           ) : null}
         </SheetContent>
       </Sheet>
+
+      {storyBusinessId ? (
+        <StoryViewer
+          rings={(storiesQuery.data ?? []) as StoryRing[]}
+          startBusinessId={storyBusinessId}
+          profileId={profile?.id ?? null}
+          onClose={() => {
+            setStoryBusinessId(null);
+            void queryClient.invalidateQueries({ queryKey: ["live-stories"] });
+          }}
+        />
+      ) : null}
 
       <ShareSheet
         open={Boolean(shareTarget)}
@@ -1334,7 +1431,12 @@ const VideoSlide = memo(function VideoSlide({
   const { t } = useTranslation();
   const featured = products[0] ?? null;
   const when = timeAgo(video.published_at ?? video.created_at);
-  const place = video.category_name;
+  const place = [
+    video.distance_km != null ? formatDistance(video.distance_km) : null,
+    video.public_location_label ?? video.location_text,
+  ]
+    .filter(Boolean)
+    .join(" · ");
   const [burst, setBurst] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const onMediaTap = useDoubleTap(
@@ -1443,6 +1545,26 @@ const VideoSlide = memo(function VideoSlide({
                 <Play className="size-8 fill-white text-white" />
               </span>
             ) : null}
+            {featured ? (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  actions.onAddProduct(video, featured);
+                }}
+                className="absolute bottom-3 left-3 z-[3] rounded-full bg-[#00B86B] px-3 py-2 text-[12px] font-extrabold text-white shadow"
+              >
+                Shop Now
+              </button>
+            ) : (
+              <Link
+                to="/b/$slug"
+                params={{ slug: shopLinkSlug(video.slug, video.business_id) }}
+                className="absolute bottom-3 left-3 z-[3] rounded-full bg-[#0A2540] px-3 py-2 text-[12px] font-extrabold text-white shadow"
+              >
+                View Business
+              </Link>
+            )}
             <button
               type="button"
               className="absolute bottom-3 right-3 z-[3] flex size-11 items-center justify-center rounded-full bg-black/55 text-white"

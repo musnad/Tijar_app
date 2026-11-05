@@ -43,6 +43,8 @@ function mergeShopRow(map: Map<string, ShopNameRow>, row: ShopNameRow) {
     business_name: preferNewName ? row.business_name : existing.business_name,
     slug: existing.slug?.trim() || row.slug,
     logo_url: existing.logo_url || row.logo_url,
+    latitude: existing.latitude ?? row.latitude,
+    longitude: existing.longitude ?? row.longitude,
     is_verified: existing.is_verified || row.is_verified,
     verification_status: existing.verification_status ?? row.verification_status,
     category_id: existing.category_id ?? row.category_id,
@@ -59,6 +61,8 @@ export type ShopNameRow = {
   verification_status?: string | null;
   category_id?: string | null;
   category_name?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
 };
 
 export async function lookupShopProfiles(ids: string[]): Promise<Map<string, ShopNameRow>> {
@@ -69,7 +73,7 @@ export async function lookupShopProfiles(ids: string[]): Promise<Map<string, Sho
   const supabase = getSupabaseBrowserClient();
   const publicRows = await supabase
     .from("public_marketplace_businesses")
-    .select("id, slug, business_name, logo_url, is_verified, verification_status, category_id, category_name")
+    .select("id, slug, business_name, logo_url, is_verified, verification_status, category_id, category_name, latitude, longitude")
     .in("id", unique);
   for (const row of publicRows.data ?? []) {
     mergeShopRow(map, {
@@ -81,6 +85,8 @@ export async function lookupShopProfiles(ids: string[]): Promise<Map<string, Sho
       verification_status: (row.verification_status as string | null) ?? null,
       category_id: (row.category_id as string | null) ?? null,
       category_name: (row.category_name as string | null) ?? null,
+      latitude: row.latitude != null ? Number(row.latitude) : null,
+      longitude: row.longitude != null ? Number(row.longitude) : null,
     });
   }
 
@@ -91,7 +97,7 @@ export async function lookupShopProfiles(ids: string[]): Promise<Map<string, Sho
 
   const listings = await supabase
     .from("public_business_listings")
-    .select("id, slug, business_name, logo_url, is_verified, verification_status, category_id, category_name")
+    .select("id, slug, business_name, logo_url, is_verified, verification_status, category_id, category_name, latitude, longitude")
     .in("id", missing);
   for (const row of listings.data ?? []) {
     mergeShopRow(map, {
@@ -103,6 +109,8 @@ export async function lookupShopProfiles(ids: string[]): Promise<Map<string, Sho
       verification_status: (row.verification_status as string | null) ?? null,
       category_id: (row.category_id as string | null) ?? null,
       category_name: (row.category_name as string | null) ?? null,
+      latitude: row.latitude != null ? Number(row.latitude) : null,
+      longitude: row.longitude != null ? Number(row.longitude) : null,
     });
   }
 
@@ -110,7 +118,7 @@ export async function lookupShopProfiles(ids: string[]): Promise<Map<string, Sho
     (id) => !map.has(id) || isBlankShopName(map.get(id)?.business_name) || !map.get(id)?.slug?.trim(),
   );
   if (still.length > 0) {
-    const owned = await supabase.from("businesses").select("id, public_slug, business_name, logo_url, verification_status, category_id").in("id", still);
+    const owned = await supabase.from("businesses").select("id, public_slug, business_name, logo_url, verification_status, category_id, latitude, longitude").in("id", still);
     for (const row of owned.data ?? []) {
       mergeShopRow(map, {
         id: row.id as string,
@@ -119,6 +127,8 @@ export async function lookupShopProfiles(ids: string[]): Promise<Map<string, Sho
         logo_url: (row.logo_url as string | null) ?? null,
         verification_status: (row.verification_status as string | null) ?? null,
         category_id: (row.category_id as string | null) ?? null,
+        latitude: row.latitude != null ? Number(row.latitude) : null,
+        longitude: row.longitude != null ? Number(row.longitude) : null,
       });
     }
   }

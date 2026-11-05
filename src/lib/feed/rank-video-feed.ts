@@ -1,7 +1,10 @@
 /**
  * Explainable, rule-based For You ranking. Not machine learning.
  * Paid/sponsored items never outrank organic unless the shopper already follows that seller.
+ * Nearby shops (real GPS) outrank distant ones so the feed feels local.
  */
+
+import { haversineKm } from "@/utils/discover";
 
 export type VideoAttribution = "business" | "creator" | "sponsored" | "ai_assisted";
 
@@ -18,6 +21,8 @@ export type RankableVideo = {
   attribution: VideoAttribution;
   hasAvailableProduct: boolean;
   sellerPublishedAt?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
 };
 
 export type ViewerSignals = {
@@ -29,6 +34,8 @@ export type ViewerSignals = {
   mutedProfileIds: string[];
   searchQuery?: string;
   videoCaptions?: Record<string, string>;
+  viewerLat?: number | null;
+  viewerLng?: number | null;
 };
 
 export type RankBreakdown = {
@@ -47,6 +54,32 @@ const NEW_SELLER = 9;
 const QUALITY = 4;
 const SEARCH = 18;
 const SPONSORED_PENALTY = 25;
+const NEARBY_CLOSE = 55;
+const NEARBY_MID = 32;
+const NEARBY_CITY = 8;
+
+export const NEARBY_RADIUS_KM = 15;
+export const CLOSE_RADIUS_KM = 5;
+
+export function shopDistanceKm(
+  video: Pick<RankableVideo, "latitude" | "longitude">,
+  viewer: Pick<ViewerSignals, "viewerLat" | "viewerLng">,
+): number | null {
+  if (
+    viewer.viewerLat == null ||
+    viewer.viewerLng == null ||
+    video.latitude == null ||
+    video.longitude == null ||
+    !Number.isFinite(video.latitude) ||
+    !Number.isFinite(video.longitude)
+  ) {
+    return null;
+  }
+  return haversineKm(
+    { lat: viewer.viewerLat, lng: viewer.viewerLng },
+    { lat: video.latitude, lng: video.longitude },
+  );
+}
 
 function daysSince(iso: string | null | undefined): number {
   if (!iso) return 999;
@@ -71,6 +104,20 @@ export function scoreVideo(video: RankableVideo, viewer: ViewerSignals): RankBre
   }
   if (viewer.mutedProfileIds.includes(video.profileId)) {
     return { videoId: video.id, score: -5_000, reasons: ["muted creator"] };
+  }
+
+  const km = shopDistanceKm(video, viewer);
+  if (km != null) {
+    if (km <= CLOSE_RADIUS_KM) {
+      score += NEARBY_CLOSE;
+      reasons.push("within 5 km");
+    } else if (km <= NEARBY_RADIUS_KM) {
+      score += NEARBY_MID;
+      reasons.push("nearby");
+    } else if (km <= 40) {
+      score += NEARBY_CITY;
+      reasons.push("same city");
+    }
   }
 
   const followed = viewer.followedBusinessIds.includes(video.businessId);

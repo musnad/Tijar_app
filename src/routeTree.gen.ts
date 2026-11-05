@@ -65,6 +65,7 @@ import { Route as ShopCartRouteImport } from './routes/shop/cart'
 import { Route as ShopCheckoutRouteImport } from './routes/shop/checkout'
 import { Route as ShopCreateRouteImport } from './routes/shop/create'
 import { Route as ShopCreateOrderRouteImport } from './routes/shop/create-order'
+import { Route as ShopCreateStoryRouteImport } from './routes/shop/create-story'
 import { Route as ShopDiscoverRouteImport } from './routes/shop/discover'
 import { Route as ShopEditProfileRouteImport } from './routes/shop/edit-profile'
 import { Route as ShopEnquiriesRouteImport } from './routes/shop/enquiries'
@@ -409,6 +410,11 @@ const ShopCreateRoute = ShopCreateRouteImport.update({
 const ShopCreateOrderRoute = ShopCreateOrderRouteImport.update({
   id: '/create-order',
   path: '/create-order',
+  getParentRoute: () => ShopRoute,
+} as any)
+const ShopCreateStoryRoute = ShopCreateStoryRouteImport.update({
+  id: '/create-story',
+  path: '/create-story',
   getParentRoute: () => ShopRoute,
 } as any)
 const ShopDiscoverRoute = ShopDiscoverRouteImport.update({
@@ -793,6 +799,7 @@ export interface FileRoutesByFullPath {
   '/shop/checkout': typeof ShopCheckoutRoute
   '/shop/create': typeof ShopCreateRoute
   '/shop/create-order': typeof ShopCreateOrderRoute
+  '/shop/create-story': typeof ShopCreateStoryRoute
   '/shop/discover': typeof ShopDiscoverRoute
   '/shop/edit-profile': typeof ShopEditProfileRoute
   '/shop/enquiries': typeof ShopEnquiriesRouteWithChildren
@@ -912,6 +919,7 @@ export interface FileRoutesByTo {
   '/shop/checkout': typeof ShopCheckoutRoute
   '/shop/create': typeof ShopCreateRoute
   '/shop/create-order': typeof ShopCreateOrderRoute
+  '/shop/create-story': typeof ShopCreateStoryRoute
   '/shop/discover': typeof ShopDiscoverRoute
   '/shop/edit-profile': typeof ShopEditProfileRoute
   '/shop/favorites': typeof ShopFavoritesRoute
@@ -1033,6 +1041,7 @@ export interface FileRoutesById {
   '/shop/checkout': typeof ShopCheckoutRoute
   '/shop/create': typeof ShopCreateRoute
   '/shop/create-order': typeof ShopCreateOrderRoute
+  '/shop/create-story': typeof ShopCreateStoryRoute
   '/shop/discover': typeof ShopDiscoverRoute
   '/shop/edit-profile': typeof ShopEditProfileRoute
   '/shop/enquiries': typeof ShopEnquiriesRouteWithChildren
@@ -1158,6 +1167,7 @@ export interface FileRouteTypes {
     | '/shop/checkout'
     | '/shop/create'
     | '/shop/create-order'
+    | '/shop/create-story'
     | '/shop/discover'
     | '/shop/edit-profile'
     | '/shop/enquiries'
@@ -1277,6 +1287,7 @@ export interface FileRouteTypes {
     | '/shop/checkout'
     | '/shop/create'
     | '/shop/create-order'
+    | '/shop/create-story'
     | '/shop/discover'
     | '/shop/edit-profile'
     | '/shop/favorites'
@@ -1397,6 +1408,7 @@ export interface FileRouteTypes {
     | '/shop/checkout'
     | '/shop/create'
     | '/shop/create-order'
+    | '/shop/create-story'
     | '/shop/discover'
     | '/shop/edit-profile'
     | '/shop/enquiries'
@@ -1896,6 +1908,13 @@ declare module '@tanstack/react-router' {
       path: '/create-order'
       fullPath: '/shop/create-order'
       preLoaderRoute: typeof ShopCreateOrderRouteImport
+      parentRoute: typeof ShopRoute
+    }
+    '/shop/create-story': {
+      id: '/shop/create-story'
+      path: '/create-story'
+      fullPath: '/shop/create-story'
+      preLoaderRoute: typeof ShopCreateStoryRouteImport
       parentRoute: typeof ShopRoute
     }
     '/shop/discover': {
@@ -2573,6 +2592,7 @@ interface ShopRouteChildren {
   ShopCheckoutRoute: typeof ShopCheckoutRoute
   ShopCreateRoute: typeof ShopCreateRoute
   ShopCreateOrderRoute: typeof ShopCreateOrderRoute
+  ShopCreateStoryRoute: typeof ShopCreateStoryRoute
   ShopDiscoverRoute: typeof ShopDiscoverRoute
   ShopEditProfileRoute: typeof ShopEditProfileRoute
   ShopEnquiriesRoute: typeof ShopEnquiriesRouteWithChildren
@@ -2605,6 +2625,7 @@ const ShopRouteChildren: ShopRouteChildren = {
   ShopCheckoutRoute: ShopCheckoutRoute,
   ShopCreateRoute: ShopCreateRoute,
   ShopCreateOrderRoute: ShopCreateOrderRoute,
+  ShopCreateStoryRoute: ShopCreateStoryRoute,
   ShopDiscoverRoute: ShopDiscoverRoute,
   ShopEditProfileRoute: ShopEditProfileRoute,
   ShopEnquiriesRoute: ShopEnquiriesRouteWithChildren,

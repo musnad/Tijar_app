@@ -1,5 +1,11 @@
 import { isMockFeedId } from "@/features/marketplace/feed-mock";
-import { type ViewerSignals, type VideoAttribution } from "@/lib/feed/rank-video-feed";
+import {
+  NEARBY_RADIUS_KM,
+  rankVideoFeed,
+  shopDistanceKm,
+  type ViewerSignals,
+  type VideoAttribution,
+} from "@/lib/feed/rank-video-feed";
 import {
   isFollowingShop,
   listFollowedShopIds,
@@ -39,6 +45,9 @@ export type PublicFeedVideo = {
   category_name: string | null;
   location_text: string | null;
   public_location_label: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  distance_km?: number | null;
   product_ids: string[];
   media_kind?: "video" | "image" | string | null;
   /** Standalone display price for a photo/video post. */
@@ -233,7 +242,7 @@ async function loadFeedFromPosts(
   const businessIds = [...new Set(list.map((r) => r.business_id as string))];
   const postIds = list.map((r) => r.id as string);
   const [shops, tags] = await Promise.all([
-    supabase.from("public_marketplace_businesses").select("id, slug, business_name, logo_url, is_verified, verification_status, category_id, category_name, location_text, public_location_label").in("id", businessIds),
+    supabase.from("public_marketplace_businesses").select("id, slug, business_name, logo_url, is_verified, verification_status, category_id, category_name, location_text, public_location_label, latitude, longitude").in("id", businessIds),
     supabase.from("video_post_products").select("video_post_id, product_id, sort_order").in("video_post_id", postIds),
   ]);
   const shopById = new Map((shops.data ?? []).map((s) => [s.id as string, s]));
@@ -275,6 +284,8 @@ async function loadFeedFromPosts(
       category_name: (shop?.category_name as string | null | undefined) ?? null,
       location_text: (shop?.location_text as string | null | undefined) ?? null,
       public_location_label: (shop?.public_location_label as string | null | undefined) ?? null,
+      latitude: shop?.latitude != null ? Number(shop.latitude) : null,
+      longitude: shop?.longitude != null ? Number(shop.longitude) : null,
       product_ids: tagsByPost.get(row.id as string) ?? [],
       media_kind: ((row as { media_kind?: string }).media_kind as PublicFeedVideo["media_kind"]) ?? null,
     };
@@ -306,11 +317,16 @@ async function attachShopNames(videos: PublicFeedVideo[]): Promise<PublicFeedVid
       verification_status: shop?.verification_status ?? video.verification_status,
       category_id: shop?.category_id ?? video.category_id,
       category_name: shop?.category_name ?? video.category_name,
+      latitude: shop?.latitude ?? video.latitude ?? null,
+      longitude: shop?.longitude ?? video.longitude ?? null,
     };
   });
 }
 
-export async function fetchFeedViewerSignals(profileId: string | null): Promise<ViewerSignals> {
+export async function fetchFeedViewerSignals(
+  profileId: string | null,
+  geo?: { lat: number; lng: number } | null,
+): Promise<ViewerSignals> {
   const empty: ViewerSignals = {
     followedBusinessIds: [],
     preferredCategoryIds: [],
@@ -318,6 +334,8 @@ export async function fetchFeedViewerSignals(profileId: string | null): Promise<
     completedVideoIds: [],
     blockedProfileIds: [],
     mutedProfileIds: [],
+    viewerLat: geo?.lat ?? null,
+    viewerLng: geo?.lng ?? null,
   };
   if (!profileId) return empty;
   const supabase = getSupabaseBrowserClient();
@@ -336,12 +354,20 @@ export async function fetchFeedViewerSignals(profileId: string | null): Promise<
     completedVideoIds: (completes.data ?? []).map((r) => r.video_post_id as string),
     blockedProfileIds: (blocks.data ?? []).map((r) => r.blocked_profile_id as string),
     mutedProfileIds: (mutes.data ?? []).map((r) => r.muted_profile_id as string),
+    viewerLat: geo?.lat ?? null,
+    viewerLng: geo?.lng ?? null,
   };
 }
 
 export async function rankAndLoadFeed(
   profileId: string | null,
-  opts?: { limit?: number; before?: string | null },
+  opts?: {
+    limit?: number;
+    before?: string | null;
+    viewerLat?: number | null;
+    viewerLng?: number | null;
+    nearbyOnly?: boolean;
+  },
 ): Promise<{
   videos: PublicFeedVideo[];
   nextCursor: string | null;
@@ -349,29 +375,61 @@ export async function rankAndLoadFeed(
 }> {
   const limit = opts?.limit ?? FEED_PAGE_SIZE;
   const before = opts?.before ?? null;
+  const geo =
+    opts?.viewerLat != null && opts?.viewerLng != null
+      ? { lat: opts.viewerLat, lng: opts.viewerLng }
+      : null;
+  const fetchLimit = geo || opts?.nearbyOnly ? Math.max(limit * 4, 48) : limit;
 
-  // Load the newest posts and the viewer signals in parallel: the feed used to
-  // await them one after another, which made the first paint feel slow.
   const [raw, signals] = await Promise.all([
-    fetchPublicVideoFeed({ limit, before }),
-    fetchFeedViewerSignals(profileId),
+    fetchPublicVideoFeed({ limit: fetchLimit, before }),
+    fetchFeedViewerSignals(profileId, geo),
   ]);
   if (raw.error) return { videos: [], nextCursor: null, error: raw.error };
 
-  const last = raw.videos[raw.videos.length - 1];
-  const nextCursor = raw.videos.length >= limit ? (last?.published_at ?? last?.created_at ?? null) : null;
-
   const blocked = new Set(signals.blockedProfileIds);
   const muted = new Set(signals.mutedProfileIds);
-  const videos = raw.videos
-    .filter((v) => !blocked.has(v.profile_id) && !muted.has(v.profile_id))
-    .sort((a, b) => {
-      const at = new Date(a.published_at ?? a.created_at).getTime();
-      const bt = new Date(b.published_at ?? b.created_at).getTime();
-      return bt - at;
-    });
+  const visible = raw.videos.filter((v) => !blocked.has(v.profile_id) && !muted.has(v.profile_id));
 
-  return { videos, nextCursor, error: null };
+  const withDistance = visible.map((video) => ({
+    ...video,
+    distance_km: shopDistanceKm(
+      { latitude: video.latitude, longitude: video.longitude },
+      signals,
+    ),
+  }));
+
+  const pool = opts?.nearbyOnly
+    ? geo
+      ? withDistance.filter((v) => v.distance_km != null && v.distance_km <= NEARBY_RADIUS_KM)
+      : withDistance.filter((v) => signals.followedBusinessIds.includes(v.business_id))
+    : withDistance;
+
+  const ranked = rankVideoFeed(
+    pool.map((v) => ({
+      id: v.id,
+      businessId: v.business_id,
+      profileId: v.profile_id,
+      categoryId: v.category_id,
+      productIds: v.product_ids ?? [],
+      publishedAt: v.published_at,
+      createdAt: v.created_at,
+      likeCount: v.like_count,
+      viewCount: v.view_count,
+      attribution: v.attribution,
+      hasAvailableProduct: (v.product_ids ?? []).length > 0,
+      latitude: v.latitude,
+      longitude: v.longitude,
+    })),
+    signals,
+  );
+  const byId = new Map(pool.map((v) => [v.id, v]));
+  const videos = ranked.map((row) => byId.get(row.videoId)).filter(Boolean) as PublicFeedVideo[];
+  const page = videos.slice(0, limit);
+  const last = raw.videos[raw.videos.length - 1];
+  const nextCursor = raw.videos.length >= fetchLimit ? (last?.published_at ?? last?.created_at ?? null) : null;
+
+  return { videos: page, nextCursor, error: null };
 }
 
 export async function fetchLiveProductsByIds(ids: string[]): Promise<{

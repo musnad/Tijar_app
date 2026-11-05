@@ -69,6 +69,32 @@ describe("scoreVideo", () => {
     const r = scoreVideo(newbie, emptyViewer);
     expect(r.reasons).toContain("new seller discovery boost");
   });
+
+  it("ranks a nearby shop above a distant followed shop", () => {
+    const nearby = video({
+      id: "near",
+      businessId: "biz-near",
+      latitude: 6.5244,
+      longitude: 3.3792,
+      hasAvailableProduct: false,
+    });
+    const distantFollowed = video({
+      id: "far",
+      businessId: "biz-far",
+      latitude: 12.0022,
+      longitude: 8.592,
+      hasAvailableProduct: false,
+    });
+    const viewer: ViewerSignals = {
+      ...emptyViewer,
+      followedBusinessIds: ["biz-far"],
+      viewerLat: 6.5244,
+      viewerLng: 3.3792,
+    };
+    const ranked = rankVideoFeed([distantFollowed, nearby], viewer);
+    expect(ranked[0]?.videoId).toBe("near");
+    expect(ranked.find((x) => x.videoId === "near")?.reasons).toContain("within 5 km");
+  });
 });
 
 describe("applyOrganicInterleave", () => {
