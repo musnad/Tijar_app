@@ -13,12 +13,15 @@ import {
   MessageCircle,
   MoreHorizontal,
   Pencil,
+  Play,
   Send,
   Share2,
   ShoppingBag,
   ShoppingCart,
   Trash2,
   UtensilsCrossed,
+  Volume2,
+  VolumeX,
 } from "lucide-react";
 import {
   createContext,
@@ -113,6 +116,7 @@ type FeedTab = "foryou" | "following" | "nearby";
 
 const POSITION_KEY = "tijar-for-you-video-id";
 const DATA_SAVER_KEY = "tijar-feed-data-saver";
+const FEED_MUTE_KEY = "tijar-feed-muted";
 const EMPTY_VIDEOS: PublicFeedVideo[] = [];
 const EMPTY_PRODUCTS: PublicProduct[] = [];
 const SLIDE_STYLE = {
@@ -251,6 +255,10 @@ export function VideoFeedScreen({ initialVideoId }: { initialVideoId?: string })
     return window.localStorage.getItem(DATA_SAVER_KEY) === "1";
   });
   const [paused, setPaused] = useState(false);
+  const [feedMuted, setFeedMuted] = useState(() => {
+    if (typeof window === "undefined") return true;
+    return window.localStorage.getItem(FEED_MUTE_KEY) !== "0";
+  });
   const [productsOpen, setProductsOpen] = useState(false);
   const [commentsOpen, setCommentsOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
@@ -492,6 +500,15 @@ export function VideoFeedScreen({ initialVideoId }: { initialVideoId?: string })
     [patchFeedStat, profile?.id, queryClient],
   );
 
+  const toggleFeedMute = useCallback(() => {
+    setFeedMuted((prev) => {
+      const next = !prev;
+      window.localStorage.setItem(FEED_MUTE_KEY, next ? "1" : "0");
+      haptic();
+      return next;
+    });
+  }, []);
+
   const feedActions = useMemo<FeedActions>(
     () => ({
       onTogglePause: () => setPaused((p) => !p),
@@ -731,6 +748,8 @@ export function VideoFeedScreen({ initialVideoId }: { initialVideoId?: string })
                 video={video}
                 active={isActive}
                 paused={paused}
+                muted={feedMuted}
+                onToggleMute={toggleFeedMute}
                 mounted={mountMedia}
                 preload={isActive || (!dataSaver && isNext)}
                 eagerPreload={isNext}
@@ -1257,6 +1276,8 @@ const VideoSlide = memo(function VideoSlide({
   video,
   active,
   paused,
+  muted,
+  onToggleMute,
   mounted,
   preload,
   eagerPreload,
@@ -1267,6 +1288,8 @@ const VideoSlide = memo(function VideoSlide({
   video: PublicFeedVideo;
   active: boolean;
   paused: boolean;
+  muted: boolean;
+  onToggleMute: () => void;
   mounted: boolean;
   preload: boolean;
   eagerPreload: boolean;
@@ -1284,24 +1307,29 @@ const VideoSlide = memo(function VideoSlide({
   useEffect(() => {
     const el = ref.current;
     if (!el || image) return;
-    el.muted = true;
-    el.defaultMuted = true;
+    el.muted = muted;
+    el.defaultMuted = muted;
+    el.volume = 1;
     el.playsInline = true;
     el.loop = true;
     if (active && !paused) {
       const play = () => {
+        el.muted = muted;
         const attempt = el.play();
-        if (attempt) void attempt.catch(() => {
-          el.muted = true;
-          void el.play().catch(() => undefined);
-        });
+        if (attempt)
+          void attempt.catch(() => {
+            if (!el.muted) {
+              el.muted = true;
+              void el.play().catch(() => undefined);
+            }
+          });
       };
       if (el.readyState >= 2) play();
       else el.addEventListener("canplay", play, { once: true });
       return () => el.removeEventListener("canplay", play);
     }
     el.pause();
-  }, [active, paused, image, src, mounted]);
+  }, [active, paused, muted, image, src, mounted]);
 
   const { t } = useTranslation();
   const featured = products[0] ?? null;
@@ -1378,8 +1406,8 @@ const VideoSlide = memo(function VideoSlide({
             className="h-full w-full object-cover"
             src={src}
             poster={poster}
-            autoPlay={active}
-            muted
+            autoPlay={active && !paused}
+            muted={muted}
             playsInline
             loop
             preload={preload || active ? "auto" : "metadata"}
@@ -1399,15 +1427,33 @@ const VideoSlide = memo(function VideoSlide({
           <div className="h-full w-full bg-zinc-200" />
         )}
         {image ? null : (
-          <button
-            type="button"
-            className="absolute inset-0"
-            aria-label={t("shop.feed.doubleTap")}
-            onClick={onMediaTap}
-          />
+          <>
+            <button
+              type="button"
+              className="absolute inset-0 z-[1]"
+              aria-label={paused ? t("shop.feed.play") : t("shop.feed.pause")}
+              onClick={onMediaTap}
+            />
+            {paused && active ? (
+              <span className="pointer-events-none absolute left-1/2 top-1/2 z-[2] flex size-16 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-black/45">
+                <Play className="size-8 fill-white text-white" />
+              </span>
+            ) : null}
+            <button
+              type="button"
+              className="absolute bottom-3 right-3 z-[3] flex size-11 items-center justify-center rounded-full bg-black/55 text-white"
+              aria-label={muted ? t("shop.feed.unmute") : t("shop.feed.mute")}
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggleMute();
+              }}
+            >
+              {muted ? <VolumeX className="size-5" /> : <Volume2 className="size-5" />}
+            </button>
+          </>
         )}
         {burst ? (
-          <Heart className="pointer-events-none absolute left-1/2 top-1/2 size-16 -translate-x-1/2 -translate-y-1/2 fill-red-500 text-red-500 will-change-transform [animation:feed-heart_450ms_ease-out]" />
+          <Heart className="pointer-events-none absolute left-1/2 top-1/2 z-[2] size-16 -translate-x-1/2 -translate-y-1/2 fill-red-500 text-red-500 will-change-transform [animation:feed-heart_450ms_ease-out]" />
         ) : null}
         {!isBidPost(video) && video.price != null ? (
           <span className="pointer-events-none absolute left-3 top-3 rounded-full bg-black/60 px-2.5 py-1 text-[13px] font-extrabold text-white">

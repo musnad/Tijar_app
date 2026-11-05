@@ -7,6 +7,25 @@ export const MAX_VIDEO_MS = 30_000;
 export const MIN_VIDEO_SEC = 3;
 export const MAX_VIDEO_SEC = 30;
 
+/** Prefer a container that keeps the microphone, not video-only VP9. */
+export function pickVideoRecorderMime(): string {
+  if (typeof MediaRecorder === "undefined") return "";
+  const candidates = [
+    "video/mp4",
+    "video/webm;codecs=vp9,opus",
+    "video/webm;codecs=vp8,opus",
+    "video/webm;codecs=vp9,vorbis",
+    "video/webm",
+  ];
+  return candidates.find((type) => MediaRecorder.isTypeSupported(type)) ?? "";
+}
+
+export function videoFileFromRecording(blob: Blob, mimeType: string, prefix: string): File {
+  const type = (mimeType || blob.type || "video/webm").split(";")[0] || "video/webm";
+  const ext = type.includes("mp4") ? "mp4" : "webm";
+  return new File([blob], `${prefix}-${Date.now()}.${ext}`, { type });
+}
+
 export type DetectedVideoKind = "mp4" | "webm";
 export type DetectedImageKind = "jpeg" | "png" | "webp" | "gif";
 

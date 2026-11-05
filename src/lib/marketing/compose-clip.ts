@@ -1,4 +1,5 @@
 import { loadImage } from "@/lib/marketing/resize-image";
+import { pickVideoRecorderMime } from "@/lib/video/file-guard";
 
 export async function composeAdvertClip(input: {
   photoUrl: string;
@@ -40,11 +41,8 @@ export async function composeAdvertClip(input: {
 
   const canvasStream = canvas.captureStream(16);
   const mixed = new MediaStream([...canvasStream.getVideoTracks(), ...dest.stream.getAudioTracks()]);
-  const mime = MediaRecorder.isTypeSupported("video/webm;codecs=vp9,opus")
-    ? "video/webm;codecs=vp9,opus"
-    : MediaRecorder.isTypeSupported("video/webm")
-      ? "video/webm"
-      : "";
+  await audioCtx.resume().catch(() => undefined);
+  const mime = pickVideoRecorderMime();
   const rec = mime ? new MediaRecorder(mixed, { mimeType: mime, videoBitsPerSecond: 1_200_000 }) : new MediaRecorder(mixed);
   const chunks: Blob[] = [];
   rec.ondataavailable = (ev) => {

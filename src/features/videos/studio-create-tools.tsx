@@ -18,7 +18,7 @@ import {
   type StudioGoal,
   type StudioStyle,
 } from "@/lib/marketing/draft-content";
-import { MIN_VIDEO_MS, MIN_VIDEO_SEC, MAX_VIDEO_MS, MAX_VIDEO_SEC } from "@/lib/video/file-guard";
+import { MIN_VIDEO_MS, MIN_VIDEO_SEC, MAX_VIDEO_MS, MAX_VIDEO_SEC, pickVideoRecorderMime, videoFileFromRecording } from "@/lib/video/file-guard";
 import { dataUrlToFile, fileToJpegDataUrl, urlToJpegDataUrl } from "@/lib/marketing/resize-image";
 import type { Locale } from "@/lib/i18n/types";
 import { cn } from "@/lib/utils";
@@ -302,7 +302,7 @@ export function StudioCreateTools({
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: { ideal: "user" } },
-        audio: true,
+        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
       });
       streamRef.current = stream;
       setCamLive(true);
@@ -323,49 +323,62 @@ export function StudioCreateTools({
       void openCam();
       return;
     }
-    const audioCtx = new AudioContext();
-    const dest = audioCtx.createMediaStreamDestination();
-    try {
-      audioCtx.createMediaStreamSource(cam).connect(dest);
-    } catch {
-      /* video-only devices */
-    }
-    const pad = audioCtx.createGain();
-    pad.gain.value = bgLevel;
-    startCutePad(audioCtx, pad);
-    pad.connect(dest);
-    const mixed = new MediaStream([...cam.getVideoTracks(), ...dest.stream.getAudioTracks()]);
-    const rec = new MediaRecorder(mixed);
-    const chunks: Blob[] = [];
-    rec.ondataavailable = (ev) => {
-      if (ev.data.size) chunks.push(ev.data);
-    };
-    rec.onstop = () => {
-      void audioCtx.close();
-      setRecording(false);
-      const elapsed = performance.now() - recStarted.current;
-      if (elapsed < MIN_VIDEO_MS) {
-        toast.error(`Hold at least ${MIN_VIDEO_SEC} seconds so the clip can post.`);
+    void (async () => {
+      cam.getAudioTracks().forEach((t) => {
+        t.enabled = true;
+      });
+      const audioCtx = new AudioContext();
+      await audioCtx.resume().catch(() => undefined);
+      const dest = audioCtx.createMediaStreamDestination();
+      try {
+        audioCtx.createMediaStreamSource(cam).connect(dest);
+      } catch {
+        /* video-only devices */
+      }
+      const pad = audioCtx.createGain();
+      pad.gain.value = bgLevel;
+      startCutePad(audioCtx, pad);
+      pad.connect(dest);
+      const audioTracks = dest.stream.getAudioTracks().length ? dest.stream.getAudioTracks() : cam.getAudioTracks();
+      if (!audioTracks.length) {
+        await audioCtx.close().catch(() => undefined);
+        toast.error("Microphone is off. Allow the mic so the clip has sound.");
         return;
       }
-      const blob = new Blob(chunks, { type: rec.mimeType || "video/webm" });
-      const file = new File([blob], `tijar-self-${Date.now()}.webm`, { type: blob.type });
-      setPreview({
-        kind: "video",
-        url: URL.createObjectURL(file),
-        file,
-        durationHintMs: Math.min(MAX_VIDEO_MS, Math.round(elapsed)),
-      });
-      stopCam();
-      toast.success("Recording ready.");
-    };
-    recRef.current = rec;
-    recStarted.current = performance.now();
-    rec.start(200);
-    setRecording(true);
-    window.setTimeout(() => {
-      if (rec.state !== "inactive") rec.stop();
-    }, MAX_VIDEO_MS);
+      const mixed = new MediaStream([...cam.getVideoTracks(), ...audioTracks]);
+      const mime = pickVideoRecorderMime();
+      const rec = mime ? new MediaRecorder(mixed, { mimeType: mime }) : new MediaRecorder(mixed);
+      const chunks: Blob[] = [];
+      rec.ondataavailable = (ev) => {
+        if (ev.data.size) chunks.push(ev.data);
+      };
+      rec.onstop = () => {
+        void audioCtx.close();
+        setRecording(false);
+        const elapsed = performance.now() - recStarted.current;
+        if (elapsed < MIN_VIDEO_MS) {
+          toast.error(`Hold at least ${MIN_VIDEO_SEC} seconds so the clip can post.`);
+          return;
+        }
+        const blob = new Blob(chunks, { type: rec.mimeType || "video/webm" });
+        const file = videoFileFromRecording(blob, rec.mimeType || blob.type, "tijar-self");
+        setPreview({
+          kind: "video",
+          url: URL.createObjectURL(file),
+          file,
+          durationHintMs: Math.min(MAX_VIDEO_MS, Math.round(elapsed)),
+        });
+        stopCam();
+        toast.success("Recording ready.");
+      };
+      recRef.current = rec;
+      recStarted.current = performance.now();
+      rec.start(200);
+      setRecording(true);
+      window.setTimeout(() => {
+        if (rec.state !== "inactive") rec.stop();
+      }, MAX_VIDEO_MS);
+    })();
   }
 
   const examples = STUDIO_EXAMPLE_PROMPTS[locale] ?? STUDIO_EXAMPLE_PROMPTS.en;

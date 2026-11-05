@@ -13,6 +13,7 @@ import {
   Globe,
   Menu,
   Pencil,
+  Pause,
   Play,
   Plus,
   ShoppingBag,
@@ -20,6 +21,7 @@ import {
   Tag,
   Video,
   Volume2,
+  VolumeX,
   X,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -29,7 +31,7 @@ import { TijarLogo } from "@/components/brand-logo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { haptic } from "@/lib/haptics";
-import { inspectShoppingMedia, MAX_VIDEO_SEC, MIN_VIDEO_SEC } from "@/lib/video/file-guard";
+import { inspectShoppingMedia, MAX_VIDEO_SEC, MIN_VIDEO_SEC, pickVideoRecorderMime, videoFileFromRecording } from "@/lib/video/file-guard";
 import { cn } from "@/lib/utils";
 import { uploadProductImage } from "@/services/product-image-service";
 import { createProduct, listProducts, updateProductImageUrl } from "@/services/product-service";
@@ -92,6 +94,8 @@ export function SellerVideoStudioScreen({
   const [camLive, setCamLive] = useState(false);
   const [facing, setFacing] = useState<"user" | "environment">("environment");
   const [recording, setRecording] = useState(false);
+  const [previewPlaying, setPreviewPlaying] = useState(false);
+  const [previewMuted, setPreviewMuted] = useState(false);
   const [recordSec, setRecordSec] = useState(0);
   const [permNote, setPermNote] = useState<string | null>(null);
   const [progress, setProgress] = useState<{ pct: number; label: string } | null>(null);
@@ -267,7 +271,7 @@ export function SellerVideoStudioScreen({
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: { ideal: nextFacing }, width: { ideal: 720 }, height: { ideal: 1280 } },
-        audio: true,
+        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
       });
       streamRef.current = stream;
       setFacing(nextFacing);
@@ -301,11 +305,14 @@ export function SellerVideoStudioScreen({
       void openCamera();
       return;
     }
-    const mime = MediaRecorder.isTypeSupported("video/webm;codecs=vp9")
-      ? "video/webm;codecs=vp9"
-      : MediaRecorder.isTypeSupported("video/webm")
-        ? "video/webm"
-        : "";
+    if (!stream.getAudioTracks().some((t) => t.enabled && t.readyState === "live")) {
+      toast.error("Microphone is off. Allow the mic so the clip has sound.");
+      return;
+    }
+    stream.getAudioTracks().forEach((t) => {
+      t.enabled = true;
+    });
+    const mime = pickVideoRecorderMime();
     const rec = mime ? new MediaRecorder(stream, { mimeType: mime }) : new MediaRecorder(stream);
     chunksRef.current = [];
     rec.ondataavailable = (ev) => {
@@ -315,7 +322,7 @@ export function SellerVideoStudioScreen({
       setRecording(false);
       if (recordTimerRef.current) window.clearInterval(recordTimerRef.current);
       const blob = new Blob(chunksRef.current, { type: rec.mimeType || "video/webm" });
-      const recorded = new File([blob], `tijar-clip-${Date.now()}.webm`, { type: blob.type });
+      const recorded = videoFileFromRecording(blob, rec.mimeType || blob.type, "tijar-clip");
       void onFile(recorded);
     };
     recorderRef.current = rec;
@@ -708,26 +715,46 @@ export function SellerVideoStudioScreen({
                       src={previewUrl}
                       className="aspect-[16/9] w-full object-cover"
                       playsInline
+                      muted={previewMuted}
                       onTimeUpdate={(e) => setCurrentSec(e.currentTarget.currentTime)}
+                      onPlay={() => setPreviewPlaying(true)}
+                      onPause={() => setPreviewPlaying(false)}
                       onLoadedMetadata={(e) => setDurationSec(e.currentTarget.duration || durationSec)}
                     />
                     <button
                       type="button"
                       className="absolute left-3 top-1/2 flex size-11 -translate-y-1/2 items-center justify-center rounded-full bg-black/45 text-white"
-                      aria-label="Play preview"
+                      aria-label={previewPlaying ? "Pause" : "Play"}
                       onClick={() => {
                         const el = videoRef.current;
                         if (!el) return;
+                        el.muted = previewMuted;
+                        el.volume = 1;
                         if (el.paused) void el.play();
                         else el.pause();
                       }}
                     >
-                      <Play className="size-5 fill-white" />
+                      {previewPlaying ? <Pause className="size-5 fill-white" /> : <Play className="size-5 fill-white" />}
                     </button>
                     <p className="absolute bottom-8 left-4 text-[11px] font-semibold text-white">
                       {fmtTime(currentSec)} / {fmtTime(durationSec)}
                     </p>
-                    <Volume2 className="absolute bottom-8 right-4 size-4 text-white" aria-hidden />
+                    <button
+                      type="button"
+                      className="absolute bottom-7 right-3 flex size-9 items-center justify-center rounded-full bg-black/45 text-white"
+                      aria-label={previewMuted ? "Unmute" : "Mute"}
+                      onClick={() => {
+                        const el = videoRef.current;
+                        const next = !previewMuted;
+                        setPreviewMuted(next);
+                        if (el) {
+                          el.muted = next;
+                          el.volume = 1;
+                        }
+                      }}
+                    >
+                      {previewMuted ? <VolumeX className="size-4" /> : <Volume2 className="size-4" />}
+                    </button>
                     <div className="absolute inset-x-3 bottom-3 h-1.5 overflow-hidden rounded-full bg-white/30">
                       <div
                         className="h-full rounded-full bg-[#1F7A4D]"
