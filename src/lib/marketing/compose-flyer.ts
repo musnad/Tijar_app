@@ -84,6 +84,71 @@ export async function composeCuteFlyer(input: {
   return canvas.toDataURL("image/jpeg", 0.9);
 }
 
+/** Stamp TIJAR navy/green bars on a Grok design so the For You post is clearly ours. */
+export async function stampTijarFlyer(input: {
+  grokUrl: string;
+  productName: string;
+  businessName: string;
+  priceLabel?: string | null;
+  locale?: Locale;
+}): Promise<string> {
+  const w = 900;
+  const h = 1200;
+  const canvas = document.createElement("canvas");
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return input.grokUrl;
+
+  ctx.fillStyle = "#0B1F4D";
+  ctx.fillRect(0, 0, w, h);
+  try {
+    const img = await loadImage(input.grokUrl);
+    const scale = Math.max(w / img.width, h / img.height);
+    const dw = img.width * scale;
+    const dh = img.height * scale;
+    ctx.drawImage(img, (w - dw) / 2, (h - dh) / 2, dw, dh);
+  } catch {
+    return input.grokUrl;
+  }
+
+  const top = ctx.createLinearGradient(0, 0, 0, 140);
+  top.addColorStop(0, "rgba(11,31,77,0.92)");
+  top.addColorStop(1, "rgba(11,31,77,0)");
+  ctx.fillStyle = top;
+  ctx.fillRect(0, 0, w, 160);
+
+  const bot = ctx.createLinearGradient(0, h - 220, 0, h);
+  bot.addColorStop(0, "rgba(11,31,77,0)");
+  bot.addColorStop(1, "rgba(11,31,77,0.94)");
+  ctx.fillStyle = bot;
+  ctx.fillRect(0, h - 240, w, 240);
+
+  ctx.fillStyle = "#1F7A4D";
+  ctx.font = "800 20px system-ui, sans-serif";
+  ctx.textAlign = "left";
+  ctx.fillText("TIJAR", 36, 48);
+  ctx.fillStyle = "#E8F5EE";
+  ctx.font = "600 16px system-ui, sans-serif";
+  ctx.fillText(input.businessName.slice(0, 36), 110, 48);
+
+  ctx.fillStyle = "#FFFFFF";
+  ctx.font = "800 36px system-ui, sans-serif";
+  wrapText(ctx, input.productName.slice(0, 48), 36, 1020, w - 72, 42);
+
+  if (input.priceLabel) {
+    ctx.fillStyle = "#00B86B";
+    ctx.font = "800 32px system-ui, sans-serif";
+    ctx.fillText(input.priceLabel, 36, 1110);
+  }
+
+  ctx.fillStyle = "#E8F5EE";
+  ctx.font = "600 16px system-ui, sans-serif";
+  ctx.fillText(studioCta(input.locale ?? "en"), 36, 1160);
+
+  return canvas.toDataURL("image/jpeg", 0.92);
+}
+
 function drawSpark(ctx: CanvasRenderingContext2D, x: number, y: number, r: number) {
   ctx.fillStyle = "rgba(255,255,255,0.85)";
   ctx.beginPath();

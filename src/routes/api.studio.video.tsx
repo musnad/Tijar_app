@@ -6,6 +6,7 @@ import {
   clientIp,
   jsonSecure,
   readJsonBody,
+  requireAuthenticatedUser,
 } from "@/lib/api/security";
 import { checkRateLimit } from "@/lib/api/rate-limit";
 import { grokStartVideo, isXaiConfigured, XaiError } from "@/lib/xai/client";
@@ -18,6 +19,10 @@ export const Route = createFileRoute("/api/studio/video")({
       POST: async ({ request }) => {
         const origin = assertTranslateOrigin(request);
         if (!origin.ok) return jsonSecure({ error: { code: origin.code, message: origin.message } }, { status: origin.status });
+        const auth = await requireAuthenticatedUser(request);
+        if (!auth.ok) {
+          return jsonSecure({ error: { code: auth.code, message: "Sign in to design with Grok." } }, { status: 401 });
+        }
         const media = assertJsonContentType(request);
         if (!media.ok) return jsonSecure({ error: { code: media.code, message: media.message } }, { status: media.status });
         const limit = checkRateLimit(`studio-video:${clientIp(request)}`, 4, 60_000);

@@ -58,8 +58,8 @@ export async function translateBatch(
 
 /**
  * Orchestrates validation -> language checks -> cache -> rate limit ->
- * ChatGPT (primary) with Grok fallback. The original text is never mutated
- * or logged.
+ * Grok (primary when XAI_API_KEY is set) then ChatGPT. Original text is
+ * never mutated or logged.
  *
  * Works for any language pair in the TIJAR catalogue — Hausa included.
  */
@@ -111,7 +111,19 @@ export async function translateText(
 
   const errors: Array<{ status: number; code: string; message: string }> = [];
 
-  // 1) ChatGPT (primary) — Hausa, Igbo, Yoruba, Swahili, Pidgin, Fulfulde, …
+  // 1) Grok — Hausa, Igbo, Yoruba, Swahili, Pidgin, Fulfulde, …
+  if (deps.xaiConfig?.apiKey || (deps.xaiConfig === undefined && isXaiConfigured())) {
+    try {
+      const translated = await grokTranslate({ text, fromLanguage, toLanguage }, deps.xaiConfig ?? {});
+      setCachedTranslation(cacheKey, translated);
+      return { ok: true, translatedText: translated, cached: false, fromLanguage, toLanguage };
+    } catch (err) {
+      if (err instanceof XaiError) errors.push({ status: err.status, code: err.code, message: err.message });
+      else errors.push({ status: 502, code: "PROVIDER_ERROR", message: "Grok translation failed." });
+    }
+  }
+
+  // 2) ChatGPT fallback
   if (deps.openAiConfig?.apiKey || (deps.openAiConfig === undefined && isOpenAiConfigured())) {
     try {
       const translated = await openaiTranslate(deps.openAiConfig ?? {}, {
@@ -124,18 +136,6 @@ export async function translateText(
     } catch (err) {
       if (err instanceof OpenAiError) errors.push({ status: err.status, code: err.code, message: err.message });
       else errors.push({ status: 502, code: "PROVIDER_ERROR", message: "ChatGPT translation failed." });
-    }
-  }
-
-  // 2) Grok (fallback)
-  if (deps.xaiConfig?.apiKey || (deps.xaiConfig === undefined && isXaiConfigured())) {
-    try {
-      const translated = await grokTranslate({ text, fromLanguage, toLanguage }, deps.xaiConfig ?? {});
-      setCachedTranslation(cacheKey, translated);
-      return { ok: true, translatedText: translated, cached: false, fromLanguage, toLanguage };
-    } catch (err) {
-      if (err instanceof XaiError) errors.push({ status: err.status, code: err.code, message: err.message });
-      else errors.push({ status: 502, code: "PROVIDER_ERROR", message: "Grok translation failed." });
     }
   }
 

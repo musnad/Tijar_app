@@ -7,6 +7,7 @@ import {
   OpenAiError,
   type OpenAiClientConfig,
 } from "@/lib/openai/client";
+import { grokTranslate, isXaiConfigured, XaiError } from "@/lib/xai/client";
 
 import { getCachedTranslation, setCachedTranslation, translationCacheKey } from "./cache";
 import { nkenneTranslate, NkenneError, readNkenneConfig, type NkenneClientConfig } from "./client";
@@ -106,26 +107,6 @@ export async function translateText(
     return { ok: false, status: 400, code: "SAME_LANGUAGE", message: "Source and target language are the same." };
   }
 
-  const useOpenAi = shouldUseOpenAi(deps);
-  const openAiPair =
-    useOpenAi && isOpenAiLanguage(fromLanguage) && isOpenAiLanguage(toLanguage);
-
-  if (!openAiPair) {
-    if (!isNkenneLanguage(fromLanguage) || !isNkenneLanguage(toLanguage)) {
-      const pair = checkLanguagePair(fromLanguage, toLanguage);
-      if (!pair.ok) return { ok: false, status: 400, code: pair.code, message: pair.message };
-    }
-    const path = resolveTranslationPath(fromLanguage, toLanguage);
-    if (!path) {
-      return {
-        ok: false,
-        status: 400,
-        code: "UNSUPPORTED_PAIR",
-        message: `Cannot translate ${fromLanguage} to ${toLanguage}.`,
-      };
-    }
-  }
-
   const cacheKey = translationCacheKey(text, fromLanguage, toLanguage);
   const cached = getCachedTranslation(cacheKey);
   if (cached !== null) {
@@ -144,7 +125,40 @@ export async function translateText(
     }
   }
 
-  // 1) ChatGPT / OpenAI when configured (covers Hausa, Igbo, Arabic, Fulfulde, etc.)
+  const canUseGrok = !deps.preferNkenne && !deps.clientConfig && isXaiConfigured();
+  if (canUseGrok) {
+    try {
+      const translated = await grokTranslate({ text, fromLanguage, toLanguage });
+      setCachedTranslation(cacheKey, translated);
+      return { ok: true, translatedText: translated, cached: false, fromLanguage, toLanguage };
+    } catch (err) {
+      if (!(err instanceof XaiError)) {
+        /* fall through */
+      }
+    }
+  }
+
+  const useOpenAi = shouldUseOpenAi(deps);
+  const openAiPair =
+    useOpenAi && isOpenAiLanguage(fromLanguage) && isOpenAiLanguage(toLanguage);
+
+  if (!openAiPair) {
+    if (!isNkenneLanguage(fromLanguage) || !isNkenneLanguage(toLanguage)) {
+      const pair = checkLanguagePair(fromLanguage, toLanguage);
+      if (!pair.ok) return { ok: false, status: 400, code: pair.code, message: pair.message };
+    }
+    const pathEarly = resolveTranslationPath(fromLanguage, toLanguage);
+    if (!pathEarly) {
+      return {
+        ok: false,
+        status: 400,
+        code: "UNSUPPORTED_PAIR",
+        message: `Cannot translate ${fromLanguage} to ${toLanguage}.`,
+      };
+    }
+  }
+
+  // ChatGPT / OpenAI when configured (covers Hausa, Igbo, Arabic, Fulfulde, etc.)
   if (openAiPair) {
     try {
       const translated = await openaiTranslate(deps.openAiConfig ?? {}, {

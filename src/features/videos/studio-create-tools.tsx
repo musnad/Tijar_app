@@ -6,11 +6,14 @@ import { Camera, ImagePlus, Mic, Music, Sparkles } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
+import { HoldToTalk } from "@/features/ai/hold-to-talk";
 import { Button } from "@/components/ui/button";
 import { composeAdvertClip, startCutePad } from "@/lib/marketing/compose-clip";
-import { composeCuteFlyer } from "@/lib/marketing/compose-flyer";
+import { composeCuteFlyer, stampTijarFlyer } from "@/lib/marketing/compose-flyer";
 import {
   draftStudioContent,
+  STUDIO_EXAMPLE_PROMPTS,
+  STUDIO_LANGUAGE_NAME,
   STUDIO_PROMPT_PLACEHOLDER,
   type StudioGoal,
   type StudioStyle,
@@ -57,6 +60,7 @@ export function StudioCreateTools({
   const [tab, setTab] = useState<"flyer" | "video" | "record">("flyer");
   const [designOn, setDesignOn] = useState(false);
   const [prompt, setPrompt] = useState(seedPrompt ?? "");
+  const [postCaption, setPostCaption] = useState("");
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [userPhoto, setUserPhoto] = useState(false);
   const [bgLevel, setBgLevel] = useState(0.12);
@@ -106,6 +110,7 @@ export function StudioCreateTools({
   }
 
   function advertScript() {
+    if (postCaption.trim()) return postCaption.trim();
     if (prompt.trim()) return prompt.trim();
     if (!product) return `${businessName} — shop on TIJAR.`;
     return draftStudioContent({
@@ -160,7 +165,7 @@ export function StudioCreateTools({
   }
 
   async function designStill(): Promise<string | null> {
-    const copy = advertScript();
+    const copy = prompt.trim() || advertScript();
     if (copy.length < 4) {
       toast.error("Write what you want designed.");
       return null;
@@ -173,6 +178,7 @@ export function StudioCreateTools({
         imageDataUrl = undefined;
       }
     }
+    const priceLabel = product?.sale_price != null ? formatNgn(Number(product.sale_price)) : undefined;
     const grok = await requestFlyer({
       prompt: copy,
       productName: product?.name ?? "Product",
@@ -180,38 +186,40 @@ export function StudioCreateTools({
       style,
       locale,
       imageDataUrl,
+      priceLabel,
     });
-    if (grok.dataUrl) return grok.dataUrl;
+    if (grok.caption) setPostCaption(grok.caption);
+    if (grok.dataUrl) {
+      return stampTijarFlyer({
+        grokUrl: grok.dataUrl,
+        productName: product?.name ?? businessName,
+        businessName,
+        priceLabel: priceLabel ?? null,
+        locale,
+      });
+    }
+    if (grok.error) toast.message(grok.error);
     return composeCuteFlyer({
       prompt: copy,
       productName: product?.name ?? businessName,
       businessName,
-      priceLabel: product?.sale_price != null ? formatNgn(Number(product.sale_price)) : null,
+      priceLabel: priceLabel ?? null,
       photoUrl,
       locale,
     });
   }
 
   async function makePhotoVideo() {
-    const script = advertScript();
+    const script = prompt.trim() || advertScript();
     if (script.length < 4) {
       toast.error("Write a prompt for the advert.");
       return;
     }
     setBusy(true);
     setPreview(null);
-    setStatus("Designing from your prompt…");
+    setStatus("Grok is reading your prompt…");
     try {
-      let still = photoUrl;
-      if (!still) {
-        still = await designStill();
-      } else {
-        try {
-          still = await urlToJpegDataUrl(photoUrl);
-        } catch {
-          still = photoUrl;
-        }
-      }
+      const still = await designStill();
       if (!still) throw new Error("Could not design a still for the video.");
       if (grokOn) {
         setStatus("Grok is turning your design into video…");
@@ -275,13 +283,13 @@ export function StudioCreateTools({
   async function makeFlyer() {
     setBusy(true);
     setPreview(null);
-    setStatus("Designing from your prompt…");
+    setStatus(grokOn ? "Grok is designing it…" : "Designing from your prompt…");
     try {
       const dataUrl = await designStill();
       if (!dataUrl) return;
       const file = dataUrlToFile(dataUrl, `tijar-flyer-${Date.now()}.jpg`);
       setPreview({ kind: "image", url: dataUrl, file });
-      toast.success("Design ready. Post it to For You.");
+      toast.success("TIJAR stamped it. Post it to For You.");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Could not design the flyer.");
     } finally {
@@ -360,17 +368,31 @@ export function StudioCreateTools({
     }, MAX_VIDEO_MS);
   }
 
+  const examples = STUDIO_EXAMPLE_PROMPTS[locale] ?? STUDIO_EXAMPLE_PROMPTS.en;
+
   return (
-    <section className="mt-5 rounded-2xl border border-[#EEF1F5] p-4">
-      <p className="text-[11px] font-extrabold uppercase tracking-wide text-[#1F7A4D]">Prompt</p>
-      <h2 className="mt-1 text-[16px] font-extrabold text-[#0B1F4D]">Ask for any design</h2>
-      <p className="mt-1 text-[12px] text-[#6B7280]">
+    <section className="mt-5 overflow-hidden rounded-[28px] border border-[#0B1F4D]/10 bg-[#0B1F4D] p-4 text-white shadow-[0_20px_50px_-24px_rgba(11,31,77,0.55)]">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-[#00B86B]">Write it like Grok</p>
+          <h2 className="mt-1 text-[18px] font-extrabold leading-tight">Describe the flyer. We design it.</h2>
+        </div>
+        <span
+          className={cn(
+            "shrink-0 rounded-full px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wide",
+            grokOn ? "bg-[#00B86B] text-[#0B1F4D]" : "bg-white/15 text-white/80",
+          )}
+        >
+          {grokOn ? "Grok on" : "Local design"}
+        </span>
+      </div>
+      <p className="mt-2 text-[13px] leading-relaxed text-white/75">
         {designOn
-          ? "Write in Hausa, English, Arabic, or any TIJAR language. Flyer, video, or record yourself."
-          : "Write your prompt. Local design still works if the image model is offline."}
+          ? "Scene, price, place. Grok paints it. TIJAR stamps it. One tap posts it to For You with your product."
+          : "Write your prompt. TIJAR still designs locally if Grok is offline."}
       </p>
 
-      <div className="mt-3 grid grid-cols-3 gap-1 rounded-xl bg-[#F3F4F6] p-1">
+      <div className="mt-3 grid grid-cols-3 gap-1 rounded-2xl bg-white/10 p-1">
         {(
           [
             ["flyer", "Flyer"],
@@ -382,8 +404,8 @@ export function StudioCreateTools({
             key={id}
             type="button"
             className={cn(
-              "min-h-10 rounded-lg text-[12px] font-extrabold",
-              tab === id ? "bg-white text-[#0B1F4D] shadow-sm" : "text-[#6B7280]",
+              "min-h-10 rounded-xl text-[12px] font-extrabold",
+              tab === id ? "bg-white text-[#0B1F4D]" : "text-white/70",
             )}
             onClick={() => setTab(id)}
           >
@@ -392,73 +414,104 @@ export function StudioCreateTools({
         ))}
       </div>
 
-      <textarea
-        value={prompt}
-        onChange={(e) => setPrompt(e.target.value)}
-        rows={5}
-        maxLength={1200}
-        placeholder={STUDIO_PROMPT_PLACEHOLDER[locale]}
-        dir={locale === "ar" ? "rtl" : "ltr"}
-        lang={locale}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && !busy) {
-            e.preventDefault();
-            if (tab === "video") void makePhotoVideo();
-            else if (tab === "flyer") void makeFlyer();
-          }
-        }}
-        className="mt-3 w-full resize-none rounded-2xl border border-[#EEF1F5] bg-[#F8FAF9] px-3 py-3 text-[15px] leading-relaxed text-[#0B1F4D] outline-none focus-visible:ring-2 focus-visible:ring-[#1F7A4D]/30"
-      />
-      <p className="mt-1 text-right text-[11px] text-[#9CA3AF]">{prompt.trim().length}/1200 · Ctrl+Enter</p>
+      <div className="mt-3 flex flex-wrap gap-1.5">
+        {examples.map((example) => (
+          <button
+            key={example}
+            type="button"
+            className="max-w-full truncate rounded-full bg-white/10 px-3 py-1.5 text-left text-[11px] font-semibold text-white/90"
+            onClick={() => {
+              setPrompt(example);
+              setPostCaption("");
+            }}
+          >
+            {example.split(",")[0]}
+          </button>
+        ))}
+      </div>
 
-      {status ? <p className="mt-2 text-[12px] font-semibold text-[#1F7A4D]">{status}</p> : null}
+      <div className="mt-3 flex items-start gap-2">
+        <textarea
+          value={prompt}
+          onChange={(e) => {
+            setPrompt(e.target.value);
+            setPostCaption("");
+          }}
+          rows={5}
+          maxLength={1200}
+          placeholder={STUDIO_PROMPT_PLACEHOLDER[locale]}
+          dir={locale === "ar" ? "rtl" : "ltr"}
+          lang={locale}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && !busy) {
+              e.preventDefault();
+              if (tab === "video") void makePhotoVideo();
+              else if (tab === "flyer") void makeFlyer();
+            }
+          }}
+          className="min-h-[132px] w-full resize-none rounded-2xl border-0 bg-white px-3 py-3 text-[15px] leading-relaxed text-[#0B1F4D] outline-none focus-visible:ring-2 focus-visible:ring-[#00B86B]/50"
+        />
+        <HoldToTalk
+          compact
+          language={STUDIO_LANGUAGE_NAME[locale]}
+          disabled={busy}
+          label="Hold to talk"
+          onTranscript={(text) => {
+            setPrompt((cur) => (cur.trim() ? `${cur.trim()} ${text}` : text));
+            setPostCaption("");
+          }}
+        />
+      </div>
+      <p className="mt-1 text-right text-[11px] text-white/50">{prompt.trim().length}/1200 · Ctrl+Enter</p>
+
+      {status ? <p className="mt-2 text-[12px] font-semibold text-[#00B86B]">{status}</p> : null}
 
       {tab === "video" ? (
         <Button
-          className="relative z-10 mt-3 min-h-12 w-full rounded-xl bg-gradient-to-r from-[#1F7A4D] to-[#0B1F4D] font-extrabold text-white"
+          className="relative z-10 mt-3 min-h-12 w-full rounded-xl bg-[#00B86B] font-extrabold text-[#0B1F4D] hover:bg-[#00B86B]/90"
           disabled={busy}
           onClick={() => void makePhotoVideo()}
         >
           <Sparkles className="size-4" />
-          {busy ? "Designing…" : "Generate video"}
+          {busy ? "Designing…" : "Grok designs the video"}
         </Button>
       ) : null}
       {tab === "record" ? (
         <div className="relative z-10 mt-3 grid grid-cols-2 gap-2">
           <Button
-            className="min-h-12 rounded-xl bg-[#1F7A4D] font-extrabold text-white"
+            className="min-h-12 rounded-xl bg-[#00B86B] font-extrabold text-[#0B1F4D] hover:bg-[#00B86B]/90"
             disabled={busy}
             onClick={() => (recording ? recRef.current?.stop() : startRecord())}
           >
             <Mic className="size-4" />
             {recording ? "Stop" : `Record ${MIN_VIDEO_SEC}–${MAX_VIDEO_SEC}s`}
           </Button>
-          <Button variant="outline" className="min-h-12 rounded-xl font-bold" onClick={() => void openCam()}>
+          <Button variant="outline" className="min-h-12 rounded-xl border-white/20 bg-white/10 font-bold text-white" onClick={() => void openCam()}>
             Camera
           </Button>
         </div>
       ) : null}
       {tab === "flyer" ? (
         <Button
-          className="relative z-10 mt-3 min-h-12 w-full rounded-xl bg-gradient-to-r from-[#1F7A4D] to-[#0B1F4D] font-extrabold text-white"
+          className="relative z-10 mt-3 min-h-12 w-full rounded-xl bg-[#00B86B] font-extrabold text-[#0B1F4D] hover:bg-[#00B86B]/90"
           disabled={busy}
           onClick={() => void makeFlyer()}
         >
           <Sparkles className="size-4" />
-          {busy ? "Designing…" : "Generate design"}
+          {busy ? "Designing…" : "Grok designs it"}
         </Button>
       ) : null}
 
       {tab !== "record" ? (
-        <label className="mt-3 flex cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed border-[#1F7A4D]/40 bg-[#F8FAF9] p-3 text-center">
+        <label className="mt-3 flex cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed border-white/25 bg-white/5 p-3 text-center">
           {photoUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={photoUrl} alt="" className="max-h-40 rounded-xl object-contain" />
           ) : (
             <>
-              <ImagePlus className="size-7 text-[#1F7A4D]" />
-              <p className="mt-1 text-[13px] font-bold text-[#0B1F4D]">Optional photo</p>
-              <p className="text-[11px] text-[#6B7280]">Leave empty — Grok can design from the prompt alone</p>
+              <ImagePlus className="size-7 text-[#00B86B]" />
+              <p className="mt-1 text-[13px] font-bold">Optional product photo</p>
+              <p className="text-[11px] text-white/60">Leave empty — Grok can invent the scene</p>
             </>
           )}
           <input
@@ -469,7 +522,7 @@ export function StudioCreateTools({
           />
         </label>
       ) : (
-        <div className="mt-3 overflow-hidden rounded-2xl bg-[#111827]">
+        <div className="mt-3 overflow-hidden rounded-2xl bg-black/40">
           {camLive ? (
             // eslint-disable-next-line jsx-a11y/media-has-caption
             <video ref={camRef} className="aspect-[9/16] max-h-72 w-full object-cover" playsInline muted />
@@ -487,8 +540,8 @@ export function StudioCreateTools({
       )}
 
       {tab !== "flyer" ? (
-        <label className="mt-3 flex items-center gap-2 text-[12px] font-semibold text-[#0B1F4D]">
-          <Music className="size-4 text-[#1F7A4D]" />
+        <label className="mt-3 flex items-center gap-2 text-[12px] font-semibold text-white">
+          <Music className="size-4 text-[#00B86B]" />
           Background sound
           <input
             type="range"
@@ -503,7 +556,7 @@ export function StudioCreateTools({
       ) : null}
 
       {tab === "video" ? (
-        <label className="mt-2 flex items-center gap-2 text-[12px] font-semibold text-[#0B1F4D]">
+        <label className="mt-2 flex items-center gap-2 text-[12px] font-semibold text-white">
           <input type="checkbox" checked={voiceOn} onChange={(e) => setVoiceOn(e.target.checked)} />
           Advert voice-over
         </label>
@@ -520,13 +573,13 @@ export function StudioCreateTools({
           )}
           <div className="grid grid-cols-2 gap-2">
             <Button
-              className="min-h-11 rounded-xl bg-[#1F7A4D] font-extrabold text-white"
+              className="min-h-11 rounded-xl bg-[#00B86B] font-extrabold text-[#0B1F4D] hover:bg-[#00B86B]/90"
               disabled={busy || !product}
               onClick={() => void postFile(preview.file)}
             >
               Post to For You
             </Button>
-            <Button variant="outline" className="min-h-11 rounded-xl font-bold" asChild>
+            <Button variant="outline" className="min-h-11 rounded-xl border-white/20 bg-white/10 font-bold text-white" asChild>
               <Link to="/shop/create" search={product ? { productId: product.id } : {}}>
                 Open create
               </Link>

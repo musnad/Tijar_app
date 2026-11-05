@@ -13,11 +13,13 @@ export function HoldToTalk({
   disabled,
   onTranscript,
   label,
+  compact,
 }: {
   language: string;
   disabled?: boolean;
   onTranscript: (text: string) => void;
   label: string;
+  compact?: boolean;
 }) {
   const [holding, setHolding] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -62,13 +64,17 @@ export function HoldToTalk({
   }
 
   return (
-    <div className="space-y-2">
+    <div className={cn("space-y-2", compact && "space-y-0")}>
       <Button
         type="button"
         disabled={disabled || busy}
+        aria-label={label}
         className={cn(
-          "min-h-16 w-full touch-none rounded-2xl text-base font-bold",
-          holding ? "bg-[#00B86B] text-white" : "bg-[#0A2540] text-white hover:bg-[#0A2540]/90",
+          "touch-none font-bold text-white",
+          compact
+            ? "size-11 min-h-11 shrink-0 rounded-xl px-0"
+            : "min-h-16 w-full rounded-2xl text-base",
+          holding ? "bg-[#00B86B]" : "bg-[#0A2540] hover:bg-[#0A2540]/90",
         )}
         onPointerDown={(e) => {
           e.preventDefault();
@@ -82,8 +88,8 @@ export function HoldToTalk({
           setHolding(false);
         }}
       >
-        <Mic className="mr-2 size-5" />
-        {busy ? "Listening…" : holding ? "Release to stop" : label}
+        <Mic className={cn("size-5", !compact && "mr-2")} />
+        {compact ? null : busy ? "Listening…" : holding ? "Release to stop" : label}
       </Button>
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
     </div>

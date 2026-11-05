@@ -113,13 +113,51 @@ export const STUDIO_LANGUAGE_NAME: Record<Locale, string> = {
 };
 
 export const STUDIO_PROMPT_PLACEHOLDER: Record<Locale, string> = {
-  en: "Weekend promo: 20% off wellness packs. Fresh energy, cute packaging, Lagos delivery.",
-  ha: "Rangadin karshen mako: rage kashi 20 cikin 100. Kayayyaki masu kyau, isarwa a Lagos.",
-  ar: "عرض نهاية الأسبوع: خصم ٢٠٪. تغليف جميل وتوصيل في لاغوس.",
-  yo: "Ìpolówó òpin ọ̀sẹ̀: dín 20% kù. Ìpamọ́ dáradára, ìfijí sí Lagos.",
-  ig: "Mgbasa ozi izu ụka: 20% ọnụahịa. Ngwugwu mara mma, nnyefe na Lagos.",
-  sw: "Ofa ya wikendi: punguzo la 20%. Pakiti maridadi, usafirishaji Lagos.",
-  ff: "Yeeyirde yontere: ustude 20%. Pakke jooɗɗe, neldaade Lagos.",
+  en: "Pepper sauce on a wooden table in Sabon Gari. Steam rising. Hungry customers. ₦2,500. Weekend promo.",
+  ha: "Miya mai barkono a kan teburin itace a Sabon Gari. Tururi yana tashi. ₦2,500. Rangadin karshen mako.",
+  ar: "صلصة فلفل على طاولة خشب في السوق. بخار يتصاعد. ₦٢٬٥٠٠. عرض نهاية الأسبوع.",
+  yo: "Obe ata lórí tábìlì igi ní ọjà. Èéfín ń jáde. ₦2,500. Ìpolówó òpin ọ̀sẹ̀.",
+  ig: "Ofe ose n’elu tebụl osisi n’ahịa. Anwụrụ ọkụ na-ebili. ₦2,500. Mgbasa ozi izu ụka.",
+  sw: "Mchuzi wa pilipili kwenye meza ya mbao sokoni. Mvuke unapanda. ₦2,500. Ofa ya wikendi.",
+  ff: "Haako boowol e taabal leɗɗe e luumo. Cuurki ummii. ₦2,500. Yeeyirde yontere.",
+};
+
+export const STUDIO_EXAMPLE_PROMPTS: Record<Locale, string[]> = {
+  en: [
+    "Pepper sauce on a wooden table in Sabon Gari, steam rising, hungry customers, ₦2,500, weekend promo.",
+    "Fresh bread at dawn, golden crust, market stall light, buy 3 get 1 free.",
+    "WhatsApp status for this rice — clean, bright, ₦28,000 per bag, pickup today.",
+  ],
+  ha: [
+    "Miya mai barkono a teburin itace, tururi, ₦2,500, rangadin karshen mako.",
+    "Burodi mai dadi da safe, hasken kasuwa, saya 3 ka sami 1 kyauta.",
+    "Matsayin WhatsApp na shinkafa — haske, ₦28,000 a jaka, dauka yau.",
+  ],
+  ar: [
+    "صلصة فلفل على طاولة خشب في السوق، بخار، ₦٢٬٥٠٠، عرض نهاية الأسبوع.",
+    "خبز طازج عند الفجر، قشرة ذهبية، اشترِ ٣ واحصل على ١ مجانًا.",
+    "حالة واتساب لهذا الأرز — واضح، ₦٢٨٬٠٠٠ للكيس، استلام اليوم.",
+  ],
+  yo: [
+    "Obe ata lórí tábìlì igi, èéfín, ₦2,500, ìpolówó òpin ọ̀sẹ̀.",
+    "Búrẹ́dì titun ní òwúrọ̀, ra mẹ́ta gba ọ̀kan lọ́fẹ́.",
+    "Ìpò WhatsApp fún ìrẹsì yìí — ₦28,000 lẹ́gbẹ́, gbé lónìí.",
+  ],
+  ig: [
+    "Ofe ose n’elu tebụl osisi, anwụrụ ọkụ, ₦2,500, mgbasa ozi izu ụka.",
+    "Achịcha ọhụrụ n’ụtụtụ, zụọ 3 nweta 1 n’efu.",
+    "Ọnọdụ WhatsApp maka osikapa a — ₦28,000 otu akpa, were taa.",
+  ],
+  sw: [
+    "Mchuzi wa pilipili kwenye meza ya mbao, mvuke, ₦2,500, ofa ya wikendi.",
+    "Mkate mpya alfajiri, nunua 3 pata 1 bure.",
+    "Hali ya WhatsApp ya mchele — ₦28,000 kwa gunia, chukua leo.",
+  ],
+  ff: [
+    "Haako boowol e taabal leɗɗe, cuurki, ₦2,500, yeeyirde yontere.",
+    "Mburu keso subaka, sood 3 heɓ 1 meeree.",
+    "Ngonka WhatsApp mbaro — ₦28,000 e booro, ƴett hannde.",
+  ],
 };
 
 const CTA: Record<Locale, string> = {

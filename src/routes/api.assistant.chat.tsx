@@ -7,7 +7,7 @@ import {
   readJsonBody,
   TRANSLATE_MAX_BODY_BYTES,
 } from "@/lib/api/security";
-import { openaiChat } from "@/lib/openai/client";
+import { tijarAssistantChat } from "@/lib/ai/tijar-chat";
 
 export const Route = createFileRoute("/api/assistant/chat")({
   server: {
@@ -25,14 +25,14 @@ export const Route = createFileRoute("/api/assistant/chat")({
         if (!parsed.ok) {
           return jsonSecure({ error: parsed.message }, { status: parsed.status });
         }
-        const body = parsed.value as { text?: string; language?: string; shop?: string };
+        const body = parsed.body as { text?: string; language?: string; shop?: string };
         const text = typeof body.text === "string" ? body.text.trim() : "";
         if (!text) return jsonSecure({ error: "Empty message" }, { status: 400 });
         try {
-          const reply = await openaiChat({
-            system:
-              "You are TIJAR, a concise bookkeeping assistant for Nigerian small businesses. Help with sales, expenses, stock, and customers. Never invent payments. Reply in the user's language when obvious. Keep answers under 80 words.",
-            user: `Shop: ${body.shop || "unknown"}\nLanguage: ${body.language || "English"}\n\n${text}`,
+          const reply = await tijarAssistantChat({
+            text,
+            language: body.language,
+            shop: body.shop,
           });
           return jsonSecure({ reply });
         } catch (err) {

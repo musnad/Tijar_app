@@ -76,7 +76,7 @@ export function MarketingStudioScreen({
         )}
         style={shopChrome ? { WebkitOverflowScrolling: "touch" } : undefined}
       >
-        <h1 className="pt-2 text-[1.65rem] font-extrabold leading-[1.15] tracking-tight text-[#0B1F4D]">
+        <h1 className="pt-2 text-[1.75rem] font-extrabold leading-[1.12] tracking-tight text-[#0B1F4D]">
           Write a prompt.
           <br />
           <span className="text-[#1F7A4D]">Grok designs it.</span>
@@ -84,6 +84,18 @@ export function MarketingStudioScreen({
         <p className="mt-2 text-[13px] leading-relaxed text-[#6B7280]">
           Describe the flyer or advert the way you would on Grok. TIJAR designs it, then you post it to For You with your product.
         </p>
+        <ol className="mt-3 grid grid-cols-3 gap-2 text-center">
+          {[
+            ["1", "Product"],
+            ["2", "Prompt"],
+            ["3", "Post"],
+          ].map(([n, label]) => (
+            <li key={n} className="rounded-2xl bg-[#F3FBF6] px-2 py-2">
+              <span className="block text-[11px] font-extrabold text-[#1F7A4D]">{n}</span>
+              <span className="text-[12px] font-bold text-[#0B1F4D]">{label}</span>
+            </li>
+          ))}
+        </ol>
 
         <div className="mt-4 space-y-2">
           <p className="flex items-center gap-1.5 text-[12px] font-extrabold text-[#0B1F4D]">
