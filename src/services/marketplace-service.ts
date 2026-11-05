@@ -44,6 +44,9 @@ export type MarketplaceShop = PublicBusiness & {
 const MARKETPLACE_SHOP_SELECT =
   "id, slug, business_name, description, location_text, public_location_label, latitude, longitude, logo_url, cover_image_url, category_id, category_name, public_phone, public_whatsapp, opening_hours, is_verified, verification_status, is_informal";
 
+const MARKETPLACE_SHOP_SELECT_CORE =
+  "id, slug, business_name, description, location_text, public_location_label, latitude, longitude, logo_url, category_id, category_name, public_phone, public_whatsapp, opening_hours, is_verified, verification_status, is_informal";
+
 const MARKETPLACE_PRODUCT_SELECT =
   "id, business_id, name, kind, description, sale_price, unit, image_url, extra_image_urls, video_url, attributes, variants, currency, is_available, created_at, updated_at, is_informal, business_name, business_slug, business_logo_url, category_name, service_type, starts_on, ends_on";
 
@@ -143,15 +146,24 @@ export async function fetchMarketplaceShops(limit = 200): Promise<{
       .order("business_name")
       .limit(limit);
     if (fallback.error) {
-      const legacy = await supabase
+      const core = await supabase
         .from("public_business_listings")
-        .select(
-          "id, slug, business_name, description, location_text, public_location_label, latitude, longitude, logo_url, category_id, category_name, public_phone, public_whatsapp, opening_hours, is_verified, verification_status",
-        )
+        .select(MARKETPLACE_SHOP_SELECT_CORE)
         .order("business_name")
         .limit(limit);
-      if (legacy.error) return { shops: [], error: legacy.error.message };
-      data = legacy.data;
+      if (core.error) {
+        const legacy = await supabase
+          .from("public_business_listings")
+          .select(
+            "id, slug, business_name, description, location_text, public_location_label, latitude, longitude, logo_url, category_id, category_name, public_phone, public_whatsapp, opening_hours, is_verified, verification_status",
+          )
+          .order("business_name")
+          .limit(limit);
+        if (legacy.error) return { shops: [], error: legacy.error.message };
+        data = legacy.data;
+      } else {
+        data = core.data;
+      }
     } else {
       data = fallback.data;
     }
@@ -1432,11 +1444,31 @@ export async function fetchFollowedBusinesses(profileId: string): Promise<{
   if (error) return { shops: localShops, error: localShops.length ? null : error.message };
   const ids = (follows ?? []).map((f) => f.business_id as string);
   if (ids.length === 0) return { shops: localShops, error: null };
-  const { data, error: listError } = await supabase
-    .from("public_business_listings")
+  let { data, error: listError } = await supabase
+    .from("public_marketplace_businesses")
     .select(MARKETPLACE_SHOP_SELECT)
     .in("id", ids);
-  if (listError) return { shops: localShops, error: localShops.length ? null : listError.message };
+  if (listError) {
+    const core = await supabase.from("public_marketplace_businesses").select(MARKETPLACE_SHOP_SELECT_CORE).in("id", ids);
+    if (core.error) {
+      const listings = await supabase.from("public_business_listings").select(MARKETPLACE_SHOP_SELECT_CORE).in("id", ids);
+      if (listings.error) {
+        const legacy = await supabase
+          .from("public_business_listings")
+          .select(
+            "id, slug, business_name, description, location_text, public_location_label, latitude, longitude, logo_url, category_id, category_name, public_phone, public_whatsapp, opening_hours, is_verified, verification_status",
+          )
+          .in("id", ids);
+        if (legacy.error) return { shops: localShops, error: localShops.length ? null : legacy.error.message };
+        data = legacy.data;
+      } else {
+        data = listings.data;
+      }
+    } else {
+      data = core.data;
+    }
+    listError = null;
+  }
   const live = (data ?? []) as PublicBusiness[];
   const seen = new Set(live.map((s) => s.id));
   return { shops: [...localShops.filter((s) => !seen.has(s.id)), ...live], error: null };

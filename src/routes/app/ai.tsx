@@ -5,6 +5,7 @@ import { AppShell } from "@/features/app/app-shell";
 import { AppPageHeader } from "@/features/app-layout/app-page-header";
 import { RequireAuth } from "@/features/app/require-auth";
 import { RouteFallback } from "@/components/route-fallback";
+import { useTranslation } from "@/lib/i18n/context";
 
 const SellerAiHub = lazy(() =>
   import("@/features/ai/seller-ai-hub").then((m) => ({ default: m.SellerAiHub })),

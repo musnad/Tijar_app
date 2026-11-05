@@ -601,12 +601,18 @@ export async function muteProfile(muterId: string, mutedId: string): Promise<{ e
   return { error: error?.message ?? null };
 }
 
+const VIDEO_ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export async function recordFeedSignal(
   videoId: string,
   kind: "view" | "complete" | "product_tap" | "add_to_cart" | "share" | "like" | "impression",
 ): Promise<void> {
+  if (!VIDEO_ID_RE.test(videoId)) return;
   const supabase = getSupabaseBrowserClient();
-  await supabase.rpc("record_feed_event", { p_video_id: videoId, p_kind: kind });
+  const { error } = await supabase.rpc("record_feed_event", { p_video_id: videoId, p_kind: kind });
+  if (error && /impression/i.test(error.message) && kind === "impression") {
+    await supabase.rpc("record_feed_event", { p_video_id: videoId, p_kind: "view" });
+  }
 }
 
 export async function publishShoppingVideo(input: {

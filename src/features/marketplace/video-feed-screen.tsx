@@ -449,7 +449,7 @@ export function VideoFeedScreen({ initialVideoId }: { initialVideoId?: string })
   }, [videos.length, liveListings.length, feedTab]);
 
   useEffect(() => {
-    if (!activeId || activeId.startsWith("listing:") || isMockFeedId(activeId)) return;
+    if (!activeId || activeId.includes(":") || isMockFeedId(activeId)) return;
     void recordFeedSignal(activeId, "impression");
     void recordFeedSignal(activeId, "view");
   }, [activeId]);
