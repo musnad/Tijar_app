@@ -20,9 +20,9 @@ create table if not exists public.business_stories (
   created_at timestamptz not null default timezone('utc', now())
 );
 
+drop index if exists public.business_stories_live_idx;
 create index if not exists business_stories_live_idx
-  on public.business_stories (expires_at desc, created_at desc)
-  where expires_at > timezone('utc', now());
+  on public.business_stories (expires_at desc, created_at desc);
 
 create index if not exists business_stories_business_idx
   on public.business_stories (business_id, created_at desc);
