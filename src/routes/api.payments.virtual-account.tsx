@@ -79,7 +79,7 @@ export const Route = createFileRoute("/api/payments/virtual-account")({
           return Response.json(
             {
               error:
-                "Corv is not connected on the server. In Vercel → Settings → Environment Variables, add CORV_SECRET_KEY (Production) and redeploy.",
+                "Corv is not connected on the server. Add CORV_SECRET_KEY in Vercel Environment Variables for Production, then redeploy.",
               missing: ["CORV_SECRET_KEY"],
             },
             { status: 503 },
@@ -135,7 +135,7 @@ export const Route = createFileRoute("/api/payments/virtual-account")({
         }
 
         const accountName = String(biz?.business_name || ctx.profile.full_name || "TIJAR shop").slice(0, 80);
-        let created: Awaited<ReturnType<typeof corvCreateVirtualAccount>>;
+        let created;
         try {
           created = await corvCreateVirtualAccount({
             accountName,
