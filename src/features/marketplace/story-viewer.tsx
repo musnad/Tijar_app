@@ -43,7 +43,6 @@ export function StoryViewer({
   onClose: () => void;
 }) {
   const { requireAccount } = useAccountGate();
-  const { profile } = useAuth();
   const navigate = useNavigate();
   const startIndex = Math.max(0, rings.findIndex((r) => r.businessId === startBusinessId));
   const [ringIndex, setRingIndex] = useState(startIndex);
