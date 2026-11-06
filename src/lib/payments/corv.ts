@@ -509,48 +509,54 @@ export async function corvMerchantBalance(): Promise<number | null> {
   return null;
 }
 
+export function sameNuban(left?: string | null, right?: string | null): boolean {
+  const a = (left ?? "").replace(/\D/g, "");
+  const b = (right ?? "").replace(/\D/g, "");
+  return a.length >= 8 && a === b;
+}
+
 export async function corvAccountActivity(
   accountNumber: string,
   accountId?: string | null,
   depth = 0,
 ): Promise<CorvActivity[]> {
-  const nuban = accountNumber.trim();
-  if (!nuban) return [];
+  const nuban = accountNumber.replace(/\D/g, "");
+  if (nuban.length < 8) return [];
   const encoded = encodeURIComponent(nuban);
+  let resolvedId = accountId?.trim() || null;
+  if (!resolvedId && depth < 1) {
+    for (const path of [`/virtual-accounts?accountNumber=${encoded}`, `/virtual-accounts?search=${encoded}`]) {
+      const result = await corvFetch(path);
+      if ("error" in result || !result.res.ok) continue;
+      const found =
+        parseAccountList(result.json).find((row) => sameNuban(row.accountNumber, nuban)) ?? parseOneAccount(result.json);
+      if (found && sameNuban(found.accountNumber, nuban) && found.id) {
+        resolvedId = found.id;
+        break;
+      }
+    }
+  }
   const paths = [
-    accountId ? `/virtual-accounts/${accountId}/transactions` : null,
-    accountId ? `/virtual-accounts/${accountId}/payments` : null,
+    resolvedId ? `/virtual-accounts/${resolvedId}/transactions` : null,
+    resolvedId ? `/virtual-accounts/${resolvedId}/payments` : null,
     `/virtual-accounts/${encoded}/transactions`,
     `/virtual-accounts/${encoded}/payments`,
-    `/virtual-accounts?search=${encoded}`,
-    `/virtual-accounts?accountNumber=${encoded}`,
     `/transactions?accountNumber=${encoded}`,
     `/transactions?nuban=${encoded}`,
     `/payments?accountNumber=${encoded}`,
     `/collections?accountNumber=${encoded}`,
     `/wallet/transactions?accountNumber=${encoded}`,
-    `/wallets/transactions`,
-    `/transactions`,
   ].filter(Boolean) as string[];
   const rows: CorvActivity[] = [];
   for (const path of paths) {
     const result = await corvFetch(path);
     if ("error" in result || !result.res.ok) continue;
-    const parsed = parseActivityList(result.json).filter(
-      (row) => !row.accountNumber || row.accountNumber === nuban || path.includes("wallet") || path.endsWith("/transactions"),
-    );
-    for (const row of parsed) {
-      const matches = !row.accountNumber || row.accountNumber === nuban;
-      if (!matches && !path.includes(encoded)) continue;
+    const scopedToThisAccount = Boolean(resolvedId && path.includes(resolvedId));
+    for (const row of parseActivityList(result.json)) {
+      const matches = sameNuban(row.accountNumber, nuban) || (scopedToThisAccount && !row.accountNumber);
+      if (!matches) continue;
       if (!rows.some((existing) => existing.reference === row.reference)) {
         rows.push({ ...row, accountNumber: row.accountNumber || nuban });
-      }
-    }
-    const found = parseOneAccount(result.json) ?? parseAccountList(result.json).find((row) => row.accountNumber === nuban);
-    if (found?.id && found.id !== accountId && depth < 1) {
-      const nestedTx = await corvAccountActivity(nuban, found.id, depth + 1);
-      for (const row of nestedTx) {
-        if (!rows.some((existing) => existing.reference === row.reference)) rows.push(row);
       }
     }
   }

@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import { createFileRoute } from "@tanstack/react-router";
 
 import { corvRequestLooksSigned, parseCorvCredit } from "@/lib/payments/corv";
+import { findBusinessByReceivingAccount } from "@/lib/payments/shop-server";
 import { flutterwaveWebhookOk } from "@/lib/payments/flutterwave";
 import { readEnvString, readSupabasePublicEnv } from "@/lib/supabase/runtime-env";
 
@@ -67,26 +68,7 @@ export const Route = createFileRoute("/api/payments/webhook")({
           const service = readEnvString("SUPABASE_SERVICE_ROLE_KEY");
           if (!env || !service) return Response.json({ ok: false }, { status: 503 });
           const supabase = createClient(env.VITE_SUPABASE_URL, service);
-          let businessId: string | undefined;
-          if (credit.accountNumber) {
-            const { data } = await supabase
-              .from("businesses")
-              .select("id")
-              .eq("virtual_account_number", credit.accountNumber)
-              .maybeSingle();
-            businessId = data?.id as string | undefined;
-            if (!businessId) {
-              const extra = await supabase
-                .from("businesses")
-                .select("id")
-                .contains("virtual_accounts", [{ accountNumber: credit.accountNumber }])
-                .maybeSingle();
-              businessId = extra.data?.id as string | undefined;
-            }
-          }
-          if (!businessId && credit.businessReference?.startsWith("tijar-biz-")) {
-            businessId = credit.businessReference.slice("tijar-biz-".length);
-          }
+          const businessId = await findBusinessByReceivingAccount(supabase, credit.accountNumber);
           if (businessId && credit.reference) {
             await supabase.rpc("credit_seller_wallet_once", {
               p_business_id: businessId,

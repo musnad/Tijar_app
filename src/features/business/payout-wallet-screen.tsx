@@ -96,11 +96,14 @@ export function PayoutWalletScreen({
       at: number;
       direction: "in" | "out";
     }> = [];
+    const owned = new Set(accounts.map((row) => row.accountNumber.replace(/\D/g, "")).filter((n) => n.length >= 8));
     for (const row of activity) {
+      const nuban = (row.accountNumber ?? "").replace(/\D/g, "");
+      if (owned.size && nuban && !owned.has(nuban)) continue;
       rows.push({
         id: `corv-${row.reference}`,
         title: row.description,
-        detail: row.accountNumber ?? "Corvi",
+        detail: row.accountNumber ?? "This shop account",
         amount: row.amount,
         at: row.createdAt ? new Date(row.createdAt).getTime() : 0,
         direction: row.direction,
@@ -128,7 +131,7 @@ export function PayoutWalletScreen({
       });
     }
     return rows.sort((a, b) => b.at - a.at).slice(0, 40);
-  }, [activity, credits, requests]);
+  }, [accounts, activity, credits, requests]);
 
   async function refresh() {
     await queryClient.invalidateQueries({ queryKey: ["shop-wallet", selected.id] });

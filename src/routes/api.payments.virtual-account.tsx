@@ -60,12 +60,21 @@ export const Route = createFileRoute("/api/payments/virtual-account")({
           .select("available_ngn, pending_ngn")
           .eq("business_id", businessId)
           .maybeSingle();
-        const { data: credits } = await ctx.admin
+        const owned = new Set(
+          (accounts as Array<{ accountNumber?: string }>)
+            .map((row) => String(row.accountNumber ?? "").replace(/\D/g, ""))
+            .filter((nuban) => nuban.length >= 8),
+        );
+        const { data: creditRows } = await ctx.admin
           .from("wallet_credits")
           .select("id, business_id, provider, provider_reference, amount_ngn, account_number, created_at")
           .eq("business_id", businessId)
           .order("created_at", { ascending: false })
-          .limit(40);
+          .limit(80);
+        const credits = (creditRows ?? []).filter((row) => {
+          const nuban = String(row.account_number ?? "").replace(/\D/g, "");
+          return !owned.size || (nuban.length >= 8 && owned.has(nuban));
+        }).slice(0, 40);
         const available = synced.available;
         const banks = corvConfigured() ? (await corvListBanks()).banks : [];
         return Response.json({
