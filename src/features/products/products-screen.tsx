@@ -73,9 +73,18 @@ export function ProductsScreen({ businessId }: { businessId: string }) {
       {data && (
         <>
           <div className="dashboard-summary-card mt-5 rounded-2xl p-4 text-primary-foreground shadow-lg">
-            <p className="text-sm font-medium text-white/85">{t("app.products.inventoryValue")}</p>
-            <p className="mt-2 text-2xl font-extrabold tabular-nums">{formatNgn(data.totalInventoryValue)}</p>
-            <p className="mt-1 text-xs text-white/75">{t("app.products.inventoryHint")}</p>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <p className="text-sm font-medium text-white/85">{t("app.products.inventoryValue")}</p>
+                <p className="mt-2 text-2xl font-extrabold tabular-nums">{formatNgn(data.totalInventoryValue)}</p>
+                <p className="mt-1 text-xs text-white/75">{t("app.products.inventoryHint")}</p>
+              </div>
+              <div className="border-s border-white/20 ps-4">
+                <p className="text-sm font-medium text-white/85">{t("app.products.inventoryProfit")}</p>
+                <p className="mt-2 text-2xl font-extrabold tabular-nums">{formatNgn(data.totalInventoryProfit)}</p>
+                <p className="mt-1 text-xs text-white/75">{t("app.products.inventoryProfitHint")}</p>
+              </div>
+            </div>
           </div>
 
           <div className="mt-4 flex gap-2 overflow-x-auto pb-1">

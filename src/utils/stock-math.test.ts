@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { inventoryValue, isLowStock, parseQuantity } from "./stock-math";
+import { inventoryProfit, inventoryValue, isLowStock, parseQuantity } from "./stock-math";
 
 describe("stock-math", () => {
   it("detects low stock", () => {
@@ -11,6 +11,13 @@ describe("stock-math", () => {
   it("computes inventory value", () => {
     expect(inventoryValue(10, 100)).toBe(1000);
     expect(inventoryValue(10, null)).toBe(0);
+  });
+
+  it("computes inventory profit from sale minus cost", () => {
+    expect(inventoryProfit(10, 150, 100)).toBe(500);
+    expect(inventoryProfit(10, 80, 100)).toBe(-200);
+    expect(inventoryProfit(10, 150, null)).toBe(0);
+    expect(inventoryProfit(10, null, 100)).toBe(0);
   });
 
   it("parses quantity strings", () => {

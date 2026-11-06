@@ -1,12 +1,13 @@
 import { listProducts } from "@/services/product-service";
 import { fetchProductSalesStats } from "@/services/product-sales-stats-service";
-import { inventoryValue, isLowStock } from "@/utils/stock-math";
+import { inventoryProfit, inventoryValue, isLowStock } from "@/utils/stock-math";
 import type { Product, ProductSalesStats } from "@/types/database";
 
 export type ProductsDashboard = {
   productCount: number;
   lowStockCount: number;
   totalInventoryValue: number;
+  totalInventoryProfit: number;
   lowStock: Product[];
   inStock: Product[];
   allProducts: Product[];
@@ -36,8 +37,19 @@ export async function fetchProductsDashboard(businessId: string): Promise<{
       !isLowStock(Number(p.stock_quantity), Number(p.low_stock_threshold)),
   );
 
-  const totalInventoryValue = rows.reduce(
+  const goods = rows.filter((p) => (p.kind ?? "goods") === "goods");
+  const totalInventoryValue = goods.reduce(
     (sum, p) => sum + inventoryValue(Number(p.stock_quantity), p.cost_price != null ? Number(p.cost_price) : null),
+    0,
+  );
+  const totalInventoryProfit = goods.reduce(
+    (sum, p) =>
+      sum +
+      inventoryProfit(
+        Number(p.stock_quantity),
+        p.sale_price != null ? Number(p.sale_price) : null,
+        p.cost_price != null ? Number(p.cost_price) : null,
+      ),
     0,
   );
 
@@ -46,6 +58,7 @@ export async function fetchProductsDashboard(businessId: string): Promise<{
       productCount: rows.length,
       lowStockCount: lowStock.length,
       totalInventoryValue,
+      totalInventoryProfit,
       lowStock,
       inStock,
       allProducts: rows,
