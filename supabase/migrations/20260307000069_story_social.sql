@@ -114,7 +114,8 @@ grant select on public.business_story_likes to anon;
 grant select, insert on public.business_story_comments to authenticated;
 grant select on public.business_story_comments to anon;
 
-create or replace view public.public_live_stories as
+drop view if exists public.public_live_stories;
+create view public.public_live_stories as
 select
   s.id,
   s.business_id,
@@ -127,10 +128,10 @@ select
   s.price,
   s.product_id,
   s.duration_ms,
-  s.like_count,
-  s.comment_count,
   s.expires_at,
   s.created_at,
+  coalesce(s.like_count, 0) as like_count,
+  coalesce(s.comment_count, 0) as comment_count,
   coalesce(b.public_slug, b.id::text) as slug,
   b.business_name,
   b.logo_url as business_logo_url,
