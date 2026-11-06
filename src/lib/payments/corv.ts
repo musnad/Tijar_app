@@ -290,7 +290,7 @@ export async function corvTransfer(input: {
     reference: input.reference,
   };
   const result = await corvFetch("/bank-transfer/transfer", { method: "POST", body: JSON.stringify(body) });
-  if ("error" in result) return { reference: null, error: result.error };
+  if ("error" in result) return { reference: null, error: payoutPermissionError(result.error) };
   if (result.res.ok || transferAccepted(result.res, result.json)) {
     const root = asRecord(result.json);
     const data = nested(root, ["data", "result"]) ?? root;
@@ -299,7 +299,17 @@ export async function corvTransfer(input: {
       error: null,
     };
   }
-  return { reference: null, error: messageFrom(result.json, "Could not send the withdrawal through Corvi.") };
+  return {
+    reference: null,
+    error: payoutPermissionError(messageFrom(result.json, "Could not send the withdrawal through Corvi.")),
+  };
+}
+
+function payoutPermissionError(message: string): string {
+  if (/payouts? permission|allowedIps|allowed ips/i.test(message)) {
+    return "Corvi blocked this withdrawal because this API key has no payouts permission. In the Corvi dashboard create a Production API key, enable payouts, restrict it to your server IPs, then replace CORV_SECRET_KEY on Vercel and redeploy. Until then, send the money from the Corvi wallet screen.";
+  }
+  return message;
 }
 
 function signatureMatch(expected: string, header: string, raw: string): boolean {
