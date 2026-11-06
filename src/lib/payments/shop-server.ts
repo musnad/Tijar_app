@@ -1,6 +1,6 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
-import { corvAccountActivity, corvConfigured, sameNuban, type CorvActivity } from "@/lib/payments/corv";
+import { corvConfigured, corvReceivedPayments, sameNuban, type CorvActivity } from "@/lib/payments/corv";
 import { readEnvString, readSupabasePublicEnv } from "@/lib/supabase/runtime-env";
 
 export type ShopProfile = {
@@ -174,9 +174,9 @@ export async function fastWalletAvailable(admin: SupabaseClient, businessId: str
   ]);
   let inbound = 0;
   if (corvConfigured()) {
+    const inbox = await corvReceivedPayments();
     for (const nuban of owned) {
-      const rows = await corvAccountActivity(nuban);
-      inbound += rows
+      inbound += inbox
         .filter((row) => row.direction === "in" && sameNuban(row.accountNumber, nuban))
         .reduce((sum, row) => sum + row.amount, 0);
     }
@@ -194,11 +194,11 @@ export async function syncCorvWallet(
 ): Promise<{ activity: CorvActivity[]; available: number }> {
   const activity: CorvActivity[] = [];
   if (corvConfigured()) {
+    const inbox = await corvReceivedPayments();
     for (const row of accounts) {
       const nuban = String(row.accountNumber ?? "").replace(/\D/g, "");
       if (nuban.length < 8) continue;
-      const rows = await corvAccountActivity(nuban, row.reference);
-      for (const tx of rows) {
+      for (const tx of inbox) {
         if (!sameNuban(tx.accountNumber, nuban)) continue;
         if (!activity.some((existing) => existing.reference === tx.reference)) activity.push(tx);
         if (tx.direction !== "in") continue;

@@ -2,7 +2,7 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
 import { createFileRoute } from "@tanstack/react-router";
 
-import { corvRequestLooksSigned, parseCorvCredit } from "@/lib/payments/corv";
+import { corvRequestLooksSigned, corvWebhookConfigSecret, corvWebhookOk, parseCorvCredit } from "@/lib/payments/corv";
 import { findBusinessByReceivingAccount } from "@/lib/payments/shop-server";
 import { flutterwaveWebhookOk } from "@/lib/payments/flutterwave";
 import { readEnvString, readSupabasePublicEnv } from "@/lib/supabase/runtime-env";
@@ -60,8 +60,9 @@ export const Route = createFileRoute("/api/payments/webhook")({
         } catch {
           payload = null;
         }
+        const webhookSecret = await corvWebhookConfigSecret();
         const corvCredit = parseCorvCredit(payload);
-        if (corvCredit && (corvRequestLooksSigned(request, raw) || corvCredit.accountNumber)) {
+        if (corvCredit && (corvWebhookOk(request, raw, webhookSecret) || corvRequestLooksSigned(request, raw) || corvCredit.accountNumber)) {
           const credit = corvCredit;
           if (!credit) return Response.json({ ok: true, ignored: true });
           const env = readSupabasePublicEnv();
