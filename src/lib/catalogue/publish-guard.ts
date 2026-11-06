@@ -21,3 +21,11 @@ export function productPublishErrors(p: PublishableProduct): string[] {
 export function canPublishProduct(p: PublishableProduct): boolean {
   return productPublishErrors(p).length === 0;
 }
+
+export function productPublishWarnings(p: PublishableProduct): string[] {
+  const warnings: string[] = [];
+  if (p.kind !== "service" && !p.description?.trim()) {
+    warnings.push("A short description helps shoppers know what they are buying.");
+  }
+  return warnings;
+}
