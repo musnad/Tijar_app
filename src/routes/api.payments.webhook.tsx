@@ -73,6 +73,14 @@ export const Route = createFileRoute("/api/payments/webhook")({
               .eq("virtual_account_number", credit.accountNumber)
               .maybeSingle();
             businessId = data?.id as string | undefined;
+            if (!businessId) {
+              const extra = await supabase
+                .from("businesses")
+                .select("id")
+                .contains("virtual_accounts", [{ accountNumber: credit.accountNumber }])
+                .maybeSingle();
+              businessId = extra.data?.id as string | undefined;
+            }
           }
           if (!businessId && credit.businessReference?.startsWith("tijar-biz-")) {
             businessId = credit.businessReference.slice("tijar-biz-".length);

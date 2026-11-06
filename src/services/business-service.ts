@@ -308,9 +308,6 @@ export async function completeBusinessSetup(
     payload: { islamic_mode: islamicMode },
   });
 
-  const { provisionVirtualAccount } = await import("@/services/marketplace-service");
-  void provisionVirtualAccount(businessId);
-
   return { businessId, error: null };
 }
 

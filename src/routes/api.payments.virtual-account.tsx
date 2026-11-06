@@ -1,7 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-import { corvConfigured, corvCreateVirtualAccount } from "@/lib/payments/corv";
-import { flutterwaveConfigured, flutterwaveCreateVirtualAccount } from "@/lib/payments/flutterwave";
+import { corvConfigured, corvCreateVirtualAccount, corvListBanks } from "@/lib/payments/corv";
 import { shopAdminClient } from "@/lib/payments/shop-server";
 
 export const Route = createFileRoute("/api/payments/virtual-account")({
@@ -16,7 +15,7 @@ export const Route = createFileRoute("/api/payments/virtual-account")({
         const { data: biz } = await ctx.admin
           .from("businesses")
           .select(
-            "business_name, virtual_account_name, virtual_account_number, virtual_account_bank_name, virtual_account_bank_code, virtual_account_reference, payout_account_name, payout_account_number, payout_bank_name, payout_bank_code",
+            "business_name, virtual_account_name, virtual_account_number, virtual_account_bank_name, virtual_account_bank_code, virtual_account_reference, virtual_accounts, payout_account_name, payout_account_number, payout_bank_name, payout_bank_code",
           )
           .eq("id", businessId)
           .maybeSingle();
@@ -31,17 +30,26 @@ export const Route = createFileRoute("/api/payments/virtual-account")({
           .eq("business_id", businessId)
           .order("created_at", { ascending: false })
           .limit(40);
+        const extras = Array.isArray(biz?.virtual_accounts) ? biz.virtual_accounts : [];
+        const account = biz?.virtual_account_number
+          ? {
+              accountName: biz.virtual_account_name,
+              accountNumber: biz.virtual_account_number,
+              bankName: biz.virtual_account_bank_name,
+              bankCode: biz.virtual_account_bank_code,
+              reference: biz.virtual_account_reference,
+            }
+          : null;
+        const banks = corvConfigured() ? (await corvListBanks()).banks : [];
         return Response.json({
-          configured: corvConfigured() || flutterwaveConfigured(),
-          account: biz?.virtual_account_number
-            ? {
-                accountName: biz.virtual_account_name,
-                accountNumber: biz.virtual_account_number,
-                bankName: biz.virtual_account_bank_name,
-                bankCode: biz.virtual_account_bank_code,
-                reference: biz.virtual_account_reference,
-              }
-            : null,
+          configured: corvConfigured(),
+          banks,
+          account,
+          accounts: extras.length
+            ? extras
+            : account
+              ? [account]
+              : [],
           payout: biz?.payout_account_number
             ? {
                 accountName: biz.payout_account_name,
@@ -58,18 +66,27 @@ export const Route = createFileRoute("/api/payments/virtual-account")({
         });
       },
       POST: async ({ request }) => {
-        if (!corvConfigured() && !flutterwaveConfigured()) {
+        if (!corvConfigured()) {
           return Response.json(
-            { error: "Add CORV_SECRET_KEY or FLUTTERWAVE_SECRET_KEY on the server to issue shop accounts." },
+            { error: "Add CORV_SECRET_KEY on the server to issue shop accounts." },
             { status: 503 },
           );
         }
-        const body = (await request.json()) as { businessId?: string; bvn?: string };
+        const body = (await request.json()) as {
+          businessId?: string;
+          idType?: string;
+          idNumber?: string;
+          bvn?: string;
+        };
         const businessId = body.businessId?.trim();
-        const bvn = body.bvn?.replace(/\D/g, "") || undefined;
+        const idNumber = (body.idNumber || body.bvn || "").replace(/\D/g, "");
+        const idType = body.idType === "nin" ? "nin" : "bvn";
         if (!businessId) return Response.json({ error: "Missing shop." }, { status: 400 });
-        if (bvn && bvn.length !== 11) {
-          return Response.json({ error: "BVN must be 11 digits." }, { status: 400 });
+        if (idNumber.length !== 11) {
+          return Response.json(
+            { error: "Corv needs the shop owner’s 11-digit BVN or NIN to open the account.", needsBvn: true },
+            { status: 400 },
+          );
         }
         const ctx = await shopAdminClient(request, businessId);
         if ("error" in ctx) return ctx.error;
@@ -77,11 +94,12 @@ export const Route = createFileRoute("/api/payments/virtual-account")({
         const { data: biz } = await ctx.admin
           .from("businesses")
           .select(
-            "business_name, virtual_account_name, virtual_account_number, virtual_account_bank_name, virtual_account_bank_code, virtual_account_reference, virtual_account_provider",
+            "business_name, virtual_account_name, virtual_account_number, virtual_account_bank_name, virtual_account_bank_code, virtual_account_reference, virtual_accounts",
           )
           .eq("id", businessId)
           .maybeSingle();
         if (biz?.virtual_account_number) {
+          const extras = Array.isArray(biz.virtual_accounts) ? biz.virtual_accounts : [];
           return Response.json({
             ok: true,
             account: {
@@ -91,23 +109,26 @@ export const Route = createFileRoute("/api/payments/virtual-account")({
               bankCode: biz.virtual_account_bank_code,
               reference: biz.virtual_account_reference,
             },
+            accounts: extras.length
+              ? extras
+              : [
+                  {
+                    accountName: biz.virtual_account_name,
+                    accountNumber: biz.virtual_account_number,
+                    bankName: biz.virtual_account_bank_name,
+                  },
+                ],
           });
         }
 
         const accountName = String(biz?.business_name || ctx.profile.full_name || "TIJAR shop").slice(0, 80);
-        const payload = {
-          reference: `tijar-biz-${businessId}`,
+        const created = await corvCreateVirtualAccount({
           accountName,
           email: ctx.profile.email || `shop-${businessId.slice(0, 8)}@tijar.ng`,
           phone: ctx.profile.phone ?? undefined,
-          bvn,
-        };
-        let provider = "corv";
-        let created = corvConfigured() ? await corvCreateVirtualAccount(payload) : { account: null, error: null as string | null, needsBvn: false };
-        if ((!created.account || created.error) && flutterwaveConfigured()) {
-          provider = "flutterwave";
-          created = await flutterwaveCreateVirtualAccount(payload);
-        }
+          idType,
+          idNumber,
+        });
         if (created.error || !created.account) {
           return Response.json(
             { error: created.error ?? "Could not create virtual account.", needsBvn: created.needsBvn },
@@ -115,32 +136,58 @@ export const Route = createFileRoute("/api/payments/virtual-account")({
           );
         }
 
+        const primary = created.account;
+        const accounts = created.accounts.map((row) => ({
+          accountNumber: row.accountNumber,
+          accountName: row.accountName || accountName,
+          bankName: row.bankName,
+          bankCode: row.bankCode,
+          bank: row.bank,
+          reference: row.reference,
+        }));
         const saved = await ctx.admin
           .from("businesses")
           .update({
             virtual_account_name: accountName,
-            virtual_account_number: created.account.accountNumber,
-            virtual_account_bank_name: created.account.bankName,
-            virtual_account_bank_code: created.account.bankCode,
-            virtual_account_reference: created.account.reference ?? `tijar-biz-${businessId}`,
-            virtual_account_provider: provider,
+            virtual_account_number: primary.accountNumber,
+            virtual_account_bank_name: primary.bankName,
+            virtual_account_bank_code: primary.bank ?? primary.bankCode,
+            virtual_account_reference: primary.reference ?? primary.id,
+            virtual_account_provider: "corv",
+            virtual_accounts: accounts,
             updated_at: new Date().toISOString(),
           })
           .eq("id", businessId);
         if (saved.error) {
-          return Response.json(
-            { error: saved.error.message.includes("virtual_account") ? "Run the shop wallet SQL migration in Supabase, then try again." : saved.error.message },
-            { status: 500 },
-          );
+          const retry = await ctx.admin
+            .from("businesses")
+            .update({
+              virtual_account_name: accountName,
+              virtual_account_number: primary.accountNumber,
+              virtual_account_bank_name: primary.bankName,
+              virtual_account_bank_code: primary.bank ?? primary.bankCode,
+              virtual_account_reference: primary.reference ?? primary.id,
+              virtual_account_provider: "corv",
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", businessId);
+          if (retry.error) {
+            return Response.json(
+              {
+                error: retry.error.message.includes("virtual_account")
+                  ? "Run the shop wallet SQL migration in Supabase, then try again."
+                  : retry.error.message,
+              },
+              { status: 500 },
+            );
+          }
         }
         await ctx.admin.rpc("credit_seller_wallet", { p_business_id: businessId, p_amount: 0 });
 
         return Response.json({
           ok: true,
-          account: {
-            ...created.account,
-            accountName: created.account.accountName || accountName,
-          },
+          account: { ...primary, accountName },
+          accounts,
         });
       },
     },

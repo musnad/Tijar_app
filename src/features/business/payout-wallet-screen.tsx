@@ -2,19 +2,19 @@
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { AppPageHeader } from "@/features/app-layout/app-page-header";
 import { BankAccountForm } from "@/features/business/bank-account-form";
+import { CreateReceivingAccountButton } from "@/features/business/create-receiving-account";
 import { displayShopName } from "@/lib/shop-names";
 import { fetchOwnedBusinesses } from "@/services/business-service";
 import {
   fetchSellerWallet,
   fetchVirtualAccountWallet,
-  provisionVirtualAccount,
   requestSellerPayout,
 } from "@/services/marketplace-service";
 import { fetchSellerOrders } from "@/services/seller-dashboard-service";
@@ -73,6 +73,7 @@ export function PayoutWalletScreen({
       return {
         configured: va.configured,
         account: va.account,
+        accounts: va.accounts,
         wallet: va.wallet.available_ngn || va.wallet.pending_ngn ? va.wallet : ledger.wallet,
         requests: ledger.requests,
         credits: va.credits.length ? va.credits : ledger.credits,
@@ -81,7 +82,6 @@ export function PayoutWalletScreen({
     },
   });
 
-  const [creating, setCreating] = useState(false);
   const [withdrawAmount, setWithdrawAmount] = useState("");
   const [withdrawing, setWithdrawing] = useState(false);
 
@@ -92,31 +92,14 @@ export function PayoutWalletScreen({
   ).length;
   const shopName = displayShopName(selected.business_name);
   const account = walletQuery.data?.account;
+  const accounts = walletQuery.data?.accounts?.length
+    ? walletQuery.data.accounts
+    : account
+      ? [account]
+      : [];
   const wallet = walletQuery.data?.wallet ?? { available_ngn: 0, pending_ngn: 0 };
   const requests = walletQuery.data?.requests ?? [];
   const credits = walletQuery.data?.credits ?? [];
-
-  const autoCreateFor = useRef<string | null>(null);
-  async function createAccount(silent = false) {
-    setCreating(true);
-    const result = await provisionVirtualAccount(selected.id);
-    setCreating(false);
-    if (result.error) {
-      if (!silent) toast.error(result.error);
-      return;
-    }
-    toast.success(`Receiving account opened as ${shopName}.`);
-    await queryClient.invalidateQueries({ queryKey: ["shop-wallet", selected.id] });
-    await queryClient.invalidateQueries({ queryKey: ["payout-account", selected.id] });
-    await queryClient.invalidateQueries({ queryKey: ["primary-business"] });
-  }
-
-  useEffect(() => {
-    if (!walletQuery.isSuccess || account?.accountNumber) return;
-    if (autoCreateFor.current === selected.id) return;
-    autoCreateFor.current = selected.id;
-    void createAccount(true);
-  }, [walletQuery.isSuccess, account?.accountNumber, selected.id]);
 
   async function withdraw() {
     const amount = Number(withdrawAmount.replace(/,/g, ""));
@@ -189,45 +172,38 @@ export function PayoutWalletScreen({
         <p className="mt-1 text-xs text-muted-foreground">
           Buyers transfer here. Money lands in the TIJAR wallet above — not your personal bank.
         </p>
-        {account?.accountNumber ? (
-          <dl className="mt-3 space-y-2 text-sm">
-            <div className="flex justify-between gap-3">
-              <dt className="text-muted-foreground">Bank</dt>
-              <dd className="font-bold">{account.bankName}</dd>
-            </div>
-            <div className="flex justify-between gap-3">
-              <dt className="text-muted-foreground">Name</dt>
-              <dd className="font-bold">{account.accountName}</dd>
-            </div>
-            <div className="flex justify-between gap-3">
-              <dt className="text-muted-foreground">Number</dt>
-              <dd className="font-extrabold tracking-wide">{account.accountNumber}</dd>
-            </div>
-            <Button
-              className="mt-1 min-h-11 w-full rounded-xl"
-              variant="outline"
-              type="button"
-              onClick={() => {
-                void navigator.clipboard.writeText(account.accountNumber);
-                toast.success("Account number copied");
-              }}
-            >
-              Copy account number
-            </Button>
-          </dl>
+        {accounts.length ? (
+          <ul className="mt-3 space-y-3">
+            {accounts.map((row) => (
+              <li key={row.accountNumber} className="rounded-xl border border-border px-3 py-2 text-sm">
+                <div className="flex justify-between gap-3">
+                  <span className="text-muted-foreground">Bank</span>
+                  <span className="font-bold">{row.bankName}</span>
+                </div>
+                <div className="mt-1 flex justify-between gap-3">
+                  <span className="text-muted-foreground">Name</span>
+                  <span className="font-bold">{row.accountName || shopName}</span>
+                </div>
+                <div className="mt-1 flex justify-between gap-3">
+                  <span className="text-muted-foreground">Number</span>
+                  <span className="font-extrabold tracking-wide">{row.accountNumber}</span>
+                </div>
+                <Button
+                  className="mt-2 min-h-11 w-full rounded-xl"
+                  variant="outline"
+                  type="button"
+                  onClick={() => {
+                    void navigator.clipboard.writeText(row.accountNumber);
+                    toast.success("Account number copied");
+                  }}
+                >
+                  Copy account number
+                </Button>
+              </li>
+            ))}
+          </ul>
         ) : (
-          <div className="mt-3 space-y-2">
-            <p className="text-sm text-muted-foreground">
-              Opens a receiving account named <span className="font-bold text-foreground">{shopName}</span>.
-            </p>
-            <Button
-              className="min-h-11 w-full rounded-xl bg-[#0B1F4D] font-extrabold text-white"
-              disabled={creating}
-              onClick={() => void createAccount()}
-            >
-              {creating ? "Opening account…" : "Create account"}
-            </Button>
-          </div>
+          <CreateReceivingAccountButton businessId={selected.id} shopName={shopName} />
         )}
       </section>
 

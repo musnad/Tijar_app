@@ -133,6 +133,15 @@ export type Business = {
   virtual_account_bank_name?: string | null;
   virtual_account_bank_code?: string | null;
   virtual_account_reference?: string | null;
+  virtual_account_provider?: string | null;
+  virtual_accounts?: Array<{
+    accountNumber: string;
+    accountName: string;
+    bankName: string;
+    bankCode?: string | null;
+    bank?: string | null;
+    reference?: string | null;
+  }> | null;
   created_at?: string;
 };
 

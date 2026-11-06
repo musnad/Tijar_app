@@ -387,7 +387,6 @@ export async function ensurePersonalShop(input: {
     return { businessId: null, slug: null, error: created.error?.message ?? "Could not open your selling profile." };
   }
   await ensureOwnerMembership(businessId, input.profileId);
-  void provisionVirtualAccount(businessId);
   return { businessId, slug: (created.data?.public_slug as string | null) ?? null, error: null };
 }
 
@@ -1699,7 +1698,7 @@ export async function startFlutterwavePay(orderId: string): Promise<{ link: stri
 
 export async function provisionVirtualAccount(
   businessId: string,
-  extra?: { bvn?: string },
+  extra?: { bvn?: string; idType?: "bvn" | "nin"; idNumber?: string },
 ): Promise<{
   account: {
     accountName: string;
@@ -1707,6 +1706,7 @@ export async function provisionVirtualAccount(
     bankName: string;
     bankCode: string | null;
   } | null;
+  accounts: Array<{ accountName: string; accountNumber: string; bankName: string }>;
   wallet: { available_ngn: number; pending_ngn: number };
   needsBvn?: boolean;
   error: string | null;
@@ -1717,7 +1717,7 @@ export async function provisionVirtualAccount(
     data: { session },
   } = await supabase.auth.getSession();
   if (!session?.access_token) {
-    return { account: null, wallet: emptyWallet, error: "Sign in first." };
+    return { account: null, accounts: [], wallet: emptyWallet, error: "Sign in first." };
   }
   const res = await fetch("/api/payments/virtual-account", {
     method: "POST",
@@ -1725,17 +1725,28 @@ export async function provisionVirtualAccount(
       Authorization: `Bearer ${session.access_token}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ businessId, bvn: extra?.bvn }),
+    body: JSON.stringify({
+      businessId,
+      idType: extra?.idType ?? "bvn",
+      idNumber: extra?.idNumber || extra?.bvn,
+    }),
   });
   const json = (await res.json()) as {
     account?: { accountName: string; accountNumber: string; bankName: string; bankCode: string | null };
+    accounts?: Array<{ accountName: string; accountNumber: string; bankName: string }>;
     error?: string;
     needsBvn?: boolean;
   };
   if (!res.ok) {
-    return { account: null, wallet: emptyWallet, needsBvn: json.needsBvn, error: json.error ?? "Could not create shop account." };
+    return {
+      account: null,
+      accounts: [],
+      wallet: emptyWallet,
+      needsBvn: json.needsBvn,
+      error: json.error ?? "Could not create shop account.",
+    };
   }
-  return { account: json.account ?? null, wallet: emptyWallet, error: null };
+  return { account: json.account ?? null, accounts: json.accounts ?? [], wallet: emptyWallet, error: null };
 }
 
 export async function fetchVirtualAccountWallet(businessId: string): Promise<{
@@ -1746,6 +1757,7 @@ export async function fetchVirtualAccountWallet(businessId: string): Promise<{
     bankName: string;
     bankCode: string | null;
   } | null;
+  accounts: Array<{ accountName: string; accountNumber: string; bankName: string }>;
   wallet: { available_ngn: number; pending_ngn: number };
   credits: import("@/types/database").WalletCredit[];
   error: string | null;
@@ -1756,7 +1768,7 @@ export async function fetchVirtualAccountWallet(businessId: string): Promise<{
     data: { session },
   } = await supabase.auth.getSession();
   if (!session?.access_token) {
-    return { configured: false, account: null, wallet: emptyWallet, credits: [], error: "Sign in first." };
+    return { configured: false, account: null, accounts: [], wallet: emptyWallet, credits: [], error: "Sign in first." };
   }
   const res = await fetch(`/api/payments/virtual-account?businessId=${encodeURIComponent(businessId)}`, {
     headers: { Authorization: `Bearer ${session.access_token}` },
@@ -1769,16 +1781,18 @@ export async function fetchVirtualAccountWallet(businessId: string): Promise<{
       bankName: string;
       bankCode: string | null;
     } | null;
+    accounts?: Array<{ accountName: string; accountNumber: string; bankName: string }>;
     wallet?: { available_ngn: number; pending_ngn: number };
     credits?: import("@/types/database").WalletCredit[];
     error?: string;
   };
   if (!res.ok) {
-    return { configured: false, account: null, wallet: emptyWallet, credits: [], error: json.error ?? "Could not load wallet." };
+    return { configured: false, account: null, accounts: [], wallet: emptyWallet, credits: [], error: json.error ?? "Could not load wallet." };
   }
   return {
     configured: Boolean(json.configured),
     account: json.account ?? null,
+    accounts: json.accounts ?? (json.account ? [json.account] : []),
     wallet: json.wallet ?? emptyWallet,
     credits: json.credits ?? [],
     error: null,

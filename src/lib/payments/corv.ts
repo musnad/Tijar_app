@@ -8,7 +8,11 @@ export type CorvVirtualAccount = {
   bankName: string;
   bankCode: string | null;
   reference: string | null;
+  bank?: string | null;
+  id?: string | null;
 };
+
+export type CorvBank = { id: string; name: string };
 
 export type CorvTransferResult = {
   reference: string | null;
@@ -29,10 +33,8 @@ export function corvConfigured(): boolean {
   return Boolean(corvSecret());
 }
 
-function corvHosts(): string[] {
-  const custom = readEnvString("CORV_API_BASE_URL")?.replace(/\/$/, "");
-  if (custom) return [custom];
-  return ["https://api.corvpay.com", "https://api.corv.ng"];
+function corvBase(): string {
+  return (readEnvString("CORV_API_BASE_URL") || "https://api.corvi.ng/api/v1").replace(/\/$/, "");
 }
 
 function asRecord(value: unknown): Json | null {
@@ -58,143 +60,148 @@ function nested(source: Json | null, keys: string[]): Json | null {
   return null;
 }
 
-function parseVirtualAccount(json: unknown): CorvVirtualAccount | null {
+function nigeriaPhone(phone?: string): string | undefined {
+  if (!phone) return undefined;
+  const digits = phone.replace(/\D/g, "");
+  if (!digits) return undefined;
+  if (digits.startsWith("234") && digits.length >= 13) return `0${digits.slice(3)}`;
+  if (digits.length === 10) return `0${digits}`;
+  return digits;
+}
+
+function parseOneAccount(json: unknown): CorvVirtualAccount | null {
   const root = asRecord(json);
-  const data = nested(root, ["data", "account", "result", "virtual_account"]) ?? root;
-  const accountNumber = pickString(data, [
-    "account_number",
-    "accountNumber",
-    "nuban",
-    "number",
-  ]);
+  const data = nested(root, ["data", "account", "result"]) ?? root;
+  const accountNumber = pickString(data, ["accountNumber", "account_number", "nuban", "number"]);
   if (!accountNumber) return null;
   return {
     accountNumber,
-    accountName: pickString(data, ["account_name", "accountName", "name"]) ?? "TIJAR",
-    bankName: pickString(data, ["bank_name", "bankName", "bank"]) ?? "Bank",
-    bankCode: pickString(data, ["bank_code", "bankCode"]),
-    reference: pickString(data, ["reference", "id", "account_reference", "accountReference"]),
+    accountName: pickString(data, ["accountName", "account_name", "name"]) ?? "TIJAR",
+    bankName: pickString(data, ["bankName", "bank_name"]) ?? pickString(data, ["bank"]) ?? "Bank",
+    bankCode: pickString(data, ["bankCode", "bank_code", "bank"]),
+    reference: pickString(data, ["reference", "id"]),
+    bank: pickString(data, ["bank", "provider"]),
+    id: pickString(data, ["id"]),
   };
+}
+
+function parseAccountList(json: unknown): CorvVirtualAccount[] {
+  if (Array.isArray(json)) {
+    return json.map(parseOneAccount).filter((row): row is CorvVirtualAccount => Boolean(row));
+  }
+  const root = asRecord(json);
+  const nestedList =
+    (root?.data && Array.isArray(root.data) ? root.data : null) ||
+    (root?.accounts && Array.isArray(root.accounts) ? root.accounts : null) ||
+    (nested(root, ["data"]) && Array.isArray(nested(root, ["data"])?.accounts)
+      ? (nested(root, ["data"])!.accounts as unknown[])
+      : null);
+  if (nestedList) {
+    return nestedList.map(parseOneAccount).filter((row): row is CorvVirtualAccount => Boolean(row));
+  }
+  const one = parseOneAccount(json);
+  return one ? [one] : [];
 }
 
 function messageFrom(json: unknown, fallback: string): string {
   const root = asRecord(json);
   return (
-    pickString(root, ["message", "error", "detail"]) ||
+    pickString(root, ["message", "error", "detail", "responseMessage"]) ||
     pickString(nested(root, ["error", "data"]), ["message", "error"]) ||
     fallback
   );
 }
 
-function needsIdentity(message: string): boolean {
-  return /bvn|nin|kyc|identity/i.test(message);
-}
-
 async function corvFetch(
   path: string,
-  init: RequestInit,
-): Promise<{ res: Response; json: unknown; host: string } | { error: string }> {
+  init: RequestInit = {},
+): Promise<{ res: Response; json: unknown } | { error: string }> {
   const secret = corvSecret();
   if (!secret) return { error: "Corv is not connected yet." };
-  const headers = {
-    Authorization: `Bearer ${secret}`,
-    "api-key": secret,
-    "x-api-key": secret,
-    "Content-Type": "application/json",
-    Accept: "application/json",
-    ...(init.headers ?? {}),
-  };
-  let lastError = "Could not reach Corv.";
-  for (const host of corvHosts()) {
+  const url = `${corvBase()}${path.startsWith("/") ? path : `/${path}`}`;
+  try {
+    const res = await fetch(url, {
+      ...init,
+      headers: {
+        "x-api-key": secret,
+        Accept: "application/json",
+        ...(init.body ? { "Content-Type": "application/json" } : {}),
+        ...(init.headers ?? {}),
+      },
+    });
+    const text = await res.text();
+    let json: unknown = null;
     try {
-      const res = await fetch(`${host}${path}`, { ...init, headers });
-      const text = await res.text();
-      let json: unknown = null;
-      try {
-        json = text ? JSON.parse(text) : null;
-      } catch {
-        json = { message: text.slice(0, 300) };
-      }
-      if (res.status === 404 || res.status === 405) {
-        lastError = messageFrom(json, `Corv ${path} was not found.`);
-        continue;
-      }
-      return { res, json, host };
-    } catch (err) {
-      lastError = err instanceof Error ? err.message : lastError;
+      json = text ? JSON.parse(text) : null;
+    } catch {
+      json = { message: text.slice(0, 300) };
     }
+    return { res, json };
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Could not reach Corv." };
   }
-  return { error: lastError };
 }
 
-const CREATE_PATHS = [
-  "/v1/virtual-accounts",
-  "/v1/virtual-account",
-  "/api/v1/virtual-accounts",
-  "/api/v1/virtual-account",
-  "/v1/collections/virtual-account",
-  "/v1/collections/virtual-accounts",
-  "/v1/accounts/virtual",
-  "/v1/dedicated-accounts",
-  "/v1/nuban",
-  "/virtual-accounts",
-];
+export async function corvListBanks(): Promise<{ banks: CorvBank[]; error: string | null }> {
+  const result = await corvFetch("/virtual-accounts/banks");
+  if ("error" in result) return { banks: [], error: result.error };
+  if (!result.res.ok) return { banks: [], error: messageFrom(result.json, "Could not load Corv banks.") };
+  const rows = Array.isArray(result.json)
+    ? result.json
+    : Array.isArray(asRecord(result.json)?.data)
+      ? (asRecord(result.json)!.data as unknown[])
+      : [];
+  const banks = rows
+    .map((row) => {
+      const rec = asRecord(row);
+      const id = pickString(rec, ["id", "code", "bank"]);
+      const name = pickString(rec, ["name", "bankName", "bank_name"]);
+      return id ? { id, name: name ?? id } : null;
+    })
+    .filter((row): row is CorvBank => Boolean(row));
+  return { banks, error: null };
+}
 
 export async function corvCreateVirtualAccount(input: {
-  reference: string;
   accountName: string;
   email: string;
   phone?: string;
-  bvn?: string;
-}): Promise<{ account: CorvVirtualAccount | null; error: string | null; needsBvn?: boolean }> {
+  idType: "bvn" | "nin";
+  idNumber: string;
+}): Promise<{ accounts: CorvVirtualAccount[]; account: CorvVirtualAccount | null; error: string | null; needsBvn?: boolean }> {
+  const idNumber = input.idNumber.replace(/\D/g, "");
+  if (idNumber.length !== 11) {
+    return { accounts: [], account: null, error: "Enter an 11-digit BVN or NIN.", needsBvn: true };
+  }
+
+  const banksRes = await corvListBanks();
+  const bankIds = banksRes.banks.map((b) => b.id);
   const body = {
-    account_name: input.accountName,
-    accountName: input.accountName,
     name: input.accountName,
     email: input.email,
-    phone: input.phone,
-    phonenumber: input.phone,
-    reference: input.reference,
-    account_reference: input.reference,
-    permanent: true,
-    is_permanent: true,
-    currency: "NGN",
-    customer: {
-      name: input.accountName,
-      email: input.email,
-      phone: input.phone,
-    },
-    kyc: input.bvn ? { bvn: input.bvn } : undefined,
-    bvn: input.bvn,
+    phoneNumber: nigeriaPhone(input.phone),
+    idType: input.idType,
+    idNumber,
+    bank: bankIds.length ? bankIds : "rubies",
   };
 
-  let lastError = "Could not create a virtual account.";
-  for (const path of CREATE_PATHS) {
-    const result = await corvFetch(path, { method: "POST", body: JSON.stringify(body) });
-    if ("error" in result) {
-      lastError = result.error;
-      continue;
-    }
-    if (!result.res.ok) {
-      lastError = messageFrom(result.json, lastError);
-      if (result.res.status === 401 || result.res.status === 403) {
-        return { account: null, error: lastError };
-      }
-      continue;
-    }
-    const account = parseVirtualAccount(result.json);
-    if (account) return { account, error: null };
-    lastError = messageFrom(result.json, "Corv did not return an account number.");
+  const result = await corvFetch("/virtual-accounts", { method: "POST", body: JSON.stringify(body) });
+  if ("error" in result) return { accounts: [], account: null, error: result.error };
+  if (!result.res.ok) {
+    const error = messageFrom(result.json, "Could not create a virtual account.");
+    return {
+      accounts: [],
+      account: null,
+      error,
+      needsBvn: /bvn|nin|idNumber|idType|identity/i.test(error),
+    };
   }
-  return { account: null, error: lastError, needsBvn: needsIdentity(lastError) };
+  const accounts = parseAccountList(result.json);
+  if (!accounts.length) {
+    return { accounts: [], account: null, error: messageFrom(result.json, "Corv did not return an account number.") };
+  }
+  return { accounts, account: accounts[0] ?? null, error: null };
 }
-
-const TRANSFER_PATHS = [
-  "/v1/transfers",
-  "/api/v1/transfers",
-  "/v1/payouts",
-  "/transfers",
-];
 
 export async function corvTransfer(input: {
   bankCode: string;
@@ -217,25 +224,25 @@ export async function corvTransfer(input: {
     narration: input.narration,
     reason: input.narration,
   };
+  const paths = ["/transfers", "/payouts", "/virtual-accounts/transfers"];
   let lastError = "Could not send payout.";
-  for (const path of TRANSFER_PATHS) {
+  for (const path of paths) {
     const result = await corvFetch(path, { method: "POST", body: JSON.stringify(body) });
     if ("error" in result) {
       lastError = result.error;
       continue;
     }
+    if (result.res.status === 404 || result.res.status === 405) continue;
     if (!result.res.ok) {
       lastError = messageFrom(result.json, lastError);
-      if (result.res.status === 401 || result.res.status === 403) {
-        return { reference: null, error: lastError };
-      }
       continue;
     }
     const root = asRecord(result.json);
     const data = nested(root, ["data", "result"]) ?? root;
-    const reference =
-      pickString(data, ["reference", "id", "transfer_code", "session_id"]) ?? input.reference;
-    return { reference, error: null };
+    return {
+      reference: pickString(data, ["reference", "id", "transfer_code", "session_id"]) ?? input.reference,
+      error: null,
+    };
   }
   return { reference: null, error: lastError };
 }
@@ -267,7 +274,7 @@ export function parseCorvCredit(payload: unknown): {
   if (event && /payout|transfer\.(success|completed)|withdrawal/i.test(event) && !/credit|collection|virtual/i.test(event)) {
     return null;
   }
-  const data = nested(root, ["data", "payload", "result"]) ?? root;
+  const data = nested(root, ["data", "payload", "result", "transaction"]) ?? root;
   const amountRaw =
     pickString(data, ["amount", "amount_ngn", "settled_amount", "originatoramount"]) ??
     pickString(nested(data, ["transaction", "charge"]), ["amount"]);
@@ -279,18 +286,13 @@ export function parseCorvCredit(payload: unknown): {
   return {
     amount: Number.isFinite(kobo) && kobo > 0 ? kobo / 100 : amount,
     accountNumber: pickString(data, [
-      "account_number",
       "accountNumber",
+      "account_number",
       "virtual_account_number",
       "destination_account_number",
       "nuban",
     ]),
     reference: pickString(data, ["reference", "id", "session_id", "sessionId", "flw_ref", "tx_ref"]),
-    businessReference: pickString(data, [
-      "account_reference",
-      "accountReference",
-      "customer_reference",
-      "metadata.business_id",
-    ]),
+    businessReference: pickString(data, ["account_reference", "accountReference", "customer_reference"]),
   };
 }

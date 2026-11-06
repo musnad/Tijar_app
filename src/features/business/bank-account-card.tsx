@@ -30,27 +30,35 @@ export function BankAccountCard({ business }: { business: Business }) {
           <p className="mt-1 text-sm text-muted-foreground">
             {hasVa
               ? `Money for ${shop} lands in the in-app wallet. Withdraw to the cash-out bank below.`
-              : `Tap Create account. TIJAR opens a receiving account named ${shop}.`}
+              : `Create account uses ${shop} as the name. Corv needs the owner’s BVN or NIN.`}
           </p>
         </div>
       </div>
       {hasVa ? (
-        <dl className="mt-3 space-y-0.5 rounded-xl bg-white/80 px-3 py-2 text-sm">
-          {business.virtual_account_bank_name ? (
-            <div className="flex justify-between gap-2">
-              <dt className="text-muted-foreground">Receiving bank</dt>
-              <dd className="font-bold text-[#0B1F4D]">{business.virtual_account_bank_name}</dd>
-            </div>
-          ) : null}
-          <div className="flex justify-between gap-2">
-            <dt className="text-muted-foreground">Name</dt>
-            <dd className="truncate font-bold text-[#0B1F4D]">{business.virtual_account_name || shop}</dd>
-          </div>
-          <div className="flex justify-between gap-2">
-            <dt className="text-muted-foreground">Number</dt>
-            <dd className="font-extrabold tracking-wide text-[#0B1F4D]">{va}</dd>
-          </div>
-        </dl>
+        <div className="mt-3 space-y-2">
+          {(business.virtual_accounts?.length ? business.virtual_accounts : [
+            {
+              accountNumber: va,
+              accountName: business.virtual_account_name || shop,
+              bankName: business.virtual_account_bank_name || "Bank",
+            },
+          ]).map((row) => (
+            <dl key={row.accountNumber} className="space-y-0.5 rounded-xl bg-white/80 px-3 py-2 text-sm">
+              <div className="flex justify-between gap-2">
+                <dt className="text-muted-foreground">Bank</dt>
+                <dd className="font-bold text-[#0B1F4D]">{row.bankName}</dd>
+              </div>
+              <div className="flex justify-between gap-2">
+                <dt className="text-muted-foreground">Name</dt>
+                <dd className="truncate font-bold text-[#0B1F4D]">{row.accountName || shop}</dd>
+              </div>
+              <div className="flex justify-between gap-2">
+                <dt className="text-muted-foreground">Number</dt>
+                <dd className="font-extrabold tracking-wide text-[#0B1F4D]">{row.accountNumber}</dd>
+              </div>
+            </dl>
+          ))}
+        </div>
       ) : (
         <CreateReceivingAccountButton businessId={business.id} shopName={shop} />
       )}

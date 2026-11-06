@@ -6,7 +6,8 @@ alter table public.businesses
   add column if not exists virtual_account_bank_name text,
   add column if not exists virtual_account_bank_code text,
   add column if not exists virtual_account_reference text,
-  add column if not exists virtual_account_provider text;
+  add column if not exists virtual_account_provider text,
+  add column if not exists virtual_accounts jsonb;
 
 create unique index if not exists businesses_virtual_account_number_idx
   on public.businesses (virtual_account_number)
