@@ -1794,6 +1794,7 @@ export async function fetchVirtualAccountWallet(businessId: string): Promise<{
     };
   }
   const res = await fetch(`/api/payments/virtual-account?businessId=${encodeURIComponent(businessId)}`, {
+    cache: "no-store",
     headers: { Authorization: `Bearer ${session.access_token}` },
   });
   const json = (await res.json()) as {

@@ -69,6 +69,26 @@ function nested(source: Json | null, keys: string[]): Json | null {
   return null;
 }
 
+function pickDeepString(source: unknown, keys: string[], depth = 0): string | null {
+  if (depth > 4 || source == null) return null;
+  const rec = asRecord(source);
+  if (rec) {
+    const direct = pickString(rec, keys);
+    if (direct) return direct;
+    for (const value of Object.values(rec)) {
+      const found = pickDeepString(value, keys, depth + 1);
+      if (found) return found;
+    }
+  }
+  if (Array.isArray(source)) {
+    for (const item of source) {
+      const found = pickDeepString(item, keys, depth + 1);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
 function nigeriaPhone(phone?: string): string | undefined {
   if (!phone) return undefined;
   const digits = phone.replace(/\D/g, "");
@@ -137,6 +157,7 @@ async function corvFetch(
   try {
     const res = await fetch(url, {
       ...init,
+      signal: init.signal ?? AbortSignal.timeout(8000),
       headers: {
         "x-api-key": secret,
         Accept: "application/json",
@@ -433,21 +454,28 @@ export function parseCorvCredit(payload: unknown): {
     return null;
   }
   const data = nested(root, ["data", "payload", "result", "transaction"]) ?? root;
-  const amount = parseAmount(data);
+  const amount = parseAmount(data) ?? parseAmount(root);
   if (amount == null) return null;
-  const status = pickString(data, ["status"]) ?? "success";
+  const status = pickString(data, ["status"]) ?? pickString(root, ["status"]) ?? "success";
   if (status && /fail|reject|cancel/i.test(status)) return null;
+  const accountKeys = [
+    "accountNumber",
+    "account_number",
+    "virtual_account_number",
+    "virtualAccountNumber",
+    "destination_account_number",
+    "destinationAccountNumber",
+    "nuban",
+    "accountNo",
+  ];
   return {
     amount,
-    accountNumber: pickString(data, [
-      "accountNumber",
-      "account_number",
-      "virtual_account_number",
-      "destination_account_number",
-      "nuban",
-    ]),
-    reference: pickString(data, ["reference", "id", "session_id", "sessionId", "flw_ref", "tx_ref", "transactionId"]),
-    businessReference: pickString(data, ["account_reference", "accountReference", "customer_reference"]),
+    accountNumber: pickString(data, accountKeys) ?? pickDeepString(root, accountKeys),
+    reference:
+      pickString(data, ["reference", "id", "session_id", "sessionId", "flw_ref", "tx_ref", "transactionId", "sessionid"]) ??
+      pickDeepString(root, ["reference", "session_id", "sessionId", "transactionId"]),
+    businessReference: pickString(data, ["account_reference", "accountReference", "customer_reference"]) ??
+      pickDeepString(root, ["account_reference", "accountReference", "customer_reference"]),
   };
 }
 
@@ -461,7 +489,15 @@ function parseActivityRow(json: unknown): CorvActivity | null {
   return {
     amount,
     reference,
-    accountNumber: pickString(data, ["accountNumber", "account_number", "nuban"]),
+    accountNumber: pickString(data, [
+      "accountNumber",
+      "account_number",
+      "virtual_account_number",
+      "virtualAccountNumber",
+      "destination_account_number",
+      "nuban",
+      "accountNo",
+    ]),
     createdAt: pickString(data, ["createdAt", "created_at", "paidAt", "timestamp", "date"]),
     direction: outgoing ? "out" : "in",
     description: pickString(data, ["narration", "description", "remark"]) ?? (outgoing ? "Withdrawal" : "Money in"),
@@ -551,7 +587,9 @@ export async function corvAccountActivity(
   for (const path of paths) {
     const result = await corvFetch(path);
     if ("error" in result || !result.res.ok) continue;
-    const scopedToThisAccount = Boolean(resolvedId && path.includes(resolvedId));
+    const scopedToThisAccount = Boolean(
+      (resolvedId && path.includes(resolvedId)) || path.includes(encoded) || path.includes(nuban),
+    );
     for (const row of parseActivityList(result.json)) {
       const matches = sameNuban(row.accountNumber, nuban) || (scopedToThisAccount && !row.accountNumber);
       if (!matches) continue;
@@ -559,6 +597,7 @@ export async function corvAccountActivity(
         rows.push({ ...row, accountNumber: row.accountNumber || nuban });
       }
     }
+    if (rows.length) return rows;
   }
   return rows;
 }

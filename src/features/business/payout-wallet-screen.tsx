@@ -46,6 +46,9 @@ export function PayoutWalletScreen({
 
   const walletQuery = useQuery({
     queryKey: ["shop-wallet", selected.id],
+    refetchInterval: 12_000,
+    refetchOnWindowFocus: true,
+    staleTime: 0,
     queryFn: async () => {
       const [va, ledger] = await Promise.all([
         fetchVirtualAccountWallet(selected.id),

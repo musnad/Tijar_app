@@ -68,15 +68,38 @@ export const Route = createFileRoute("/api/payments/webhook")({
           const service = readEnvString("SUPABASE_SERVICE_ROLE_KEY");
           if (!env || !service) return Response.json({ ok: false }, { status: 503 });
           const supabase = createClient(env.VITE_SUPABASE_URL, service);
-          const businessId = await findBusinessByReceivingAccount(supabase, credit.accountNumber);
+          let businessId = await findBusinessByReceivingAccount(supabase, credit.accountNumber);
+          if (!businessId && credit.businessReference?.startsWith("tijar-biz-")) {
+            const fromRef = credit.businessReference.slice("tijar-biz-".length);
+            const { data } = await supabase.from("businesses").select("id, virtual_account_number").eq("id", fromRef).maybeSingle();
+            if (data?.id) businessId = data.id as string;
+          }
           if (businessId && credit.reference) {
-            await supabase.rpc("credit_seller_wallet_once", {
+            const once = await supabase.rpc("credit_seller_wallet_once", {
               p_business_id: businessId,
               p_amount: credit.amount,
               p_provider: "corv",
               p_reference: credit.reference,
               p_account_number: credit.accountNumber,
             });
+            if (once.error) {
+              const existing = await supabase
+                .from("wallet_credits")
+                .select("id")
+                .eq("provider", "corv")
+                .eq("provider_reference", credit.reference)
+                .maybeSingle();
+              if (!existing.data) {
+                await supabase.from("wallet_credits").insert({
+                  business_id: businessId,
+                  provider: "corv",
+                  provider_reference: credit.reference,
+                  amount_ngn: credit.amount,
+                  account_number: credit.accountNumber,
+                });
+                await supabase.rpc("credit_seller_wallet", { p_business_id: businessId, p_amount: credit.amount });
+              }
+            }
           }
           return Response.json({ ok: true });
         }

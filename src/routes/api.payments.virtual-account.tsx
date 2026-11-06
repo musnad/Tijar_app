@@ -45,7 +45,14 @@ export const Route = createFileRoute("/api/payments/virtual-account")({
               reference: biz.virtual_account_reference,
             }
           : null;
-        const accounts = extras.length ? extras : account ? [account] : [];
+        const accounts = [
+          ...(account ? [account] : []),
+          ...extras.filter(
+            (row) =>
+              row.accountNumber &&
+              (!account || String(row.accountNumber).replace(/\D/g, "") !== String(account.accountNumber).replace(/\D/g, "")),
+          ),
+        ];
         const synced = await syncCorvWallet(
           ctx.admin,
           businessId,
@@ -73,30 +80,34 @@ export const Route = createFileRoute("/api/payments/virtual-account")({
           .limit(80);
         const credits = (creditRows ?? []).filter((row) => {
           const nuban = String(row.account_number ?? "").replace(/\D/g, "");
-          return !owned.size || (nuban.length >= 8 && owned.has(nuban));
+          if (nuban.length < 8) return true;
+          return !owned.size || owned.has(nuban);
         }).slice(0, 40);
         const available = synced.available;
         const banks = corvConfigured() ? (await corvListBanks()).banks : [];
-        return Response.json({
-          configured: corvConfigured(),
-          banks,
-          account,
-          accounts,
-          activity,
-          payout: biz?.payout_account_number
-            ? {
-                accountName: biz.payout_account_name,
-                accountNumber: biz.payout_account_number,
-                bankName: biz.payout_bank_name,
-                bankCode: biz.payout_bank_code,
-              }
-            : null,
-          wallet: {
-            available_ngn: available,
-            pending_ngn: Number(wallet?.pending_ngn ?? 0),
+        return Response.json(
+          {
+            configured: corvConfigured(),
+            banks,
+            account,
+            accounts,
+            activity,
+            payout: biz?.payout_account_number
+              ? {
+                  accountName: biz.payout_account_name,
+                  accountNumber: biz.payout_account_number,
+                  bankName: biz.payout_bank_name,
+                  bankCode: biz.payout_bank_code,
+                }
+              : null,
+            wallet: {
+              available_ngn: available,
+              pending_ngn: Number(wallet?.pending_ngn ?? 0),
+            },
+            credits: credits ?? [],
           },
-          credits: credits ?? [],
-        });
+          { headers: { "Cache-Control": "no-store" } },
+        );
       },
       POST: async ({ request }) => {
         if (!corvConfigured()) {
