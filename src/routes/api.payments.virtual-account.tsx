@@ -135,15 +135,26 @@ export const Route = createFileRoute("/api/payments/virtual-account")({
         }
 
         const accountName = String(biz?.business_name || ctx.profile.full_name || "TIJAR shop").slice(0, 80);
+        const ownerName = String(ctx.profile.full_name || accountName).slice(0, 80);
+        const email = ctx.profile.email || `shop-${businessId.slice(0, 8)}@tijar.ng`;
         let created;
         try {
           created = await corvCreateVirtualAccount({
             accountName,
-            email: ctx.profile.email || `shop-${businessId.slice(0, 8)}@tijar.ng`,
+            email,
             phone: ctx.profile.phone ?? undefined,
             idType,
             idNumber,
           });
+          if (created.error && ownerName !== accountName) {
+            created = await corvCreateVirtualAccount({
+              accountName: ownerName,
+              email,
+              phone: ctx.profile.phone ?? undefined,
+              idType,
+              idNumber,
+            });
+          }
         } catch (err) {
           return Response.json(
             { error: err instanceof Error ? err.message : "Could not reach Corv." },

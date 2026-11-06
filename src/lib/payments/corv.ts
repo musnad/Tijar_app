@@ -39,7 +39,11 @@ export function corvConfigured(): boolean {
 }
 
 function corvBase(): string {
-  return (readEnvString("CORV_API_BASE_URL") || "https://api.corvi.ng/api/v1").replace(/\/$/, "");
+  const custom = readEnvString("CORV_API_BASE_URL")?.replace(/\/$/, "") ?? "";
+  if (custom && /corvi\.ng/i.test(custom)) {
+    return /\/api\/v1$/i.test(custom) ? custom : `${custom}/api/v1`;
+  }
+  return "https://api.corvi.ng/api/v1";
 }
 
 function asRecord(value: unknown): Json | null {
@@ -110,7 +114,13 @@ function parseAccountList(json: unknown): CorvVirtualAccount[] {
 
 function messageFrom(json: unknown, fallback: string): string {
   const root = asRecord(json);
+  if (!root) return fallback;
+  const rawMessage = root.message;
+  const fromArray = Array.isArray(rawMessage)
+    ? rawMessage.map((part) => (typeof part === "string" ? part : JSON.stringify(part))).join(" ")
+    : null;
   return (
+    fromArray ||
     pickString(root, ["message", "error", "detail", "responseMessage"]) ||
     pickString(nested(root, ["error", "data"]), ["message", "error"]) ||
     fallback
@@ -180,20 +190,24 @@ export async function corvCreateVirtualAccount(input: {
   }
 
   const banksRes = await corvListBanks();
-  const bankIds = banksRes.banks.map((b) => b.id);
-  const body = {
+  if (banksRes.error && /invalid|expired|unauthorized|api key/i.test(banksRes.error)) {
+    return { accounts: [], account: null, error: banksRes.error };
+  }
+  const bank = banksRes.banks[0]?.id || "rubies";
+  const body: Record<string, unknown> = {
     name: input.accountName,
     email: input.email,
-    phoneNumber: nigeriaPhone(input.phone),
     idType: input.idType,
     idNumber,
-    bank: bankIds.length ? bankIds : "rubies",
+    bank,
   };
+  const phoneNumber = nigeriaPhone(input.phone);
+  if (phoneNumber) body.phoneNumber = phoneNumber;
 
   const result = await corvFetch("/virtual-accounts", { method: "POST", body: JSON.stringify(body) });
   if ("error" in result) return { accounts: [], account: null, error: result.error };
   if (!result.res.ok) {
-    const error = messageFrom(result.json, "Could not create a virtual account.");
+    const error = messageFrom(result.json, `Could not create a virtual account (${result.res.status}).`);
     return {
       accounts: [],
       account: null,
