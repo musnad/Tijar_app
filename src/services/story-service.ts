@@ -25,6 +25,10 @@ export type LiveStory = {
   location_text: string | null;
   public_location_label: string | null;
   media_url: string;
+  like_count: number;
+  comment_count: number;
+  product_name?: string | null;
+  product_image?: string | null;
 };
 
 export type StoryRing = {
@@ -72,6 +76,8 @@ function asStory(row: Record<string, unknown>): LiveStory {
     location_text: (row.location_text as string | null) ?? null,
     public_location_label: (row.public_location_label as string | null) ?? null,
     media_url: publicStoryUrl(playback || storagePath),
+    like_count: Number(row.like_count ?? 0),
+    comment_count: Number(row.comment_count ?? 0),
   };
 }
 
@@ -103,8 +109,23 @@ export async function fetchLiveStoryRings(opts: {
     rows = fallback.data ?? [];
   }
 
-  const stories = rows.map((row) => asStory(row as Record<string, unknown>));
+  let stories = rows.map((row) => asStory(row as Record<string, unknown>));
   if (stories.length === 0) return { rings: [], error: null };
+
+  const productIds = [...new Set(stories.map((s) => s.product_id).filter(Boolean))] as string[];
+  if (productIds.length > 0) {
+    const products = await supabase.from("products").select("id, name, image_url, sale_price").in("id", productIds);
+    const byId = new Map((products.data ?? []).map((p) => [p.id as string, p]));
+    stories = stories.map((story) => {
+      const product = story.product_id ? byId.get(story.product_id) : undefined;
+      return {
+        ...story,
+        product_name: (product?.name as string | undefined) ?? story.product_name ?? null,
+        product_image: (product?.image_url as string | undefined) ?? story.product_image ?? null,
+        price: story.price ?? (product?.sale_price != null ? Number(product.sale_price) : null),
+      };
+    });
+  }
 
   let viewed = new Set<string>();
   if (opts.profileId) {
@@ -209,4 +230,114 @@ export async function publishBusinessStory(input: {
     .maybeSingle();
   if (error) return { error: error.message };
   return { error: null, id: data?.id ?? id };
+}
+
+export async function toggleStoryLike(
+  profileId: string,
+  storyId: string,
+): Promise<{ liked: boolean; error: string | null }> {
+  const supabase = getSupabaseBrowserClient();
+  const { data: existing } = await supabase
+    .from("business_story_likes")
+    .select("profile_id")
+    .eq("profile_id", profileId)
+    .eq("story_id", storyId)
+    .maybeSingle();
+  if (existing) {
+    const { error } = await supabase
+      .from("business_story_likes")
+      .delete()
+      .eq("profile_id", profileId)
+      .eq("story_id", storyId);
+    return { liked: false, error: error?.message ?? null };
+  }
+  const { error } = await supabase.from("business_story_likes").insert({ profile_id: profileId, story_id: storyId });
+  if (error?.code === "23505") return { liked: true, error: null };
+  return { liked: true, error: error?.message ?? null };
+}
+
+export async function fetchMyStoryLikedIds(profileId: string, storyIds: string[]): Promise<Set<string>> {
+  if (!profileId || storyIds.length === 0) return new Set();
+  const supabase = getSupabaseBrowserClient();
+  const { data } = await supabase
+    .from("business_story_likes")
+    .select("story_id")
+    .eq("profile_id", profileId)
+    .in("story_id", storyIds);
+  return new Set((data ?? []).map((r) => r.story_id as string));
+}
+
+export async function postStoryComment(profileId: string, storyId: string, body: string): Promise<{ error: string | null }> {
+  const text = body.trim();
+  if (!text) return { error: "Write a reply first." };
+  const supabase = getSupabaseBrowserClient();
+  const { error } = await supabase.from("business_story_comments").insert({
+    profile_id: profileId,
+    story_id: storyId,
+    body: text,
+  });
+  return { error: error?.message ?? null };
+}
+
+export async function fetchStoryComments(storyId: string): Promise<{
+  comments: Array<{ id: string; body: string; created_at: string; author_name: string }>;
+  error: string | null;
+}> {
+  const supabase = getSupabaseBrowserClient();
+  const { data, error } = await supabase
+    .from("business_story_comments")
+    .select("id, body, created_at, profile_id")
+    .eq("story_id", storyId)
+    .order("created_at", { ascending: true })
+    .limit(80);
+  if (error) return { comments: [], error: error.message };
+  const ids = [...new Set((data ?? []).map((r) => r.profile_id as string))];
+  const names = new Map<string, string>();
+  if (ids.length > 0) {
+    const { data: profiles } = await supabase.from("profiles").select("id, full_name").in("id", ids);
+    for (const row of profiles ?? []) names.set(row.id as string, (row.full_name as string) || "Shopper");
+  }
+  return {
+    comments: (data ?? []).map((row) => ({
+      id: row.id as string,
+      body: row.body as string,
+      created_at: row.created_at as string,
+      author_name: names.get(row.profile_id as string) ?? "Shopper",
+    })),
+    error: null,
+  };
+}
+
+export type StoryViewerPerson = {
+  profileId: string;
+  name: string;
+  avatarUrl: string | null;
+  viewedAt: string;
+};
+
+export async function fetchStoryViewers(storyId: string): Promise<{ people: StoryViewerPerson[]; error: string | null }> {
+  const supabase = getSupabaseBrowserClient();
+  const { data, error } = await supabase
+    .from("business_story_views")
+    .select("profile_id, viewed_at")
+    .eq("story_id", storyId)
+    .order("viewed_at", { ascending: false })
+    .limit(200);
+  if (error) return { people: [], error: error.message };
+  const ids = (data ?? []).map((r) => r.profile_id as string);
+  if (ids.length === 0) return { people: [], error: null };
+  const { data: profiles } = await supabase.from("profiles").select("id, full_name, avatar_url").in("id", ids);
+  const byId = new Map((profiles ?? []).map((p) => [p.id as string, p]));
+  return {
+    people: (data ?? []).map((row) => {
+      const person = byId.get(row.profile_id as string);
+      return {
+        profileId: row.profile_id as string,
+        name: ((person?.full_name as string | null) ?? "Shopper").trim() || "Shopper",
+        avatarUrl: (person?.avatar_url as string | null) ?? null,
+        viewedAt: row.viewed_at as string,
+      };
+    }),
+    error: null,
+  };
 }

@@ -2,16 +2,18 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { CommerceSticker } from "@/features/marketplace/commerce-sticker";
 import { MarketplaceShell } from "@/features/marketplace/marketplace-shell";
 import { useAuth } from "@/features/auth/auth-context";
 import { usePrimaryBusiness } from "@/hooks/use-primary-business";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { publishBusinessStory } from "@/services/story-service";
+import { formatNgn } from "@/utils/money";
 
 export function CreateStoryScreen() {
   const { profile, session } = useAuth();
@@ -32,7 +34,7 @@ export function CreateStoryScreen() {
       const supabase = getSupabaseBrowserClient();
       const { data, error } = await supabase
         .from("products")
-        .select("id, name, sale_price")
+        .select("id, name, sale_price, image_url")
         .eq("business_id", business!.id)
         .eq("is_active", true)
         .order("updated_at", { ascending: false })
@@ -41,6 +43,19 @@ export function CreateStoryScreen() {
       return data ?? [];
     },
   });
+
+  const product = useMemo(
+    () => (productsQuery.data ?? []).find((p) => p.id === productId) ?? null,
+    [productsQuery.data, productId],
+  );
+  const priceNum = price.trim() ? Number(price.replace(/[^\d.]/g, "")) : null;
+  const stickerPrice =
+    Number.isFinite(priceNum) && priceNum != null
+      ? priceNum
+      : product?.sale_price != null
+        ? Number(product.sale_price)
+        : null;
+  const stickerTitle = overlay.trim() || (product?.name as string | undefined) || business?.business_name || "TIJAR";
 
   function onFile(next: File | null) {
     setFile(next);
@@ -62,13 +77,12 @@ export function CreateStoryScreen() {
       return;
     }
     setSaving(true);
-    const priceNum = price.trim() ? Number(price.replace(/[^\d.]/g, "")) : null;
     const { error } = await publishBusinessStory({
       businessId: business.id,
       profileId: profile.id,
       file,
       overlayText: overlay,
-      price: Number.isFinite(priceNum) ? priceNum : null,
+      price: stickerPrice,
       productId: productId || null,
     });
     setSaving(false);
@@ -82,7 +96,7 @@ export function CreateStoryScreen() {
 
   return (
     <MarketplaceShell hideTopBar variant="feed">
-      <div className="mx-auto flex min-h-0 w-full max-w-lg flex-1 flex-col bg-[#0A2540] text-white">
+      <div className="mx-auto flex min-h-0 w-full max-w-lg flex-1 flex-col bg-[#3B0A5C] text-white">
         <header className="flex items-center justify-between px-4 pt-[max(0.8rem,env(safe-area-inset-top))]">
           <button type="button" className="min-h-11 font-bold" onClick={() => history.back()}>
             Cancel
@@ -90,21 +104,30 @@ export function CreateStoryScreen() {
           <p className="text-sm font-extrabold">New story</p>
           <span className="w-12" />
         </header>
-        <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-8 pt-4">
-          <label className="flex aspect-[9/16] w-full cursor-pointer items-center justify-center overflow-hidden rounded-3xl bg-black/40">
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-8 pt-3">
+          <label className="relative flex aspect-[9/16] w-full cursor-pointer items-center justify-center overflow-hidden rounded-3xl bg-black/35">
             {preview ? (
               file?.type.startsWith("video/") ? (
                 // eslint-disable-next-line jsx-a11y/media-has-caption
-                <video src={preview} className="h-full w-full object-cover" controls />
+                <video src={preview} className="h-full w-full object-cover" muted playsInline />
               ) : (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={preview} alt="" className="h-full w-full object-cover" />
               )
             ) : (
               <span className="px-6 text-center text-sm font-semibold text-white/80">
-                Tap to add a photo or a short video. It expires in 24 hours.
+                Tap to add a photo or a short video. Shoppers see it like Instagram, with your product link.
               </span>
             )}
+            {preview ? (
+              <div className="pointer-events-none absolute bottom-3 left-3">
+                <CommerceSticker
+                  title={stickerTitle}
+                  imageUrl={(product?.image_url as string | null) ?? business?.logo_url ?? null}
+                  price={stickerPrice}
+                />
+              </div>
+            ) : null}
             <input
               type="file"
               accept="image/*,video/*"
@@ -112,37 +135,39 @@ export function CreateStoryScreen() {
               onChange={(e) => onFile(e.target.files?.[0] ?? null)}
             />
           </label>
-          <label className="mt-4 block text-xs font-bold text-white/70">Text overlay</label>
+
+          <p className="mt-4 text-[12px] font-bold uppercase tracking-wide text-white/60">Shows as a sticker on the photo</p>
           <Input
-            className="mt-1 min-h-12 border-0 bg-white/10 text-white placeholder:text-white/40"
+            className="mt-2 min-h-12 border-0 bg-white/10 text-white placeholder:text-white/40"
             value={overlay}
             onChange={(e) => setOverlay(e.target.value)}
-            placeholder="Fresh pepper, ₦500"
+            placeholder="Fresh pepper"
             maxLength={80}
           />
-          <label className="mt-3 block text-xs font-bold text-white/70">Price (optional)</label>
-          <Input
-            className="mt-1 min-h-12 border-0 bg-white/10 text-white placeholder:text-white/40"
-            value={price}
-            onChange={(e) => setPrice(e.target.value)}
-            placeholder="5000"
-            inputMode="decimal"
-          />
-          <label className="mt-3 block text-xs font-bold text-white/70">Link a product (optional)</label>
-          <select
-            className="mt-1 min-h-12 w-full rounded-xl border-0 bg-white/10 px-3 text-sm text-white"
-            value={productId}
-            onChange={(e) => setProductId(e.target.value)}
-          >
-            <option value="" className="text-foreground">
-              No product
-            </option>
-            {(productsQuery.data ?? []).map((p) => (
-              <option key={p.id as string} value={p.id as string} className="text-foreground">
-                {p.name as string}
+          <div className="mt-2 grid grid-cols-2 gap-2">
+            <Input
+              className="min-h-12 border-0 bg-white/10 text-white placeholder:text-white/40"
+              value={price}
+              onChange={(e) => setPrice(e.target.value)}
+              placeholder={product?.sale_price != null ? String(product.sale_price) : "Price ₦"}
+              inputMode="decimal"
+            />
+            <select
+              className="min-h-12 w-full rounded-xl border-0 bg-white/10 px-3 text-sm text-white"
+              value={productId}
+              onChange={(e) => setProductId(e.target.value)}
+            >
+              <option value="" className="text-foreground">
+                Link a product
               </option>
-            ))}
-          </select>
+              {(productsQuery.data ?? []).map((p) => (
+                <option key={p.id as string} value={p.id as string} className="text-foreground">
+                  {p.name as string}
+                  {p.sale_price != null ? ` · ${formatNgn(Number(p.sale_price))}` : ""}
+                </option>
+              ))}
+            </select>
+          </div>
           <Button
             type="button"
             className="mt-5 min-h-12 w-full rounded-full bg-[#00B86B] font-extrabold text-white hover:bg-[#00B86B]/90"

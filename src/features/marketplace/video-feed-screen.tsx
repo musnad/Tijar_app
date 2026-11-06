@@ -48,6 +48,7 @@ import {
 import { MarketplaceShell } from "@/features/marketplace/marketplace-shell";
 import { useAuth } from "@/features/auth/auth-context";
 import { useAccountGate } from "@/features/auth/account-gate";
+import { CommerceSticker } from "@/features/marketplace/commerce-sticker";
 import { StoriesRow } from "@/features/marketplace/stories-row";
 import { StoryViewer } from "@/features/marketplace/story-viewer";
 import { useViewerLocation } from "@/hooks/use-viewer-location";
@@ -1016,6 +1017,7 @@ export function VideoFeedScreen({ initialVideoId }: { initialVideoId?: string })
           rings={(storiesQuery.data ?? []) as StoryRing[]}
           startBusinessId={storyBusinessId}
           profileId={profile?.id ?? null}
+          ownerBusinessId={businessQuery.data?.business?.id ?? null}
           onClose={() => {
             setStoryBusinessId(null);
             void queryClient.invalidateQueries({ queryKey: ["live-stories"] });
@@ -1396,6 +1398,7 @@ const VideoSlide = memo(function VideoSlide({
   following: boolean;
 }) {
   const actions = useFeedActions();
+  const navigate = useNavigate();
   const ref = useRef<HTMLVideoElement>(null);
   const src = resolveVideoSrc(video);
   const poster = resolveCoverSrc(video.cover_path) ?? undefined;
@@ -1545,26 +1548,6 @@ const VideoSlide = memo(function VideoSlide({
                 <Play className="size-8 fill-white text-white" />
               </span>
             ) : null}
-            {featured ? (
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  actions.onAddProduct(video, featured);
-                }}
-                className="absolute bottom-3 left-3 z-[3] rounded-full bg-[#00B86B] px-3 py-2 text-[12px] font-extrabold text-white shadow"
-              >
-                Shop Now
-              </button>
-            ) : (
-              <Link
-                to="/b/$slug"
-                params={{ slug: shopLinkSlug(video.slug, video.business_id) }}
-                className="absolute bottom-3 left-3 z-[3] rounded-full bg-[#0A2540] px-3 py-2 text-[12px] font-extrabold text-white shadow"
-              >
-                View Business
-              </Link>
-            )}
             <button
               type="button"
               className="absolute bottom-3 right-3 z-[3] flex size-11 items-center justify-center rounded-full bg-black/55 text-white"
@@ -1581,10 +1564,25 @@ const VideoSlide = memo(function VideoSlide({
         {burst ? (
           <Heart className="pointer-events-none absolute left-1/2 top-1/2 z-[2] size-16 -translate-x-1/2 -translate-y-1/2 fill-red-500 text-red-500 will-change-transform [animation:feed-heart_450ms_ease-out]" />
         ) : null}
-        {!isBidPost(video) && video.price != null ? (
-          <span className="pointer-events-none absolute left-3 top-3 rounded-full bg-black/60 px-2.5 py-1 text-[13px] font-extrabold text-white">
-            {formatNgn(Number(video.price))}
-          </span>
+        {featured || (!isBidPost(video) && video.price != null) ? (
+          <div
+            className="absolute bottom-3 left-3 z-[4]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <CommerceSticker
+              title={featured?.name || video.caption?.trim() || shopName}
+              imageUrl={featured?.image_url ?? poster ?? null}
+              price={featured?.sale_price != null ? Number(featured.sale_price) : video.price ?? null}
+              host="tijar.ng"
+              onPay={() => {
+                if (featured) {
+                  void navigate({ to: "/shop/buy", search: { productId: featured.id } });
+                  return;
+                }
+                void navigate({ to: "/b/$slug", params: { slug: shopLinkSlug(video.slug, video.business_id) } });
+              }}
+            />
+          </div>
         ) : null}
       </div>
 
@@ -1924,6 +1922,7 @@ const ListingSlide = memo(function ListingSlide({
 }) {
   const actions = useFeedActions();
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const poster = product.image_url || product.extra_image_urls?.[0] || "";
   const gallery = productGallery(product);
   const slug = shopLinkSlug(product.business_slug, product.business_id);
@@ -1973,6 +1972,14 @@ const ListingSlide = memo(function ListingSlide({
             </div>
           }
         />
+        <div className="absolute bottom-3 left-3 z-[4]">
+          <CommerceSticker
+            title={product.name}
+            imageUrl={product.image_url}
+            price={product.sale_price != null ? Number(product.sale_price) : null}
+            onPay={() => void navigate({ to: "/shop/buy", search: { productId: product.id } })}
+          />
+        </div>
       </div>
       {product.description ? (
         <p className="line-clamp-2 shrink-0 px-3 pt-2 text-[14px] text-zinc-800">{product.description}</p>
