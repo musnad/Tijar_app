@@ -22,7 +22,12 @@ export type CorvTransferResult = {
 type Json = Record<string, unknown>;
 
 export function corvSecret(): string | undefined {
-  return readEnvString("CORV_SECRET_KEY") || readEnvString("CORV_API_KEY");
+  return (
+    readEnvString("CORV_SECRET_KEY") ||
+    readEnvString("CORV_API_KEY") ||
+    readEnvString("CORVI_SECRET_KEY") ||
+    readEnvString("CORVI_API_KEY")
+  );
 }
 
 export function corvWebhookSecret(): string | undefined {

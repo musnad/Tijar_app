@@ -12,13 +12,22 @@ export const Route = createFileRoute("/api/payments/virtual-account")({
         if (!businessId) return Response.json({ error: "Missing shop." }, { status: 400 });
         const ctx = await shopAdminClient(request, businessId);
         if ("error" in ctx) return ctx.error;
-        const { data: biz } = await ctx.admin
+        const full = await ctx.admin
           .from("businesses")
           .select(
             "business_name, virtual_account_name, virtual_account_number, virtual_account_bank_name, virtual_account_bank_code, virtual_account_reference, virtual_accounts, payout_account_name, payout_account_number, payout_bank_name, payout_bank_code",
           )
           .eq("id", businessId)
           .maybeSingle();
+        const { data: biz } = full.error
+          ? await ctx.admin
+              .from("businesses")
+              .select(
+                "business_name, virtual_account_name, virtual_account_number, virtual_account_bank_name, virtual_account_bank_code, virtual_account_reference, payout_account_name, payout_account_number, payout_bank_name, payout_bank_code",
+              )
+              .eq("id", businessId)
+              .maybeSingle()
+          : full;
         const { data: wallet } = await ctx.admin
           .from("seller_wallets")
           .select("available_ngn, pending_ngn")
@@ -68,7 +77,11 @@ export const Route = createFileRoute("/api/payments/virtual-account")({
       POST: async ({ request }) => {
         if (!corvConfigured()) {
           return Response.json(
-            { error: "Add CORV_SECRET_KEY on the server to issue shop accounts." },
+            {
+              error:
+                "Corv is not connected on the server. In Vercel → Settings → Environment Variables, add CORV_SECRET_KEY (Production) and redeploy.",
+              missing: ["CORV_SECRET_KEY"],
+            },
             { status: 503 },
           );
         }
@@ -122,13 +135,21 @@ export const Route = createFileRoute("/api/payments/virtual-account")({
         }
 
         const accountName = String(biz?.business_name || ctx.profile.full_name || "TIJAR shop").slice(0, 80);
-        const created = await corvCreateVirtualAccount({
-          accountName,
-          email: ctx.profile.email || `shop-${businessId.slice(0, 8)}@tijar.ng`,
-          phone: ctx.profile.phone ?? undefined,
-          idType,
-          idNumber,
-        });
+        let created: Awaited<ReturnType<typeof corvCreateVirtualAccount>>;
+        try {
+          created = await corvCreateVirtualAccount({
+            accountName,
+            email: ctx.profile.email || `shop-${businessId.slice(0, 8)}@tijar.ng`,
+            phone: ctx.profile.phone ?? undefined,
+            idType,
+            idNumber,
+          });
+        } catch (err) {
+          return Response.json(
+            { error: err instanceof Error ? err.message : "Could not reach Corv." },
+            { status: 502 },
+          );
+        }
         if (created.error || !created.account) {
           return Response.json(
             { error: created.error ?? "Could not create virtual account.", needsBvn: created.needsBvn },

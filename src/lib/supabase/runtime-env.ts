@@ -18,14 +18,20 @@ const KEY_KEYS = [
 
 /** Vite embed at build time, or host `process.env` at runtime (e.g. Vercel serverless). */
 export function readEnvString(key: string): string | undefined {
-  const fromMeta = import.meta.env[key as keyof ImportMetaEnv];
-  if (typeof fromMeta === "string" && fromMeta.trim()) {
-    return fromMeta.trim();
-  }
-  if (typeof process !== "undefined" && process.env?.[key]) {
-    const fromProcess = process.env[key];
-    if (typeof fromProcess === "string" && fromProcess.trim()) {
-      return fromProcess.trim();
+  const keys = [key];
+  if (key.startsWith("VITE_")) keys.push(key.slice("VITE_".length));
+  for (const name of keys) {
+    try {
+      const fromMeta = import.meta.env[name as keyof ImportMetaEnv];
+      if (typeof fromMeta === "string" && fromMeta.trim()) return fromMeta.trim();
+    } catch {
+      /* import.meta.env is not always enumerable for unknown keys */
+    }
+    try {
+      const fromProcess = globalThis.process?.env?.[name];
+      if (typeof fromProcess === "string" && fromProcess.trim()) return fromProcess.trim();
+    } catch {
+      /* process may be missing in some runtimes */
     }
   }
   return undefined;

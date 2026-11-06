@@ -9,14 +9,26 @@ export type ShopProfile = {
   phone: string | null;
 };
 
+export function supabaseServiceKey(): string | undefined {
+  return (
+    readEnvString("SUPABASE_SERVICE_ROLE_KEY") ||
+    readEnvString("SUPABASE_SERVICE_KEY") ||
+    readEnvString("SERVICE_ROLE_KEY")
+  );
+}
+
 export async function shopAdminClient(
   request: Request,
   businessId: string,
 ): Promise<{ admin: SupabaseClient; profile: ShopProfile } | { error: Response }> {
   const env = readSupabasePublicEnv();
-  const service = readEnvString("SUPABASE_SERVICE_ROLE_KEY");
-  if (!env || !service) {
-    return { error: Response.json({ error: "Server payment setup is incomplete." }, { status: 503 }) };
+  if (!env) {
+    return {
+      error: Response.json(
+        { error: "Supabase URL/anon key is missing on the server.", missing: ["VITE_SUPABASE_URL"] },
+        { status: 503 },
+      ),
+    };
   }
   const auth = request.headers.get("authorization");
   if (!auth?.startsWith("Bearer ")) {
@@ -31,7 +43,9 @@ export async function shopAdminClient(
   if (!user) {
     return { error: Response.json({ error: "Sign in first." }, { status: 401 }) };
   }
-  const admin = createClient(env.VITE_SUPABASE_URL, service);
+
+  const service = supabaseServiceKey();
+  const admin = service ? createClient(env.VITE_SUPABASE_URL, service) : userClient;
   const { data: profile } = await admin
     .from("profiles")
     .select("id, email, full_name, phone")
