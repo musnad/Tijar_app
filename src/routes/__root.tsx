@@ -16,6 +16,7 @@ import { isTijarNativeApp } from "@/lib/tijar-native-app";
 
 import appCss from "../styles.css?url";
 import { SiteFooter, SiteHeader } from "../components/site-shell";
+import { AccountGateProvider } from "@/features/auth/account-gate";
 import { AuthProvider, useAuth } from "@/features/auth/auth-context";
 import { SitePreferencesProvider, useTranslation } from "../lib/i18n/context";
 import { enMessages } from "../lib/i18n/messages/en";
@@ -234,8 +235,10 @@ function RootComponent() {
     <QueryClientProvider client={queryClient}>
       <SitePreferencesProvider>
         <AuthProvider>
-          <RootLayout />
-          <Toaster richColors position="top-center" />
+          <AccountGateProvider>
+            <RootLayout />
+            <Toaster richColors position="top-center" />
+          </AccountGateProvider>
         </AuthProvider>
       </SitePreferencesProvider>
     </QueryClientProvider>
