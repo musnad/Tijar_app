@@ -284,10 +284,12 @@ export async function corvTransfer(input: {
   amount: number;
   reference: string;
   narration: string;
+  sourceAccountNumber?: string;
 }): Promise<CorvTransferResult> {
   const amount = Math.round(Number(input.amount) * 100) / 100;
   const kobo = Math.round(amount * 100);
   const name = input.accountName?.trim() || undefined;
+  const source = input.sourceAccountNumber?.replace(/\D/g, "") || undefined;
   const bodies: Json[] = [
     {
       bankCode: input.bankCode,
@@ -297,6 +299,7 @@ export async function corvTransfer(input: {
       narration: input.narration,
       reference: input.reference,
       currency: "NGN",
+      ...(source ? { sourceAccountNumber: source, virtualAccountNumber: source } : {}),
     },
     {
       bank_code: input.bankCode,
@@ -306,6 +309,7 @@ export async function corvTransfer(input: {
       narration: input.narration,
       reference: input.reference,
       currency: "NGN",
+      ...(source ? { source_account_number: source, virtual_account_number: source } : {}),
     },
     {
       account_bank: input.bankCode,
@@ -590,17 +594,16 @@ export async function corvAccountActivity(
   const nuban = accountNumber.replace(/\D/g, "");
   if (nuban.length < 8) return [];
   const resolvedId = await resolveVirtualAccountId(nuban, accountId);
-  const paths = [
-    resolvedId ? `/virtual-accounts/${resolvedId}/transactions` : null,
-    resolvedId ? `/virtual-accounts/${resolvedId}/payments` : null,
-  ].filter(Boolean) as string[];
+  if (!resolvedId) return [];
+  const paths = [`/virtual-accounts/${resolvedId}/transactions`, `/virtual-accounts/${resolvedId}/payments`];
   const rows: CorvActivity[] = [];
   for (const path of paths) {
     const result = await corvFetch(path);
     if ("error" in result || !result.res.ok) continue;
     for (const row of parseActivityList(result.json)) {
-      if (!sameNuban(row.accountNumber, nuban)) continue;
-      if (!rows.some((existing) => existing.reference === row.reference)) rows.push(row);
+      if (row.accountNumber && !sameNuban(row.accountNumber, nuban)) continue;
+      const stamped = { ...row, accountNumber: row.accountNumber || nuban };
+      if (!rows.some((existing) => existing.reference === stamped.reference)) rows.push(stamped);
     }
   }
   return rows;

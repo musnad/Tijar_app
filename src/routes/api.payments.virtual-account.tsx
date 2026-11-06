@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-import { corvConfigured, corvCreateVirtualAccount, corvListBanks } from "@/lib/payments/corv";
+import { corvConfigured, corvCreateVirtualAccount } from "@/lib/payments/corv";
 import { shopAdminClient, syncCorvWallet } from "@/lib/payments/shop-server";
 
 export const Route = createFileRoute("/api/payments/virtual-account")({
@@ -83,11 +83,10 @@ export const Route = createFileRoute("/api/payments/virtual-account")({
           return owned.size > 0 && owned.has(nuban);
         }).slice(0, 40);
         const available = synced.available;
-        const banks = corvConfigured() ? (await corvListBanks()).banks : [];
         return Response.json(
           {
             configured: corvConfigured(),
-            banks,
+            banks: [],
             account,
             accounts,
             activity,

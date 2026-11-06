@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 
 import { corvConfigured, corvResolveAccount, corvTransfer } from "@/lib/payments/corv";
 import { flutterwaveConfigured, flutterwaveTransfer } from "@/lib/payments/flutterwave";
-import { fastWalletAvailable, shopAdminClient } from "@/lib/payments/shop-server";
+import { shopAdminClient, syncCorvWallet } from "@/lib/payments/shop-server";
 
 export const Route = createFileRoute("/api/payments/payout")({
   server: {
@@ -40,7 +40,9 @@ export const Route = createFileRoute("/api/payments/payout")({
 
         const { data: biz } = await admin
           .from("businesses")
-          .select("payout_account_number, payout_bank_code, payout_account_name, payout_bank_name, business_name")
+          .select(
+            "payout_account_number, payout_bank_code, payout_account_name, payout_bank_name, business_name, virtual_account_number, virtual_account_reference, virtual_accounts",
+          )
           .eq("id", businessId)
           .maybeSingle();
         const accountNumber = (body.accountNumber || biz?.payout_account_number || "").replace(/\D/g, "");
@@ -54,12 +56,25 @@ export const Route = createFileRoute("/api/payments/payout")({
           accountName = (await corvResolveAccount({ bankCode, accountNumber })) ?? "";
         }
 
+        const extras = Array.isArray(biz?.virtual_accounts)
+          ? (biz.virtual_accounts as Array<{ accountNumber?: string; account_number?: string; reference?: string }>)
+          : [];
+        const receiving = [
+          biz?.virtual_account_number
+            ? { accountNumber: biz.virtual_account_number as string, reference: biz.virtual_account_reference as string | null }
+            : null,
+          ...extras.map((row) => ({
+            accountNumber: row.accountNumber || row.account_number,
+            reference: row.reference ?? (biz?.virtual_account_reference as string | null),
+          })),
+        ].filter((row): row is { accountNumber: string; reference: string | null } => Boolean(row?.accountNumber));
         const { data: wallet } = await admin
           .from("seller_wallets")
           .select("available_ngn, pending_ngn")
           .eq("business_id", businessId)
           .maybeSingle();
-        const available = await fastWalletAvailable(admin, businessId);
+        const synced = await syncCorvWallet(admin, businessId, receiving);
+        const available = synced.available;
         const pending = Number(wallet?.pending_ngn ?? 0);
         if (amount > available) {
           return Response.json(
@@ -83,6 +98,7 @@ export const Route = createFileRoute("/api/payments/payout")({
               amount,
               reference,
               narration,
+              sourceAccountNumber: biz?.virtual_account_number as string | undefined,
             })
           : await flutterwaveTransfer({
               bankCode,

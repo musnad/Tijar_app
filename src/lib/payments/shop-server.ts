@@ -206,10 +206,23 @@ export async function syncCorvWallet(
       }
     }
   }
-  const { data: outs } = await admin.from("payout_requests").select("amount_ngn, status").eq("business_id", businessId);
+  const [{ data: outs }, { data: wallet }] = await Promise.all([
+    admin.from("payout_requests").select("amount_ngn, status").eq("business_id", businessId),
+    admin.from("seller_wallets").select("pending_ngn").eq("business_id", businessId).maybeSingle(),
+  ]);
   const inbound = activity.filter((row) => row.direction === "in").reduce((sum, row) => sum + row.amount, 0);
   const reserved = (outs ?? [])
     .filter((row) => ["paid", "processing", "pending"].includes(String(row.status)))
     .reduce((sum, row) => sum + Number(row.amount_ngn ?? 0), 0);
-  return { activity, available: Math.max(inbound - reserved, 0) };
+  const available = Math.max(inbound - reserved, 0);
+  await admin.from("seller_wallets").upsert(
+    {
+      business_id: businessId,
+      available_ngn: available,
+      pending_ngn: Number(wallet?.pending_ngn ?? 0),
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "business_id" },
+  );
+  return { activity, available };
 }
