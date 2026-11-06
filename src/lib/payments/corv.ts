@@ -431,14 +431,49 @@ function parseAmount(data: Json | null): number | null {
     "paidAmount",
     "creditAmount",
     "netAmount",
-    "originatoramount",
-    "available_balance",
-    "availableBalance",
-    "balance",
   ]);
   if (amount != null) return amount;
-  const inner = nested(data, ["transaction", "charge", "wallet"]);
+  const inner = nested(data, ["transaction", "charge"]);
   return inner && inner !== data ? parseAmount(inner) : null;
+}
+
+function pickReceivingNuban(data: Json | null): string | null {
+  if (!data) return null;
+  const dest = nested(data, [
+    "virtualAccount",
+    "virtual_account",
+    "destinationAccount",
+    "destination_account",
+    "destination",
+    "beneficiary",
+    "creditedAccount",
+    "receiver",
+  ]);
+  const candidates = [
+    pickString(dest, ["accountNumber", "account_number", "nuban", "number"]),
+    pickString(data, [
+      "virtualAccountNumber",
+      "virtual_account_number",
+      "destinationAccountNumber",
+      "destination_account_number",
+      "creditedAccountNumber",
+      "receiverAccountNumber",
+      "nuban",
+    ]),
+  ];
+  const originator = pickString(data, [
+    "originatorAccountNumber",
+    "originator_account_number",
+    "sourceAccountNumber",
+    "senderAccountNumber",
+  ]);
+  const generic = pickString(data, ["accountNumber", "account_number"]);
+  if (generic && !originator) candidates.push(generic);
+  for (const value of candidates) {
+    const nuban = (value ?? "").replace(/\D/g, "");
+    if (nuban.length >= 8 && !sameNuban(nuban, originator)) return nuban;
+  }
+  return null;
 }
 
 export function parseCorvCredit(payload: unknown): {
@@ -458,24 +493,11 @@ export function parseCorvCredit(payload: unknown): {
   if (amount == null) return null;
   const status = pickString(data, ["status"]) ?? pickString(root, ["status"]) ?? "success";
   if (status && /fail|reject|cancel/i.test(status)) return null;
-  const accountKeys = [
-    "accountNumber",
-    "account_number",
-    "virtual_account_number",
-    "virtualAccountNumber",
-    "destination_account_number",
-    "destinationAccountNumber",
-    "nuban",
-    "accountNo",
-  ];
   return {
     amount,
-    accountNumber: pickString(data, accountKeys) ?? pickDeepString(root, accountKeys),
-    reference:
-      pickString(data, ["reference", "id", "session_id", "sessionId", "flw_ref", "tx_ref", "transactionId", "sessionid"]) ??
-      pickDeepString(root, ["reference", "session_id", "sessionId", "transactionId"]),
-    businessReference: pickString(data, ["account_reference", "accountReference", "customer_reference"]) ??
-      pickDeepString(root, ["account_reference", "accountReference", "customer_reference"]),
+    accountNumber: pickReceivingNuban(data) ?? pickReceivingNuban(root),
+    reference: pickString(data, ["reference", "id", "session_id", "sessionId", "flw_ref", "tx_ref", "transactionId", "sessionid"]),
+    businessReference: pickString(data, ["account_reference", "accountReference", "customer_reference"]),
   };
 }
 
@@ -489,15 +511,7 @@ function parseActivityRow(json: unknown): CorvActivity | null {
   return {
     amount,
     reference,
-    accountNumber: pickString(data, [
-      "accountNumber",
-      "account_number",
-      "virtual_account_number",
-      "virtualAccountNumber",
-      "destination_account_number",
-      "nuban",
-      "accountNo",
-    ]) ?? pickDeepString(data, ["accountNumber", "account_number", "nuban", "virtualAccountNumber"]),
+    accountNumber: pickReceivingNuban(data),
     createdAt: pickString(data, ["createdAt", "created_at", "paidAt", "timestamp", "date"]),
     direction: outgoing ? "out" : "in",
     description: pickString(data, ["narration", "description", "remark"]) ?? (outgoing ? "Withdrawal" : "Money in"),
@@ -551,51 +565,43 @@ export function sameNuban(left?: string | null, right?: string | null): boolean 
   return a.length >= 8 && a === b;
 }
 
+async function resolveVirtualAccountId(nuban: string, storedId?: string | null): Promise<string | null> {
+  const encoded = encodeURIComponent(nuban);
+  if (storedId?.trim()) {
+    const result = await corvFetch(`/virtual-accounts/${encodeURIComponent(storedId.trim())}`);
+    if (!("error" in result) && result.res.ok) {
+      const found = parseOneAccount(result.json);
+      if (found && sameNuban(found.accountNumber, nuban) && found.id) return found.id;
+    }
+  }
+  for (const path of [`/virtual-accounts?accountNumber=${encoded}`, `/virtual-accounts?search=${encoded}`, `/virtual-accounts`]) {
+    const result = await corvFetch(path);
+    if ("error" in result || !result.res.ok) continue;
+    const found = parseAccountList(result.json).find((row) => sameNuban(row.accountNumber, nuban));
+    if (found?.id && sameNuban(found.accountNumber, nuban)) return found.id;
+  }
+  return null;
+}
+
 export async function corvAccountActivity(
   accountNumber: string,
   accountId?: string | null,
-  depth = 0,
 ): Promise<CorvActivity[]> {
   const nuban = accountNumber.replace(/\D/g, "");
   if (nuban.length < 8) return [];
-  const encoded = encodeURIComponent(nuban);
-  let resolvedId = accountId?.trim() || null;
-  if (!resolvedId && depth < 1) {
-    for (const path of [`/virtual-accounts?accountNumber=${encoded}`, `/virtual-accounts?search=${encoded}`]) {
-      const result = await corvFetch(path);
-      if ("error" in result || !result.res.ok) continue;
-      const found =
-        parseAccountList(result.json).find((row) => sameNuban(row.accountNumber, nuban)) ?? parseOneAccount(result.json);
-      if (found && sameNuban(found.accountNumber, nuban) && found.id) {
-        resolvedId = found.id;
-        break;
-      }
-    }
-  }
+  const resolvedId = await resolveVirtualAccountId(nuban, accountId);
   const paths = [
     resolvedId ? `/virtual-accounts/${resolvedId}/transactions` : null,
     resolvedId ? `/virtual-accounts/${resolvedId}/payments` : null,
-    `/virtual-accounts/${encoded}/transactions`,
-    `/virtual-accounts/${encoded}/payments`,
-    `/transactions?accountNumber=${encoded}`,
-    `/transactions?nuban=${encoded}`,
-    `/payments?accountNumber=${encoded}`,
-    `/collections?accountNumber=${encoded}`,
-    `/wallet/transactions?accountNumber=${encoded}`,
   ].filter(Boolean) as string[];
   const rows: CorvActivity[] = [];
   for (const path of paths) {
     const result = await corvFetch(path);
     if ("error" in result || !result.res.ok) continue;
-    const thisVirtualAccount = Boolean(resolvedId && path.includes(`/virtual-accounts/${resolvedId}/`));
     for (const row of parseActivityList(result.json)) {
-      const matches = sameNuban(row.accountNumber, nuban) || (thisVirtualAccount && !row.accountNumber);
-      if (!matches) continue;
-      if (!rows.some((existing) => existing.reference === row.reference)) {
-        rows.push({ ...row, accountNumber: row.accountNumber || nuban });
-      }
+      if (!sameNuban(row.accountNumber, nuban)) continue;
+      if (!rows.some((existing) => existing.reference === row.reference)) rows.push(row);
     }
-    if (thisVirtualAccount && rows.length) return rows;
   }
   return rows;
 }

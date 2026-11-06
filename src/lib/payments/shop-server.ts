@@ -167,28 +167,24 @@ async function ownedNubans(admin: SupabaseClient, businessId: string): Promise<S
   return numbers;
 }
 
-function creditBelongsToShop(
-  accountNumber: string | null | undefined,
-  owned: Set<string>,
-): boolean {
-  if (!owned.size) return false;
-  const nuban = String(accountNumber ?? "").replace(/\D/g, "");
-  return nuban.length >= 8 && owned.has(nuban);
-}
-
 export async function fastWalletAvailable(admin: SupabaseClient, businessId: string): Promise<number> {
-  const [owned, { data: credits }, { data: outs }] = await Promise.all([
+  const [owned, { data: outs }] = await Promise.all([
     ownedNubans(admin, businessId),
-    admin.from("wallet_credits").select("amount_ngn, account_number").eq("business_id", businessId),
     admin.from("payout_requests").select("amount_ngn, status").eq("business_id", businessId),
   ]);
-  const credited = (credits ?? [])
-    .filter((row) => creditBelongsToShop(row.account_number as string | null, owned))
-    .reduce((sum, row) => sum + Number(row.amount_ngn ?? 0), 0);
+  let inbound = 0;
+  if (corvConfigured()) {
+    for (const nuban of owned) {
+      const rows = await corvAccountActivity(nuban);
+      inbound += rows
+        .filter((row) => row.direction === "in" && sameNuban(row.accountNumber, nuban))
+        .reduce((sum, row) => sum + row.amount, 0);
+    }
+  }
   const reserved = (outs ?? [])
     .filter((row) => ["paid", "processing", "pending"].includes(String(row.status)))
     .reduce((sum, row) => sum + Number(row.amount_ngn ?? 0), 0);
-  return Math.max(credited - reserved, 0);
+  return Math.max(inbound - reserved, 0);
 }
 
 export async function syncCorvWallet(
@@ -196,9 +192,6 @@ export async function syncCorvWallet(
   businessId: string,
   accounts: Array<{ accountNumber?: string | null; reference?: string | null }>,
 ): Promise<{ activity: CorvActivity[]; available: number }> {
-  const owned = accounts
-    .map((row) => String(row.accountNumber ?? "").replace(/\D/g, ""))
-    .filter((nuban) => nuban.length >= 8);
   const activity: CorvActivity[] = [];
   if (corvConfigured()) {
     for (const row of accounts) {
@@ -213,6 +206,10 @@ export async function syncCorvWallet(
       }
     }
   }
-  const ledger = await fastWalletAvailable(admin, businessId);
-  return { activity, available: ledger };
+  const { data: outs } = await admin.from("payout_requests").select("amount_ngn, status").eq("business_id", businessId);
+  const inbound = activity.filter((row) => row.direction === "in").reduce((sum, row) => sum + row.amount, 0);
+  const reserved = (outs ?? [])
+    .filter((row) => ["paid", "processing", "pending"].includes(String(row.status)))
+    .reduce((sum, row) => sum + Number(row.amount_ngn ?? 0), 0);
+  return { activity, available: Math.max(inbound - reserved, 0) };
 }

@@ -85,7 +85,6 @@ export function PayoutWalletScreen({
       : [];
   const wallet = walletQuery.data?.wallet ?? { available_ngn: 0, pending_ngn: 0 };
   const requests = walletQuery.data?.requests ?? [];
-  const credits = walletQuery.data?.credits ?? [];
   const activity = walletQuery.data?.activity ?? [];
   const bank = NG_BANKS.find((row) => row.code === bankCode);
 
@@ -111,19 +110,6 @@ export function PayoutWalletScreen({
         direction: row.direction,
       });
     }
-    for (const row of credits) {
-      const nuban = (row.account_number ?? "").replace(/\D/g, "");
-      if (owned.size && !owned.has(nuban)) continue;
-      if (rows.some((item) => item.id.endsWith(row.provider_reference))) continue;
-      rows.push({
-        id: row.id,
-        title: "Money in",
-        detail: row.account_number ?? row.provider,
-        amount: Number(row.amount_ngn),
-        at: new Date(row.created_at).getTime(),
-        direction: "in",
-      });
-    }
     for (const row of requests) {
       rows.push({
         id: row.id,
@@ -135,7 +121,7 @@ export function PayoutWalletScreen({
       });
     }
     return rows.sort((a, b) => b.at - a.at).slice(0, 40);
-  }, [accounts, activity, credits, requests]);
+  }, [accounts, activity, requests]);
 
   async function refresh() {
     await queryClient.invalidateQueries({ queryKey: ["shop-wallet", selected.id] });
