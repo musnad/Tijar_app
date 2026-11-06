@@ -1,7 +1,5 @@
 import { z } from "zod";
 
-import { formatNigerianLocation } from "@/lib/nigeria-locations";
-
 /** Full Business DNA payload stored in Supabase (includes sensible defaults). */
 export const onboardingAnswersSchema = z.object({
   businessName: z.string().min(2, "Business name is required"),
@@ -27,8 +25,6 @@ export const onboardingWizardSchema = z.object({
   businessName: z.string().min(2, "Business name is required"),
   categoryId: z.string().uuid("Choose a category"),
   location: z.string().optional(),
-  state: z.string().optional(),
-  lga: z.string().optional(),
   revenueModels: z.array(z.string()).min(1, "Select at least one"),
   paymentMethods: z.array(z.string()).min(1, "Select at least one"),
   customerCredit: z.boolean(),
@@ -46,8 +42,7 @@ export function normalizeOnboardingAnswers(wizard: OnboardingWizardAnswers): Onb
   return {
     businessName: wizard.businessName,
     categoryId: wizard.categoryId,
-    location:
-      formatNigerianLocation(wizard.state, wizard.lga) || wizard.location?.trim() || "Nigeria",
+    location: wizard.location?.trim() || "Nigeria",
     revenueModels: wizard.revenueModels,
     paymentMethods: wizard.paymentMethods,
     customerCredit: wizard.customerCredit,

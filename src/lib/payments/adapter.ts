@@ -12,7 +12,7 @@
  *   updates payments + orders (idempotent on provider_reference)
  */
 
-export type PaymentProviderId = "none" | "paystack" | "flutterwave";
+export type PaymentProviderId = "none" | "paystack" | "flutterwave" | "corv";
 
 export type PaymentAdapterStatus = {
   provider: PaymentProviderId;
@@ -27,8 +27,17 @@ function serverSecret(name: string): string | undefined {
 }
 
 export function getPaymentAdapterStatus(): PaymentAdapterStatus {
+  const corvSecret = serverSecret("CORV_SECRET_KEY") || serverSecret("CORV_API_KEY");
   const paystackSecret = serverSecret("PAYSTACK_SECRET_KEY");
   const flutterSecret = serverSecret("FLUTTERWAVE_SECRET_KEY");
+  if (corvSecret) {
+    return {
+      provider: "corv",
+      ready: true,
+      checkoutMode: "live",
+      missing: [],
+    };
+  }
   if (flutterSecret) {
     return {
       provider: "flutterwave",
@@ -50,7 +59,7 @@ export function getPaymentAdapterStatus(): PaymentAdapterStatus {
     ready: false,
     checkoutMode: "order_request",
     missing: [
-      "FLUTTERWAVE_SECRET_KEY (or PAYSTACK_SECRET_KEY)",
+      "CORV_SECRET_KEY (or FLUTTERWAVE_SECRET_KEY / PAYSTACK_SECRET_KEY)",
       "Webhook https://www.tijar.ng/api/payments/webhook",
     ],
   };

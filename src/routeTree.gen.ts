@@ -93,6 +93,7 @@ import { Route as ApiAssistantChatRouteImport } from './routes/api.assistant.cha
 import { Route as ApiPaymentsFlutterwaveRouteImport } from './routes/api.payments.flutterwave'
 import { Route as ApiPaymentsPayoutRouteImport } from './routes/api.payments.payout'
 import { Route as ApiPaymentsStatusRouteImport } from './routes/api.payments.status'
+import { Route as ApiPaymentsVirtualAccountRouteImport } from './routes/api.payments.virtual-account'
 import { Route as ApiPaymentsWebhookRouteImport } from './routes/api.payments.webhook'
 import { Route as ApiPushNotifyRouteImport } from './routes/api.push.notify'
 import { Route as ApiPushSubscribeRouteImport } from './routes/api.push.subscribe'
@@ -552,6 +553,12 @@ const ApiPaymentsStatusRoute = ApiPaymentsStatusRouteImport.update({
   path: '/api/payments/status',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPaymentsVirtualAccountRoute =
+  ApiPaymentsVirtualAccountRouteImport.update({
+    id: '/api/payments/virtual-account',
+    path: '/api/payments/virtual-account',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPaymentsWebhookRoute = ApiPaymentsWebhookRouteImport.update({
   id: '/api/payments/webhook',
   path: '/api/payments/webhook',
@@ -829,6 +836,7 @@ export interface FileRoutesByFullPath {
   '/api/payments/flutterwave': typeof ApiPaymentsFlutterwaveRoute
   '/api/payments/payout': typeof ApiPaymentsPayoutRoute
   '/api/payments/status': typeof ApiPaymentsStatusRoute
+  '/api/payments/virtual-account': typeof ApiPaymentsVirtualAccountRoute
   '/api/payments/webhook': typeof ApiPaymentsWebhookRoute
   '/api/push/notify': typeof ApiPushNotifyRoute
   '/api/push/subscribe': typeof ApiPushSubscribeRoute
@@ -946,6 +954,7 @@ export interface FileRoutesByTo {
   '/api/payments/flutterwave': typeof ApiPaymentsFlutterwaveRoute
   '/api/payments/payout': typeof ApiPaymentsPayoutRoute
   '/api/payments/status': typeof ApiPaymentsStatusRoute
+  '/api/payments/virtual-account': typeof ApiPaymentsVirtualAccountRoute
   '/api/payments/webhook': typeof ApiPaymentsWebhookRoute
   '/api/push/notify': typeof ApiPushNotifyRoute
   '/api/push/subscribe': typeof ApiPushSubscribeRoute
@@ -1071,6 +1080,7 @@ export interface FileRoutesById {
   '/api/payments/flutterwave': typeof ApiPaymentsFlutterwaveRoute
   '/api/payments/payout': typeof ApiPaymentsPayoutRoute
   '/api/payments/status': typeof ApiPaymentsStatusRoute
+  '/api/payments/virtual-account': typeof ApiPaymentsVirtualAccountRoute
   '/api/payments/webhook': typeof ApiPaymentsWebhookRoute
   '/api/push/notify': typeof ApiPushNotifyRoute
   '/api/push/subscribe': typeof ApiPushSubscribeRoute
@@ -1197,6 +1207,7 @@ export interface FileRouteTypes {
     | '/api/payments/flutterwave'
     | '/api/payments/payout'
     | '/api/payments/status'
+    | '/api/payments/virtual-account'
     | '/api/payments/webhook'
     | '/api/push/notify'
     | '/api/push/subscribe'
@@ -1314,6 +1325,7 @@ export interface FileRouteTypes {
     | '/api/payments/flutterwave'
     | '/api/payments/payout'
     | '/api/payments/status'
+    | '/api/payments/virtual-account'
     | '/api/payments/webhook'
     | '/api/push/notify'
     | '/api/push/subscribe'
@@ -1438,6 +1450,7 @@ export interface FileRouteTypes {
     | '/api/payments/flutterwave'
     | '/api/payments/payout'
     | '/api/payments/status'
+    | '/api/payments/virtual-account'
     | '/api/payments/webhook'
     | '/api/push/notify'
     | '/api/push/subscribe'
@@ -1504,10 +1517,17 @@ export interface RootRouteChildren {
   ApiVoiceEnrollRoute: typeof ApiVoiceEnrollRoute
   AuthCallbackRoute: typeof AuthCallbackRoute
   BSlugRoute: typeof BSlugRoute
+  ApiAiCaptionRoute: typeof ApiAiCaptionRoute
+  ApiAiGraphicsRoute: typeof ApiAiGraphicsRoute
+  ApiAiListingRoute: typeof ApiAiListingRoute
+  ApiAiReportRoute: typeof ApiAiReportRoute
+  ApiAiSaleRoute: typeof ApiAiSaleRoute
+  ApiAiTranscribeRoute: typeof ApiAiTranscribeRoute
   ApiAssistantChatRoute: typeof ApiAssistantChatRoute
   ApiPaymentsFlutterwaveRoute: typeof ApiPaymentsFlutterwaveRoute
   ApiPaymentsPayoutRoute: typeof ApiPaymentsPayoutRoute
   ApiPaymentsStatusRoute: typeof ApiPaymentsStatusRoute
+  ApiPaymentsVirtualAccountRoute: typeof ApiPaymentsVirtualAccountRoute
   ApiPaymentsWebhookRoute: typeof ApiPaymentsWebhookRoute
   ApiPushNotifyRoute: typeof ApiPushNotifyRoute
   ApiPushSubscribeRoute: typeof ApiPushSubscribeRoute
@@ -2106,6 +2126,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPaymentsStatusRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/payments/virtual-account': {
+      id: '/api/payments/virtual-account'
+      path: '/api/payments/virtual-account'
+      fullPath: '/api/payments/virtual-account'
+      preLoaderRoute: typeof ApiPaymentsVirtualAccountRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/payments/webhook': {
       id: '/api/payments/webhook'
       path: '/api/payments/webhook'
@@ -2700,6 +2727,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPaymentsFlutterwaveRoute: ApiPaymentsFlutterwaveRoute,
   ApiPaymentsPayoutRoute: ApiPaymentsPayoutRoute,
   ApiPaymentsStatusRoute: ApiPaymentsStatusRoute,
+  ApiPaymentsVirtualAccountRoute: ApiPaymentsVirtualAccountRoute,
   ApiPaymentsWebhookRoute: ApiPaymentsWebhookRoute,
   ApiPushNotifyRoute: ApiPushNotifyRoute,
   ApiPushSubscribeRoute: ApiPushSubscribeRoute,

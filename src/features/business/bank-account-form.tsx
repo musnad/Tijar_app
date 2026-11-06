@@ -51,7 +51,7 @@ export function BankAccountForm({ business }: { business: Business }) {
       toast.error(error);
       return;
     }
-    toast.success("Bank account saved. Buyers will see this on checkout.");
+    toast.success("Cash-out bank saved. Withdrawals will go here.");
     await queryClient.invalidateQueries({ queryKey: ["primary-business"] });
     await queryClient.invalidateQueries({ queryKey: ["owned-businesses"] });
     await queryClient.invalidateQueries({ queryKey: ["payout-account", business.id] });

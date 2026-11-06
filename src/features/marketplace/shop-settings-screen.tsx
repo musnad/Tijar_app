@@ -7,7 +7,6 @@ import { toast } from "sonner";
 
 import { LanguageSelect } from "@/components/site-preferences-controls";
 import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
 import { MarketplaceShell } from "@/features/marketplace/marketplace-shell";
 import { AccountModeSwitch } from "@/features/marketplace/account-mode-switch";
 import { useAuth } from "@/features/auth/auth-context";
@@ -37,43 +36,16 @@ export function ShopSettingsScreen() {
     },
   });
 
-  const prefsKey = ["notification-prefs", profile?.id] as const;
-
   const save = useMutation({
     mutationFn: (prefs: NotificationPreferences) => saveNotificationPreferences(prefs),
-    onMutate: async (next: NotificationPreferences) => {
-      await queryClient.cancelQueries({ queryKey: prefsKey });
-      const previous = queryClient.getQueryData<NotificationPreferences>(prefsKey);
-      queryClient.setQueryData(prefsKey, next);
-      return { previous };
-    },
-    onError: (err: Error, _next, context) => {
-      if (context?.previous) queryClient.setQueryData(prefsKey, context.previous);
-      toast.error(err.message);
-    },
-    onSuccess: () => toast.success(t("shop.settings.saved"), { id: "notif-prefs-saved" }),
-    onSettled: async () => {
+    onSuccess: async () => {
+      toast.success(t("shop.settings.saved"));
       await queryClient.invalidateQueries({ queryKey: ["notification-prefs"] });
-      await queryClient.invalidateQueries({ queryKey: ["activity-popup"] });
-      await queryClient.invalidateQueries({ queryKey: ["activity-inbox"] });
     },
+    onError: (err: Error) => toast.error(err.message),
   });
 
   const prefs = query.data;
-
-  /** Every category is delivered while the general master switch is on. */
-  const allOn: NotificationPreferences | null = prefs
-    ? { ...prefs, general: true, likes: true, comments: true, order_updates: true, enquiry_replies: true, followed_shops: true, marketing: true }
-    : null;
-
-  const categories: { key: keyof NotificationPreferences; label: string }[] = [
-    { key: "likes", label: t("shop.settings.likes") },
-    { key: "comments", label: t("shop.settings.comments") },
-    { key: "order_updates", label: t("shop.settings.purchasesOrders") },
-    { key: "enquiry_replies", label: t("shop.settings.shopReplies") },
-    { key: "followed_shops", label: t("shop.settings.shopsIFollow") },
-    { key: "marketing", label: t("shop.settings.tips") },
-  ];
 
   return (
     <MarketplaceShell hideTopBar variant="feed">
@@ -132,22 +104,26 @@ export function ShopSettingsScreen() {
               </p>
               {prefs && (
                 <ul className="mt-3 space-y-3">
-                  <NotifRow
-                    label={t("shop.settings.generalNotifs")}
-                    checked={prefs.general}
-                    onChange={(general) =>
-                      save.mutate(general && allOn ? allOn : { ...prefs, general: false })
-                    }
+                  <PrivacyToggle
+                    label={t("shop.settings.orderUpdates")}
+                    checked={prefs.order_updates}
+                    onChange={(order_updates) => save.mutate({ ...prefs, order_updates })}
                   />
-                  {categories.map((row) => (
-                    <NotifRow
-                      key={row.key}
-                      label={row.label}
-                      checked={prefs.general || Boolean(prefs[row.key])}
-                      locked={prefs.general}
-                      onChange={(value) => save.mutate({ ...prefs, [row.key]: value })}
-                    />
-                  ))}
+                  <PrivacyToggle
+                    label={t("shop.settings.shopReplies")}
+                    checked={prefs.enquiry_replies}
+                    onChange={(enquiry_replies) => save.mutate({ ...prefs, enquiry_replies })}
+                  />
+                  <PrivacyToggle
+                    label={t("shop.settings.shopsIFollow")}
+                    checked={prefs.followed_shops}
+                    onChange={(followed_shops) => save.mutate({ ...prefs, followed_shops })}
+                  />
+                  <PrivacyToggle
+                    label={t("shop.settings.tips")}
+                    checked={prefs.marketing}
+                    onChange={(marketing) => save.mutate({ ...prefs, marketing })}
+                  />
                 </ul>
               )}
             </section>
@@ -171,27 +147,19 @@ export function ShopSettingsScreen() {
   );
 }
 
-function NotifRow({
+function PrivacyToggle({
   label,
   checked,
-  locked,
   onChange,
 }: {
   label: string;
   checked: boolean;
-  /** Locked on because the general master switch is on. */
-  locked?: boolean;
   onChange: (v: boolean) => void;
 }) {
   return (
-    <li className="flex min-h-11 items-center justify-between gap-3">
-      <span className={`text-sm font-medium ${locked ? "text-muted-foreground" : ""}`}>{label}</span>
-      <Switch
-        checked={checked}
-        disabled={Boolean(locked)}
-        aria-label={label}
-        onCheckedChange={onChange}
-      />
-    </li>
+    <label className="flex min-h-11 items-center justify-between gap-3 text-sm font-medium">
+      {label}
+      <input type="checkbox" className="size-4" checked={checked} onChange={(e) => onChange(e.target.checked)} />
+    </label>
   );
 }

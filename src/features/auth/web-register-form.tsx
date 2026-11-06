@@ -14,26 +14,26 @@ import { useTranslation } from "@/lib/i18n/context";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useAuth } from "@/features/auth/auth-context";
 import { SupabaseSetupNotice } from "@/features/auth/supabase-setup-notice";
-import {
-  NIGERIA_STATE_NAMES,
-  formatNigerianLocation,
-  lgasForState,
-} from "@/lib/nigeria-locations";
 
-export function WebRegisterForm({
-  initialAccountMode = "customer",
-}: {
-  initialAccountMode?: "customer" | "business";
-} = {}) {
+const LOCATION_OPTIONS = [
+  "Kano, Nigeria",
+  "Lagos, Nigeria",
+  "Abuja, Nigeria",
+  "Kaduna, Nigeria",
+  "Port Harcourt, Nigeria",
+  "Ibadan, Nigeria",
+  "Other",
+];
+
+export function WebRegisterForm() {
   const { t } = useTranslation();
   const { configured, configLoading } = useAuth();
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [stateName, setStateName] = useState("");
-  const [lga, setLga] = useState("");
-  const [accountMode, setAccountMode] = useState<"customer" | "business">(initialAccountMode);
+  const [location, setLocation] = useState("");
+  const [accountMode, setAccountMode] = useState<"customer" | "business">("customer");
   const [agreeTerms, setAgreeTerms] = useState(false);
   const [passwordVisible, setPasswordVisible] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -41,15 +41,6 @@ export function WebRegisterForm({
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!stateName) {
-      toast.error("Select your state");
-      return;
-    }
-    if (!lga) {
-      toast.error("Select your local government area");
-      return;
-    }
-    const location = formatNigerianLocation(stateName, lga);
     const parsed = registerSchema.safeParse({
       fullName,
       phone,
@@ -69,8 +60,6 @@ export function WebRegisterForm({
       fullName: parsed.data.fullName,
       phone: parsed.data.phone,
       location: parsed.data.location,
-      state: stateName,
-      lga,
       accountMode,
     });
     if (error) {
@@ -84,8 +73,6 @@ export function WebRegisterForm({
         JSON.stringify({
           businessName: parsed.data.fullName,
           location: parsed.data.location,
-          state: stateName,
-          lga,
         }),
       );
     }
@@ -236,29 +223,15 @@ export function WebRegisterForm({
             <PasswordToggle visible={passwordVisible} onToggle={() => setPasswordVisible((v) => !v)} />
           }
         />
-        <div className="grid gap-4 sm:grid-cols-2">
-          <WebAuthSelect
-            id="web-reg-state"
-            label="State"
-            icon={authIcons.map}
-            value={stateName}
-            onChange={(v) => {
-              setStateName(v);
-              setLga("");
-            }}
-            placeholder="Select your state"
-            options={NIGERIA_STATE_NAMES.map((s) => ({ value: s, label: s }))}
-          />
-          <WebAuthSelect
-            id="web-reg-lga"
-            label="Local government"
-            icon={authIcons.map}
-            value={lga}
-            onChange={setLga}
-            placeholder={stateName ? "Select your LGA" : "Choose a state first"}
-            options={lgasForState(stateName).map((l) => ({ value: l, label: l }))}
-          />
-        </div>
+        <WebAuthSelect
+          id="web-reg-location"
+          label={t("auth.location")}
+          icon={authIcons.map}
+          value={location}
+          onChange={setLocation}
+          placeholder={t("auth.locationPlaceholder")}
+          options={LOCATION_OPTIONS.map((l) => ({ value: l, label: l }))}
+        />
         <label className="flex cursor-pointer items-start gap-3 text-sm leading-snug text-[#5a6578]">
           <Checkbox
             checked={agreeTerms}

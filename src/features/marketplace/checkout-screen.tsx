@@ -11,7 +11,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { MarketplaceShell } from "@/features/marketplace/marketplace-shell";
 import { useAuth } from "@/features/auth/auth-context";
-import { useAccountGate } from "@/features/auth/account-gate";
 import { isMockFeedId } from "@/features/marketplace/feed-mock";
 import { haptic } from "@/lib/haptics";
 import { clearLocalCart, listLocalCart } from "@/lib/local-cart";
@@ -46,7 +45,6 @@ function checkoutKey(): string {
 
 export function CheckoutScreen() {
   const { profile } = useAuth();
-  const { requireAccount } = useAccountGate();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const actorId = profile?.id ?? "guest";
@@ -65,7 +63,7 @@ export function CheckoutScreen() {
   });
 
   const cartQuery = useQuery({
-    queryKey: ["marketplace-cart", actorId],
+    queryKey: ["marketplace-cart-v2", actorId],
     queryFn: async () => {
       const res = await fetchCart(actorId);
       if (res.error && res.items.length === 0) throw new Error(res.error);
@@ -135,7 +133,8 @@ export function CheckoutScreen() {
 
     if (!profile) {
       setBusy(false);
-      requireAccount("buy");
+      toast.error("Sign in to place an order.");
+      void navigate({ to: "/login" });
       return;
     }
     if (items.some((i) => isMockFeedId(i.product_id) || isMockFeedId(i.id))) {

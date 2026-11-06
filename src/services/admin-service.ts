@@ -64,19 +64,11 @@ export async function reviewBusinessUpgrade(
 }
 
 export type AdminBusiness = Business & {
-  owner?: {
-    full_name: string | null;
-    phone: string | null;
-    email: string | null;
-    last_seen_at?: string | null;
-  } | null;
+  owner?: { full_name: string | null; phone: string | null; email: string | null } | null;
 };
 
-/** Profile row with the presence stamp written by the app heartbeat. */
-export type AdminProfile = Profile & { last_seen_at?: string | null };
-
 export async function fetchAdminProfiles(): Promise<{
-  profiles: AdminProfile[];
+  profiles: Profile[];
   error: string | null;
 }> {
   const supabase = getSupabaseBrowserClient();
@@ -100,7 +92,7 @@ export async function fetchAdminBusinesses(): Promise<{
   const supabase = getSupabaseBrowserClient();
   const joined = await supabase
     .from("businesses")
-    .select("*, owner:profiles!businesses_owner_id_fkey(full_name, phone, email, last_seen_at)")
+    .select("*, owner:profiles!businesses_owner_id_fkey(full_name, phone, email)")
     .order("updated_at", { ascending: false })
     .limit(800);
   if (!joined.error) return { businesses: (joined.data ?? []) as AdminBusiness[], error: null };
@@ -182,12 +174,12 @@ export async function setBusinessVerification(
   const patch: Record<string, unknown> = {
     verification_status: status,
   };
-  if (notes?.trim()) patch["moderation_notes"] = notes.trim();
+  if (notes?.trim()) patch.moderation_notes = notes.trim();
   if (status === "verified") {
-    patch["moderation_status"] = "approved";
-    patch["location_approved"] = hasCoords;
+    patch.moderation_status = "approved";
+    patch.location_approved = hasCoords;
     if (biz?.is_published && !hasCoords) {
-      patch["is_published"] = false;
+      patch.is_published = false;
     }
   }
   const { error } = await supabase.from("businesses").update(patch).eq("id", businessId);
@@ -246,204 +238,11 @@ export async function setBusinessPublished(
     is_published: published,
     published_at: published ? new Date().toISOString() : null,
   };
-  if (published) patch["location_approved"] = true;
+  if (published) patch.location_approved = true;
   const { error } = await supabase.from("businesses").update(patch).eq("id", businessId);
   return { error: error?.message ?? null };
 }
 
 export function shopName(row: { businesses?: { business_name: string } | null; business_id?: string }): string {
   return row.businesses?.business_name ?? row.business_id?.slice(0, 8) ?? "Shop";
-}
-
-export type AdminBusinessInsight = {
-  business_id: string;
-  business_name: string;
-  owner_id: string | null;
-  contact_phone: string | null;
-  public_slug: string | null;
-  logo_url: string | null;
-  product_count: number;
-  inventory_units: number;
-  orders_count: number;
-  sales_total: number;
-  credit_pending: number;
-  share_count: number;
-  like_count: number;
-};
-
-/**
- * Admin-only per-business metrics: total inventory, total sales, pending credit
- * (unpaid orders), and social share counts used to rank "business of the week".
- */
-export async function fetchAdminBusinessInsights(): Promise<{
-  insights: AdminBusinessInsight[];
-  error: string | null;
-}> {
-  const supabase = getSupabaseBrowserClient();
-  const { data, error } = await supabase.rpc("admin_business_insights");
-  if (error) return { insights: [], error: error.message };
-  const rows = (data ?? []) as Record<string, unknown>[];
-  return {
-    insights: rows.map((row) => ({
-      business_id: String(row["business_id"]),
-      business_name: String(row["business_name"] ?? "Shop"),
-      owner_id: (row["owner_id"] as string | null) ?? null,
-      contact_phone: (row["contact_phone"] as string | null) ?? null,
-      public_slug: (row["public_slug"] as string | null) ?? null,
-      logo_url: (row["logo_url"] as string | null) ?? null,
-      product_count: Number(row["product_count"] ?? 0),
-      inventory_units: Number(row["inventory_units"] ?? 0),
-      orders_count: Number(row["orders_count"] ?? 0),
-      sales_total: Number(row["sales_total"] ?? 0),
-      credit_pending: Number(row["credit_pending"] ?? 0),
-      share_count: Number(row["share_count"] ?? 0),
-      like_count: Number(row["like_count"] ?? 0),
-    })),
-    error: null,
-  };
-}
-
-export type AdminContentKind = "product" | "post" | "listing";
-
-/** One product / post / listing with the account that posted it and its engagement. */
-export type AdminContentItem = {
-  itemId: string;
-  kind: AdminContentKind;
-  title: string;
-  businessId: string;
-  businessName: string;
-  businessSlug: string | null;
-  price: number | null;
-  posterId: string | null;
-  posterName: string;
-  posterEmail: string | null;
-  posterPhone: string | null;
-  likeCount: number;
-  commentCount: number;
-  shareCount: number;
-  isPublished: boolean;
-  createdAt: string | null;
-};
-
-export async function fetchAdminContentOverview(): Promise<{
-  items: AdminContentItem[];
-  error: string | null;
-}> {
-  const supabase = getSupabaseBrowserClient();
-  const { data, error } = await supabase.rpc("admin_content_overview");
-  if (error) return { items: [], error: error.message };
-  const rows = (data ?? []) as Record<string, unknown>[];
-  const kinds: AdminContentKind[] = ["product", "post", "listing"];
-  return {
-    items: rows.map((row) => {
-      const kind = String(row["item_kind"] ?? "product") as AdminContentKind;
-      return {
-        itemId: String(row["item_id"]),
-        kind: kinds.includes(kind) ? kind : "product",
-        title: String(row["title"] ?? "Item"),
-        businessId: String(row["business_id"]),
-        businessName: String(row["business_name"] ?? "Shop"),
-        businessSlug: (row["business_slug"] as string | null) ?? null,
-        price: row["price"] == null ? null : Number(row["price"]),
-        posterId: (row["poster_id"] as string | null) ?? null,
-        posterName: String(row["poster_name"] ?? "—"),
-        posterEmail: (row["poster_email"] as string | null) ?? null,
-        posterPhone: (row["poster_phone"] as string | null) ?? null,
-        likeCount: Number(row["like_count"] ?? 0),
-        commentCount: Number(row["comment_count"] ?? 0),
-        shareCount: Number(row["share_count"] ?? 0),
-        isPublished: Boolean(row["is_published"]),
-        createdAt: (row["created_at"] as string | null) ?? null,
-      };
-    }),
-    error: null,
-  };
-}
-
-export type AdminVisibility = {
-  totals: {
-    products: number;
-    publishedProducts: number;
-    posts: number;
-    listings: number;
-    likes: number;
-    comments: number;
-    shares: number;
-  };
-  presence: {
-    onlineUsers: number;
-    onlineBusinesses: number;
-    activeToday: number;
-    totalUsers: number;
-    totalBusinesses: number;
-    newUsersToday: number;
-    visitorsToday: number;
-    visitors7d: number;
-    visitorsTotal: number;
-    uniqueVisitors: number;
-  };
-  daily: { day: string; label: string; visitors: number; newUsers: number }[];
-};
-
-const EMPTY_VISIBILITY: AdminVisibility = {
-  totals: { products: 0, publishedProducts: 0, posts: 0, listings: 0, likes: 0, comments: 0, shares: 0 },
-  presence: {
-    onlineUsers: 0,
-    onlineBusinesses: 0,
-    activeToday: 0,
-    totalUsers: 0,
-    totalBusinesses: 0,
-    newUsersToday: 0,
-    visitorsToday: 0,
-    visitors7d: 0,
-    visitorsTotal: 0,
-    uniqueVisitors: 0,
-  },
-  daily: [],
-};
-
-export async function fetchAdminVisibility(): Promise<{
-  visibility: AdminVisibility;
-  error: string | null;
-}> {
-  const supabase = getSupabaseBrowserClient();
-  const { data, error } = await supabase.rpc("admin_visibility_overview");
-  if (error) return { visibility: EMPTY_VISIBILITY, error: error.message };
-  const raw = (data ?? {}) as Record<string, unknown>;
-  const totals = (raw["totals"] ?? {}) as Record<string, unknown>;
-  const presence = (raw["presence"] ?? {}) as Record<string, unknown>;
-  const dailyRaw = Array.isArray(raw["daily"]) ? (raw["daily"] as Record<string, unknown>[]) : [];
-  const n = (value: unknown): number => Number(value ?? 0);
-  return {
-    visibility: {
-      totals: {
-        products: n(totals["products"]),
-        publishedProducts: n(totals["publishedProducts"]),
-        posts: n(totals["posts"]),
-        listings: n(totals["listings"]),
-        likes: n(totals["likes"]),
-        comments: n(totals["comments"]),
-        shares: n(totals["shares"]),
-      },
-      presence: {
-        onlineUsers: n(presence["onlineUsers"]),
-        onlineBusinesses: n(presence["onlineBusinesses"]),
-        activeToday: n(presence["activeToday"]),
-        totalUsers: n(presence["totalUsers"]),
-        totalBusinesses: n(presence["totalBusinesses"]),
-        newUsersToday: n(presence["newUsersToday"]),
-        visitorsToday: n(presence["visitorsToday"]),
-        visitors7d: n(presence["visitors7d"]),
-        visitorsTotal: n(presence["visitorsTotal"]),
-        uniqueVisitors: n(presence["uniqueVisitors"]),
-      },
-      daily: dailyRaw.map((row) => ({
-        day: String(row["day"] ?? ""),
-        label: String(row["label"] ?? ""),
-        visitors: n(row["visitors"]),
-        newUsers: n(row["newUsers"]),
-      })),
-    },
-    error: null,
-  };
 }

@@ -12,43 +12,10 @@ import { transitionOrder } from "@/services/marketplace-service";
 import { formatNgn } from "@/utils/money";
 import { orderStatusLabel } from "@/utils/order-tracking";
 
-/** The next step a shop takes on an order, depending on how it is fulfilled. */
-function nextSellerStatus(status: string, fulfilment: string): string | null {
-  if (status === "pending_payment") return "confirmed";
-  if (status === "confirmed") return "processing";
-  if (status === "processing") return fulfilment === "pickup" ? "ready_for_pickup" : "shipped";
-  if (status === "shipped" || status === "ready_for_pickup") return "delivered";
-  return null;
-}
-
-/** Plain-language label for the shop's next-step button. */
-function nextSellerLabel(status: string, fulfilment: string): string {
-  if (status === "pending_payment") return "Confirm payment";
-  if (status === "confirmed") return "Start preparing";
-  if (status === "processing") {
-    return fulfilment === "pickup" ? "Mark ready for pickup" : "Mark out for delivery";
-  }
-  if (status === "ready_for_pickup") return "Mark collected";
-  if (status === "shipped") return "Mark delivered";
-  return "Update";
-}
-
-/** Confirmation shown to the shop after each step. */
-function orderMoveMessage(status: string): string {
-  if (status === "confirmed") return "Payment confirmed — recorded in today’s sales";
-  if (status === "processing") return "Order marked as being prepared";
-  if (status === "shipped") return "Order marked out for delivery";
-  if (status === "ready_for_pickup") return "Order marked ready for pickup";
-  if (status === "delivered") return "Order completed — customer notified";
-  if (status === "cancelled") return "Order cancelled — customer notified";
-  return "Status updated";
-}
-
 export function SellerOrdersInboxScreen({ businessId }: { businessId: string }) {
   const queryClient = useQueryClient();
   const query = useQuery({
     queryKey: ["seller-orders", businessId],
-    refetchInterval: 30_000,
     queryFn: async () => {
       const r = await fetchSellerOrders(businessId);
       if (r.error) throw new Error(r.error);
@@ -65,7 +32,7 @@ export function SellerOrdersInboxScreen({ businessId }: { businessId: string }) 
     onSuccess: async (r, vars) => {
       if (r.error) toast.error(r.error);
       else {
-        toast.success(orderMoveMessage(vars.status));
+        toast.success(vars.status === "confirmed" ? "Confirmed — recorded in today’s sales" : "Status updated");
         await queryClient.invalidateQueries({ queryKey: ["seller-orders", businessId] });
         await queryClient.invalidateQueries({ queryKey: ["transactions"] });
         await queryClient.invalidateQueries({ queryKey: ["dashboard"] });
@@ -116,16 +83,20 @@ export function SellerOrdersInboxScreen({ businessId }: { businessId: string }) 
       ) : null}
       <ul className="mt-4 space-y-3">
         {(query.data ?? []).map((o) => {
-          const next = nextSellerStatus(o.status, o.fulfilment);
-          const canCancel = o.status === "pending_payment" || o.status === "confirmed";
+          const next =
+            o.status === "pending_payment"
+              ? "confirmed"
+              : o.status === "confirmed"
+                ? "processing"
+                : o.status === "processing"
+                  ? "ready_for_pickup"
+                  : null;
           return (
             <li key={o.id} className="rounded-2xl border border-border bg-card p-4">
               <div className="flex items-start justify-between gap-2">
                 <div>
                   <p className="font-bold">{o.order_number}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {orderStatusLabel(o.status)} · {o.fulfilment === "pickup" ? "Pickup" : "Delivery"}
-                  </p>
+                  <p className="text-xs text-muted-foreground">{orderStatusLabel(o.status)}</p>
                 </div>
                 <p className="font-extrabold text-primary">{formatNgn(Number(o.total))}</p>
               </div>
@@ -138,29 +109,18 @@ export function SellerOrdersInboxScreen({ businessId }: { businessId: string }) 
               {o.sale_transaction_id ? (
                 <p className="mt-1 text-[11px] font-semibold text-[#1F7A4D]">Recorded in daily sales</p>
               ) : null}
-              <div className="mt-3 flex flex-wrap gap-2">
-                {next && canSellerTransition(o.status, next) && (
-                  <Button
-                    size="sm"
-                    className="rounded-xl"
-                    disabled={move.isPending}
-                    onClick={() => move.mutate({ id: o.id, status: next })}
-                  >
-                    {nextSellerLabel(o.status, o.fulfilment)}
-                  </Button>
-                )}
-                {canCancel && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="rounded-xl"
-                    disabled={move.isPending}
-                    onClick={() => move.mutate({ id: o.id, status: "cancelled" })}
-                  >
-                    Cancel order
-                  </Button>
-                )}
-              </div>
+              {next && canSellerTransition(o.status, next) && (
+                <Button
+                  size="sm"
+                  className="mt-3 rounded-xl"
+                  disabled={move.isPending}
+                  onClick={() => move.mutate({ id: o.id, status: next })}
+                >
+                  {o.status === "pending_payment"
+                    ? "Confirm payment"
+                    : `Mark ${orderStatusLabel(next)}`}
+                </Button>
+              )}
             </li>
           );
         })}

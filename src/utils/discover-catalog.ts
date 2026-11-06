@@ -116,13 +116,7 @@ export function catalogSuggestions(input: {
   }
   for (const s of input.sellers) {
     const loc = `${s.public_location_label ?? ""} ${s.location_text ?? ""}`.toLowerCase();
-    const selling = (s.product_names ?? []).join(" ").toLowerCase();
-    if (
-      s.business_name.toLowerCase().includes(q) ||
-      loc.includes(q) ||
-      (s.category_name ?? "").toLowerCase().includes(q) ||
-      selling.includes(q)
-    ) {
+    if (s.business_name.toLowerCase().includes(q) || loc.includes(q) || (s.category_name ?? "").toLowerCase().includes(q)) {
       push({ label: s.business_name, kind: "seller" });
     }
   }

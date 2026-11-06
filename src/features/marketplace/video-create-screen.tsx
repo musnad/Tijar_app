@@ -2,7 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { CheckCircle2, Clock3, Store, Tag, XCircle } from "lucide-react";
+import { CheckCircle2, Clock3, Store, XCircle } from "lucide-react";
 import { useEffect, type ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -59,7 +59,7 @@ export function VideoCreateScreen({
         <div className="flex min-h-0 flex-1 flex-col">
           <div className="flex shrink-0 gap-2 px-3 pb-2 pt-[max(0.4rem,env(safe-area-inset-top))]">
             <Button className="min-h-10 flex-1 rounded-full bg-[#0B1F4D] text-xs font-extrabold" type="button">
-              New post
+              Post video
             </Button>
             <Button className="min-h-10 flex-1 rounded-full text-xs font-extrabold" variant="outline" asChild>
               <Link to="/shop/create-order">Place your order</Link>
@@ -80,16 +80,13 @@ export function VideoCreateScreen({
         {checkingAccess ? (
           <p className="mt-10 text-center text-sm font-semibold text-muted-foreground">Checking your account…</p>
         ) : (
-          <>
-            <SellAccessCard
-              signedIn={Boolean(session)}
-              status={request?.status}
-              businessName={request?.business_name}
-              canSell={canSell}
-              approvedWaitingShop={approvedWaitingShop}
-            />
-            <HomeSellCard signedIn={Boolean(session)} />
-          </>
+          <SellAccessCard
+            signedIn={Boolean(session)}
+            status={request?.status}
+            businessName={request?.business_name}
+            canSell={canSell}
+            approvedWaitingShop={approvedWaitingShop}
+          />
         )}
       </div>
       )}
@@ -196,25 +193,6 @@ function Gate({
       <p className="mt-4 text-lg font-extrabold">{title}</p>
       <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{body}</p>
       {children}
-    </div>
-  );
-}
-
-function HomeSellCard({ signedIn }: { signedIn: boolean }) {
-  return (
-    <div className="mx-auto mt-4 max-w-sm rounded-2xl border border-primary/25 bg-primary/5 p-4">
-      <p className="flex items-center gap-2 text-sm font-extrabold">
-        <Tag className="size-4 text-primary" /> Selling something from home?
-      </p>
-      <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-        Anyone can post a second-hand item — a phone, chair, generator, or clothes. Choose free or
-        paid, add a photo, and buyers in your area can call you. No business account needed.
-      </p>
-      <Button className="mt-3 min-h-11 w-full rounded-xl font-bold" asChild>
-        <Link to="/shop/sell-item">
-          {signedIn ? "Sell an item from home" : "Sign in to sell an item"}
-        </Link>
-      </Button>
     </div>
   );
 }

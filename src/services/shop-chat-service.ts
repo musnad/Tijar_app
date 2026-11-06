@@ -120,25 +120,6 @@ export async function fetchShopInbox(
   }
 
   const { fetchDirectInbox } = await import("@/services/direct-chat-service");
-  const direct = await fetchDirectInbox(profileId);
-  for (const row of direct.rows) {
-    live.push({
-      id: row.id,
-      business_id: "",
-      customer_id: row.otherId,
-      last_preview: row.last_preview,
-      last_message_at: row.last_message_at,
-      business_name: row.otherName,
-      logo_url: row.otherAvatar,
-      business_slug: null,
-      customer_name: row.otherName,
-      as_seller: false,
-      unread: row.unread,
-      threadKind: "direct",
-    });
-  }
-
-  live.sort((a, b) => +new Date(b.last_message_at) - +new Date(a.last_message_at));
   return { rows: live, error: null };
 }
 

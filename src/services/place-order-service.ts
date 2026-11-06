@@ -2,16 +2,7 @@ import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { displayShopName, shopLinkSlug } from "@/lib/shop-names";
 import { uploadProductImage } from "@/services/product-image-service";
 
-export const PLACE_ORDER_CATEGORIES = [
-  "food",
-  "snacks",
-  "drinks",
-  "meals",
-  "photography",
-  "events",
-  "services",
-  "other",
-] as const;
+export const PLACE_ORDER_CATEGORIES = ["food", "snacks", "drinks", "meals", "other"] as const;
 export type PlaceOrderCategory = (typeof PLACE_ORDER_CATEGORIES)[number];
 export type PlaceOrderDay = "today" | "tomorrow" | "both";
 export type PlaceOrderFulfilment = "pickup" | "delivery";
@@ -34,8 +25,6 @@ export type PlaceOrderListing = {
   ready_until: string | null;
   qty_note: string | null;
   is_open: boolean;
-  quantity: number | null;
-  sold_count: number;
   like_count: number;
   comment_count: number;
   share_count: number;
@@ -43,29 +32,7 @@ export type PlaceOrderListing = {
   shop_name: string;
   shop_slug: string;
   shop_logo: string | null;
-  /** Other shops that accepted a collaboration on this post. */
-  collaborators: PlaceOrderCollaborator[];
-  /** True when the signed-in viewer's shop is a guest on someone else's post. */
-  is_guest?: boolean;
 };
-
-export type PlaceOrderCollaborator = { business_id: string; name: string; logo: string | null };
-
-export type PlaceOrderCollab = {
-  id: string;
-  listing_id: string;
-  host_business_id: string;
-  guest_business_id: string;
-  status: "pending" | "accepted" | "declined";
-  message: string | null;
-  created_at: string;
-  listing_title?: string;
-  listing_image?: string | null;
-  host_shop_name?: string;
-  guest_shop_name?: string;
-};
-
-export type PlaceOrderShopOption = { id: string; name: string; slug: string; logo: string | null };
 
 export type PlaceOrderRequest = {
   id: string;
@@ -97,7 +64,6 @@ function missingTable(message: string): boolean {
 function asListing(
   row: Record<string, unknown>,
   shop?: { business_name?: string | null; public_slug?: string | null; logo_url?: string | null; id?: string },
-  collaborators: PlaceOrderCollaborator[] = [],
 ): PlaceOrderListing {
   const images = Array.isArray(row.image_urls) ? (row.image_urls as string[]).filter(Boolean) : [];
   return {
@@ -120,8 +86,6 @@ function asListing(
     ready_until: (row.ready_until as string | null) ?? null,
     qty_note: (row.qty_note as string | null) ?? null,
     is_open: row.is_open !== false,
-    quantity: row.quantity != null ? Number(row.quantity) : null,
-    sold_count: Number(row.sold_count ?? 0),
     like_count: Number(row.like_count ?? 0),
     comment_count: Number(row.comment_count ?? 0),
     share_count: Number(row.share_count ?? 0),
@@ -129,47 +93,23 @@ function asListing(
     shop_name: displayShopName(shop?.business_name ?? "Shop"),
     shop_slug: shopLinkSlug(shop?.public_slug ?? null, shop?.id ?? (row.business_id as string)),
     shop_logo: shop?.logo_url ?? null,
-    collaborators,
   };
 }
 
-type ShopRow = { business_name?: string | null; public_slug?: string | null; logo_url?: string | null; id?: string };
-
 async function attachShops(rows: Record<string, unknown>[]): Promise<PlaceOrderListing[]> {
-  if (rows.length === 0) return [];
-  const supabase = getSupabaseBrowserClient();
-  const listingIds = rows.map((r) => r.id as string).filter(Boolean);
-  const collabRows =
-    listingIds.length > 0
-      ? (
-          await supabase
-            .from("place_order_collabs")
-            .select("listing_id, guest_business_id, status")
-            .in("listing_id", listingIds)
-            .eq("status", "accepted")
-        ).data ?? []
-      : [];
-  const guestIds = [...new Set(collabRows.map((c) => c.guest_business_id as string))];
-  const ids = [...new Set([...rows.map((r) => r.business_id as string).filter(Boolean), ...guestIds])];
-  const shops = new Map<string, ShopRow>();
+  const ids = [...new Set(rows.map((r) => r.business_id as string).filter(Boolean))];
+  const shops = new Map<string, { business_name?: string | null; public_slug?: string | null; logo_url?: string | null; id?: string }>();
   if (ids.length > 0) {
-    const { data } = await supabase.from("businesses").select("id, business_name, public_slug, logo_url").in("id", ids);
+    const supabase = getSupabaseBrowserClient();
+    const { data } = await supabase
+      .from("businesses")
+      .select("id, business_name, public_slug, logo_url")
+      .in("id", ids);
     for (const shop of data ?? []) {
       shops.set(shop.id as string, shop);
     }
   }
-  const byGuest = new Map<string, PlaceOrderCollaborator[]>();
-  for (const collab of collabRows) {
-    const listingId = collab.listing_id as string;
-    const guestId = collab.guest_business_id as string;
-    const shop = shops.get(guestId);
-    const list = byGuest.get(listingId) ?? [];
-    list.push({ business_id: guestId, name: displayShopName(shop?.business_name ?? "Shop"), logo: shop?.logo_url ?? null });
-    byGuest.set(listingId, list);
-  }
-  return rows.map((row) =>
-    asListing(row, shops.get(row.business_id as string), byGuest.get(row.id as string) ?? []),
-  );
+  return rows.map((row) => asListing(row, shops.get(row.business_id as string)));
 }
 
 export async function fetchPlaceOrderListings(filters?: {
@@ -229,33 +169,7 @@ export async function fetchMyPlaceOrderListings(businessId: string): Promise<{ l
     if (missingTable(error.message)) return { listings: [], error: error.message };
     return { listings: [], error: error.message };
   }
-  const own = await attachShops((data ?? []) as Record<string, unknown>[]);
-  const collabIds = await acceptedCollabListingIds(businessId);
-  if (collabIds.length === 0) return { listings: own, error: null };
-  const { data: shared } = await supabase
-    .from("place_order_listings")
-    .select("*")
-    .in("id", collabIds)
-    .order("created_at", { ascending: false })
-    .limit(60);
-  const collabs = (await attachShops((shared ?? []) as Record<string, unknown>[])).map((item) => ({
-    ...item,
-    is_guest: true,
-  }));
-  const seen = new Set(own.map((item) => item.id));
-  return { listings: [...own, ...collabs.filter((item) => !seen.has(item.id))], error: null };
-}
-
-/** Listing ids where this shop is an accepted collaborator (someone else's post). */
-export async function acceptedCollabListingIds(businessId: string): Promise<string[]> {
-  const supabase = getSupabaseBrowserClient();
-  const { data, error } = await supabase
-    .from("place_order_collabs")
-    .select("listing_id")
-    .eq("guest_business_id", businessId)
-    .eq("status", "accepted");
-  if (error) return [];
-  return (data ?? []).map((row) => row.listing_id as string);
+  return { listings: await attachShops((data ?? []) as Record<string, unknown>[]), error: null };
 }
 
 export async function publishPlaceOrderListing(input: {
@@ -275,7 +189,6 @@ export async function publishPlaceOrderListing(input: {
   readyFrom?: string;
   readyUntil?: string;
   qtyNote?: string;
-  quantity?: number | null;
 }): Promise<{ listing: PlaceOrderListing | null; error: string | null }> {
   const id = crypto.randomUUID();
   const uploaded: string[] = [...(input.existingUrls ?? [])];
@@ -305,7 +218,6 @@ export async function publishPlaceOrderListing(input: {
       ready_from: input.readyFrom?.trim() || null,
       ready_until: input.readyUntil?.trim() || null,
       qty_note: input.qtyNote?.trim() || null,
-      quantity: input.quantity ?? null,
       is_open: true,
     })
     .select("*")
@@ -326,90 +238,10 @@ export async function closePlaceOrderListing(id: string): Promise<{ error: strin
   return { error: error?.message ?? null };
 }
 
-export async function reopenPlaceOrderListing(id: string): Promise<{ error: string | null }> {
-  const supabase = getSupabaseBrowserClient();
-  const { error } = await supabase.from("place_order_listings").update({ is_open: true, updated_at: new Date().toISOString() }).eq("id", id);
-  return { error: error?.message ?? null };
-}
-
-export async function deletePlaceOrderListing(id: string): Promise<{ error: string | null }> {
-  const supabase = getSupabaseBrowserClient();
-  const { error } = await supabase.from("place_order_listings").delete().eq("id", id);
-  if (error && missingTable(error.message)) return { error: "Place your order is not set up yet." };
-  return { error: error?.message ?? null };
-}
-
-export type PlaceOrderListingDraft = {
-  title: string;
-  details: string;
-  category: PlaceOrderCategory;
-  price: number;
-  locationLabel: string;
-  latitude?: number | null;
-  longitude?: number | null;
-  availableOn: PlaceOrderDay;
-  pickupEnabled: boolean;
-  deliveryEnabled: boolean;
-  readyFrom?: string;
-  readyUntil?: string;
-  qtyNote?: string;
-  quantity?: number | null;
-};
-
-export async function updatePlaceOrderListing(
-  id: string,
-  businessId: string,
-  input: PlaceOrderListingDraft,
-  photos: { file?: File; url: string }[],
-): Promise<{ listing: PlaceOrderListing | null; error: string | null }> {
-  const uploaded: string[] = [];
-  for (let i = 0; i < photos.length; i += 1) {
-    const item = photos[i]!;
-    if (!item.file) {
-      uploaded.push(item.url);
-      continue;
-    }
-    const result = await uploadProductImage(businessId, `place-order-${id}`, item.file, i);
-    if (result.error || !result.publicUrl) return { listing: null, error: result.error ?? "Could not upload photo." };
-    uploaded.push(result.publicUrl);
-  }
-  const supabase = getSupabaseBrowserClient();
-  const { data, error } = await supabase
-    .from("place_order_listings")
-    .update({
-      title: input.title.trim(),
-      details: input.details.trim() || null,
-      category: input.category,
-      price: input.price,
-      image_urls: uploaded,
-      location_label: input.locationLabel.trim() || null,
-      latitude: input.latitude ?? null,
-      longitude: input.longitude ?? null,
-      available_on: input.availableOn,
-      pickup_enabled: input.pickupEnabled,
-      delivery_enabled: input.deliveryEnabled,
-      ready_from: input.readyFrom?.trim() || null,
-      ready_until: input.readyUntil?.trim() || null,
-      qty_note: input.qtyNote?.trim() || null,
-      quantity: input.quantity ?? null,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", id)
-    .select("*")
-    .single();
-  if (error) {
-    if (missingTable(error.message)) return { listing: null, error: "Place your order is not set up yet." };
-    return { listing: null, error: error.message };
-  }
-  const [listing] = await attachShops([data as Record<string, unknown>]);
-  return { listing: listing ?? null, error: null };
-}
-
 export async function placeYourOrder(input: {
   listingId: string;
   businessId: string;
   buyerId: string;
-  buyerName?: string;
   quantity: number;
   fulfilment: PlaceOrderFulfilment;
   slotDay: "today" | "tomorrow";
@@ -427,7 +259,6 @@ export async function placeYourOrder(input: {
       listing_id: input.listingId,
       business_id: input.businessId,
       buyer_id: input.buyerId,
-      buyer_name: input.buyerName?.trim() || null,
       quantity: input.quantity,
       fulfilment: input.fulfilment,
       slot_day: input.slotDay,
@@ -569,20 +400,7 @@ export async function fetchShopPlaceOrders(businessId: string): Promise<{ orders
     .order("created_at", { ascending: false })
     .limit(80);
   if (error) return { orders: [], error: missingTable(error.message) ? null : error.message };
-  let rows = (data ?? []) as Record<string, unknown>[];
-  const collabIds = await acceptedCollabListingIds(businessId);
-  if (collabIds.length > 0) {
-    const { data: shared } = await supabase
-      .from("place_order_requests")
-      .select("*")
-      .in("listing_id", collabIds)
-      .order("created_at", { ascending: false })
-      .limit(80);
-    const seen = new Set(rows.map((row) => row.id as string));
-    rows = [...rows, ...((shared ?? []) as Record<string, unknown>[]).filter((row) => !seen.has(row.id as string))];
-    rows.sort((a, b) => String(b.created_at ?? "").localeCompare(String(a.created_at ?? "")));
-  }
-  return { orders: await decorateRequests(rows), error: null };
+  return { orders: await decorateRequests((data ?? []) as Record<string, unknown>[]), error: null };
 }
 
 export async function updatePlaceOrderStatus(orderId: string, status: string): Promise<{ error: string | null }> {
@@ -636,7 +454,7 @@ async function decorateRequests(rows: Record<string, unknown>[]): Promise<PlaceO
       listing_title: listing?.title,
       listing_image: images[0] ?? null,
       shop_name: shop ? displayShopName(shop.business_name) : "Shop",
-      buyer_name: ((row.buyer_name as string | null)?.trim() || buyer?.full_name?.trim()) ?? null,
+      buyer_name: buyer?.full_name?.trim() || null,
     };
   });
 }
@@ -662,27 +480,12 @@ export function dayLabel(value: PlaceOrderDay): string {
   return "Same day & next day";
 }
 
-/** Units still available on a post, or null when the shop did not set a limit. */
-export function placeOrderRemaining(listing: { quantity: number | null; sold_count: number }): number | null {
-  if (listing.quantity == null) return null;
-  return Math.max(0, listing.quantity - Number(listing.sold_count ?? 0));
-}
-
-/** True when the shop set a limit and every unit has been ordered. */
-export function placeOrderSoldOut(listing: { quantity: number | null; sold_count: number }): boolean {
-  const remaining = placeOrderRemaining(listing);
-  return remaining != null && remaining <= 0;
-}
-
 export function categoryLabel(value: PlaceOrderCategory): string {
   const labels: Record<PlaceOrderCategory, string> = {
     food: "Food",
     snacks: "Snacks",
     drinks: "Drinks",
     meals: "Meals",
-    photography: "Photography",
-    events: "Event planning",
-    services: "Services",
     other: "Other",
   };
   return labels[value];
@@ -799,213 +602,5 @@ export async function postPlaceOrderComment(input: {
     body: text,
   });
   if (error && missingTable(error.message)) return { error: "Comments are not set up yet. Apply migration 000044." };
-  return { error: error?.message ?? null };
-}
-
-export async function updatePlaceOrderComment(input: {
-  commentId: string;
-  profileId: string;
-  body: string;
-}): Promise<{ error: string | null }> {
-  const text = input.body.trim();
-  if (!text) return { error: "Write a comment first." };
-  const supabase = getSupabaseBrowserClient();
-  const { error } = await supabase
-    .from("place_order_comments")
-    .update({ body: text })
-    .eq("id", input.commentId)
-    .eq("profile_id", input.profileId);
-  if (error && missingTable(error.message)) return { error: "Comments are not set up yet. Apply migration 000059." };
-  return { error: error?.message ?? null };
-}
-
-export async function deletePlaceOrderComment(input: {
-  commentId: string;
-  profileId: string;
-}): Promise<{ error: string | null }> {
-  const supabase = getSupabaseBrowserClient();
-  const { error } = await supabase
-    .from("place_order_comments")
-    .delete()
-    .eq("id", input.commentId)
-    .eq("profile_id", input.profileId);
-  if (error && missingTable(error.message)) return { error: "Comments are not set up yet. Apply migration 000044." };
-  return { error: error?.message ?? null };
-}
-
-/* ------------------------------------------------------------------ *
- * Collaborations: a shop invites another shop to share a post.
- * ------------------------------------------------------------------ */
-
-export function placeOrderCollabMissingTable(message: string): boolean {
-  return /place_order_collabs|schema cache|does not exist/i.test(message);
-}
-
-async function decorateCollabs(rows: Record<string, unknown>[]): Promise<PlaceOrderCollab[]> {
-  if (rows.length === 0) return [];
-  const supabase = getSupabaseBrowserClient();
-  const listingIds = [...new Set(rows.map((r) => r.listing_id as string))];
-  const shopIds = [
-    ...new Set([...rows.map((r) => r.host_business_id as string), ...rows.map((r) => r.guest_business_id as string)]),
-  ];
-  const [listings, shops] = await Promise.all([
-    supabase.from("place_order_listings").select("id, title, image_urls").in("id", listingIds),
-    supabase.from("businesses").select("id, business_name").in("id", shopIds),
-  ]);
-  const listingMap = new Map((listings.data ?? []).map((row) => [row.id as string, row]));
-  const shopMap = new Map((shops.data ?? []).map((row) => [row.id as string, row]));
-  return rows.map((row) => {
-    const listing = listingMap.get(row.listing_id as string);
-    const images = Array.isArray(listing?.image_urls) ? (listing!.image_urls as string[]) : [];
-    return {
-      id: row.id as string,
-      listing_id: row.listing_id as string,
-      host_business_id: row.host_business_id as string,
-      guest_business_id: row.guest_business_id as string,
-      status: row.status as PlaceOrderCollab["status"],
-      message: (row.message as string | null) ?? null,
-      created_at: row.created_at as string,
-      listing_title: listing?.title as string | undefined,
-      listing_image: images[0] ?? null,
-      host_shop_name: displayShopName(shopMap.get(row.host_business_id as string)?.business_name ?? "Shop"),
-      guest_shop_name: displayShopName(shopMap.get(row.guest_business_id as string)?.business_name ?? "Shop"),
-    };
-  });
-}
-
-/** Shops a business can invite — search by name, skipping itself. */
-export async function searchShopsForCollab(query: string, excludeBusinessId: string): Promise<PlaceOrderShopOption[]> {
-  const text = query.trim();
-  if (text.length < 2) return [];
-  const supabase = getSupabaseBrowserClient();
-  const { data, error } = await supabase
-    .from("businesses")
-    .select("id, business_name, public_slug, logo_url")
-    .ilike("business_name", `%${text}%`)
-    .neq("id", excludeBusinessId)
-    .limit(8);
-  if (error) return [];
-  return (data ?? []).map((row) => ({
-    id: row.id as string,
-    name: displayShopName(row.business_name as string),
-    slug: shopLinkSlug(row.public_slug as string | null, row.id as string),
-    logo: (row.logo_url as string | null) ?? null,
-  }));
-}
-
-export async function fetchListingCollabs(listingId: string): Promise<PlaceOrderCollab[]> {
-  const supabase = getSupabaseBrowserClient();
-  const { data, error } = await supabase
-    .from("place_order_collabs")
-    .select("*")
-    .eq("listing_id", listingId)
-    .order("created_at", { ascending: false });
-  if (error) return [];
-  return decorateCollabs((data ?? []) as Record<string, unknown>[]);
-}
-
-export async function fetchIncomingCollabRequests(businessId: string): Promise<PlaceOrderCollab[]> {
-  const supabase = getSupabaseBrowserClient();
-  const { data, error } = await supabase
-    .from("place_order_collabs")
-    .select("*")
-    .eq("guest_business_id", businessId)
-    .eq("status", "pending")
-    .order("created_at", { ascending: false })
-    .limit(40);
-  if (error) return [];
-  return decorateCollabs((data ?? []) as Record<string, unknown>[]);
-}
-
-export async function fetchSentCollabRequests(businessId: string): Promise<PlaceOrderCollab[]> {
-  const supabase = getSupabaseBrowserClient();
-  const { data, error } = await supabase
-    .from("place_order_collabs")
-    .select("*")
-    .eq("host_business_id", businessId)
-    .order("created_at", { ascending: false })
-    .limit(60);
-  if (error) return [];
-  return decorateCollabs((data ?? []) as Record<string, unknown>[]);
-}
-
-export async function requestPlaceOrderCollab(input: {
-  listingId: string;
-  listingTitle: string;
-  hostBusinessId: string;
-  guestBusinessId: string;
-  actorId: string;
-  message?: string;
-}): Promise<{ error: string | null }> {
-  const supabase = getSupabaseBrowserClient();
-  const { error } = await supabase.from("place_order_collabs").insert({
-    listing_id: input.listingId,
-    host_business_id: input.hostBusinessId,
-    guest_business_id: input.guestBusinessId,
-    message: input.message?.trim() || null,
-    requested_by: input.actorId,
-    status: "pending",
-  });
-  if (error) {
-    if (placeOrderCollabMissingTable(error.message)) {
-      return { error: "Collaborations are not set up yet. Apply migration 000047 in Supabase." };
-    }
-    if (error.code === "23505") return { error: "You already invited this shop to this post." };
-    return { error: error.message };
-  }
-  const { data: guest } = await supabase.from("businesses").select("owner_id").eq("id", input.guestBusinessId).maybeSingle();
-  if (guest?.owner_id && guest.owner_id !== input.actorId) {
-    await supabase.rpc("notify_activity", {
-      p_recipient: guest.owner_id,
-      p_actor: input.actorId,
-      p_kind: "collab",
-      p_title: "Collaboration request",
-      p_body: `Wants to post "${input.listingTitle}" on both your accounts. Open Place your order to accept.`,
-      p_business_id: input.hostBusinessId,
-      p_video_post_id: null,
-    });
-  }
-  return { error: null };
-}
-
-export async function respondPlaceOrderCollab(input: {
-  collabId: string;
-  accept: boolean;
-  guestBusinessId: string;
-  hostBusinessId: string;
-  listingTitle: string;
-  actorId: string;
-}): Promise<{ error: string | null }> {
-  const supabase = getSupabaseBrowserClient();
-  const { error } = await supabase
-    .from("place_order_collabs")
-    .update({ status: input.accept ? "accepted" : "declined", responded_at: new Date().toISOString() })
-    .eq("id", input.collabId);
-  if (error) {
-    if (placeOrderCollabMissingTable(error.message)) {
-      return { error: "Collaborations are not set up yet. Apply migration 000047 in Supabase." };
-    }
-    return { error: error.message };
-  }
-  const { data: host } = await supabase.from("businesses").select("owner_id").eq("id", input.hostBusinessId).maybeSingle();
-  if (host?.owner_id && host.owner_id !== input.actorId) {
-    await supabase.rpc("notify_activity", {
-      p_recipient: host.owner_id,
-      p_actor: input.actorId,
-      p_kind: "collab",
-      p_title: input.accept ? "Collaboration accepted" : "Collaboration declined",
-      p_body: input.accept
-        ? `Accepted "${input.listingTitle}". It now shows on both accounts.`
-        : `Declined "${input.listingTitle}".`,
-      p_business_id: input.guestBusinessId,
-      p_video_post_id: null,
-    });
-  }
-  return { error: null };
-}
-
-export async function cancelPlaceOrderCollab(collabId: string): Promise<{ error: string | null }> {
-  const supabase = getSupabaseBrowserClient();
-  const { error } = await supabase.from("place_order_collabs").delete().eq("id", collabId);
   return { error: error?.message ?? null };
 }

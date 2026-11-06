@@ -387,6 +387,7 @@ export async function ensurePersonalShop(input: {
     return { businessId: null, slug: null, error: created.error?.message ?? "Could not open your selling profile." };
   }
   await ensureOwnerMembership(businessId, input.profileId);
+  void provisionVirtualAccount(businessId);
   return { businessId, slug: (created.data?.public_slug as string | null) ?? null, error: null };
 }
 
@@ -1686,6 +1687,91 @@ export async function startFlutterwavePay(orderId: string): Promise<{ link: stri
   const json = (await res.json()) as { link?: string; error?: string };
   if (!res.ok) return { link: null, error: json.error ?? "Could not open Flutterwave." };
   return { link: json.link ?? null, error: json.link ? null : "Could not open Flutterwave." };
+}
+
+export async function provisionVirtualAccount(
+  businessId: string,
+  extra?: { bvn?: string },
+): Promise<{
+  account: {
+    accountName: string;
+    accountNumber: string;
+    bankName: string;
+    bankCode: string | null;
+  } | null;
+  wallet: { available_ngn: number; pending_ngn: number };
+  needsBvn?: boolean;
+  error: string | null;
+}> {
+  const emptyWallet = { available_ngn: 0, pending_ngn: 0 };
+  const supabase = getSupabaseBrowserClient();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  if (!session?.access_token) {
+    return { account: null, wallet: emptyWallet, error: "Sign in first." };
+  }
+  const res = await fetch("/api/payments/virtual-account", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${session.access_token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ businessId, bvn: extra?.bvn }),
+  });
+  const json = (await res.json()) as {
+    account?: { accountName: string; accountNumber: string; bankName: string; bankCode: string | null };
+    error?: string;
+    needsBvn?: boolean;
+  };
+  if (!res.ok) {
+    return { account: null, wallet: emptyWallet, needsBvn: json.needsBvn, error: json.error ?? "Could not create shop account." };
+  }
+  return { account: json.account ?? null, wallet: emptyWallet, error: null };
+}
+
+export async function fetchVirtualAccountWallet(businessId: string): Promise<{
+  configured: boolean;
+  account: {
+    accountName: string;
+    accountNumber: string;
+    bankName: string;
+    bankCode: string | null;
+  } | null;
+  wallet: { available_ngn: number; pending_ngn: number };
+  error: string | null;
+}> {
+  const emptyWallet = { available_ngn: 0, pending_ngn: 0 };
+  const supabase = getSupabaseBrowserClient();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  if (!session?.access_token) {
+    return { configured: false, account: null, wallet: emptyWallet, error: "Sign in first." };
+  }
+  const res = await fetch(`/api/payments/virtual-account?businessId=${encodeURIComponent(businessId)}`, {
+    headers: { Authorization: `Bearer ${session.access_token}` },
+  });
+  const json = (await res.json()) as {
+    configured?: boolean;
+    account?: {
+      accountName: string;
+      accountNumber: string;
+      bankName: string;
+      bankCode: string | null;
+    } | null;
+    wallet?: { available_ngn: number; pending_ngn: number };
+    error?: string;
+  };
+  if (!res.ok) {
+    return { configured: false, account: null, wallet: emptyWallet, error: json.error ?? "Could not load wallet." };
+  }
+  return {
+    configured: Boolean(json.configured),
+    account: json.account ?? null,
+    wallet: json.wallet ?? emptyWallet,
+    error: null,
+  };
 }
 
 export async function requestSellerPayout(

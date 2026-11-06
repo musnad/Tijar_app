@@ -2,6 +2,7 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
 import { createFileRoute } from "@tanstack/react-router";
 
+import { corvWebhookOk, parseCorvCredit } from "@/lib/payments/corv";
 import { flutterwaveWebhookOk } from "@/lib/payments/flutterwave";
 import { readEnvString, readSupabasePublicEnv } from "@/lib/supabase/runtime-env";
 
@@ -44,6 +45,43 @@ export const Route = createFileRoute("/api/payments/webhook")({
     handlers: {
       POST: async ({ request }) => {
         const raw = await request.text();
+        if (corvWebhookOk(request, raw)) {
+          let payload: unknown = null;
+          try {
+            payload = JSON.parse(raw) as unknown;
+          } catch {
+            return Response.json({ ok: false, error: "invalid_json" }, { status: 400 });
+          }
+          const credit = parseCorvCredit(payload);
+          if (!credit) return Response.json({ ok: true, ignored: true });
+          const env = readSupabasePublicEnv();
+          const service = readEnvString("SUPABASE_SERVICE_ROLE_KEY");
+          if (!env || !service) return Response.json({ ok: false }, { status: 503 });
+          const supabase = createClient(env.VITE_SUPABASE_URL, service);
+          let businessId: string | undefined;
+          if (credit.accountNumber) {
+            const { data } = await supabase
+              .from("businesses")
+              .select("id")
+              .eq("virtual_account_number", credit.accountNumber)
+              .maybeSingle();
+            businessId = data?.id as string | undefined;
+          }
+          if (!businessId && credit.businessReference?.startsWith("tijar-biz-")) {
+            businessId = credit.businessReference.slice("tijar-biz-".length);
+          }
+          if (businessId && credit.reference) {
+            await supabase.rpc("credit_seller_wallet_once", {
+              p_business_id: businessId,
+              p_amount: credit.amount,
+              p_provider: "corv",
+              p_reference: credit.reference,
+              p_account_number: credit.accountNumber,
+            });
+          }
+          return Response.json({ ok: true });
+        }
+
         const flutterHash = request.headers.get("verif-hash");
         const paystackSig = request.headers.get("x-paystack-signature");
         const paystackSecret = readEnvString("PAYSTACK_SECRET_KEY");

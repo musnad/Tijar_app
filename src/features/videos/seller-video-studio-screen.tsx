@@ -615,7 +615,7 @@ export function SellerVideoStudioScreen({
                 <>
                   {products.length > 0 ? (
                     <ul className="mt-2 space-y-2">
-                      {products.map((p) => (
+            {products.map((p) => (
                         <li key={p.id}>
                           <button
                             type="button"
@@ -645,8 +645,8 @@ export function SellerVideoStudioScreen({
                             </span>
                           </button>
                         </li>
-                      ))}
-                    </ul>
+            ))}
+          </ul>
                   ) : (
                     <p className="mt-2 text-[13px] text-muted-foreground">No products yet. Add a name and price below.</p>
                   )}
@@ -661,11 +661,11 @@ export function SellerVideoStudioScreen({
                       }}
                       placeholder="Name"
                     />
-                    <Input
+          <Input
                       className="mt-2 min-h-11 rounded-xl"
                       value={newPrice}
                       inputMode="decimal"
-                      onChange={(e) => {
+            onChange={(e) => {
                         setNewPrice(e.target.value);
                         setProductId(null);
                       }}
@@ -675,7 +675,7 @@ export function SellerVideoStudioScreen({
                 </>
               )}
               {errors.product ? <p className="mt-1 text-[12px] font-semibold text-red-600">{errors.product}</p> : null}
-            </section>
+        </section>
 
             <section className="mt-5" aria-labelledby="video-heading">
               <h2 id="video-heading" className="flex items-center gap-1.5 text-[15px] font-extrabold text-[#0B1F4D]">
@@ -896,7 +896,7 @@ export function SellerVideoStudioScreen({
               ) : null}
               {permNote ? <p className="mt-2 text-[12px] font-semibold text-amber-800">{permNote}</p> : null}
               {errors.media ? <p className="mt-1 text-[12px] font-semibold text-red-600">{errors.media}</p> : null}
-            </section>
+        </section>
 
             {postMode === "bid" ? (
               <section className="mt-5" aria-labelledby="bid-heading">
@@ -936,7 +936,7 @@ export function SellerVideoStudioScreen({
                       value={bidEndsAt}
                       onChange={(e) => setBidEndsAt(e.target.value)}
                     />
-                  </label>
+          </label>
                 </div>
                 <p className="mt-1.5 flex items-start gap-1.5 text-[12px] text-[#9CA3AF]">
                   <CalendarClock className="mt-0.5 size-3.5 shrink-0" aria-hidden />
@@ -960,9 +960,9 @@ export function SellerVideoStudioScreen({
                 />
                 <p className="mt-1.5 text-[12px] text-[#9CA3AF]">
                   Shown on the post so buyers see the price at a glance.
-                </p>
-              </section>
-            )}
+          </p>
+        </section>
+      )}
 
             <section className="mt-5" aria-labelledby="caption-heading">
               <h2 id="caption-heading" className="flex items-center gap-1.5 text-[15px] font-extrabold text-[#0B1F4D]">
@@ -1022,12 +1022,12 @@ export function SellerVideoStudioScreen({
               <p className="mt-1.5 text-[12px] text-[#9CA3AF]">Add tags to help buyers find your product.</p>
             </section>
 
-            <Button
-              type="button"
+          <Button
+            type="button"
               className="mt-6 min-h-[3.15rem] w-full rounded-xl bg-[#1F7A4D] text-[16px] font-extrabold text-white hover:bg-[#1F7A4D]/90"
               onClick={goNext}
-            >
-              Next
+          >
+            Next
               <ArrowRight className="size-5" />
             </Button>
             <p className="mt-3 flex items-center justify-center gap-1.5 text-center text-[12px] text-[#6B7280]">
@@ -1124,8 +1124,8 @@ function ReviewStep({
             <span className="mt-0.5 block text-[13px] font-medium text-[#6B7280]">
               Keep name, price, and photo in your business dashboard so it stays in the shop.
             </span>
-          </span>
-        </label>
+        </span>
+      </label>
       ) : product ? (
         <p className="mt-3 text-[13px] text-[#6B7280]">This is already in your Products list.</p>
       ) : null}

@@ -254,7 +254,6 @@ export function StoryViewer({
             imageUrl={story.product_image || ring.logoUrl}
             price={stickerPrice}
             host="tijar.ng"
-            ctaLabel={story.place_order_listing_id ? "Place your order" : "Buy now"}
             onPay={pay}
           />
         </div>

@@ -16,7 +16,6 @@ export type LiveStory = {
   overlay_text: string | null;
   price: number | null;
   product_id: string | null;
-  place_order_listing_id: string | null;
   duration_ms: number | null;
   expires_at: string;
   created_at: string;
@@ -68,7 +67,6 @@ function asStory(row: Record<string, unknown>): LiveStory {
     overlay_text: (row.overlay_text as string | null) ?? null,
     price: row.price != null ? Number(row.price) : null,
     product_id: (row.product_id as string | null) ?? null,
-    place_order_listing_id: (row.place_order_listing_id as string | null) ?? null,
     duration_ms: (row.duration_ms as number | null) ?? null,
     expires_at: row.expires_at as string,
     created_at: row.created_at as string,
@@ -205,6 +203,8 @@ export async function publishBusinessStory(input: {
   overlayText?: string;
   price?: number | null;
   productId?: string | null;
+  durationMs?: number | null;
+}): Promise<{ error: string | null; id?: string }> {
   offerKind?: "product" | "place_order";
   durationMs?: number | null;
 }): Promise<{ error: string | null; id?: string }> {
@@ -286,10 +286,10 @@ export async function publishBusinessStory(input: {
     data = retry.data;
     error = retry.error;
   }
-  if (error) return { error: error.message };
-  return { error: null, id: data?.id ?? id };
 }
 
+export async function toggleStoryLike(
+  profileId: string,
 /** Repost someone else's post onto your 24h story without creating a new product. */
 export async function publishStoryReshare(input: {
   businessId: string;
@@ -324,8 +324,6 @@ export async function publishStoryReshare(input: {
   return { error: null, id: data?.id ?? id };
 }
 
-export async function toggleStoryLike(
-  profileId: string,
   storyId: string,
 ): Promise<{ liked: boolean; error: string | null }> {
   const supabase = getSupabaseBrowserClient();

@@ -7,17 +7,6 @@ import { updateProductImages } from "@/services/product-service";
 
 export { videoPublicStatus };
 
-export type StudioBidInput = {
-  /** Lowest bid a shopper may open with. */
-  startingPrice: number;
-  /** When bidding opens. */
-  startsAt: string;
-  /** When bidding closes. */
-  endsAt: string;
-  /** Reaching (or passing) this price sells the item instantly. */
-  saleLimit: number;
-};
-
 export type StudioSubmitInput = {
   businessId: string;
   profileId: string;
@@ -30,17 +19,8 @@ export type StudioSubmitInput = {
   rightsAttested?: boolean;
   asDraft?: boolean;
   durationHintMs?: number;
-  extraImages?: File[];
-  /** Standalone price shown on a normal post. */
-  price?: number | null;
-  /** "standard" (default) or "bid". */
-  postType?: "standard" | "bid";
-  /** Required when postType is "bid". */
-  bid?: StudioBidInput;
   onProgress?: (pct: number, label: string) => void;
 };
-
-export const MAX_POST_IMAGES = 10;
 
 const IMAGE_EXT: Record<string, { ext: string; type: string }> = {
   jpeg: { ext: "jpg", type: "image/jpeg" },
@@ -131,43 +111,23 @@ export async function submitStudioVideo(input: StudioSubmitInput): Promise<{ err
     rights_attested_at: new Date().toISOString(),
     published_at: goLive ? new Date().toISOString() : null,
   };
-  const isBid = input.postType === "bid" && Boolean(input.bid);
-  const posting = {
-    price: isBid ? null : (input.price ?? null),
-    post_type: isBid ? "bid" : "standard",
-    bid_starting_price: isBid ? input.bid!.startingPrice : null,
-    bid_starts_at: isBid ? input.bid!.startsAt : null,
-    bid_ends_at: isBid ? input.bid!.endsAt : null,
-    bid_sale_limit: isBid ? input.bid!.saleLimit : null,
-    bid_status: "open",
-  };
-  let payload: Record<string, unknown> = { ...row, ...posting };
-  let { error: rowErr } = await supabase.from("video_posts").insert(payload);
-  if (rowErr && /(post_type|bid_[a-z_]+|column "price")/i.test(rowErr.message)) {
-    // Bidding migration not applied yet — publish as a normal post.
-    payload = { ...row };
-    rowErr = (await supabase.from("video_posts").insert(payload)).error;
-  }
+  let { error: rowErr } = await supabase.from("video_posts").insert(row);
   if (rowErr && /image_urls/i.test(rowErr.message)) {
-    const { image_urls: _urls, ...withoutUrls } = payload;
-    payload = withoutUrls;
-    rowErr = (await supabase.from("video_posts").insert(payload)).error;
+    const { image_urls: _urls, ...withoutUrls } = row;
+    rowErr = (await supabase.from("video_posts").insert(withoutUrls)).error;
   }
   if (rowErr && /media_kind/i.test(rowErr.message)) {
-    const { media_kind: _mk, image_urls: _urls, ...withoutKind } = payload;
-    payload = withoutKind;
-    rowErr = (await supabase.from("video_posts").insert(payload)).error;
+    const { media_kind: _mk, image_urls: _urls, ...withoutKind } = row;
+    rowErr = (await supabase.from("video_posts").insert(withoutKind)).error;
   }
   if (rowErr && /rights_attested/i.test(rowErr.message)) {
-    const { media_kind: _mk, rights_attested_at: _ra, image_urls: _urls, ...withoutRights } = payload;
-    payload = withoutRights;
-    rowErr = (await supabase.from("video_posts").insert(payload)).error;
+    const { media_kind: _mk, rights_attested_at: _ra, image_urls: _urls, ...withoutRights } = row;
+    rowErr = (await supabase.from("video_posts").insert(withoutRights)).error;
   }
   if (rowErr && /invalid input value for enum video_post_status/i.test(rowErr.message)) {
     status = input.asDraft ? "uploading" : "ready";
-    const { media_kind: _mk, rights_attested_at: _ra, image_urls: _urls, ...base } = payload;
-    payload = { ...base, status };
-    rowErr = (await supabase.from("video_posts").insert(payload)).error;
+    const { media_kind: _mk, rights_attested_at: _ra, image_urls: _urls, ...base } = row;
+    rowErr = (await supabase.from("video_posts").insert({ ...base, status })).error;
   }
   if (rowErr) return { error: rowErr.message };
 
@@ -182,10 +142,15 @@ export async function submitStudioVideo(input: StudioSubmitInput): Promise<{ err
     if (tagErr) return { error: tagErr.message };
   }
 
-  // Tagging a product in a post never publishes it to the marketplace — the shop
-  // must press "Publish to marketplace" on the product itself.
-  if (goLive && isImage && input.productIds.length > 0 && imageUrls.length > 0) {
-    await updateProductImages(input.productIds[0]!, imageUrls);
+  if (goLive && input.productIds.length > 0) {
+    await supabase
+      .from("products")
+      .update({ is_published: true, is_active: true })
+      .in("id", input.productIds)
+      .eq("business_id", input.businessId);
+    if (isImage && imageUrls.length > 0) {
+      await updateProductImages(input.productIds[0]!, imageUrls);
+    }
   }
   if (!isImage && !goLive) {
     await supabase.from("video_processing_jobs").insert({

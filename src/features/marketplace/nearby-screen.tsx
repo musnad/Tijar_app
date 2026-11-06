@@ -2,7 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { LocateFixed, MapPin, MessageCircle, Phone, Search, ShoppingBag, X } from "lucide-react";
+import { LocateFixed, MapPin, Search, ShoppingBag, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
@@ -12,7 +12,7 @@ import { MarketplaceShell } from "@/features/marketplace/marketplace-shell";
 import { NearbyMap } from "@/features/marketplace/nearby-map";
 import { ProductCard } from "@/features/marketplace/product-card";
 import { useAuth } from "@/features/auth/auth-context";
-import { AREA_PRESETS, reverseGeocode } from "@/lib/maps/provider";
+import { AREA_PRESETS } from "@/lib/maps/provider";
 import { fetchCart, fetchNearbyMarketplaceShops } from "@/services/marketplace-service";
 import { formatDistance } from "@/utils/discover";
 import { formatNgn } from "@/utils/money";
@@ -33,15 +33,6 @@ export function NearbyScreen() {
   const [selectedShopId, setSelectedShopId] = useState<string | null>(null);
   const [geoBusy, setGeoBusy] = useState(false);
   const [geoHint, setGeoHint] = useState("");
-  const [usingMyLocation, setUsingMyLocation] = useState(false);
-
-  async function applyDeviceLocation(lat: number, lng: number) {
-    setCentre({ lat, lng });
-    setUsingMyLocation(true);
-    setCentreLabel("Your location");
-    const label = await reverseGeocode(lat, lng);
-    if (label) setCentreLabel(label);
-  }
 
   const shopsQuery = useQuery({
     queryKey: ["nearby-marketplace-shops", centre.lat, centre.lng, radiusKm],
@@ -131,7 +122,8 @@ export function NearbyScreen() {
     setGeoBusy(true);
     navigator.geolocation.getCurrentPosition(
       (pos) => {
-        void applyDeviceLocation(pos.coords.latitude, pos.coords.longitude);
+        setCentre({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+        setCentreLabel("Your location");
         setGeoHint("");
         setGeoBusy(false);
         toast.success("Showing shops near you");
@@ -183,19 +175,18 @@ export function NearbyScreen() {
 
           <div className="flex gap-2 overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             <select
-              value={usingMyLocation ? "" : centreLabel}
+              value={centreLabel === "Your location" ? "" : centreLabel}
               onChange={(e) => {
                 const preset = AREA_PRESETS.find((a) => a.name === e.target.value);
                 if (!preset) return;
                 setCentre({ lat: preset.lat, lng: preset.lng });
                 setCentreLabel(preset.name);
-                setUsingMyLocation(false);
                 setSelectedShopId(null);
               }}
               className="min-h-10 shrink-0 rounded-xl border border-input bg-card px-3 text-sm"
               aria-label="Choose city"
             >
-              <option value="">{usingMyLocation ? centreLabel : "Choose city"}</option>
+              <option value="">{centreLabel === "Your location" ? "Your location" : "Choose city"}</option>
               {AREA_PRESETS.map((a) => (
                 <option key={a.name} value={a.name}>
                   {a.name}
@@ -271,28 +262,6 @@ export function NearbyScreen() {
                   </a>
                 </Button>
               </div>
-              {selectedShop.public_phone || selectedShop.public_whatsapp ? (
-                <div className="mt-2 flex gap-2">
-                  {selectedShop.public_phone ? (
-                    <Button size="sm" className="h-9 flex-1 rounded-xl text-xs font-bold" asChild>
-                      <a href={`tel:${selectedShop.public_phone.replace(/[^\d+]/g, "")}`}>
-                        <Phone className="mr-1.5 size-3.5" /> Call
-                      </a>
-                    </Button>
-                  ) : null}
-                  {selectedShop.public_whatsapp ? (
-                    <Button size="sm" variant="outline" className="h-9 flex-1 rounded-xl text-xs font-bold" asChild>
-                      <a
-                        href={`https://wa.me/${selectedShop.public_whatsapp.replace(/\D/g, "")}`}
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        <MessageCircle className="mr-1.5 size-3.5" /> WhatsApp
-                      </a>
-                    </Button>
-                  ) : null}
-                </div>
-              ) : null}
               <p className="mt-3 text-xs font-bold text-muted-foreground">
                 Products to buy ({selectedShop.products.length})
               </p>

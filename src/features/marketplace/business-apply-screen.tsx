@@ -11,7 +11,6 @@ import { Input } from "@/components/ui/input";
 import { MarketplaceShell } from "@/features/marketplace/marketplace-shell";
 import { useAuth } from "@/features/auth/auth-context";
 import { canUseBusinessMode, isCustomerOnly } from "@/lib/account-mode";
-import { NIGERIA_STATE_NAMES, lgasForState } from "@/lib/nigeria-locations";
 import { listBusinessCategories } from "@/services/business-service";
 import {
   fetchMyBusinessUpgradeRequest,
@@ -31,8 +30,8 @@ export function BusinessApplyScreen() {
   const [phone, setPhone] = useState(profile?.phone ?? "");
   const [whatsapp, setWhatsapp] = useState("");
   const [street, setStreet] = useState("");
-  const [stateName, setStateName] = useState("");
-  const [lga, setLga] = useState("");
+  const [city, setCity] = useState("");
+  const [state, setState] = useState("");
   const [locationLabel, setLocationLabel] = useState("");
   const [lat, setLat] = useState<number | null>(null);
   const [lng, setLng] = useState<number | null>(null);
@@ -181,8 +180,8 @@ export function BusinessApplyScreen() {
     }
     if (!phone.trim()) return toast.error("Enter a contact phone number");
     if (!street.trim()) return toast.error("Enter your shop street / landmark");
-    if (!stateName) return toast.error("Select your state");
-    if (!lga) return toast.error("Select your local government area");
+    if (!city.trim()) return toast.error("Enter your city / town");
+    if (!state.trim()) return toast.error("Enter your state");
     if (!shopFile) return toast.error("Add a shop photo so admin can review your business");
 
     setBusy(true);
@@ -193,7 +192,7 @@ export function BusinessApplyScreen() {
       return;
     }
 
-    const locationLine = [street.trim(), lga, stateName].filter(Boolean).join(", ");
+    const locationLine = [street.trim(), city.trim(), state.trim()].filter(Boolean).join(", ");
     const { error } = await requestBusinessUpgrade({
       profileId: profile!.id,
       businessName,
@@ -201,8 +200,8 @@ export function BusinessApplyScreen() {
       categoryId,
       location: locationLine,
       street,
-      city: lga,
-      state: stateName,
+      city,
+      state,
       phone,
       ...(whatsapp.trim() ? { whatsapp } : {}),
       shopImageUrl: uploaded.publicUrl,
@@ -416,38 +415,20 @@ export function BusinessApplyScreen() {
             required
           />
           <div className="grid grid-cols-2 gap-2">
-            <select
-              className="min-h-11 w-full rounded-xl border border-input bg-background px-3 text-base"
-              value={stateName}
-              onChange={(e) => {
-                setStateName(e.target.value);
-                setLga("");
-              }}
-              aria-label="State"
+            <Input
+              className="min-h-11 rounded-xl text-base"
+              placeholder="City / town *"
+              value={city}
+              onChange={(e) => setCity(e.target.value)}
               required
-            >
-              <option value="">State *</option>
-              {NIGERIA_STATE_NAMES.map((s) => (
-                <option key={s} value={s}>
-                  {s}
-                </option>
-              ))}
-            </select>
-            <select
-              className="min-h-11 w-full rounded-xl border border-input bg-background px-3 text-base disabled:opacity-60"
-              value={lga}
-              onChange={(e) => setLga(e.target.value)}
-              aria-label="Local government area"
-              disabled={!stateName}
+            />
+            <Input
+              className="min-h-11 rounded-xl text-base"
+              placeholder="State *"
+              value={state}
+              onChange={(e) => setState(e.target.value)}
               required
-            >
-              <option value="">{stateName ? "Local government *" : "Pick a state first"}</option>
-              {lgasForState(stateName).map((l) => (
-                <option key={l} value={l}>
-                  {l}
-                </option>
-              ))}
-            </select>
+            />
           </div>
           <Input
             className="min-h-11 rounded-xl text-base"

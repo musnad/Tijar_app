@@ -55,31 +55,6 @@ export function getMapsProvider(): MapsProvider {
   return osmProvider;
 }
 
-/**
- * Turn raw GPS coordinates into a human place name ("Kano", "Wuse, Abuja").
- * Best-effort: returns null when reverse geocoding is unavailable.
- */
-export async function reverseGeocode(lat: number, lng: number): Promise<string | null> {
-  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
-  try {
-    const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=12&lat=${lat}&lon=${lng}`;
-    const res = await fetch(url, { headers: { Accept: "application/json" } });
-    if (!res.ok) return null;
-    const data = (await res.json()) as {
-      address?: Record<string, string>;
-      display_name?: string;
-    };
-    const a = data.address ?? {};
-    const city = a["city"] ?? a["town"] ?? a["village"] ?? a["county"] ?? a["state_district"] ?? a["state"];
-    const area = a["suburb"] ?? a["neighbourhood"] ?? a["city_district"];
-    if (area && city && area !== city) return `${area}, ${city}`;
-    if (city) return city;
-    return data.display_name?.split(",").slice(0, 2).join(",").trim() ?? null;
-  } catch {
-    return null;
-  }
-}
-
 /** Manual area presets for when geolocation is denied/unavailable (Nigeria-first). */
 export const AREA_PRESETS: { name: string; lat: number; lng: number }[] = [
   { name: "Kano", lat: 12.0022, lng: 8.592 },

@@ -124,12 +124,15 @@ export type Business = {
   published_at: string | null;
   /** Informal micro-traders / artisans — Marketplace lists these only. */
   is_informal?: boolean;
-  /** Personal home-seller shop created when someone sells from their house. */
-  is_personal?: boolean;
   payout_account_name?: string | null;
   payout_account_number?: string | null;
   payout_bank_name?: string | null;
   payout_bank_code?: string | null;
+  virtual_account_name?: string | null;
+  virtual_account_number?: string | null;
+  virtual_account_bank_name?: string | null;
+  virtual_account_bank_code?: string | null;
+  virtual_account_reference?: string | null;
   created_at?: string;
 };
 
@@ -178,7 +181,6 @@ export type PublicBusiness = {
   is_verified: boolean;
   verification_status: string;
   is_informal?: boolean;
-  is_personal?: boolean;
   distance_km?: number | null;
   product_names?: string[];
 };
@@ -205,14 +207,9 @@ export type PublicProduct = {
   business_slug?: string | null;
   business_logo_url?: string | null;
   category_name?: string | null;
-  business_location_text?: string | null;
-  business_public_location_label?: string | null;
   service_type?: ServiceType;
   starts_on?: string | null;
   ends_on?: string | null;
-  like_count?: number;
-  comment_count?: number;
-  share_count?: number;
 };
 
 export type ServiceEnrollment = {
@@ -244,9 +241,6 @@ export type BusinessEnquiry = {
 
 export type NotificationPreferences = {
   profile_id: string;
-  general: boolean;
-  likes: boolean;
-  comments: boolean;
   order_updates: boolean;
   enquiry_replies: boolean;
   followed_shops: boolean;

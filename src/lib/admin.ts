@@ -1,7 +1,7 @@
 export const TIJAR_SUPER_ADMIN_EMAIL = "musababubakar123@gmail.com";
 
-/** TIJAR take on marketplace and recorded sales volume. 0 until we start collecting it. */
-export const DEFAULT_PLATFORM_COMMISSION_RATE = 0;
+/** Default TIJAR take on marketplace and recorded sales volume. */
+export const DEFAULT_PLATFORM_COMMISSION_RATE = 0.025;
 
 export function isTijarSuperAdminEmail(email?: string | null): boolean {
   return (email ?? "").trim().toLowerCase() === TIJAR_SUPER_ADMIN_EMAIL;

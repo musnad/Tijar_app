@@ -1,14 +1,22 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
+import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { AppPageHeader } from "@/features/app-layout/app-page-header";
 import { BankAccountForm } from "@/features/business/bank-account-form";
 import { displayShopName } from "@/lib/shop-names";
 import { fetchOwnedBusinesses } from "@/services/business-service";
+import {
+  fetchSellerWallet,
+  fetchVirtualAccountWallet,
+  provisionVirtualAccount,
+  requestSellerPayout,
+} from "@/services/marketplace-service";
 import { fetchSellerOrders } from "@/services/seller-dashboard-service";
 import { fetchTodayTotals, listRecentTransactions } from "@/services/transaction-service";
 import { formatNgn } from "@/utils/money";
@@ -21,6 +29,7 @@ export function PayoutWalletScreen({
   business: Business;
   profileId?: string;
 }) {
+  const queryClient = useQueryClient();
   const shopsQuery = useQuery({
     queryKey: ["owned-businesses", profileId],
     enabled: Boolean(profileId),
@@ -54,18 +63,81 @@ export function PayoutWalletScreen({
     },
   });
 
+  const walletQuery = useQuery({
+    queryKey: ["shop-wallet", selected.id],
+    queryFn: async () => {
+      const [va, ledger] = await Promise.all([
+        fetchVirtualAccountWallet(selected.id),
+        fetchSellerWallet(selected.id),
+      ]);
+      return {
+        configured: va.configured,
+        account: va.account,
+        wallet: va.wallet.available_ngn || va.wallet.pending_ngn ? va.wallet : ledger.wallet,
+        requests: ledger.requests,
+        error: va.error || ledger.error,
+      };
+    },
+  });
+
+  const [bvn, setBvn] = useState("");
+  const [needsBvn, setNeedsBvn] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [withdrawAmount, setWithdrawAmount] = useState("");
+  const [withdrawing, setWithdrawing] = useState(false);
+
   const shopSales = salesQuery.data?.transactions ?? [];
   const todaySales = salesQuery.data?.todaySales ?? 0;
   const pendingConfirms = (salesQuery.data?.orders ?? []).filter(
     (o) => o.status === "pending_payment" && o.buyer_marked_paid_at,
   ).length;
   const shopName = displayShopName(selected.business_name);
+  const account = walletQuery.data?.account;
+  const wallet = walletQuery.data?.wallet ?? { available_ngn: 0, pending_ngn: 0 };
+  const requests = walletQuery.data?.requests ?? [];
+
+  async function createAccount() {
+    setCreating(true);
+    const result = await provisionVirtualAccount(selected.id, needsBvn ? { bvn } : undefined);
+    setCreating(false);
+    if (result.needsBvn) {
+      setNeedsBvn(true);
+      toast.error(result.error ?? "Enter the shop owner’s BVN to open this account.");
+      return;
+    }
+    if (result.error) {
+      toast.error(result.error);
+      return;
+    }
+    setNeedsBvn(false);
+    toast.success("Shop account is ready. Buyers can transfer into TIJAR.");
+    await queryClient.invalidateQueries({ queryKey: ["shop-wallet", selected.id] });
+    await queryClient.invalidateQueries({ queryKey: ["payout-account", selected.id] });
+  }
+
+  async function withdraw() {
+    const amount = Number(withdrawAmount.replace(/,/g, ""));
+    if (!Number.isFinite(amount) || amount < 100) {
+      toast.error("Enter at least ₦100.");
+      return;
+    }
+    setWithdrawing(true);
+    const result = await requestSellerPayout(selected.id, amount);
+    setWithdrawing(false);
+    if (result.error) {
+      toast.error(result.error);
+      return;
+    }
+    toast.success(result.message ?? "Withdrawal sent.");
+    setWithdrawAmount("");
+    await queryClient.invalidateQueries({ queryKey: ["shop-wallet", selected.id] });
+  }
 
   return (
     <>
       <AppPageHeader
-        title="Bank account"
-        subtitle={`${shopName} — this is the account number buyers transfer to for this shop.`}
+        title="Wallet & payouts"
+        subtitle={`${shopName} — buyers pay a TIJAR account. You withdraw to your bank.`}
       />
 
       {shops.length > 1 ? (
@@ -86,12 +158,92 @@ export function PayoutWalletScreen({
       ) : null}
 
       <section className="mt-5 rounded-2xl border border-border bg-card p-4">
+        <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">TIJAR wallet</p>
+        <p className="mt-1 text-3xl font-extrabold text-[#0B1F4D]">{formatNgn(wallet.available_ngn)}</p>
+        <p className="mt-1 text-sm text-muted-foreground">
+          {wallet.pending_ngn > 0 ? `${formatNgn(wallet.pending_ngn)} is on the way out` : "Available to withdraw"}
+        </p>
+        <div className="mt-3 flex gap-2">
+          <Input
+            className="min-h-11 rounded-xl"
+            inputMode="decimal"
+            placeholder="Amount"
+            value={withdrawAmount}
+            onChange={(e) => setWithdrawAmount(e.target.value)}
+          />
+          <Button
+            className="min-h-11 shrink-0 rounded-xl bg-[#1F7A4D] font-extrabold text-white hover:bg-[#1F7A4D]/90"
+            disabled={withdrawing}
+            onClick={() => void withdraw()}
+          >
+            {withdrawing ? "Sending…" : "Withdraw"}
+          </Button>
+        </div>
+      </section>
+
+      <section className="mt-4 rounded-2xl border border-border bg-card p-4">
+        <h2 className="text-sm font-extrabold">Shop receiving account</h2>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Buyers transfer here. Money lands in the TIJAR wallet above — not your personal bank.
+        </p>
+        {account?.accountNumber ? (
+          <dl className="mt-3 space-y-2 text-sm">
+            <div className="flex justify-between gap-3">
+              <dt className="text-muted-foreground">Bank</dt>
+              <dd className="font-bold">{account.bankName}</dd>
+            </div>
+            <div className="flex justify-between gap-3">
+              <dt className="text-muted-foreground">Name</dt>
+              <dd className="font-bold">{account.accountName}</dd>
+            </div>
+            <div className="flex justify-between gap-3">
+              <dt className="text-muted-foreground">Number</dt>
+              <dd className="font-extrabold tracking-wide">{account.accountNumber}</dd>
+            </div>
+            <Button
+              className="mt-1 min-h-11 w-full rounded-xl"
+              variant="outline"
+              type="button"
+              onClick={() => {
+                void navigator.clipboard.writeText(account.accountNumber);
+                toast.success("Account number copied");
+              }}
+            >
+              Copy account number
+            </Button>
+          </dl>
+        ) : (
+          <div className="mt-3 space-y-2">
+            {needsBvn ? (
+              <>
+                <label className="block text-xs font-bold">BVN (11 digits)</label>
+                <Input
+                  className="min-h-11 rounded-xl"
+                  inputMode="numeric"
+                  maxLength={11}
+                  value={bvn}
+                  onChange={(e) => setBvn(e.target.value.replace(/\D/g, "").slice(0, 11))}
+                />
+              </>
+            ) : null}
+            <Button
+              className="min-h-11 w-full rounded-xl bg-[#0B1F4D] font-extrabold text-white"
+              disabled={creating}
+              onClick={() => void createAccount()}
+            >
+              {creating ? "Opening account…" : needsBvn ? "Submit BVN and open account" : "Create shop account"}
+            </Button>
+          </div>
+        )}
+      </section>
+
+      <section className="mt-4 rounded-2xl border border-border bg-card p-4">
         <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Today’s shop sales</p>
         <p className="mt-1 text-3xl font-extrabold text-[#0B1F4D]">{formatNgn(todaySales)}</p>
         <p className="mt-1 text-sm text-muted-foreground">
           {pendingConfirms > 0
             ? `${pendingConfirms} transfer${pendingConfirms === 1 ? "" : "s"} waiting for you to confirm`
-            : "Confirmed transfers land here automatically"}
+            : "Transfers into the shop account credit this wallet automatically"}
         </p>
         <Button className="mt-3 min-h-11 w-full rounded-xl" variant="outline" asChild>
           <Link to="/app/orders">Open orders</Link>
@@ -99,14 +251,31 @@ export function PayoutWalletScreen({
       </section>
 
       <section className="mt-4 rounded-2xl border border-border bg-card p-4">
-        <h2 className="text-sm font-extrabold">Bank account for {shopName}</h2>
+        <h2 className="text-sm font-extrabold">Cash-out bank for {shopName}</h2>
         <p className="mt-1 text-xs text-muted-foreground">
-          {selected.payout_account_number
-            ? "This number is shown to buyers on checkout for this shop."
-            : "Save this before customers can transfer to this shop."}
+          This is where withdrawals go. Buyers do not see this number once the shop account exists.
         </p>
         <BankAccountForm key={selected.id} business={selected} />
       </section>
+
+      {requests.length > 0 ? (
+        <section className="mt-4">
+          <h2 className="text-sm font-extrabold">Withdrawals</h2>
+          <ul className="mt-2 space-y-2">
+            {requests.map((row) => (
+              <li key={row.id} className="flex items-center justify-between rounded-xl border border-border px-3 py-2 text-sm">
+                <span>
+                  <span className="block font-bold">{formatNgn(Number(row.amount_ngn))}</span>
+                  <span className="text-[11px] text-muted-foreground">{row.status}</span>
+                </span>
+                <span className="text-[11px] text-muted-foreground">
+                  {new Date(row.created_at).toLocaleString("en-NG", { dateStyle: "medium", timeStyle: "short" })}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
 
       <section className="mt-4 pb-8">
         <h2 className="text-sm font-extrabold">Shop transactions</h2>
@@ -114,7 +283,7 @@ export function PayoutWalletScreen({
           <p className="mt-2 text-sm text-muted-foreground">Loading sales…</p>
         ) : shopSales.length === 0 ? (
           <p className="mt-2 text-sm text-muted-foreground">
-            No shop sales yet. When you confirm a transfer, it appears here and on today’s sales.
+            No shop sales yet. Incoming transfers show in the wallet above.
           </p>
         ) : (
           <ul className="mt-2 space-y-2">

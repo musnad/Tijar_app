@@ -17,8 +17,6 @@ import { isTijarNativeApp } from "@/lib/tijar-native-app";
 import appCss from "../styles.css?url";
 import { SiteFooter, SiteHeader } from "../components/site-shell";
 import { AuthProvider, useAuth } from "@/features/auth/auth-context";
-import { AccountGateProvider } from "@/features/auth/account-gate";
-import { PresenceBeacon } from "@/features/app/presence-beacon";
 import { SitePreferencesProvider, useTranslation } from "../lib/i18n/context";
 import { enMessages } from "../lib/i18n/messages/en";
 import { clearServiceWorkers } from "../lib/clear-service-workers";
@@ -34,7 +32,7 @@ function NotFoundContent() {
         <p className="mt-2 text-sm text-muted-foreground">{t("errors.notFoundDesc")}</p>
         <div className="mt-6">
           <Link
-            to="/shop"
+            to="/"
             className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
           >
             {t("errors.goHome")}
@@ -76,7 +74,7 @@ function ErrorContent({ error, reset }: ErrorComponentProps) {
             {copy.tryAgain}
           </button>
           <a
-            href="/shop"
+            href="/"
             className="inline-flex items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
           >
             {copy.goHome}
@@ -115,9 +113,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         rel: "stylesheet",
         href: appCss,
       },
-      { rel: "icon", href: "/tijar-icon.png", type: "image/png", sizes: "512x512" },
-      { rel: "shortcut icon", href: "/favicon.ico", sizes: "64x64" },
-      { rel: "apple-touch-icon", href: "/tijar-icon.png", sizes: "512x512" },
+      { rel: "icon", href: "/tijar-logo.png", type: "image/png" },
+      { rel: "apple-touch-icon", href: "/tijar-logo.png" },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       {
@@ -217,7 +214,6 @@ function RootLayout() {
 
   return (
     <div className={shopFeed ? "h-dvh overflow-hidden bg-background text-foreground" : "min-h-screen bg-background text-foreground"}>
-      <PresenceBeacon />
       {showMarketingShell && <SiteHeader />}
       <main id="main-content" className={shopFeed ? "h-full overflow-hidden" : undefined}>
         <Outlet />
@@ -238,9 +234,7 @@ function RootComponent() {
     <QueryClientProvider client={queryClient}>
       <SitePreferencesProvider>
         <AuthProvider>
-          <AccountGateProvider>
-            <RootLayout />
-          </AccountGateProvider>
+          <RootLayout />
           <Toaster richColors position="top-center" />
         </AuthProvider>
       </SitePreferencesProvider>

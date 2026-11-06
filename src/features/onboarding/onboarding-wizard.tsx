@@ -28,11 +28,6 @@ import {
 } from "@/features/onboarding/schemas";
 import { useSitePreferences, useTranslation } from "@/lib/i18n/context";
 import { isLocale } from "@/lib/i18n/types";
-import {
-  NIGERIA_STATE_NAMES,
-  formatNigerianLocation,
-  lgasForState,
-} from "@/lib/nigeria-locations";
 import { completeBusinessSetup, listBusinessCategories } from "@/services/business-service";
 import { updateProfile } from "@/services/profile-service";
 import type { BusinessCategory } from "@/types/database";
@@ -82,18 +77,13 @@ export function OnboardingWizard() {
         businessName?: string;
         categoryId?: string;
         location?: string;
-        state?: string;
-        lga?: string;
       };
-      setAnswers((a) => {
-        const next: WizardState = { ...a };
-        if (pre.businessName) next.businessName = pre.businessName;
-        if (pre.categoryId) next.categoryId = pre.categoryId;
-        if (pre.location) next.location = pre.location;
-        if (pre.state) next.state = pre.state;
-        if (pre.lga) next.lga = pre.lga;
-        return next;
-      });
+      setAnswers((a) => ({
+        ...a,
+        businessName: pre.businessName ?? a.businessName,
+        categoryId: pre.categoryId ?? a.categoryId,
+        location: pre.location ?? a.location,
+      }));
       sessionStorage.removeItem("tijar-onboarding-prefill");
     } catch {
       /* ignore */
@@ -126,7 +116,7 @@ export function OnboardingWizard() {
       case 1:
         return true;
       case 2:
-        return Boolean(answers.businessName?.trim() && answers.state && answers.lga);
+        return Boolean(answers.businessName?.trim());
       case 3:
         return Boolean(answers.categoryId);
       case 4:
@@ -153,8 +143,7 @@ export function OnboardingWizard() {
     }
     const parsed = onboardingWizardSchema.safeParse({
       ...answers,
-      location:
-        formatNigerianLocation(answers.state, answers.lga) || answers.location || "Nigeria",
+      location: answers.location ?? "Nigeria",
     });
     if (!parsed.success) {
       toast.error(parsed.error.errors[0]?.message ?? t("app.errors.validation"));
@@ -174,6 +163,9 @@ export function OnboardingWizard() {
   }
 
   function next() {
+    if (step === 2 && !answers.location?.trim()) {
+      setAnswers((a) => ({ ...a, location: "Nigeria" }));
+    }
     if (step < ONBOARDING_STEP_COUNT) {
       setStep((s) => s + 1);
       return;
@@ -223,40 +215,12 @@ export function OnboardingWizard() {
               placeholder={t("app.onboarding.businessNamePlaceholder")}
             />
             <Label className="mt-4 block">{t("app.onboarding.locationLabel")}</Label>
-            <div className="mt-2 grid gap-2 sm:grid-cols-2">
-              <select
-                className="min-h-12 w-full rounded-xl border border-input bg-background px-3 text-base"
-                value={answers.state ?? ""}
-                onChange={(e) =>
-                  setAnswers((a) => ({ ...a, state: e.target.value, lga: "" }))
-                }
-                aria-label="State"
-              >
-                <option value="">Select your state</option>
-                {NIGERIA_STATE_NAMES.map((s) => (
-                  <option key={s} value={s}>
-                    {s}
-                  </option>
-                ))}
-              </select>
-              <select
-                className="min-h-12 w-full rounded-xl border border-input bg-background px-3 text-base"
-                value={answers.lga ?? ""}
-                onChange={(e) => setAnswers((a) => ({ ...a, lga: e.target.value }))}
-                aria-label="Local government area"
-              >
-                <option value="">{answers.state ? "Select your LGA" : "Choose a state first"}</option>
-                {lgasForState(answers.state).map((l) => (
-                  <option key={l} value={l}>
-                    {l}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <p className="mt-2 text-xs text-muted-foreground">
-              Pick the state and local government where your shop operates. Customers see this on
-              your shop page.
-            </p>
+            <Input
+              className="mt-2 min-h-12"
+              value={answers.location ?? ""}
+              onChange={(e) => setAnswers((a) => ({ ...a, location: e.target.value }))}
+              placeholder="Kano, Nigeria"
+            />
           </>
         )}
 
