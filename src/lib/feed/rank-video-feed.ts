@@ -36,6 +36,8 @@ export type ViewerSignals = {
   videoCaptions?: Record<string, string>;
   viewerLat?: number | null;
   viewerLng?: number | null;
+  seenVideoIds?: string[];
+  shuffleSalt?: string;
 };
 
 export type RankBreakdown = {
@@ -54,6 +56,9 @@ const NEW_SELLER = 9;
 const QUALITY = 4;
 const SEARCH = 18;
 const SPONSORED_PENALTY = 25;
+const SEEN_PENALTY = 36;
+const OLDER_UNSEEN = 18;
+const SHUFFLE_JITTER = 6;
 const NEARBY_CLOSE = 55;
 const NEARBY_MID = 32;
 const NEARBY_CITY = 8;
@@ -142,9 +147,25 @@ export function scoreVideo(video: RankableVideo, viewer: ViewerSignals): RankBre
     reasons.push("previously watched through");
   }
 
-  const fresh = freshnessScore(video.publishedAt ?? video.createdAt);
+  const published = video.publishedAt ?? video.createdAt;
+  const fresh = freshnessScore(published);
   score += fresh;
   if (fresh >= FRESHNESS * 0.7) reasons.push("recent post");
+
+  if (viewer.seenVideoIds?.includes(video.id)) {
+    score -= SEEN_PENALTY;
+    reasons.push("already shown this session");
+  } else if (daysSince(published) > 1) {
+    score += OLDER_UNSEEN;
+    reasons.push("older post you have not seen");
+  }
+
+  if (viewer.shuffleSalt) {
+    let h = 2166136261;
+    const key = `${viewer.shuffleSalt}:${video.id}`;
+    for (let i = 0; i < key.length; i += 1) h = Math.imul(h ^ key.charCodeAt(i), 16777619);
+    score += ((h >>> 0) % (SHUFFLE_JITTER * 10)) / 10;
+  }
 
   if (video.hasAvailableProduct) {
     score += AVAILABILITY;

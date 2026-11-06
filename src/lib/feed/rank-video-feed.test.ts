@@ -95,6 +95,22 @@ describe("scoreVideo", () => {
     expect(ranked[0]?.videoId).toBe("near");
     expect(ranked.find((x) => x.videoId === "near")?.reasons).toContain("within 5 km");
   });
+
+  it("lets an older unseen post rise above one already shown", () => {
+    const shown = video({ id: "shown", publishedAt: new Date().toISOString() });
+    const older = video({
+      id: "older",
+      publishedAt: new Date(Date.now() - 5 * 86_400_000).toISOString(),
+      createdAt: new Date(Date.now() - 5 * 86_400_000).toISOString(),
+    });
+    const ranked = rankVideoFeed([shown, older], {
+      ...emptyViewer,
+      seenVideoIds: ["shown"],
+      shuffleSalt: "",
+    });
+    expect(ranked[0]?.videoId).toBe("older");
+    expect(ranked.find((x) => x.videoId === "older")?.reasons).toContain("older post you have not seen");
+  });
 });
 
 describe("applyOrganicInterleave", () => {

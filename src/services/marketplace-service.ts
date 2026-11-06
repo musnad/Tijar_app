@@ -53,7 +53,7 @@ const MARKETPLACE_PRODUCT_SELECT =
 const MARKETPLACE_PRODUCT_SELECT_LEGACY =
   "id, business_id, name, kind, description, sale_price, unit, image_url, is_available";
 
-export async function fetchMarketplaceProducts(limit = 48, before?: string | null): Promise<{
+export async function fetchMarketplaceProducts(limit = 48, before?: string | null, offset = 0): Promise<{
   data: PublicProduct[];
   error: string | null;
 }> {
@@ -61,9 +61,10 @@ export async function fetchMarketplaceProducts(limit = 48, before?: string | nul
   let query = supabase
     .from("public_business_products")
     .select(MARKETPLACE_PRODUCT_SELECT)
-    .order("created_at", { ascending: false })
-    .limit(limit);
-  if (before) query = query.lt("created_at", before);
+    .order("created_at", { ascending: false });
+  if (before) query = query.lt("created_at", before).limit(limit);
+  else if (offset > 0) query = query.range(offset, offset + limit - 1);
+  else query = query.limit(limit);
   let { data, error } = await query;
   if (error && /created_at/i.test(error.message)) {
     const retry = await supabase

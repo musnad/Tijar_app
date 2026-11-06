@@ -54,6 +54,17 @@ import { StoryViewer } from "@/features/marketplace/story-viewer";
 import { useViewerLocation } from "@/hooks/use-viewer-location";
 import { displayShopName, isBlankShopName, lookupShopProfiles, shopLinkSlug } from "@/lib/shop-names";
 import { NEARBY_RADIUS_KM } from "@/lib/feed/rank-video-feed";
+import {
+  HOME_REFRESH_EVENT,
+  bumpFeedRound,
+  currentFeedRound,
+  currentFeedSalt,
+  feedOffsetForRound,
+  mixFeedScore,
+  readSeenFeedIds,
+  rememberSeenFeedIds,
+  rotateFeedSalt,
+} from "@/lib/feed/feed-session";
 import { fetchLiveStoryRings, type StoryRing } from "@/services/story-service";
 import { formatDistance, haversineKm } from "@/utils/discover";
 import { cn } from "@/lib/utils";
@@ -275,6 +286,9 @@ export function VideoFeedScreen({ initialVideoId }: { initialVideoId?: string })
   const [feedTab, setFeedTab] = useState<FeedTab>("foryou");
   const location = useViewerLocation(true);
   const [storyBusinessId, setStoryBusinessId] = useState<string | null>(null);
+  const [feedRound, setFeedRound] = useState(() => currentFeedRound());
+  const [feedSalt, setFeedSalt] = useState(() => currentFeedSalt());
+  const [seenIds, setSeenIds] = useState(() => readSeenFeedIds());
   const [mockLiked, setMockLiked] = useState(() => new Set(loadUserSocial("guest").likedVideos));
   const likeBusyRef = useRef(false);
   const [mockFollowing, setMockFollowing] = useState(() => new Set(listFollowedShopIds("guest")));
@@ -293,6 +307,8 @@ export function VideoFeedScreen({ initialVideoId }: { initialVideoId?: string })
       feedTab,
       location.coords?.lat ?? null,
       location.coords?.lng ?? null,
+      feedRound,
+      feedSalt,
     ],
     queryFn: async ({ pageParam }) => {
       const r = await rankAndLoadFeed(profile?.id ?? null, {
@@ -301,24 +317,31 @@ export function VideoFeedScreen({ initialVideoId }: { initialVideoId?: string })
         viewerLat: location.coords?.lat ?? null,
         viewerLng: location.coords?.lng ?? null,
         nearbyOnly: feedTab === "nearby",
+        offset: pageParam ? 0 : feedOffsetForRound(feedRound, FEED_PAGE_SIZE),
+        shuffleSalt: feedSalt,
+        seenVideoIds: [...seenIds],
       });
       if (r.error) throw new Error(r.error);
       return r;
     },
     initialPageParam: null as string | null,
     getNextPageParam: (last) => last.nextCursor,
-    staleTime: 60_000,
-    refetchOnMount: false,
+    staleTime: 20_000,
+    refetchOnMount: "always",
   });
 
   const listingsQuery = useQuery({
-    queryKey: ["for-you-listings"],
+    queryKey: ["for-you-listings", feedRound],
     queryFn: async () => {
-      const r = await fetchMarketplaceProducts(24);
+      const offset = feedOffsetForRound(feedRound, 24);
+      let r = await fetchMarketplaceProducts(80, null, offset);
+      if (!r.error && r.data.length === 0 && offset > 0) {
+        r = await fetchMarketplaceProducts(80);
+      }
       if (r.error) throw new Error(r.error);
       return r.data;
     },
-    staleTime: 60_000,
+    staleTime: 20_000,
   });
 
   const placeOrdersQuery = useQuery({
@@ -464,9 +487,29 @@ export function VideoFeedScreen({ initialVideoId }: { initialVideoId?: string })
   }, [videos, initialVideoId]);
 
   useEffect(() => {
-    if (activeId) sessionStorage.setItem(POSITION_KEY, activeId);
+    if (activeId) {
+      sessionStorage.setItem(POSITION_KEY, activeId);
+      rememberSeenFeedIds([activeId]);
+    }
     setPaused(false);
   }, [activeId]);
+
+  const itemKeysRef = useRef<string[]>([]);
+
+  useEffect(() => {
+    function onHomeRefresh() {
+      rememberSeenFeedIds(itemKeysRef.current);
+      setSeenIds(readSeenFeedIds());
+      setFeedSalt(rotateFeedSalt());
+      setFeedRound(bumpFeedRound());
+      restoredRef.current = false;
+      scrollerRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+      void queryClient.invalidateQueries({ queryKey: ["live-stories"] });
+      void queryClient.invalidateQueries({ queryKey: ["for-you-place-orders"] });
+    }
+    window.addEventListener(HOME_REFRESH_EVENT, onHomeRefresh);
+    return () => window.removeEventListener(HOME_REFRESH_EVENT, onHomeRefresh);
+  }, [queryClient]);
 
   const feedTabRef = useRef(feedTab);
   useEffect(() => {
@@ -737,8 +780,11 @@ export function VideoFeedScreen({ initialVideoId }: { initialVideoId?: string })
     for (const product of showListings) {
       items.push({ kind: "listing", key: `listing:${product.id}`, ts: feedTimestamp(product.created_at), product });
     }
-    return items.sort((a, b) => b.ts - a.ts);
-  }, [showPlaceOrders, showPosts, showListings]);
+    return items.sort(
+      (a, b) => mixFeedScore(b.key, b.ts, feedSalt, seenIds) - mixFeedScore(a.key, a.ts, feedSalt, seenIds) || b.ts - a.ts,
+    );
+  }, [showPlaceOrders, showPosts, showListings, feedSalt, seenIds]);
+  itemKeysRef.current = feedItems.map((item) => item.key);
 
   const videoIndexById = useMemo(() => {
     const m = new Map<string, number>();
@@ -1079,7 +1125,14 @@ function FeedTopBar({ tab, onTab }: { tab: FeedTab; onTab: (t: FeedTab) => void 
   return (
     <header className="shrink-0 border-b border-border bg-white pt-[max(0.4rem,env(safe-area-inset-top))]">
       <div className="flex min-h-12 items-center gap-1 px-3 py-1.5">
-        <Link to="/shop" className="flex min-w-0 flex-1 flex-col justify-center">
+        <Link
+          to="/shop"
+          className="flex min-w-0 flex-1 flex-col justify-center"
+          onClick={(event) => {
+            event.preventDefault();
+            window.dispatchEvent(new Event(HOME_REFRESH_EVENT));
+          }}
+        >
           <TijarLogo compact className="h-8 max-w-[148px] object-left" />
           <p className="mt-0.5 text-[9px] font-extrabold uppercase tracking-[0.16em] text-primary">
             {t("shop.feed.brand")}

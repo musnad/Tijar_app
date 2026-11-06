@@ -3,18 +3,17 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link, useRouterState } from "@tanstack/react-router";
 import { Compass, Home, MessageCircle, PlusSquare, ShoppingBag, UserRound, Clapperboard } from "lucide-react";
-import type { MouseEvent, ReactNode } from "react";
+import type { ReactNode } from "react";
 
 import { TijarLogo } from "@/components/brand-logo";
 import { Button } from "@/components/ui/button";
 import { AppLanguageButton } from "@/features/app-layout/app-language-button";
 import { AccountModeSwitch } from "@/features/marketplace/account-mode-switch";
-import { NotificationPopup } from "@/features/marketplace/notification-popup";
 import { useAuth } from "@/features/auth/auth-context";
-import { useAccountGate } from "@/features/auth/account-gate";
 import { isTijarNativeApp } from "@/lib/tijar-native-app";
 import { useTranslation } from "@/lib/i18n/context";
 import { cn } from "@/lib/utils";
+import { HOME_REFRESH_EVENT } from "@/lib/feed/feed-session";
 import { countUnreadShopChats, fetchMyBusinessIds } from "@/services/shop-chat-service";
 
 function initials(name: string): string {
@@ -24,18 +23,8 @@ function initials(name: string): string {
   return `${parts[0]![0] ?? ""}${parts[1]![0] ?? ""}`.toUpperCase();
 }
 
-/**
- * Home always loads a fresh page: a full visit instead of a client-side swap,
- * so the feed, unread counts and cart are rebuilt from scratch every time.
- */
-function refreshHome(event: MouseEvent<HTMLAnchorElement>) {
-  event.preventDefault();
-  window.location.assign("/shop");
-}
-
 function MarketplaceTopBar({ leftSlot }: { leftSlot?: ReactNode }) {
   const { profile, session } = useAuth();
-  const { requireAccount } = useAccountGate();
   const { t } = useTranslation();
   const name = profile?.full_name ?? "";
 
@@ -44,7 +33,7 @@ function MarketplaceTopBar({ leftSlot }: { leftSlot?: ReactNode }) {
       {leftSlot ?? <div className="size-10" />}
 
       <div className="flex justify-center px-1">
-        <Link to="/shop" className="block max-w-[140px]" onClick={refreshHome}>
+        <Link to="/shop" className="block max-w-[140px]">
           <TijarLogo compact className="mx-auto max-w-[140px]" />
         </Link>
       </div>
@@ -53,12 +42,10 @@ function MarketplaceTopBar({ leftSlot }: { leftSlot?: ReactNode }) {
         <AccountModeSwitch className="hidden min-[420px]:inline-flex" />
         <AppLanguageButton />
         {!session ? (
-          <Button
-            size="sm"
-            className="h-9 rounded-full px-3 text-xs font-bold"
-            onClick={() => requireAccount("generic")}
-          >
-            {t("shop.signup")}
+          <Button size="sm" className="h-9 rounded-full px-3 text-xs font-bold" asChild>
+            <Link to="/register" search={{ intent: "customer" } as never}>
+              {t("shop.signup")}
+            </Link>
           </Button>
         ) : (
           <Link
@@ -93,7 +80,6 @@ export function MarketplaceShell({
 }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const { profile } = useAuth();
-  const { requireAccount } = useAccountGate();
   const { t } = useTranslation();
   const nativeApp = isTijarNativeApp();
   const unreadQuery = useQuery({
@@ -115,7 +101,6 @@ export function MarketplaceShell({
     pathname === "/shop/create" ||
     pathname.startsWith("/shop/create/") ||
     pathname === "/shop/create-order" ||
-    pathname === "/shop/sell-item" ||
     pathname === "/shop/business-apply";
 
   const tabs = feed
@@ -142,21 +127,17 @@ export function MarketplaceShell({
           feed || hideNav
             ? "flex max-w-lg min-h-0 flex-col p-0"
             : cn(
-                "max-w-lg sm:px-5",
-                nativeApp ? "pt-2" : "pt-[max(0.75rem,env(safe-area-inset-top))]",
+                "max-w-lg pt-[max(0.75rem,env(safe-area-inset-top))] sm:px-5",
                 !nativeApp && "lg:max-w-6xl xl:max-w-7xl",
                 mapLayout ? "px-2 pb-2" : "px-4 pb-4",
               ),
         )}
       >
-        {/* Inside the Android app the native shell owns the top bar + tab bar,
-            so the website's own chrome is suppressed to avoid double bars. */}
-        {!hideTopBar && !feed && !nativeApp && <MarketplaceTopBar leftSlot={leftSlot} />}
+        {!hideTopBar && !feed && <MarketplaceTopBar leftSlot={leftSlot} />}
         {children}
       </main>
-      <NotificationPopup />
 
-      {!hideNav && !nativeApp && <nav
+      {!hideNav && <nav
         className={cn(
           "z-40 shrink-0 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-1",
           feed
@@ -178,16 +159,12 @@ export function MarketplaceShell({
               <Link
                 key={`${tab.to}-${tab.label}`}
                 to={tab.to}
-                onClick={(event) => {
-                  if (tab.to === "/shop") {
-                    refreshHome(event);
-                    return;
-                  }
-                  if (tab.to === "/shop/profile" && !requireAccount("profile")) {
-                    event.preventDefault();
-                  }
-                }}
                 activeOptions={{ exact: Boolean("exact" in tab && tab.exact) }}
+                onClick={(event) => {
+                  if (!active || tab.to !== "/shop") return;
+                  event.preventDefault();
+                  window.dispatchEvent(new Event(HOME_REFRESH_EVENT));
+                }}
                 className={cn(
                   "relative flex min-h-11 min-w-11 touch-manipulation flex-col items-center justify-center gap-0.5 py-1 text-[10px] font-semibold",
                   active ? "text-primary" : "text-muted-foreground",

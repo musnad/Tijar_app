@@ -157,30 +157,33 @@ export const FEED_PAGE_SIZE = 12;
 export async function fetchPublicVideoFeed(opts?: {
   limit?: number;
   before?: string | null;
+  offset?: number;
 }): Promise<{
   videos: PublicFeedVideo[];
   error: string | null;
 }> {
   const limit = opts?.limit ?? FEED_PAGE_SIZE;
   const before = opts?.before ?? null;
+  const offset = !before && opts?.offset && opts.offset > 0 ? opts.offset : 0;
   const supabase = getSupabaseBrowserClient();
   let query = supabase
     .from("public_video_feed")
     .select("*")
     .order("published_at", { ascending: false, nullsFirst: false })
-    .order("created_at", { ascending: false })
-    .limit(limit);
-  if (before) query = query.lt("published_at", before);
+    .order("created_at", { ascending: false });
+  if (before) query = query.lt("published_at", before).limit(limit);
+  else if (offset > 0) query = query.range(offset, offset + limit - 1);
+  else query = query.limit(limit);
   const fromView = await query;
   if (!fromView.error && (fromView.data?.length ?? 0) > 0) {
     return { videos: await attachShopNames((fromView.data ?? []) as PublicFeedVideo[]), error: null };
   }
   if (fromView.error && !/schema cache|column|media_kind|does not exist/i.test(fromView.error.message)) {
-    const fallback = await loadFeedFromPosts(undefined, limit, before);
+    const fallback = await loadFeedFromPosts(undefined, limit, before, offset);
     if (fallback.videos.length > 0) return fallback;
     return { videos: [], error: fromView.error.message };
   }
-  const fallback = await loadFeedFromPosts(undefined, limit, before);
+  const fallback = await loadFeedFromPosts(undefined, limit, before, offset);
   if (fallback.videos.length > 0) return fallback;
   return { videos: await attachShopNames((fromView.data ?? []) as PublicFeedVideo[]), error: null };
 }
@@ -206,6 +209,7 @@ async function loadFeedFromPosts(
   businessId?: string,
   limit = 80,
   before?: string | null,
+  offset = 0,
 ): Promise<{ videos: PublicFeedVideo[]; error: string | null }> {
   const supabase = getSupabaseBrowserClient();
   let query = supabase
@@ -214,9 +218,10 @@ async function loadFeedFromPosts(
       "id, business_id, profile_id, caption, captions_url, cover_path, playback_url, storage_path, duration_ms, attribution, like_count, comment_count, save_count, view_count, share_count, image_urls, published_at, created_at, media_kind",
     )
     .eq("status", "ready")
-    .order("created_at", { ascending: false })
-    .limit(limit);
-  if (before) query = query.lt("created_at", before);
+    .order("created_at", { ascending: false });
+  if (before) query = query.lt("created_at", before).limit(limit);
+  else if (offset > 0) query = query.range(offset, offset + limit - 1);
+  else query = query.limit(limit);
   if (businessId) query = query.eq("business_id", businessId);
   const posts = await query;
   let rows = posts.data;
@@ -367,6 +372,9 @@ export async function rankAndLoadFeed(
     viewerLat?: number | null;
     viewerLng?: number | null;
     nearbyOnly?: boolean;
+    offset?: number;
+    shuffleSalt?: string;
+    seenVideoIds?: string[];
   },
 ): Promise<{
   videos: PublicFeedVideo[];
@@ -375,17 +383,26 @@ export async function rankAndLoadFeed(
 }> {
   const limit = opts?.limit ?? FEED_PAGE_SIZE;
   const before = opts?.before ?? null;
+  const offset = before ? 0 : opts?.offset ?? 0;
   const geo =
     opts?.viewerLat != null && opts?.viewerLng != null
       ? { lat: opts.viewerLat, lng: opts.viewerLng }
       : null;
-  const fetchLimit = geo || opts?.nearbyOnly ? Math.max(limit * 4, 48) : limit;
+  const fetchLimit = Math.max(limit * 5, 60);
 
-  const [raw, signals] = await Promise.all([
-    fetchPublicVideoFeed({ limit: fetchLimit, before }),
+  let [raw, signals] = await Promise.all([
+    fetchPublicVideoFeed({ limit: fetchLimit, before, offset }),
     fetchFeedViewerSignals(profileId, geo),
   ]);
+  if (!before && offset > 0 && raw.videos.length === 0 && !raw.error) {
+    raw = await fetchPublicVideoFeed({ limit: fetchLimit, before: null, offset: 0 });
+  }
   if (raw.error) return { videos: [], nextCursor: null, error: raw.error };
+  signals = {
+    ...signals,
+    seenVideoIds: opts?.seenVideoIds ?? [],
+    shuffleSalt: opts?.shuffleSalt,
+  };
 
   const blocked = new Set(signals.blockedProfileIds);
   const muted = new Set(signals.mutedProfileIds);
