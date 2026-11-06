@@ -7,19 +7,17 @@ export function inventoryValue(stockQuantity: number, costPrice: number | null):
   return stockQuantity * costPrice;
 }
 
-/** Profit only: (selling price − cost) × quantity. Never the selling total. */
+/** Markup left on the shelf: (selling − cost) × quantity. Not selling total. */
 export function inventoryProfit(
   stockQuantity: number,
-  salePrice: number | null,
   costPrice: number | null,
+  salePrice: number | null,
 ): number {
-  if (!(stockQuantity > 0)) return 0;
-  if (salePrice == null || costPrice == null || Number.isNaN(salePrice) || Number.isNaN(costPrice)) {
-    return 0;
-  }
-  // Cost 0/missing would make this equal the selling price — that is not profit.
-  if (!(costPrice > 0) || !(salePrice > costPrice)) return 0;
-  return stockQuantity * (salePrice - costPrice);
+  if (costPrice == null || salePrice == null) return 0;
+  if (Number.isNaN(costPrice) || Number.isNaN(salePrice)) return 0;
+  const qty = Number.isFinite(stockQuantity) ? stockQuantity : 0;
+  if (qty <= 0) return 0;
+  return qty * (salePrice - costPrice);
 }
 
 export function parseQuantity(raw: string): number | null {

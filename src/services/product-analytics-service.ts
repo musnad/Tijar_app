@@ -37,18 +37,17 @@ export async function fetchProductsDashboard(businessId: string): Promise<{
       !isLowStock(Number(p.stock_quantity), Number(p.low_stock_threshold)),
   );
 
-  const goods = rows.filter((p) => (p.kind ?? "goods") === "goods");
-  const totalInventoryValue = goods.reduce(
+  const totalInventoryValue = rows.reduce(
     (sum, p) => sum + inventoryValue(Number(p.stock_quantity), p.cost_price != null ? Number(p.cost_price) : null),
     0,
   );
-  const totalInventoryProfit = goods.reduce(
+  const totalInventoryProfit = rows.reduce(
     (sum, p) =>
       sum +
       inventoryProfit(
         Number(p.stock_quantity),
-        p.sale_price != null ? Number(p.sale_price) : null,
         p.cost_price != null ? Number(p.cost_price) : null,
+        p.sale_price != null ? Number(p.sale_price) : null,
       ),
     0,
   );

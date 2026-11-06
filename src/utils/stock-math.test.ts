@@ -13,12 +13,13 @@ describe("stock-math", () => {
     expect(inventoryValue(10, null)).toBe(0);
   });
 
-  it("computes inventory profit from sale minus cost", () => {
-    expect(inventoryProfit(10, 150, 100)).toBe(500);
-    expect(inventoryProfit(10, 80, 100)).toBe(0);
-    expect(inventoryProfit(10, 150, 0)).toBe(0);
-    expect(inventoryProfit(10, 150, null)).toBe(0);
-    expect(inventoryProfit(10, null, 100)).toBe(0);
+  it("computes stock profit as markup only, not selling total", () => {
+    expect(inventoryProfit(10, 1000, 1500)).toBe(5000);
+    expect(inventoryProfit(10, 1000, 1500)).not.toBe(15_000);
+    expect(inventoryProfit(10, 1000, 1500)).not.toBe(10_000 + 5000);
+    expect(inventoryProfit(8, null, 1500)).toBe(0);
+    expect(inventoryProfit(8, 1000, null)).toBe(0);
+    expect(inventoryProfit(0, 1000, 1500)).toBe(0);
   });
 
   it("parses quantity strings", () => {
