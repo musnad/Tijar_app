@@ -34,6 +34,8 @@ const WHISPER_LANG: Partial<Record<OpenAiLanguage, string>> = {
   Swahili: "sw",
   "Nigerian Pidgin": "en",
   Arabic: "ar",
+  Hindi: "hi",
+  Chinese: "zh",
   Fulfulde: "ff",
 };
 

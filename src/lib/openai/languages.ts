@@ -7,6 +7,8 @@ export const OPENAI_LANGUAGES = [
   "Swahili",
   "Nigerian Pidgin",
   "Arabic",
+  "Hindi",
+  "Chinese",
   "Fulfulde",
 ] as const;
 

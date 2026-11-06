@@ -18,7 +18,7 @@ function AssistantPage() {
   return (
     <RequireAuth>
       <AppShell>
-        <AppPageHeader title="Talk to TIJAR" subtitle="Record sales and expenses with your voice" />
+        <AppPageHeader title="Talk to TIJAR" subtitle="Sales and expenses, by voice" />
         <Suspense fallback={<RouteFallback />}>
           <AssistantScreen />
         </Suspense>

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { isOpenAiLanguage } from "@/lib/openai/languages";
-import { isTijarLanguage } from "@/lib/translation/languages";
+import { bcp47For, isTijarLanguage } from "@/lib/translation/languages";
 
 /** BCP-47 codes for browser speech engines (distinct from API language names). */
 export const SPEECH_LOCALES: Record<string, string> = {
@@ -14,6 +14,8 @@ export const SPEECH_LOCALES: Record<string, string> = {
   Yoruba: "yo-NG",
   "Nigerian Pidgin": "en-NG",
   Arabic: "ar-SA",
+  Hindi: "hi-IN",
+  Chinese: "zh-CN",
   Fulfulde: "ff-NG",
 };
 
@@ -27,7 +29,7 @@ export function tijarSpeechLanguage(languageName: string): boolean {
 
 /** Fallback chain when a device lacks the exact locale (common on Android). */
 export function speechLocaleCandidates(languageName: string): string[] {
-  const primary = SPEECH_LOCALES[languageName] ?? "en-NG";
+  const primary = SPEECH_LOCALES[languageName] ?? bcp47For(languageName);
   const base = primary.split("-")[0] ?? primary;
   const candidates = [primary, base, "en-NG", "en-GB", "en-US", "en"].filter(
     (v, i, arr) => v && arr.indexOf(v) === i,

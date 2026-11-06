@@ -6,13 +6,13 @@ import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { useTranslation } from "@/lib/i18n/context";
-import { isTijarLanguage } from "@/lib/translation/languages";
+import { isTijarLanguage, LANGUAGE_CHIP, TIJAR_PICKER_LANGUAGES } from "@/lib/translation/languages";
 import { cn } from "@/lib/utils";
 import { translateTextClient } from "@/services/translate-service";
 import { HearItButton } from "./hear-it-button";
 import { speakText, useSpeechRecognition } from "./use-speech";
 
-const LANG_OPTIONS = ["English", "Hausa", "Yoruba", "Igbo", "Swahili", "Nigerian Pidgin"] as const;
+const LANG_OPTIONS = TIJAR_PICKER_LANGUAGES;
 
 type Result = {
   original: string;
@@ -104,50 +104,45 @@ export function TranslatorScreen() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-lg px-4 py-8">
-      <h1 className="text-2xl font-extrabold">{t("app.translator.title")}</h1>
+    <div className="mx-auto w-full max-w-md px-4 py-6">
+      <h1 className="text-2xl font-extrabold tracking-tight">{t("app.translator.title")}</h1>
       <p className="mt-1 text-sm text-muted-foreground">{t("app.translator.simpleSubtitle")}</p>
 
-      {/* From / To */}
-      <div className="mt-5 flex items-end gap-2">
-        <label className="flex-1 text-xs font-bold uppercase tracking-wide text-muted-foreground">
-          {t("app.translator.fromLabel")}
-          <select
-            value={fromLang}
-            onChange={(e) => setFromLang(e.target.value)}
-            className="mt-1 min-h-12 w-full rounded-xl border border-input bg-background px-3 text-base font-semibold text-foreground"
-          >
-            {LANG_OPTIONS.map((l) => (
-              <option key={l} value={l}>
-                {l}
-              </option>
-            ))}
-          </select>
-        </label>
+      <div className="mt-5 flex items-center gap-2">
+        <select
+          value={fromLang}
+          onChange={(e) => setFromLang(e.target.value)}
+          className="min-h-11 flex-1 rounded-2xl border border-input bg-background px-3 text-sm font-semibold"
+          aria-label={t("app.translator.fromLabel")}
+        >
+          {LANG_OPTIONS.map((l) => (
+            <option key={l} value={l}>
+              {LANGUAGE_CHIP[l] ?? l} · {l}
+            </option>
+          ))}
+        </select>
         <Button
           type="button"
-          variant="outline"
+          variant="ghost"
           size="icon"
-          className="mb-0.5 size-12 shrink-0 rounded-xl"
+          className="size-11 shrink-0 rounded-full bg-muted"
           onClick={swap}
           aria-label={t("app.translator.swapLanguages")}
         >
-          <ArrowLeftRight className="size-5" />
+          <ArrowLeftRight className="size-4" />
         </Button>
-        <label className="flex-1 text-xs font-bold uppercase tracking-wide text-muted-foreground">
-          {t("app.translator.toLabel")}
-          <select
-            value={toLang}
-            onChange={(e) => setToLang(e.target.value)}
-            className="mt-1 min-h-12 w-full rounded-xl border border-input bg-background px-3 text-base font-semibold text-foreground"
-          >
-            {LANG_OPTIONS.map((l) => (
-              <option key={l} value={l}>
-                {l}
-              </option>
-            ))}
-          </select>
-        </label>
+        <select
+          value={toLang}
+          onChange={(e) => setToLang(e.target.value)}
+          className="min-h-11 flex-1 rounded-2xl border border-input bg-background px-3 text-sm font-semibold"
+          aria-label={t("app.translator.toLabel")}
+        >
+          {LANG_OPTIONS.map((l) => (
+            <option key={l} value={l}>
+              {LANGUAGE_CHIP[l] ?? l} · {l}
+            </option>
+          ))}
+        </select>
       </div>
 
       {/* Input */}
@@ -156,7 +151,7 @@ export function TranslatorScreen() {
         onChange={(e) => setInput(e.target.value)}
         rows={4}
         placeholder={t("app.translator.typeOrSpeak")}
-        className="mt-4 w-full rounded-2xl border border-input bg-background px-4 py-3 text-base leading-relaxed"
+        className="mt-4 w-full rounded-2xl border border-input bg-background px-4 py-3 text-base leading-relaxed outline-none focus:ring-2 focus:ring-[#1F7A4D]/30"
         aria-label={t("app.translator.fromLabel")}
       />
 
@@ -173,7 +168,7 @@ export function TranslatorScreen() {
           ))}
         <Button
           type="button"
-          className="min-h-12 flex-[2] rounded-xl text-base font-bold"
+          className="min-h-12 flex-[2] rounded-xl bg-[#0B1F4D] text-base font-bold hover:bg-[#0B1F4D]/90"
           disabled={busy || !input.trim()}
           onClick={() => void translate(false)}
         >
@@ -206,14 +201,12 @@ export function TranslatorScreen() {
             <p className="mt-1 text-base leading-relaxed">{result.original}</p>
           </div>
           <div
-            className={cn(
-              "rounded-2xl border-2 border-primary/40 bg-primary/5 p-4 shadow-sm",
-            )}
+            className={cn("rounded-2xl bg-[#0B1F4D] p-4 text-white shadow-sm")}
           >
-            <p className="text-[11px] font-extrabold uppercase tracking-wide text-primary">
+            <p className="text-[11px] font-extrabold uppercase tracking-wide text-white/70">
               {t("app.translator.translationLabel").replace("{language}", result.to)}
             </p>
-            <p className="mt-2 text-xl font-bold leading-relaxed text-foreground">{result.translated}</p>
+            <p className="mt-2 text-xl font-bold leading-relaxed">{result.translated}</p>
             <HearItButton
               text={result.translated}
               language={result.to}

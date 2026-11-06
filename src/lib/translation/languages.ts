@@ -75,6 +75,8 @@ export const TIJAR_LANGUAGES = [
   // Trade lingua francas
   { name: "French", code: "fr", bcp47: "fr-FR", whisper: "fr", region: "Trade" },
   { name: "Portuguese", code: "pt", bcp47: "pt-PT", whisper: "pt", region: "Trade" },
+  { name: "Chinese", code: "zh", bcp47: "zh-CN", whisper: "zh", region: "Trade" },
+  { name: "Hindi", code: "hi", bcp47: "hi-IN", whisper: "hi", region: "Trade" },
 ] as const satisfies readonly TijarLanguage[];
 
 export type TijarLanguageName = (typeof TIJAR_LANGUAGES)[number]["name"];
@@ -90,9 +92,25 @@ export const TIJAR_PICKER_LANGUAGES = [
   "Igbo",
   "Swahili",
   "Nigerian Pidgin",
-  "Fulfulde",
   "Arabic",
+  "Hindi",
+  "Chinese",
 ] as const satisfies readonly TijarLanguageName[];
+
+/** Compact chip label (native script where it helps). */
+export const LANGUAGE_CHIP: Record<string, string> = {
+  English: "EN",
+  Hausa: "Hausa",
+  Yoruba: "Yorùbá",
+  Igbo: "Igbo",
+  Swahili: "Kiswahili",
+  "Nigerian Pidgin": "Pidgin",
+  Arabic: "العربية",
+  Hindi: "हिन्दी",
+  Chinese: "中文",
+  Fulfulde: "Fulfulde",
+  French: "Français",
+};
 
 const BY_NAME = new Map<string, TijarLanguage>(TIJAR_LANGUAGES.map((l) => [l.name, l]));
 

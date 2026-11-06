@@ -13,7 +13,7 @@ export const translatorI18n: Record<Locale, MessageTree> = {
         stop: "Stop",
         speak: "Speak",
         translateSpeak: "Translate & speak",
-        simpleSubtitle: "Type text, tap Translate, and see the result. English, Yoruba, Swahili, and Nigerian Pidgin.",
+        simpleSubtitle: "Pick two languages, type or speak, then translate.",
         translate: "Translate",
         sameLanguage: "Pick two different languages to translate.",
         youWrote: "You wrote ({language})",
