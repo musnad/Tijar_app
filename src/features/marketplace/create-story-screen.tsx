@@ -11,6 +11,7 @@ import { CommerceSticker } from "@/features/marketplace/commerce-sticker";
 import { MarketplaceShell } from "@/features/marketplace/marketplace-shell";
 import { useAuth } from "@/features/auth/auth-context";
 import { usePrimaryBusiness } from "@/hooks/use-primary-business";
+import { cn } from "@/lib/utils";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { publishBusinessStory } from "@/services/story-service";
 import { formatNgn } from "@/utils/money";
@@ -25,6 +26,7 @@ export function CreateStoryScreen() {
   const [overlay, setOverlay] = useState("");
   const [price, setPrice] = useState("");
   const [productId, setProductId] = useState("");
+  const [offerKind, setOfferKind] = useState<"product" | "place_order">("product");
   const [saving, setSaving] = useState(false);
 
   const productsQuery = useQuery({
@@ -56,6 +58,7 @@ export function CreateStoryScreen() {
         ? Number(product.sale_price)
         : null;
   const stickerTitle = overlay.trim() || (product?.name as string | undefined) || business?.business_name || "TIJAR";
+  const ctaLabel = offerKind === "place_order" ? "Place your order" : "Buy now";
 
   function onFile(next: File | null) {
     setFile(next);
@@ -76,21 +79,35 @@ export function CreateStoryScreen() {
       toast.error("Pick a photo or short video.");
       return;
     }
+    const name = overlay.trim() || (product?.name as string | undefined) || "";
+    if (!name) {
+      toast.error("Add a name so shoppers can order this.");
+      return;
+    }
+    if (stickerPrice == null || stickerPrice <= 0) {
+      toast.error("Add a price so shoppers can order this.");
+      return;
+    }
     setSaving(true);
     const { error } = await publishBusinessStory({
       businessId: business.id,
       profileId: profile.id,
       file,
-      overlayText: overlay,
+      overlayText: name,
       price: stickerPrice,
       productId: productId || null,
+      offerKind,
     });
     setSaving(false);
     if (error) {
       toast.error(error);
       return;
     }
-    toast.success("Story is live for 24 hours.");
+    toast.success(
+      offerKind === "place_order"
+        ? "Story is live. Shoppers can place an order from it."
+        : "Story is live. Shoppers can buy it from the sticker.",
+    );
     void navigate({ to: "/shop" });
   }
 
@@ -116,7 +133,7 @@ export function CreateStoryScreen() {
               )
             ) : (
               <span className="px-6 text-center text-sm font-semibold text-white/80">
-                Tap to add a photo or a short video. Shoppers see it like Instagram, with your product link.
+                Tap to add a photo or a short video. This also becomes a product shoppers can order.
               </span>
             )}
             {preview ? (
@@ -125,6 +142,7 @@ export function CreateStoryScreen() {
                   title={stickerTitle}
                   imageUrl={(product?.image_url as string | null) ?? business?.logo_url ?? null}
                   price={stickerPrice}
+                  ctaLabel={ctaLabel}
                 />
               </div>
             ) : null}
@@ -136,7 +154,31 @@ export function CreateStoryScreen() {
             />
           </label>
 
-          <p className="mt-4 text-[12px] font-bold uppercase tracking-wide text-white/60">Shows as a sticker on the photo</p>
+          <p className="mt-4 text-[12px] font-bold uppercase tracking-wide text-white/60">How shoppers order</p>
+          <div className="mt-2 grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              className={cn(
+                "min-h-11 rounded-full text-[13px] font-extrabold",
+                offerKind === "product" ? "bg-[#00B86B] text-white" : "bg-white/10 text-white/80",
+              )}
+              onClick={() => setOfferKind("product")}
+            >
+              Buy now
+            </button>
+            <button
+              type="button"
+              className={cn(
+                "min-h-11 rounded-full text-[13px] font-extrabold",
+                offerKind === "place_order" ? "bg-[#00B86B] text-white" : "bg-white/10 text-white/80",
+              )}
+              onClick={() => setOfferKind("place_order")}
+            >
+              Place your order
+            </button>
+          </div>
+
+          <p className="mt-4 text-[12px] font-bold uppercase tracking-wide text-white/60">Name and price on the sticker</p>
           <Input
             className="mt-2 min-h-12 border-0 bg-white/10 text-white placeholder:text-white/40"
             value={overlay}
@@ -158,7 +200,7 @@ export function CreateStoryScreen() {
               onChange={(e) => setProductId(e.target.value)}
             >
               <option value="" className="text-foreground">
-                Link a product
+                New product from this story
               </option>
               {(productsQuery.data ?? []).map((p) => (
                 <option key={p.id as string} value={p.id as string} className="text-foreground">

@@ -12,6 +12,7 @@ export function CommerceSticker({
   imageUrl,
   host = "tijar.ng",
   onPay,
+  ctaLabel = "Buy now",
   className,
 }: {
   title: string;
@@ -19,6 +20,7 @@ export function CommerceSticker({
   imageUrl?: string | null;
   host?: string;
   onPay?: () => void;
+  ctaLabel?: string;
   className?: string;
 }) {
   return (
@@ -56,7 +58,7 @@ export function CommerceSticker({
           }}
           className="shrink-0 rounded-full bg-[#00B86B] px-3 py-1.5 text-[11px] font-extrabold text-white"
         >
-          Buy now
+          {ctaLabel}
         </button>
       ) : null}
     </div>

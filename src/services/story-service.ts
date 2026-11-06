@@ -1,5 +1,8 @@
 import { displayShopName, shopLinkSlug } from "@/lib/shop-names";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import { publishPlaceOrderListing } from "@/services/place-order-service";
+import { uploadProductImage } from "@/services/product-image-service";
+import { createProduct, updateProductImageUrl } from "@/services/product-service";
 import { haversineKm } from "@/utils/discover";
 
 export type LiveStory = {
@@ -13,6 +16,7 @@ export type LiveStory = {
   overlay_text: string | null;
   price: number | null;
   product_id: string | null;
+  place_order_listing_id: string | null;
   duration_ms: number | null;
   expires_at: string;
   created_at: string;
@@ -64,6 +68,7 @@ function asStory(row: Record<string, unknown>): LiveStory {
     overlay_text: (row.overlay_text as string | null) ?? null,
     price: row.price != null ? Number(row.price) : null,
     product_id: (row.product_id as string | null) ?? null,
+    place_order_listing_id: (row.place_order_listing_id as string | null) ?? null,
     duration_ms: (row.duration_ms as number | null) ?? null,
     expires_at: row.expires_at as string,
     created_at: row.created_at as string,
@@ -200,6 +205,7 @@ export async function publishBusinessStory(input: {
   overlayText?: string;
   price?: number | null;
   productId?: string | null;
+  offerKind?: "product" | "place_order";
   durationMs?: number | null;
 }): Promise<{ error: string | null; id?: string }> {
   const supabase = getSupabaseBrowserClient();
@@ -212,22 +218,74 @@ export async function publishBusinessStory(input: {
     upsert: false,
   });
   if (upErr) return { error: upErr.message };
+  const mediaUrl = publicStoryUrl(storagePath);
 
-  const { data, error } = await supabase
-    .from("business_stories")
-    .insert({
-      id,
-      business_id: input.businessId,
-      profile_id: input.profileId,
-      media_kind: isVideo ? "video" : "image",
-      storage_path: storagePath,
-      overlay_text: input.overlayText?.trim() || null,
-      price: input.price ?? null,
-      product_id: input.productId || null,
-      duration_ms: isVideo ? Math.min(input.durationMs ?? 7000, 20000) : 5000,
-    })
-    .select("id")
-    .maybeSingle();
+  const name = input.overlayText?.trim() || "";
+  const price = input.price != null && Number.isFinite(input.price) && input.price > 0 ? input.price : null;
+  let productId = input.productId || null;
+  if (!productId) {
+    if (!name) return { error: "Add a name so shoppers can order this." };
+    if (price == null) return { error: "Add a price so shoppers can order this." };
+    const created = await createProduct(input.businessId, input.profileId, {
+      name,
+      kind: "goods",
+      unit: "piece",
+      salePrice: price,
+      isPublished: true,
+      initialStock: 10,
+      notes: "Created from story",
+      ...(isVideo ? { videoUrl: mediaUrl } : {}),
+    });
+    if (created.error || !created.product) return { error: created.error ?? "Could not create the product for this story." };
+    productId = created.product.id;
+    if (!isVideo) {
+      const uploaded = await uploadProductImage(input.businessId, productId, input.file);
+      if (uploaded.publicUrl) await updateProductImageUrl(productId, uploaded.publicUrl);
+      else await updateProductImageUrl(productId, mediaUrl);
+    }
+  }
+
+  let listingId: string | null = null;
+  if (input.offerKind === "place_order") {
+    if (price == null) return { error: "Add a price so shoppers can place an order." };
+    const photos = isVideo ? [] : [input.file];
+    const listing = await publishPlaceOrderListing({
+      businessId: input.businessId,
+      title: name || "Place your order",
+      details: "",
+      category: "other",
+      price,
+      photos,
+      existingUrls: isVideo ? [mediaUrl] : [],
+      locationLabel: "",
+      availableOn: "today",
+      pickupEnabled: true,
+      deliveryEnabled: true,
+    });
+    if (listing.error || !listing.listing) return { error: listing.error ?? "Could not create Place your order." };
+    listingId = listing.listing.id;
+  }
+
+  const row: Record<string, unknown> = {
+    id,
+    business_id: input.businessId,
+    profile_id: input.profileId,
+    media_kind: isVideo ? "video" : "image",
+    storage_path: storagePath,
+    overlay_text: name || null,
+    price,
+    product_id: productId,
+    duration_ms: isVideo ? Math.min(input.durationMs ?? 7000, 20000) : 5000,
+  };
+  if (listingId) row.place_order_listing_id = listingId;
+
+  let { data, error } = await supabase.from("business_stories").insert(row).select("id").maybeSingle();
+  if (error && listingId && /place_order_listing_id/i.test(error.message)) {
+    delete row.place_order_listing_id;
+    const retry = await supabase.from("business_stories").insert(row).select("id").maybeSingle();
+    data = retry.data;
+    error = retry.error;
+  }
   if (error) return { error: error.message };
   return { error: null, id: data?.id ?? id };
 }

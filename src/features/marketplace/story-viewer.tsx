@@ -176,14 +176,17 @@ export function StoryViewer({
 
   function pay() {
     if (!story || !ring) return;
-    if (!story.product_id) {
-      toast.message("This shop has not linked a product. Open the shop to order.");
-      onClose();
-      void navigate({ to: "/b/$slug", params: { slug: ring.slug } });
+    onClose();
+    if (story.place_order_listing_id) {
+      void navigate({ to: "/shop/order-now/$listingId", params: { listingId: story.place_order_listing_id } });
       return;
     }
-    onClose();
-    void navigate({ to: "/shop/buy", search: { productId: story.product_id } });
+    if (story.product_id) {
+      void navigate({ to: "/shop/buy", search: { productId: story.product_id } });
+      return;
+    }
+    toast.message("Open the shop to order.");
+    void navigate({ to: "/b/$slug", params: { slug: ring.slug } });
   }
 
   if (!ring || !story) return null;
@@ -251,6 +254,7 @@ export function StoryViewer({
             imageUrl={story.product_image || ring.logoUrl}
             price={stickerPrice}
             host="tijar.ng"
+            ctaLabel={story.place_order_listing_id ? "Place your order" : "Buy now"}
             onPay={pay}
           />
         </div>
