@@ -113,6 +113,20 @@ async function creditOnce(
   await admin.rpc("credit_seller_wallet", { p_business_id: businessId, p_amount: amount });
 }
 
+export async function fastWalletAvailable(admin: SupabaseClient, businessId: string): Promise<number> {
+  const [{ data: wallet }, { data: credits }, { data: outs }] = await Promise.all([
+    admin.from("seller_wallets").select("available_ngn").eq("business_id", businessId).maybeSingle(),
+    admin.from("wallet_credits").select("amount_ngn").eq("business_id", businessId),
+    admin.from("payout_requests").select("amount_ngn, status").eq("business_id", businessId),
+  ]);
+  const credited = (credits ?? []).reduce((sum, row) => sum + Number(row.amount_ngn ?? 0), 0);
+  const reserved = (outs ?? [])
+    .filter((row) => ["paid", "processing", "pending"].includes(String(row.status)))
+    .reduce((sum, row) => sum + Number(row.amount_ngn ?? 0), 0);
+  const merchant = corvConfigured() ? await corvMerchantBalance() : null;
+  return Math.max(Number(wallet?.available_ngn ?? 0), credited - reserved, merchant ?? 0, 0);
+}
+
 export async function syncCorvWallet(
   admin: SupabaseClient,
   businessId: string,

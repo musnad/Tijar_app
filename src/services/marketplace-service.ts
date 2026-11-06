@@ -1861,7 +1861,12 @@ export async function requestSellerPayout(
     },
     body: JSON.stringify({ businessId, amount, ...destination }),
   });
-  const json = (await res.json()) as { error?: string; message?: string };
+  let json: { error?: string; message?: string } = {};
+  try {
+    json = (await res.json()) as { error?: string; message?: string };
+  } catch {
+    json = { error: res.ok ? undefined : "Withdrawal did not complete. Try again." };
+  }
   if (!res.ok) return { error: json.error ?? "Payout failed." };
-  return { error: null, message: json.message };
+  return { error: null, message: json.message ?? "Transfer sent." };
 }

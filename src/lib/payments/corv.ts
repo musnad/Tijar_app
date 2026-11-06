@@ -222,6 +222,40 @@ export async function corvCreateVirtualAccount(input: {
   return { accounts, account: accounts[0] ?? null, error: null };
 }
 
+function transferAccepted(res: Response, json: unknown): boolean {
+  if (res.status === 200 || res.status === 201 || res.status === 202) return true;
+  const root = asRecord(json);
+  const status = `${pickString(root, ["status", "state"]) ?? ""} ${pickString(nested(root, ["data"]), ["status", "state"]) ?? ""}`;
+  return /success|pending|processing|queued|accepted/i.test(status);
+}
+
+export async function corvResolveAccount(input: {
+  bankCode: string;
+  accountNumber: string;
+}): Promise<string | null> {
+  const query = `accountNumber=${encodeURIComponent(input.accountNumber)}&bankCode=${encodeURIComponent(input.bankCode)}`;
+  const gets = [`/name-enquiry?${query}`, `/transfers/name-enquiry?${query}`, `/resolve?${query}`];
+  for (const path of gets) {
+    const result = await corvFetch(path);
+    if ("error" in result || !result.res.ok) continue;
+    const data = nested(asRecord(result.json), ["data", "result"]) ?? asRecord(result.json);
+    const name = pickString(data, ["accountName", "account_name", "name"]);
+    if (name) return name;
+  }
+  const posts = ["/name-enquiry", "/transfers/name-enquiry", "/resolve"];
+  for (const path of posts) {
+    const result = await corvFetch(path, {
+      method: "POST",
+      body: JSON.stringify({ accountNumber: input.accountNumber, bankCode: input.bankCode }),
+    });
+    if ("error" in result || !result.res.ok) continue;
+    const data = nested(asRecord(result.json), ["data", "result"]) ?? asRecord(result.json);
+    const name = pickString(data, ["accountName", "account_name", "name"]);
+    if (name) return name;
+  }
+  return null;
+}
+
 export async function corvTransfer(input: {
   bankCode: string;
   accountNumber: string;
@@ -230,12 +264,33 @@ export async function corvTransfer(input: {
   reference: string;
   narration: string;
 }): Promise<CorvTransferResult> {
-  const bodies = [
+  const amount = Math.round(Number(input.amount) * 100) / 100;
+  const kobo = Math.round(amount * 100);
+  const name = input.accountName?.trim() || undefined;
+  const bodies: Json[] = [
     {
       bankCode: input.bankCode,
       accountNumber: input.accountNumber,
-      accountName: input.accountName,
-      amount: input.amount,
+      accountName: name,
+      amount,
+      narration: input.narration,
+      reference: input.reference,
+      currency: "NGN",
+    },
+    {
+      bank_code: input.bankCode,
+      account_number: input.accountNumber,
+      account_name: name,
+      amount,
+      narration: input.narration,
+      reference: input.reference,
+      currency: "NGN",
+    },
+    {
+      account_bank: input.bankCode,
+      account_number: input.accountNumber,
+      account_name: name,
+      amount,
       narration: input.narration,
       reference: input.reference,
       currency: "NGN",
@@ -243,14 +298,44 @@ export async function corvTransfer(input: {
     {
       destinationBankCode: input.bankCode,
       destinationAccountNumber: input.accountNumber,
-      destinationAccountName: input.accountName,
-      amount: input.amount,
+      destinationAccountName: name,
+      amount,
       narration: input.narration,
       reference: input.reference,
+      currency: "NGN",
+    },
+    {
+      bankCode: input.bankCode,
+      accountNumber: input.accountNumber,
+      accountName: name,
+      amount: kobo,
+      amountKobo: kobo,
+      narration: input.narration,
+      reference: input.reference,
+      currency: "NGN",
+    },
+    {
+      recipient: {
+        bankCode: input.bankCode,
+        accountNumber: input.accountNumber,
+        accountName: name,
+      },
+      amount,
+      narration: input.narration,
+      reference: input.reference,
+      currency: "NGN",
     },
   ];
-  const paths = ["/transfers", "/payouts", "/disbursements", "/virtual-accounts/transfers"];
-  let lastError = "Could not send payout.";
+  const paths = [
+    "/transfers",
+    "/transfer",
+    "/payouts",
+    "/payout",
+    "/disbursements",
+    "/wallet/transfers",
+    "/wallets/transfer",
+  ];
+  let lastError = "Could not send the withdrawal through Corvi.";
   for (const path of paths) {
     for (const body of bodies) {
       const result = await corvFetch(path, { method: "POST", body: JSON.stringify(body) });
@@ -258,17 +343,19 @@ export async function corvTransfer(input: {
         lastError = result.error;
         continue;
       }
-      if (result.res.status === 404 || result.res.status === 405) continue;
-      if (!result.res.ok) {
+      if (result.res.status === 404 || result.res.status === 405) break;
+      if (!result.res.ok && !transferAccepted(result.res, result.json)) {
         lastError = messageFrom(result.json, lastError);
         continue;
       }
-      const root = asRecord(result.json);
-      const data = nested(root, ["data", "result"]) ?? root;
-      return {
-        reference: pickString(data, ["reference", "id", "transfer_code", "session_id"]) ?? input.reference,
-        error: null,
-      };
+      if (result.res.ok || transferAccepted(result.res, result.json)) {
+        const root = asRecord(result.json);
+        const data = nested(root, ["data", "result"]) ?? root;
+        return {
+          reference: pickString(data, ["reference", "id", "transfer_code", "session_id"]) ?? input.reference,
+          error: null,
+        };
+      }
     }
   }
   return { reference: null, error: lastError };

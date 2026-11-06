@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { CreateReceivingAccountButton } from "@/features/business/create-receiving-account";
 import { NG_BANKS } from "@/lib/payments/ng-banks";
 import { displayShopName } from "@/lib/shop-names";
+import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { fetchOwnedBusinesses } from "@/services/business-service";
 import {
   fetchSellerWallet,
@@ -67,13 +68,11 @@ export function PayoutWalletScreen({
 
   const [hide, setHide] = useState(false);
   const [withdrawing, setWithdrawing] = useState(false);
-  const [showWithdraw, setShowWithdraw] = useState(false);
   const [withdrawAmount, setWithdrawAmount] = useState("");
-  const [accountName, setAccountName] = useState(
-    selected.payout_account_name ?? "",
-  );
+  const [accountName, setAccountName] = useState(selected.payout_account_name ?? "");
   const [accountNumber, setAccountNumber] = useState(selected.payout_account_number ?? "");
   const [bankCode, setBankCode] = useState(selected.payout_bank_code ?? "058");
+  const [resolving, setResolving] = useState(false);
 
   const shopName = displayShopName(selected.business_name);
   const account = walletQuery.data?.account;
@@ -136,10 +135,35 @@ export function PayoutWalletScreen({
     toast.success("Wallet updated from Corvi.");
   }
 
+  async function lookupName(number: string, code: string) {
+    if (number.replace(/\D/g, "").length !== 10) return;
+    const supabase = getSupabaseBrowserClient();
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    if (!session?.access_token) return;
+    setResolving(true);
+    try {
+      const res = await fetch(
+        `/api/payments/payout?businessId=${encodeURIComponent(selected.id)}&accountNumber=${encodeURIComponent(number)}&bankCode=${encodeURIComponent(code)}`,
+        { headers: { Authorization: `Bearer ${session.access_token}` } },
+      );
+      const json = (await res.json()) as { accountName?: string | null };
+      if (json.accountName) setAccountName(json.accountName);
+    } catch {
+      /* keep typed name */
+    }
+    setResolving(false);
+  }
+
   async function withdraw() {
-    const amount = Number(withdrawAmount.replace(/,/g, ""));
+    const amount = Number(withdrawAmount.replace(/[₦,\s]/g, ""));
     if (!Number.isFinite(amount) || amount < 100) {
       toast.error("Enter at least ₦100.");
+      return;
+    }
+    if (amount > wallet.available_ngn && wallet.available_ngn > 0) {
+      toast.error(`You can withdraw up to ${formatNgn(wallet.available_ngn)}.`);
       return;
     }
     if (accountNumber.replace(/\D/g, "").length < 8) {
@@ -147,21 +171,25 @@ export function PayoutWalletScreen({
       return;
     }
     setWithdrawing(true);
-    const result = await requestSellerPayout(selected.id, amount, {
-      accountNumber,
-      accountName: accountName || shopName,
-      bankCode,
-      bankName: bank?.name ?? "Bank",
-    });
-    setWithdrawing(false);
-    if (result.error) {
-      toast.error(result.error);
-      return;
+    try {
+      const result = await requestSellerPayout(selected.id, amount, {
+        accountNumber,
+        accountName: accountName || shopName,
+        bankCode,
+        bankName: bank?.name ?? "Bank",
+      });
+      if (result.error) {
+        toast.error(result.error);
+        return;
+      }
+      toast.success(result.message ?? "Transfer sent.");
+      setWithdrawAmount("");
+      await queryClient.invalidateQueries({ queryKey: ["shop-wallet", selected.id] });
+    } catch {
+      toast.error("Withdrawal did not complete. Try again.");
+    } finally {
+      setWithdrawing(false);
     }
-    toast.success(result.message ?? "Transfer sent.");
-    setWithdrawAmount("");
-    setShowWithdraw(false);
-    await queryClient.invalidateQueries({ queryKey: ["shop-wallet", selected.id] });
   }
 
   return (
@@ -222,13 +250,15 @@ export function PayoutWalletScreen({
             Receive
           </Button>
           <Button
+            type="button"
             className="min-h-11 rounded-xl bg-[#1F7A4D] font-extrabold text-white hover:bg-[#1F7A4D]/90"
             onClick={() => {
               const saved = walletQuery.data?.payout;
               if (saved?.accountNumber) setAccountNumber(saved.accountNumber);
               if (saved?.accountName) setAccountName(saved.accountName);
               if (saved?.bankCode) setBankCode(saved.bankCode);
-              setShowWithdraw(true);
+              if (!withdrawAmount && wallet.available_ngn > 0) setWithdrawAmount(String(wallet.available_ngn));
+              document.getElementById("tijar-withdraw")?.scrollIntoView({ behavior: "smooth" });
             }}
           >
             Withdraw
@@ -265,58 +295,59 @@ export function PayoutWalletScreen({
         )}
       </section>
 
-      {showWithdraw ? (
-        <section className="mt-4 rounded-2xl border border-border bg-card p-4">
-          <h2 className="text-sm font-extrabold">Send to any bank</h2>
-          <p className="mt-1 text-xs text-muted-foreground">Money leaves this TIJAR wallet and goes to the account you enter.</p>
-          <label className="mt-3 block text-xs font-bold">Amount</label>
-          <Input
-            className="mt-1 min-h-11 rounded-xl"
-            inputMode="decimal"
-            placeholder="₦0.00"
-            value={withdrawAmount}
-            onChange={(e) => setWithdrawAmount(e.target.value)}
-          />
-          <label className="mt-3 block text-xs font-bold">Bank</label>
-          <select
-            className="mt-1 min-h-11 w-full rounded-xl border border-input bg-background px-3 text-sm font-semibold"
-            value={bankCode}
-            onChange={(e) => setBankCode(e.target.value)}
-          >
-            {NG_BANKS.map((row) => (
-              <option key={row.code} value={row.code}>
-                {row.name}
-              </option>
-            ))}
-          </select>
-          <label className="mt-3 block text-xs font-bold">Account number</label>
-          <Input
-            className="mt-1 min-h-11 rounded-xl tracking-wide"
-            inputMode="numeric"
-            value={accountNumber}
-            onChange={(e) => setAccountNumber(e.target.value.replace(/\D/g, "").slice(0, 10))}
-          />
-          <label className="mt-3 block text-xs font-bold">Account name</label>
-          <Input
-            className="mt-1 min-h-11 rounded-xl"
-            value={accountName}
-            onChange={(e) => setAccountName(e.target.value)}
-            placeholder="Name on the account"
-          />
-          <div className="mt-3 grid grid-cols-2 gap-2">
-            <Button className="min-h-11 rounded-xl" variant="outline" type="button" onClick={() => setShowWithdraw(false)}>
-              Cancel
-            </Button>
-            <Button
-              className="min-h-11 rounded-xl bg-[#1F7A4D] font-extrabold text-white hover:bg-[#1F7A4D]/90"
-              disabled={withdrawing}
-              onClick={() => void withdraw()}
-            >
-              {withdrawing ? "Sending…" : "Send"}
-            </Button>
-          </div>
-        </section>
-      ) : null}
+      <section id="tijar-withdraw" className="mt-4 rounded-2xl border border-border bg-card p-4">
+        <h2 className="text-sm font-extrabold">Withdraw to any bank</h2>
+        <p className="mt-1 text-xs text-muted-foreground">Send money from this wallet to a Nigerian bank account.</p>
+        <label className="mt-3 block text-xs font-bold">Amount</label>
+        <Input
+          className="mt-1 min-h-11 rounded-xl"
+          inputMode="decimal"
+          placeholder="₦0.00"
+          value={withdrawAmount}
+          onChange={(e) => setWithdrawAmount(e.target.value)}
+        />
+        <label className="mt-3 block text-xs font-bold">Bank</label>
+        <select
+          className="mt-1 min-h-11 w-full rounded-xl border border-input bg-background px-3 text-sm font-semibold"
+          value={bankCode}
+          onChange={(e) => {
+            setBankCode(e.target.value);
+            void lookupName(accountNumber, e.target.value);
+          }}
+        >
+          {NG_BANKS.map((row) => (
+            <option key={row.code} value={row.code}>
+              {row.name}
+            </option>
+          ))}
+        </select>
+        <label className="mt-3 block text-xs font-bold">Account number</label>
+        <Input
+          className="mt-1 min-h-11 rounded-xl tracking-wide"
+          inputMode="numeric"
+          value={accountNumber}
+          onChange={(e) => {
+            const next = e.target.value.replace(/\D/g, "").slice(0, 10);
+            setAccountNumber(next);
+            if (next.length === 10) void lookupName(next, bankCode);
+          }}
+        />
+        <label className="mt-3 block text-xs font-bold">Account name</label>
+        <Input
+          className="mt-1 min-h-11 rounded-xl"
+          value={accountName}
+          onChange={(e) => setAccountName(e.target.value)}
+          placeholder={resolving ? "Looking up account…" : "Name on the account"}
+        />
+        <Button
+          type="button"
+          className="mt-3 min-h-11 w-full rounded-xl bg-[#1F7A4D] font-extrabold text-white hover:bg-[#1F7A4D]/90"
+          disabled={withdrawing}
+          onClick={() => void withdraw()}
+        >
+          {withdrawing ? "Sending…" : "Send to bank"}
+        </Button>
+      </section>
 
       <section className="mt-4">
         <h2 className="text-sm font-extrabold">Transactions</h2>
