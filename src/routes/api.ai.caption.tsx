@@ -7,7 +7,7 @@ import {
   jsonSecure,
   readJsonBody,
   requireAuthenticatedUser,
-} from "@/lib/nkenne/api-security";
+} from "@/lib/api/security";
 import { grokJson, isXaiConfigured, XaiError } from "@/lib/xai/client";
 
 export const Route = createFileRoute("/api/ai/caption")({

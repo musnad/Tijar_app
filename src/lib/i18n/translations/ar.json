@@ -756,6 +756,7 @@
  "app.assistant.translateSpeak": "ترجم وانطق",
  "app.assistant.swapLanguages": "تبديل اللغات",
  "app.assistant.chatHint": "تتكلم {from} → يسمعون {to} (صوت فقط — بلا نص)",
+ "app.assistant.hausaVoiceOnly": "صوت الهوسا (تحدث واستمع) يعمل على هذا الهاتف. ترجمة نص الهوسا ليست في واجهة Grok بعد — يبقى الأصل ظاهرا.",
  "app.assistant.sameLanguageHint": "الجانبان يستخدمان اللغة نفسها — ننطق الأصل بصوت عال.",
  "app.assistant.emptyChatSpeakOnly": "جاهز — اضغط تحدّث ثم ترجم وانطق. ستسمع اللغة الأخرى فقط.",
  "app.assistant.chatHintSpeakOnly": "لا يظهر نص. يُشغَّل الصوت المترجم فقط.",

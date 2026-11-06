@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { AREA_PRESETS } from "@/lib/maps/provider";
 import { listBusinessCategories } from "@/services/business-service";
-import { TIJAR_LANGUAGE_NAMES, type TijarLanguageName } from "@/lib/translation/languages";
+import { TIJAR_PICKER_LANGUAGES, type TijarLanguageName } from "@/lib/translation/languages";
 import { fetchListingProductNames, fetchPublishedBusinesses } from "@/services/discover-service";
 import { translateTextClient } from "@/services/translate-service";
 import { useTranslation } from "@/lib/i18n/context";
@@ -134,7 +134,7 @@ export function DiscoverScreen() {
           className="min-h-11 w-full rounded-xl border border-input bg-background px-3 text-sm sm:w-auto"
           aria-label={t("app.discover.searchLanguageAriaLabel")}
         >
-          {TIJAR_LANGUAGE_NAMES.map((l) => (
+          {TIJAR_PICKER_LANGUAGES.map((l) => (
             <option key={l} value={l}>{t("app.discover.searchIn").replace("{language}", l)}</option>
           ))}
         </select>

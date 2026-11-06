@@ -5,10 +5,10 @@ import {
   clientIp,
   jsonSecure,
 } from "@/lib/api/security";
-import { transcribeOrTranslateSpeech } from "@/lib/translation/speech";
+import { transcribeOrTranslateSpeech } from "@/lib/speech/service";
 
 /**
- * POST /api/translate-speech — Whisper STT + ChatGPT/Grok translation.
+ * POST /api/translate-speech — Whisper STT, then Grok text translate when toLanguage is set.
  *
  * multipart/form-data:
  *   audio | audio_file  — recording (≤5 MB)

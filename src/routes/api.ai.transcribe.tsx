@@ -5,8 +5,8 @@ import {
   clientIp,
   jsonSecure,
   requireAuthenticatedUser,
-} from "@/lib/nkenne/api-security";
-import { transcribeOrTranslateSpeech } from "@/lib/nkenne/speech-service";
+} from "@/lib/api/security";
+import { transcribeOrTranslateSpeech } from "@/lib/speech/service";
 
 export const Route = createFileRoute("/api/ai/transcribe")({
   server: {

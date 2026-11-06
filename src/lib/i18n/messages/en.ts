@@ -926,7 +926,7 @@ export const enMessages = {
       chatHint: "You speak {from} → they hear {to} (spoken only — no text on screen)",
       speakOriginalFallback: "Could not translate — speaking your words aloud instead.",
       hausaVoiceOnly:
-        "Hausa voice (speak & listen) works on this phone. Text translation for Hausa is not in the NKENNEAi API yet — speaking your words aloud.",
+        "Hausa works for speak, listen, and translation.",
       sameLanguageHint: "Both sides use the same language — speaking the original aloud.",
       inputLabel: "Type a record",
       inputPlaceholder: "Type instead… e.g. Record sale 5000 for rice",

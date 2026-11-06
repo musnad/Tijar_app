@@ -7,7 +7,7 @@ import {
   jsonSecure,
   readJsonBody,
   requireAuthenticatedUser,
-} from "@/lib/nkenne/api-security";
+} from "@/lib/api/security";
 import { grokGenerateImage, isXaiConfigured, XaiError } from "@/lib/xai/client";
 
 const MAX_BODY = 3_500_000;

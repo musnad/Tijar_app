@@ -1,6 +1,6 @@
 /**
  * xAI Grok — server-only.
- * Text chat + translation fallback, image flyers, and photo/text-to-video.
+ * Chat (Talk to TIJAR, translate, listings) + Imagine flyers/video.
  * Never prefix XAI_API_KEY with VITE_. Never log prompts, images, or the secret.
  */
 
@@ -8,8 +8,10 @@ import { sanitizeSecret } from "@/lib/secrets";
 import { readEnvString } from "@/lib/supabase/runtime-env";
 
 const DEFAULT_BASE = "https://api.x.ai/v1";
-const DEFAULT_CHAT_MODEL = "grok-3-mini";
 const KEY_NAMES = ["XAI_API_KEY", "GROK_API_KEY"] as const;
+const CHAT_MODELS = ["grok-4-fast", "grok-4", "grok-3-mini", "grok-3"] as const;
+
+export type XaiClientConfig = Record<string, string | undefined>;
 
 export class XaiError extends Error {
   code: string;
@@ -55,40 +57,13 @@ export function isXaiConfigured(): boolean {
   return Boolean(readXaiConfig().apiKey);
 }
 
-export type XaiClientConfig = {
-  apiKey?: string;
-  baseUrl?: string;
-  chatModel?: string;
-  timeoutMs?: number;
-  fetchImpl?: typeof fetch;
-};
-
-function resolveConfig(config: XaiClientConfig = {}): {
-  apiKey: string;
-  baseUrl: string;
-  chatModel: string;
-  timeoutMs: number;
-} {
-  const env = readXaiConfig();
-  // Explicit apiKey (including "") wins so callers can force NOT_CONFIGURED.
-  const rawKey = config.apiKey !== undefined ? config.apiKey : env.apiKey;
-  const apiKey = rawKey?.trim() ? rawKey : undefined;
-  if (!apiKey) {
-    throw new XaiError("NOT_CONFIGURED", "Grok is not configured on this server (missing XAI_API_KEY).", 503);
-  }
-  return {
-    apiKey,
-    baseUrl: (config.baseUrl || env.baseUrl || DEFAULT_BASE).replace(/\/$/, ""),
-    chatModel:
-      config.chatModel ||
-      sanitizeSecret(readEnvString("XAI_CHAT_MODEL")) ||
-      DEFAULT_CHAT_MODEL,
-    timeoutMs: config.timeoutMs ?? 45_000,
-  };
-}
-
-async function xaiFetch(path: string, init: RequestInit, timeoutMs = 90_000): Promise<Response> {
-  const { apiKey, baseUrl } = readXaiConfig();
+async function xaiFetch(
+  path: string,
+  init: RequestInit,
+  timeoutMs = 90_000,
+  env?: XaiClientConfig,
+): Promise<Response> {
+  const { apiKey, baseUrl } = readXaiConfig(env);
   if (!apiKey) {
     throw new XaiError("NOT_CONFIGURED", "Grok is not configured on this server (missing XAI_API_KEY).", 503);
   }
@@ -125,107 +100,8 @@ async function mapHttpError(res: Response): Promise<XaiError> {
     );
   }
   if (res.status === 429) return new XaiError("QUOTA_EXCEEDED", "Grok is rate-limited. Wait a minute.", 429);
-  if (res.status === 400) return new XaiError("BAD_REQUEST", "Grok could not use that request.", 400);
+  if (res.status === 400) return new XaiError("BAD_REQUEST", "Grok could not use that photo or prompt.", 400);
   return new XaiError("PROVIDER_ERROR", "Grok could not finish this request.", 502);
-}
-
-/** Grok chat completion. Returns the assistant's text. */
-export async function xaiChat(
-  input: { system: string; user: string; temperature?: number; maxTokens?: number },
-  config: XaiClientConfig = {},
-): Promise<string> {
-  const resolved = resolveConfig(config);
-  const fetchImpl = config.fetchImpl ?? fetch;
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), resolved.timeoutMs);
-  let res: Response;
-  try {
-    res = await fetchImpl(`${resolved.baseUrl}/chat/completions`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${resolved.apiKey}`,
-        "Content-Type": "application/json",
-        Accept: "application/json",
-      },
-      body: JSON.stringify({
-        model: resolved.chatModel,
-        temperature: input.temperature ?? 0.4,
-        max_tokens: input.maxTokens ?? 600,
-        messages: [
-          { role: "system", content: input.system },
-          { role: "user", content: input.user.slice(0, 4000) },
-        ],
-      }),
-      signal: controller.signal,
-    });
-  } catch (err) {
-    if (err instanceof Error && err.name === "AbortError") {
-      throw new XaiError("TIMEOUT", "Grok took too long. Try again.", 504);
-    }
-    throw new XaiError("NETWORK", "Could not reach Grok. Try again.", 502);
-  } finally {
-    clearTimeout(timer);
-  }
-  if (!res.ok) throw await mapHttpError(res);
-  const data = (await res.json()) as { choices?: Array<{ message?: { content?: string } }> };
-  const out = data.choices?.[0]?.message?.content?.trim();
-  if (!out) throw new XaiError("PROVIDER_ERROR", "Grok returned an empty reply.", 502);
-  return out;
-}
-
-export async function grokChat(input: {
-  system: string;
-  user: string;
-  json?: boolean;
-  env?: XaiClientConfig;
-}): Promise<string> {
-  const system = input.json ? `${input.system}\nReturn valid JSON only.` : input.system;
-  return xaiChat(
-    { system, user: input.user, temperature: input.json ? 0.2 : 0.4, maxTokens: input.json ? 1200 : 600 },
-    input.env ?? {},
-  );
-}
-
-export async function grokJson<T>(input: {
-  system: string;
-  user: string;
-  env?: XaiClientConfig;
-}): Promise<T> {
-  const raw = await grokChat({ ...input, json: true });
-  const trimmed = raw.trim();
-  const fenced = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/i);
-  const body = (fenced?.[1] ?? trimmed).trim();
-  const start = body.indexOf("{");
-  const end = body.lastIndexOf("}");
-  if (start < 0 || end <= start) {
-    throw new XaiError("PROVIDER_ERROR", "Grok returned no JSON.", 502);
-  }
-  try {
-    return JSON.parse(body.slice(start, end + 1)) as T;
-  } catch {
-    throw new XaiError("PROVIDER_ERROR", "Grok returned invalid JSON.", 502);
-  }
-}
-
-/** Translate text with Grok. Returns the plain translated string. */
-export async function grokTranslate(
-  input: { text: string; fromLanguage: string; toLanguage: string },
-  config: XaiClientConfig = {},
-): Promise<string> {
-  const text = input.text.replace(/\s+/g, " ").trim();
-  if (!text) throw new XaiError("BAD_REQUEST", "Text is required.", 400);
-  if (input.fromLanguage === input.toLanguage) {
-    throw new XaiError("BAD_REQUEST", "Source and target language are the same.", 400);
-  }
-  const system = [
-    "You are TIJAR's translation engine for African market traders.",
-    "Translate the user message accurately and naturally.",
-    "Preserve numbers, currency (₦), product names, and proper nouns when appropriate.",
-    "Return ONLY the translation — no quotes, labels, or explanations.",
-  ].join(" ");
-  const user = `Translate from ${input.fromLanguage} to ${input.toLanguage}:\n\n${text.slice(0, 2000)}`;
-  const out = await xaiChat({ system, user, temperature: 0.2, maxTokens: 1200 }, config);
-  return out.replace(/^["']|["']$/g, "").trim();
 }
 
 async function dataUrlFromImagePayload(json: {
@@ -240,6 +116,75 @@ async function dataUrlFromImagePayload(json: {
     return { dataUrl: `data:image/png;base64,${buf.toString("base64")}` };
   }
   throw new XaiError("PROVIDER_ERROR", "Grok returned no image.", 502);
+}
+
+async function grokChatRaw(
+  input: { system: string; user: string; json?: boolean },
+  env?: XaiClientConfig,
+): Promise<string> {
+  let last: XaiError | null = null;
+  for (const model of CHAT_MODELS) {
+    const body: Record<string, unknown> = {
+      model,
+      temperature: input.json ? 0.1 : 0.3,
+      max_tokens: input.json ? 600 : 400,
+      messages: [
+        { role: "system", content: input.system },
+        { role: "user", content: input.user.slice(0, 4000) },
+      ],
+    };
+    if (input.json) body.response_format = { type: "json_object" };
+    let res = await xaiFetch("/chat/completions", { method: "POST", body: JSON.stringify(body) }, 45_000, env);
+    if (!res.ok && input.json && (res.status === 400 || res.status === 422)) {
+      delete body.response_format;
+      res = await xaiFetch("/chat/completions", { method: "POST", body: JSON.stringify(body) }, 45_000, env);
+    }
+    if (res.ok) {
+      const json = (await res.json()) as { choices?: Array<{ message?: { content?: string } }> };
+      const out = json.choices?.[0]?.message?.content?.trim();
+      if (out) return out;
+      throw new XaiError("PROVIDER_ERROR", "Grok returned an empty reply.", 502);
+    }
+    last = await mapHttpError(res);
+    if (last.code === "INVALID_CREDENTIALS" || last.code === "NOT_CONFIGURED") throw last;
+  }
+  throw last ?? new XaiError("PROVIDER_ERROR", "Grok could not finish this request.", 502);
+}
+
+export async function grokChat(
+  input: { system: string; user: string },
+  env?: XaiClientConfig,
+): Promise<string> {
+  return grokChatRaw(input, env);
+}
+
+export async function grokJson<T>(
+  input: { system: string; user: string },
+  env?: XaiClientConfig,
+): Promise<T> {
+  const raw = await grokChatRaw({ ...input, json: true }, env);
+  const cleaned = raw.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
+  try {
+    return JSON.parse(cleaned) as T;
+  } catch {
+    throw new XaiError("PROVIDER_ERROR", "Grok returned invalid JSON.", 502);
+  }
+}
+
+export async function grokTranslate(
+  input: { text: string; fromLanguage: string; toLanguage: string },
+  env?: XaiClientConfig,
+): Promise<string> {
+  const text = input.text.replace(/\s+/g, " ").trim();
+  if (!text) throw new XaiError("BAD_REQUEST", "Text is required.", 400);
+  const out = await grokChat(
+    {
+      system: `You translate for TIJAR, a Nigerian marketplace. Translate from ${input.fromLanguage} to ${input.toLanguage}. Return only the translation — no quotes, no extra words.`,
+      user: text.slice(0, 1000),
+    },
+    env,
+  );
+  return out.replace(/^["']|["']$/g, "").trim();
 }
 
 export async function grokGenerateImage(input: {

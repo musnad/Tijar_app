@@ -756,6 +756,7 @@
  "app.assistant.translateSpeak": "Túmọ̀ & sọ",
  "app.assistant.swapLanguages": "Pààrọ̀ èdè",
  "app.assistant.chatHint": "O sọ {from} → wọ́n gbọ́ {to} (ohùn nìkan — kò sí ọ̀rọ̀)",
+ "app.assistant.hausaVoiceOnly": "Ohùn Hausa (sọ & gbọ́) ń ṣiṣẹ́ lórí ẹ̀rọ yìí. Ìtúmọ̀ ọ̀rọ̀ Hausa kò tíì sí nínú API Grok — àkọ́kọ́ ṣì hàn.",
  "app.assistant.sameLanguageHint": "Àwọn ẹ̀gbẹ́ méjèèjì lo èdè kannáà — a ń sọ àkọ́kọ́ ní ohùn.",
  "app.assistant.emptyChatSpeakOnly": "Ó ṣetán — tẹ Sọ̀rọ̀, lẹ́yìn náà Túmọ̀ & sọ. Iwọ yóò gbọ́ èdè kejì nìkan.",
  "app.assistant.chatHintSpeakOnly": "Kò sí ọ̀rọ̀ lórí iboju. Ìtúmọ̀ ohùn nìkan ni.",

@@ -756,6 +756,7 @@
  "app.assistant.translateSpeak": "Tafsiri & sema",
  "app.assistant.swapLanguages": "Badilisha lugha",
  "app.assistant.chatHint": "Unazungumza {from} → wanasikia {to} (sauti tu — hakuna maandishi)",
+ "app.assistant.hausaVoiceOnly": "Sauti ya Kihausa (ongea & sikiliza) inafanya kazi kwenye simu hii. Tafsiri ya maandishi ya Kihausa bado haipo kwenye API ya Grok — asili inaonekana.",
  "app.assistant.sameLanguageHint": "Pande zote mbili zinatumia lugha moja — inasemwa asili kwa sauti.",
  "app.assistant.emptyChatSpeakOnly": "Tayari — gusa Ongea, kisha Tafsiri & sema. Utasikia lugha nyingine tu.",
  "app.assistant.chatHintSpeakOnly": "Hakuna maandishi. Tafsiri ya sauti tu inacheza.",

@@ -2,20 +2,32 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { bcp47For, isTijarLanguage } from "@/lib/translation/languages";
 import { isOpenAiLanguage } from "@/lib/openai/languages";
+import { isTijarLanguage } from "@/lib/translation/languages";
+
+/** BCP-47 codes for browser speech engines (distinct from API language names). */
+export const SPEECH_LOCALES: Record<string, string> = {
+  English: "en-NG",
+  Hausa: "ha-NG",
+  Igbo: "ig-NG",
+  Swahili: "sw-KE",
+  Yoruba: "yo-NG",
+  "Nigerian Pidgin": "en-NG",
+  Arabic: "ar-SA",
+  Fulfulde: "ff-NG",
+};
 
 /**
- * Languages the server can speak / hear via ElevenLabs / OpenAI TTS and
- * Whisper STT. Browser Web Speech is used when the server call fails.
+ * Languages the server can speak / hear via OpenAI. Browser Web Speech
+ * is used when the server call fails.
  */
-export function serverSpeechLanguage(languageName: string): boolean {
+export function tijarSpeechLanguage(languageName: string): boolean {
   return isTijarLanguage(languageName) || isOpenAiLanguage(languageName);
 }
 
 /** Fallback chain when a device lacks the exact locale (common on Android). */
 export function speechLocaleCandidates(languageName: string): string[] {
-  const primary = bcp47For(languageName);
+  const primary = SPEECH_LOCALES[languageName] ?? "en-NG";
   const base = primary.split("-")[0] ?? primary;
   const candidates = [primary, base, "en-NG", "en-GB", "en-US", "en"].filter(
     (v, i, arr) => v && arr.indexOf(v) === i,
@@ -103,7 +115,7 @@ export function scoreVoiceForLocale(voice: SpeechSynthesisVoice, locale: string)
 export function pickBestVoice(languageName: string, voices: SpeechSynthesisVoice[]): SpeechSynthesisVoice | null {
   if (voices.length === 0) return null;
   const locales = speechLocaleCandidates(languageName);
-  const primary = bcp47For(languageName);
+  const primary = SPEECH_LOCALES[languageName] ?? "en-NG";
   const primaryBase = primary.split("-")[0] ?? primary;
   // Prefer same-language voices first; only fall back to English if none exist.
   const preferred = locales.filter((l) => l === primary || l === primaryBase || l.startsWith(`${primaryBase}-`));
@@ -195,14 +207,14 @@ export function isSpeakingNow(): boolean {
   return window.speechSynthesis.speaking || window.speechSynthesis.pending;
 }
 
-/** Play server TTS (ElevenLabs clone / OpenAI) via /api/speak. */
+/** Play server TTS (OpenAI / personal clone / server) via /api/speak. */
 async function speakViaServer(
   text: string,
   languageName: string,
   rate?: number,
   voiceOpts?: { voice?: string | null; customVoiceId?: string | null },
 ): Promise<boolean> {
-  if (typeof window === "undefined" || !serverSpeechLanguage(languageName)) return false;
+  if (typeof window === "undefined" || !tijarSpeechLanguage(languageName)) return false;
   let res: Response;
   try {
     res = await fetch("/api/speak", {
@@ -270,7 +282,7 @@ export type SpeakOptions = {
 };
 
 /**
- * Speak text aloud. Prefers server TTS (personal ElevenLabs clone → OpenAI TTS),
+ * Speak text aloud. Prefers server TTS (personal clone → OpenAI → server),
  * then falls back to the device speech engine.
  */
 export async function speakText(
@@ -283,8 +295,8 @@ export async function speakText(
 
   stopSpeaking();
 
-  if (serverSpeechLanguage(languageName)) {
-    const serverRate =
+  if (tijarSpeechLanguage(languageName)) {
+    const speakRate =
       options.rate !== undefined ? Math.min(2, Math.max(0.5, options.rate)) : 1;
     // Lazy import avoids circular deps with personal-voice helpers.
     let prefs: { preferredTtsVoice: string | null; customVoiceId: string | null } = {
@@ -297,7 +309,7 @@ export async function speakText(
     } catch {
       /* ignore */
     }
-    const ok = await speakViaServer(cleaned, languageName, serverRate, {
+    const ok = await speakViaServer(cleaned, languageName, speakRate, {
       voice: options.voice ?? prefs.preferredTtsVoice,
       customVoiceId: options.customVoiceId ?? prefs.customVoiceId,
     });
@@ -315,7 +327,7 @@ export async function speakText(
   }
 
   const voices = await loadVoices();
-  const locale = bcp47For(languageName);
+  const locale = SPEECH_LOCALES[languageName] ?? "en-NG";
   const voice = pickBestVoice(languageName, voices);
 
   const utter = new SpeechSynthesisUtterance(cleaned);
@@ -353,12 +365,12 @@ export async function speakText(
 }
 
 const MAX_RECORD_MS = 60_000;
-/** Auto-stop for server STT recording when the user does not tap Stop. */
+/** Auto-stop for server fallback recording when the user does not tap Stop. */
 const SERVER_AUTO_STOP_MS = 15_000;
 
 function pickRecorderMime(): string | undefined {
   if (typeof MediaRecorder === "undefined") return undefined;
-  // Prefer compact audio formats (mp4/m4a, ogg) before webm when the browser allows.
+  // Prefer formats server documents (mp4/m4a, ogg) before webm when the browser allows.
   for (const type of [
     "audio/mp4",
     "audio/aac",
@@ -487,11 +499,11 @@ export async function startAudioRecording(): Promise<{
   };
 }
 
-/** Upload a recording to Whisper STT / speech-translate via our server. */
+/** Upload a recording to server STT / speech-translate via our server. */
 export async function transcribeAudioClient(input: {
   audio: Blob;
   language: string;
-  toLanguage?: string | undefined;
+  toLanguage?: string;
 }): Promise<
   | { ok: true; transcript: string; translatedText: string | null; language: string; mode: string }
   | { ok: false; code: string; message: string }
@@ -642,7 +654,7 @@ function listenOnce(
  *
  * Order (most reliable UX first):
  * 1) Browser Web Speech when available (auto end-of-utterance — best for Learn A/B/C)
- * 2) MediaRecorder → Whisper STT for African languages when the browser fails
+ * 2) MediaRecorder → server STT for African languages when the browser fails
  *    or has no speech recognition
  */
 export function useSpeechRecognition() {
@@ -703,8 +715,8 @@ export function useSpeechRecognition() {
     throw lastError ?? new Error(mapRecognitionError(undefined, isSecure));
   }, []);
 
-  const listenViaServer = useCallback(async (languageName: string, isSecure: boolean): Promise<string> => {
-    if (!serverSpeechLanguage(languageName) || !canRecordAudio()) {
+  const listenServer = useCallback(async (languageName: string, isSecure: boolean): Promise<string> => {
+    if (!tijarSpeechLanguage(languageName) || !canRecordAudio()) {
       throw Object.assign(new Error(mapRecognitionError("language-not-supported", isSecure)), {
         code: "language-not-supported",
       });
@@ -762,14 +774,14 @@ export function useSpeechRecognition() {
 
       try {
         const preferServerStt =
-          serverSpeechLanguage(languageName) &&
+          tijarSpeechLanguage(languageName) &&
           languageName !== "English" &&
           canRecordAudio();
 
         // African languages: MediaRecorder → server STT first (browser ASR is often missing).
         if (preferServerStt) {
           try {
-            return await listenViaServer(languageName, isSecure);
+            return await listenServer(languageName, isSecure);
           } catch (err) {
             const code = (err as Error & { code?: string }).code;
             if (code === "aborted" || code === "not-allowed" || code === "service-not-allowed") {
@@ -787,13 +799,13 @@ export function useSpeechRecognition() {
             if (code === "aborted" || code === "not-allowed" || code === "service-not-allowed") {
               throw err;
             }
-            if (!serverSpeechLanguage(languageName) || !canRecordAudio()) throw err;
+            if (!tijarSpeechLanguage(languageName) || !canRecordAudio()) throw err;
           }
         }
 
         // English / fallback: server STT via MediaRecorder (tap Stop or wait ~8s).
-        if (serverSpeechLanguage(languageName) && canRecordAudio()) {
-          return await listenViaServer(languageName, isSecure);
+        if (tijarSpeechLanguage(languageName) && canRecordAudio()) {
+          return await listenServer(languageName, isSecure);
         }
 
         throw new Error("Voice input is not supported on this device or browser. Please type instead.");
@@ -805,7 +817,7 @@ export function useSpeechRecognition() {
         setListening(false);
       }
     },
-    [listenBrowser, listenViaServer],
+    [listenBrowser, listenServer],
   );
 
   return { listen, stop, listening, supported };

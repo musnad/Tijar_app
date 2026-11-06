@@ -1,6 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-import { checkRateLimit } from "@/lib/api/rate-limit";
 import { elevenLabsKeyFingerprint } from "@/lib/elevenlabs/client";
 import { openaiKeyFingerprint, readOpenAiConfig } from "@/lib/openai/client";
 import { readXaiConfig, xaiKeyFingerprint } from "@/lib/xai/client";
@@ -15,10 +14,9 @@ import { getConfiguredSiteOrigin } from "@/lib/site-url";
 export const Route = createFileRoute("/api/supabase-health")({
   server: {
     handlers: {
-      GET: async ({ request }) => {
+      GET: async () => {
         const authPing = await pingSupabaseServer();
         const categories = await fetchBusinessCategoriesServer();
-        // Presence / length / masked hint only — never the full secret.
         const openai = readOpenAiConfig();
         const openaiFinger = openaiKeyFingerprint(openai.apiKey);
         const elevenFinger = elevenLabsKeyFingerprint();

@@ -14,7 +14,7 @@ import { translateText } from "@/lib/translation/service";
  * POST /api/translate  { text, fromLanguage, toLanguage }
  *
  * Security:
- * - AI provider API keys stay server-only (never sent to the browser)
+ * - XAI_API_KEY / OPENAI_API_KEY stay server-only (never sent to the browser)
  * - Same-site / allowlisted Origin only
  * - JSON + size capped
  * - Rate limit bound to real client IP (JWT alone cannot bypass)

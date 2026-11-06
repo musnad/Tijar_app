@@ -289,7 +289,7 @@ export type OpenAiSttResult = { text: string };
 /** Transcribe speech with Whisper. */
 export async function openaiStt(
   config: OpenAiClientConfig,
-  input: { audio: Blob; language?: string; languageCode?: string; mimeType?: string; filename?: string },
+  input: { audio: Blob; language?: string; mimeType?: string; filename?: string },
 ): Promise<OpenAiSttResult> {
   const resolved = resolveConfig(config);
   const form = new FormData();
@@ -309,12 +309,7 @@ export async function openaiStt(
   form.append("file", file);
   form.append("model", resolved.sttModel);
   form.append("response_format", "json");
-  // Prefer an explicit Whisper hint (full TIJAR catalogue); fall back to the
-  // display-name mapping, and let Whisper auto-detect when neither is known.
-  const explicit = input.languageCode?.trim();
-  if (explicit) {
-    form.append("language", explicit);
-  } else if (input.language && isOpenAiLanguage(input.language)) {
+  if (input.language && isOpenAiLanguage(input.language)) {
     const code = WHISPER_LANG[input.language];
     if (code) form.append("language", code);
   }
@@ -350,10 +345,10 @@ export async function openaiTts(
   config: OpenAiClientConfig,
   input: {
     text: string;
-    language?: string | undefined;
-    speakingRate?: number | undefined;
+    language?: string;
+    speakingRate?: number;
     /** OpenAI stock voice id (nova, alloy, …). */
-    voice?: string | undefined;
+    voice?: string;
   },
 ): Promise<OpenAiTtsResult> {
   const cleaned = input.text.replace(/\s+/g, " ").trim();

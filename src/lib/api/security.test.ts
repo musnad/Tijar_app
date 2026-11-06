@@ -7,7 +7,7 @@ import {
   assertTranslateOrigin,
   clientIp,
   readJsonBody,
-} from "./api-security";
+} from "./security";
 
 describe("api-security", () => {
   it("binds rate keys to client IP from forwarded headers", () => {

@@ -28,9 +28,9 @@ Copy from `.env.example` → set in hosting UI (Vercel, Railway, Render, etc.).
    | `VITE_SUPABASE_ANON_KEY` | Same anon/publishable key as local |
    | `VITE_PUBLIC_APP_URL` | `https://www.tijar.ng` |
    | `VITE_APP_ENV` | `production` |
-   | `OPENAI_API_KEY` | `sk-…` from OpenAI (server-only; powers translate + voice AI) |
+   | `OPENAI_API_KEY` | `sk-…` from OpenAI (server-only; Whisper STT + TTS) |
    | `ELEVENLABS_API_KEY` | `sk_…` from ElevenLabs (personal voice clone for speak-back) |
-   | `XAI_API_KEY` | `xai-…` from xAI Grok (translation fallback + media studio; optional) |
+   | `XAI_API_KEY` | xAI Grok key for Talk to TIJAR, translate, listings, captions |
 
 3. **Deployments** → ⋮ on latest → **Redeploy** (must rebuild so Vite picks up `VITE_*`).
 

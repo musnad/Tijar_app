@@ -756,6 +756,7 @@
  "app.assistant.translateSpeak": "Fassara & faɗa",
  "app.assistant.swapLanguages": "Musanya harsuna",
  "app.assistant.chatHint": "Ka yi magana {from} → su ji {to} (murya kawai — babu rubutu)",
+ "app.assistant.hausaVoiceOnly": "Muryar Hausa (yi magana & ji) tana aiki a wannan waya. Fassara rubutu na Hausa ba ta nan a API na Grok ba tukuna — asalin yana a bayyane.",
  "app.assistant.sameLanguageHint": "Bangarorin biyu suna amfani da harshe ɗaya — ana faɗa asalin a murya.",
  "app.assistant.emptyChatSpeakOnly": "A shirye — taɓa Yi magana, sai Fassara & faɗa. Za ka ji harshen ɗaya kawai.",
  "app.assistant.chatHintSpeakOnly": "Babu rubutu a allo. Fassara da murya kawai.",

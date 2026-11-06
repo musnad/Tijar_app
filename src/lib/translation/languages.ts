@@ -1,8 +1,8 @@
 /**
  * TIJAR language catalogue.
  *
- * Translation and speech run on ChatGPT (OpenAI) with Grok (xAI) as a
- * fallback, and ElevenLabs / OpenAI for speak-back. Those models are
+ * Translation runs on Grok (xAI) with ChatGPT as a fallback.
+ * Speak-back uses ElevenLabs / OpenAI. Those models are
  * prompt-driven, so the catalogue below is the single source of truth for
  * which languages the product exposes — Hausa is a first-class citizen.
  *
@@ -81,6 +81,18 @@ export type TijarLanguageName = (typeof TIJAR_LANGUAGES)[number]["name"];
 
 /** Ordered display names — the safe list for any language picker. */
 export const TIJAR_LANGUAGE_NAMES = TIJAR_LANGUAGES.map((l) => l.name) as TijarLanguageName[];
+
+/** Compact picker for Talk, translator, and Discover. */
+export const TIJAR_PICKER_LANGUAGES = [
+  "English",
+  "Hausa",
+  "Yoruba",
+  "Igbo",
+  "Swahili",
+  "Nigerian Pidgin",
+  "Fulfulde",
+  "Arabic",
+] as const satisfies readonly TijarLanguageName[];
 
 const BY_NAME = new Map<string, TijarLanguage>(TIJAR_LANGUAGES.map((l) => [l.name, l]));
 

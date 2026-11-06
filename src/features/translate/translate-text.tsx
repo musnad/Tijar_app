@@ -5,7 +5,7 @@ import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { useTranslation } from "@/lib/i18n/context";
-import { languageForLocale, TIJAR_LANGUAGE_NAMES, type TijarLanguageName } from "@/lib/translation/languages";
+import { languageForLocale, TIJAR_PICKER_LANGUAGES, type TijarLanguageName } from "@/lib/translation/languages";
 import { translateTextClient } from "@/services/translate-service";
 
 /**
@@ -57,7 +57,7 @@ export function TranslateText({
             className="min-h-9 rounded-lg border border-input bg-background px-2 text-xs"
             aria-label="Translate from"
           >
-            {TIJAR_LANGUAGE_NAMES.map((l) => (
+            {TIJAR_PICKER_LANGUAGES.map((l) => (
               <option key={l} value={l}>{l}</option>
             ))}
           </select>
@@ -68,7 +68,7 @@ export function TranslateText({
           className="min-h-9 rounded-lg border border-input bg-background px-2 text-xs"
           aria-label="Translate to"
         >
-          {TIJAR_LANGUAGE_NAMES.filter((l) => l !== fromLanguage).map((l) => (
+          {TIJAR_PICKER_LANGUAGES.filter((l) => l !== fromLanguage).map((l) => (
             <option key={l} value={l}>{l}</option>
           ))}
         </select>

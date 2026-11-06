@@ -8,10 +8,10 @@ import {
   jsonSecure,
   readJsonBody,
 } from "@/lib/api/security";
-import { speakTextServer } from "@/lib/translation/speech";
+import { speakTextServer } from "@/lib/speech/service";
 
 /**
- * POST /api/speak — ElevenLabs cloned voice, falling back to OpenAI TTS.
+ * POST /api/speak — OpenAI TTS (personal clone via ElevenLabs when enrolled).
  * Body: { text, language, speakingRate? }
  * Success: raw audio bytes (audio/wav or audio/mpeg)
  * Errors: JSON { error: { code, message } }

@@ -12,7 +12,7 @@ const MAX_SECONDS = 60;
 
 type VoiceTranslateProps = {
   onUseTranscript: (text: string) => void;
-  /** Spoken language (TIJAR display name). */
+  /** Spoken language display name. */
   language?: string;
   /** Optional: translate speech into this language before offering the text. */
   toLanguage?: string;

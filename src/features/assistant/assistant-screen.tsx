@@ -30,7 +30,7 @@ import { usePrimaryBusiness } from "@/hooks/use-primary-business";
 import { invalidateBusinessQueries } from "@/lib/invalidate-business-queries";
 import { useTranslation } from "@/lib/i18n/context";
 import type { Locale } from "@/lib/i18n/types";
-import { isTijarLanguage, TIJAR_LANGUAGE_NAMES, type TijarLanguageName } from "@/lib/translation/languages";
+import { isTijarLanguage, TIJAR_PICKER_LANGUAGES } from "@/lib/translation/languages";
 import { cn } from "@/lib/utils";
 import { createTransaction, fetchPeriodAnalytics, fetchTodayTotals } from "@/services/transaction-service";
 import { translateTextClient } from "@/services/translate-service";
@@ -45,13 +45,14 @@ import {
   type VoiceIntentType,
 } from "@/utils/voice-intent";
 
-const SPEAK_LANGS = TIJAR_LANGUAGE_NAMES;
+const SPEAK_LANGS = TIJAR_PICKER_LANGUAGES;
 
 const LOCALE_TO_SPEAK_LANG: Partial<Record<Locale, string>> = {
   en: "English",
   ha: "Hausa",
   sw: "Swahili",
   yo: "Yoruba",
+  ig: "Igbo",
 };
 
 const INTENT_META: Record<VoiceIntentType, { labelKey: string; icon: typeof ShoppingBag; className: string }> = {
@@ -169,11 +170,11 @@ export function AssistantScreen() {
       customerCreditTotal: null,
       healthScore: null,
     });
-    if (canTranslatePair("English", speakLang)) {
+    if (speakLang !== "English" && canTranslatePair("English", speakLang)) {
       const translated = await translateTextClient({
         text: english,
         fromLanguage: "English",
-        toLanguage: speakLang as TijarLanguageName,
+        toLanguage: speakLang,
       });
       sayBooks(translated.ok ? translated.translatedText : english);
       return;
@@ -201,7 +202,7 @@ export function AssistantScreen() {
     setSpeakingStatus(t("app.assistant.translatingForBooks"));
     const result = await translateTextClient({
       text,
-      fromLanguage: speakLang as TijarLanguageName,
+      fromLanguage: speakLang,
       toLanguage: "English",
     });
     setSpeakingStatus(null);
@@ -249,9 +250,19 @@ export function AssistantScreen() {
           text: trimmed,
           language: speakLang,
           shop: business?.business_name ?? "",
+          mode: "books",
         }),
       });
-      const json = (await res.json()) as { reply?: string; error?: string };
+      const json = (await res.json()) as {
+        reply?: string;
+        error?: string;
+        draft?: ParsedVoiceCommand;
+      };
+      if (json.draft && json.draft.intent && json.draft.intent !== "unknown") {
+        setDraft(json.draft);
+        sayBooks(json.reply?.trim() || summarizeDraft(json.draft, summaryStrings()));
+        return;
+      }
       sayBooks(json.reply?.trim() || json.error || t("app.assistant.summaryUnknown"));
     } catch {
       sayBooks(t("app.assistant.summaryUnknown"));
@@ -301,14 +312,16 @@ export function AssistantScreen() {
     if (canTranslatePair(from, to)) {
       const result = await translateTextClient({
         text,
-        fromLanguage: from as TijarLanguageName,
-        toLanguage: to as TijarLanguageName,
+        fromLanguage: from,
+        toLanguage: to,
       });
       if (result.ok) {
         spoken = result.translatedText;
       } else {
         toast.message(t("app.assistant.speakOriginalFallback"));
       }
+    } else if (from !== to) {
+      toast.message(t("app.assistant.speakOriginalFallback"));
     }
     setChatLast({ from, to, original: text, translated: spoken });
     setBusy(false);

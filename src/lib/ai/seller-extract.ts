@@ -41,6 +41,22 @@ priceNaira (number or null, naira only), descriptionEn (1-2 short trustworthy se
 descriptionHa (same meaning in simple Hausa), location (market/area or null), notes (null or extra).
 Clean the product name. Do not invent a price. If no location, use null.`;
 
+export type BooksExtract = {
+  intent: "sale" | "expense" | "purchase" | "customer_payment" | "supplier_payment" | "unknown";
+  amountNaira: number | null;
+  description: string;
+  reply: string;
+  confidence: "high" | "low";
+};
+
+export const BOOKS_SYSTEM = `You are TIJAR's bookkeeper for Nigerian shops.
+The seller may speak Hausa, Yoruba, Igbo, Pidgin, English, or mix.
+Decide if they are recording a sale, expense, purchase (stock), customer payment, or supplier payment.
+Return JSON only with keys:
+intent, amountNaira (number or null — naira only, never invent), description (short English), reply (one short sentence in the seller's language confirming what you heard, or asking for the missing amount), confidence ("high" or "low").
+If it is a question or chat, intent is "unknown" and reply answers helpfully in under 40 words.
+Do not invent an amount.`;
+
 export const SALE_SYSTEM = `You extract a sale or credit record for TIJAR bookkeeping.
 The seller may speak Hausa or English.
 Return JSON only with keys:

@@ -6,14 +6,13 @@ import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { useTranslation } from "@/lib/i18n/context";
-import { isTijarLanguage, TIJAR_LANGUAGE_NAMES, type TijarLanguageName } from "@/lib/translation/languages";
+import { isTijarLanguage } from "@/lib/translation/languages";
 import { cn } from "@/lib/utils";
 import { translateTextClient } from "@/services/translate-service";
 import { HearItButton } from "./hear-it-button";
 import { speakText, useSpeechRecognition } from "./use-speech";
 
-/** Every language TIJAR can translate — Hausa included. */
-const LANG_OPTIONS = TIJAR_LANGUAGE_NAMES;
+const LANG_OPTIONS = ["English", "Hausa", "Yoruba", "Igbo", "Swahili", "Nigerian Pidgin"] as const;
 
 type Result = {
   original: string;
@@ -82,8 +81,8 @@ export function TranslatorScreen() {
 
     const response = await translateTextClient({
       text,
-      fromLanguage: fromLang as TijarLanguageName,
-      toLanguage: toLang as TijarLanguageName,
+      fromLanguage: fromLang,
+      toLanguage: toLang,
     });
     setBusy(false);
 
