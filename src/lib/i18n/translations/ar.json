@@ -108,7 +108,7 @@
  "app.products.inventoryValue": "قيمة المخزون (بالتكلفة)",
  "app.products.inventoryProfit": "ربح المخزون",
  "app.products.inventoryHint": "حسب سعر التكلفة × الكمية الموجودة.",
- "app.products.inventoryProfitHint": "سعر البيع ناقص التكلفة، مضروبًا في الكمية الموجودة.",
+ "app.products.inventoryProfitHint": "الربح فقط على البضاعة المتبقية.",
  "app.products.statSkus": "المنتجات",
  "app.products.statLowStock": "مخزون منخفض",
  "app.products.statInStock": "مخزون جيد",

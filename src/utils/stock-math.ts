@@ -7,15 +7,18 @@ export function inventoryValue(stockQuantity: number, costPrice: number | null):
   return stockQuantity * costPrice;
 }
 
-/** Expected profit if remaining stock sells at the listed price. */
+/** Profit only: (selling price − cost) × quantity. Never the selling total. */
 export function inventoryProfit(
   stockQuantity: number,
   salePrice: number | null,
   costPrice: number | null,
 ): number {
+  if (!(stockQuantity > 0)) return 0;
   if (salePrice == null || costPrice == null || Number.isNaN(salePrice) || Number.isNaN(costPrice)) {
     return 0;
   }
+  // Cost 0/missing would make this equal the selling price — that is not profit.
+  if (!(costPrice > 0) || !(salePrice > costPrice)) return 0;
   return stockQuantity * (salePrice - costPrice);
 }
 

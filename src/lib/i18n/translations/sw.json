@@ -108,7 +108,7 @@
  "app.products.inventoryValue": "Thamani ya hifadhi (kwa gharama)",
  "app.products.inventoryProfit": "Faida ya hifadhi",
  "app.products.inventoryHint": "Kulingana na bei ya gharama × idadi iliyopo.",
- "app.products.inventoryProfitHint": "Bei ya kuuza minus gharama, mara idadi iliyopo.",
+ "app.products.inventoryProfitHint": "Faida tu kwenye bidhaa zilizopo.",
  "app.products.statSkus": "Bidhaa",
  "app.products.statLowStock": "Hifadhi ndogo",
  "app.products.statInStock": "Hifadhi sawa",

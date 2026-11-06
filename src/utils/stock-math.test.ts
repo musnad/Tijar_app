@@ -15,7 +15,8 @@ describe("stock-math", () => {
 
   it("computes inventory profit from sale minus cost", () => {
     expect(inventoryProfit(10, 150, 100)).toBe(500);
-    expect(inventoryProfit(10, 80, 100)).toBe(-200);
+    expect(inventoryProfit(10, 80, 100)).toBe(0);
+    expect(inventoryProfit(10, 150, 0)).toBe(0);
     expect(inventoryProfit(10, 150, null)).toBe(0);
     expect(inventoryProfit(10, null, 100)).toBe(0);
   });

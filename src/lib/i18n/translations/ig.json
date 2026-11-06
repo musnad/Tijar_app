@@ -108,7 +108,7 @@
  "app.products.inventoryValue": "Uru ngwaahịa dị (na ọnụ ahịa ịzụta)",
  "app.products.inventoryProfit": "Uru ngwaahịa",
  "app.products.inventoryHint": "Dabere na ọnụ ahịa ịzụta × ọnụọgụ dị n'aka.",
- "app.products.inventoryProfitHint": "Ọnụ ahịa ire minus ọnụ ahịa ịzụta, ụba ọnụọgụ dị n'aka.",
+ "app.products.inventoryProfitHint": "Naanị uru n'ihe dị n'aka.",
  "app.products.statSkus": "Ngwaahịa",
  "app.products.statLowStock": "Ngwaahịa dị ala",
  "app.products.statInStock": "Ngwaahịa dị mma",

@@ -1039,7 +1039,7 @@ export const enMessages = {
       inventoryValue: "Stock value (at cost)",
       inventoryProfit: "Stock profit",
       inventoryHint: "Based on cost price × quantity on hand.",
-      inventoryProfitHint: "Selling price minus cost, times quantity on hand.",
+      inventoryProfitHint: "Profit only on goods still on the shelf.",
       statSkus: "Products",
       statLowStock: "Low stock",
       statInStock: "OK stock",

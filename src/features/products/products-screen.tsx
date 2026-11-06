@@ -82,7 +82,6 @@ export function ProductsScreen({ businessId }: { businessId: string }) {
               <div className="border-s border-white/20 ps-4">
                 <p className="text-sm font-medium text-white/85">{t("app.products.inventoryProfit")}</p>
                 <p className="mt-2 text-2xl font-extrabold tabular-nums">{formatNgn(data.totalInventoryProfit)}</p>
-                <p className="mt-1 text-xs text-white/75">{t("app.products.inventoryProfitHint")}</p>
               </div>
             </div>
           </div>

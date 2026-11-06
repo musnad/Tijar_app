@@ -108,7 +108,7 @@
  "app.products.inventoryValue": "Iye ọjà tí ó kù (ní owó tí ó ná)",
  "app.products.inventoryProfit": "Èrè ọjà",
  "app.products.inventoryHint": "Ó dá lórí owó tí ó ná × iye tí ó wà lọ́wọ́.",
- "app.products.inventoryProfitHint": "Owó tita minus owó tí ó ná, ìlọ́po iye tí ó wà lọ́wọ́.",
+ "app.products.inventoryProfitHint": "Èrè nìkan lórí ọjà tí ó ṣì wà.",
  "app.products.statSkus": "Ọjà",
  "app.products.statLowStock": "Ọjà tí ó kù díẹ̀",
  "app.products.statInStock": "Ọjà tí ó kù dára",
