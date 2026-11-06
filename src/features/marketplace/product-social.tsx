@@ -191,6 +191,8 @@ export function ProductSocialBar({
         text={`${product.name} · ${displayShopName(product.business_name)} on TIJAR`}
         url={productShareUrl(product.id)}
         imageUrl={product.image_url}
+        productId={product.id}
+        price={product.sale_price != null ? Number(product.sale_price) : null}
         onShared={() => void handleShared()}
       />
       <Sheet open={commentsOpen} onOpenChange={setCommentsOpen}>

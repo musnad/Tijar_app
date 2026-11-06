@@ -1,24 +1,30 @@
 "use client";
 
-import { Check, Copy, Share2 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Camera, Check, Copy, Send, Share2 } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { FeedImage } from "@/components/media/feed-image";
+import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { useAuth } from "@/features/auth/auth-context";
+import { usePrimaryBusiness } from "@/hooks/use-primary-business";
 import { cn } from "@/lib/utils";
+import { ensurePersonalShop } from "@/services/marketplace-service";
+import { fetchDmPeople, sendPostToRecipients, type DmPerson } from "@/services/direct-chat-service";
+import { publishStoryReshare } from "@/services/story-service";
 
 type ShareSheetProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  /** Headline shown in the preview (usually the product / post name). */
   title: string;
-  /** Short line shown under the title (usually the shop name). */
   text: string;
-  /** Canonical link of the post. */
   url: string;
   imageUrl?: string | null;
-  /** Fired once, the first time the user actually shares or copies. */
+  mediaKind?: "image" | "video";
+  productId?: string | null;
+  price?: number | null;
   onShared?: () => void;
 };
 
@@ -39,19 +45,42 @@ const FACEBOOK_PATH =
 const TELEGRAM_PATH =
   "M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z";
 
-/**
- * One simple, professional share sheet used everywhere a user can share a post.
- * Prefers the native OS share sheet (any app) and always offers direct platform
- * links plus a copy-link fallback.
- */
-export function ShareSheet({ open, onOpenChange, title, text, url, imageUrl, onShared }: ShareSheetProps) {
+export function ShareSheet({
+  open,
+  onOpenChange,
+  title,
+  text,
+  url,
+  imageUrl,
+  mediaKind = "image",
+  productId,
+  price,
+  onShared,
+}: ShareSheetProps) {
+  const { profile, session } = useAuth();
+  const shop = usePrimaryBusiness(profile?.id);
+  const queryClient = useQueryClient();
   const [copied, setCopied] = useState(false);
+  const [panel, setPanel] = useState<"main" | "dm">("main");
+  const [search, setSearch] = useState("");
+  const [picked, setPicked] = useState<Set<string>>(new Set());
+  const [busy, setBusy] = useState(false);
   const counted = useRef(false);
+
+  const peopleQuery = useQuery({
+    queryKey: ["share-dm-people", profile?.id],
+    enabled: open && panel === "dm" && Boolean(profile?.id),
+    queryFn: async () => (await fetchDmPeople(profile!.id)).people,
+  });
 
   useEffect(() => {
     if (!open) {
       setCopied(false);
       counted.current = false;
+      setPanel("main");
+      setSearch("");
+      setPicked(new Set());
+      setBusy(false);
     }
   }, [open]);
 
@@ -63,6 +92,12 @@ export function ShareSheet({ open, onOpenChange, title, text, url, imageUrl, onS
 
   const canNativeShare = typeof navigator !== "undefined" && typeof navigator.share === "function";
   const message = `${text} — ${url}`;
+  const people = peopleQuery.data ?? [];
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return people;
+    return people.filter((p) => p.name.toLowerCase().includes(q));
+  }, [people, search]);
 
   async function nativeShare() {
     try {
@@ -70,7 +105,7 @@ export function ShareSheet({ open, onOpenChange, title, text, url, imageUrl, onS
       markShared();
       onOpenChange(false);
     } catch {
-      // User dismissed the sheet — no share happened.
+      // dismissed
     }
   }
 
@@ -101,6 +136,86 @@ export function ShareSheet({ open, onOpenChange, title, text, url, imageUrl, onS
     setCopied(true);
     markShared();
     toast.success("Link copied");
+  }
+
+  async function addToStory() {
+    if (!session || !profile) {
+      toast.message("Sign in to add this to your story.");
+      return;
+    }
+    if (!imageUrl) {
+      toast.error("This post has no photo or video to add to your story.");
+      return;
+    }
+    setBusy(true);
+    let businessId = shop.data?.business?.id ?? null;
+    if (!businessId) {
+      const created = await ensurePersonalShop({
+        profileId: profile.id,
+        displayName: profile.full_name || "My story",
+      });
+      if (created.error || !created.businessId) {
+        setBusy(false);
+        toast.error(created.error ?? "Create your shop to add to your story.");
+        return;
+      }
+      businessId = created.businessId;
+    }
+    const posted = await publishStoryReshare({
+      businessId,
+      profileId: profile.id,
+      mediaUrl: imageUrl,
+      mediaKind,
+      overlayText: title,
+      productId,
+      price,
+    });
+    setBusy(false);
+    if (posted.error) {
+      toast.error(posted.error);
+      return;
+    }
+    markShared();
+    void queryClient.invalidateQueries({ queryKey: ["live-stories"] });
+    toast.success("Added to your story");
+    onOpenChange(false);
+  }
+
+  function togglePerson(person: DmPerson) {
+    setPicked((prev) => {
+      const next = new Set(prev);
+      if (next.has(person.key)) next.delete(person.key);
+      else next.add(person.key);
+      return next;
+    });
+  }
+
+  async function sendDms() {
+    if (!session || !profile) {
+      toast.message("Sign in to send in Direct.");
+      return;
+    }
+    const selected = people.filter((p) => picked.has(p.key));
+    if (selected.length === 0) {
+      toast.message("Pick at least one person.");
+      return;
+    }
+    setBusy(true);
+    const result = await sendPostToRecipients({
+      profileId: profile.id,
+      recipients: selected,
+      title: title || text,
+      url,
+    });
+    setBusy(false);
+    if (result.sent === 0) {
+      toast.error(result.error ?? "Could not send.");
+      return;
+    }
+    markShared();
+    void queryClient.invalidateQueries({ queryKey: ["shop-inbox"] });
+    toast.success(result.sent === 1 ? "Sent in Direct" : `Sent to ${result.sent} people`);
+    onOpenChange(false);
   }
 
   const platforms = [
@@ -139,67 +254,146 @@ export function ShareSheet({ open, onOpenChange, title, text, url, imageUrl, onS
       <SheetContent side="bottom" className="rounded-t-3xl p-0 pb-[max(1rem,env(safe-area-inset-bottom))]">
         <div className="mx-auto mt-2 h-1 w-10 rounded-full bg-muted" />
         <SheetHeader className="px-5 pb-1 pt-3 text-left">
-          <SheetTitle className="text-[16px] font-extrabold">Share</SheetTitle>
+          <SheetTitle className="text-[16px] font-extrabold">{panel === "dm" ? "Send in Direct" : "Share"}</SheetTitle>
         </SheetHeader>
 
-        <div className="flex items-center gap-3 px-5 py-3">
-          <span className="flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-border bg-muted">
-            {imageUrl ? (
-              <FeedImage src={imageUrl} alt="" width={160} />
-            ) : (
-              <Share2 className="size-5 text-muted-foreground" />
-            )}
-          </span>
-          <span className="min-w-0 flex-1">
-            <span className="block truncate text-[15px] font-extrabold text-foreground">{title}</span>
-            <span className="mt-0.5 line-clamp-2 block text-[12px] leading-snug text-muted-foreground">{text}</span>
-          </span>
-        </div>
-
-        {canNativeShare ? (
-          <div className="px-5 pb-2">
-            <button
-              type="button"
-              onClick={() => void nativeShare()}
-              className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-full bg-primary text-sm font-extrabold text-white"
-            >
-              <Share2 className="size-4" />
-              Share via other apps
-            </button>
-          </div>
-        ) : null}
-
-        <div className="grid grid-cols-4 gap-2 px-5 py-3">
-          {platforms.map((p) => (
-            <button
-              key={p.key}
-              type="button"
-              onClick={() => openPlatform(p.href)}
-              className="flex flex-col items-center gap-1.5 rounded-2xl py-2 transition-colors hover:bg-muted"
-            >
-              <span
-                className="flex size-12 items-center justify-center rounded-full text-white"
-                style={{ backgroundColor: p.color }}
+        {panel === "dm" ? (
+          <div className="px-5 pb-3">
+            <Input
+              className="min-h-11"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search people or shops"
+            />
+            <ul className="mt-3 max-h-[40vh] overflow-y-auto">
+              {peopleQuery.isLoading ? <li className="py-6 text-center text-sm text-muted-foreground">Loading…</li> : null}
+              {!peopleQuery.isLoading && filtered.length === 0 ? (
+                <li className="py-6 text-center text-sm text-muted-foreground">Follow people or shops to send this in Direct.</li>
+              ) : null}
+              {filtered.map((person) => {
+                const on = picked.has(person.key);
+                return (
+                  <li key={person.key}>
+                    <button
+                      type="button"
+                      onClick={() => togglePerson(person)}
+                      className="flex min-h-14 w-full items-center gap-3 py-2 text-left"
+                    >
+                      <span className="flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#0A2540] text-sm font-extrabold text-white">
+                        {person.avatarUrl ? <FeedImage src={person.avatarUrl} alt="" width={88} /> : person.name.slice(0, 1)}
+                      </span>
+                      <span className="min-w-0 flex-1 truncate font-bold">{person.name}</span>
+                      <span
+                        className={cn(
+                          "flex size-6 items-center justify-center rounded-full border",
+                          on ? "border-[#1F7A4D] bg-[#1F7A4D] text-white" : "border-border",
+                        )}
+                      >
+                        {on ? <Check className="size-3.5" /> : null}
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+            <div className="mt-2 flex gap-2">
+              <button
+                type="button"
+                className="min-h-11 flex-1 rounded-full border border-border text-sm font-extrabold"
+                onClick={() => setPanel("main")}
               >
-                <BrandIcon path={p.path} className="size-6" />
+                Back
+              </button>
+              <button
+                type="button"
+                disabled={busy || picked.size === 0}
+                className="min-h-11 flex-1 rounded-full bg-primary text-sm font-extrabold text-white disabled:opacity-50"
+                onClick={() => void sendDms()}
+              >
+                {busy ? "Sending…" : `Send${picked.size ? ` (${picked.size})` : ""}`}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <>
+            <div className="flex items-center gap-3 px-5 py-3">
+              <span className="flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-border bg-muted">
+                {imageUrl ? <FeedImage src={imageUrl} alt="" width={160} /> : <Share2 className="size-5 text-muted-foreground" />}
               </span>
-              <span className="text-[11px] font-bold text-foreground">{p.label}</span>
-            </button>
-          ))}
-        </div>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-[15px] font-extrabold text-foreground">{title}</span>
+                <span className="mt-0.5 line-clamp-2 block text-[12px] leading-snug text-muted-foreground">{text}</span>
+              </span>
+            </div>
 
-        <div className="px-5 pb-1 pt-1">
-          <button
-            type="button"
-            onClick={() => void copyLink()}
-            className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-full border border-border text-sm font-extrabold text-foreground"
-          >
-            {copied ? <Check className="size-4 text-emerald-600" /> : <Copy className="size-4" />}
-            {copied ? "Link copied" : "Copy link"}
-          </button>
-        </div>
+            <div className="grid grid-cols-2 gap-2 px-5 pb-3">
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => void addToStory()}
+                className="flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-[#0A2540] text-sm font-extrabold text-white disabled:opacity-60"
+              >
+                <Camera className="size-4" />
+                {busy ? "Adding…" : "Add to story"}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (!session || !profile) {
+                    toast.message("Sign in to send in Direct.");
+                    return;
+                  }
+                  setPanel("dm");
+                }}
+                className="flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-[#1F7A4D] text-sm font-extrabold text-white"
+              >
+                <Send className="size-4" />
+                Send in Direct
+              </button>
+            </div>
 
-        <p className={cn("select-none truncate px-5 pt-2 text-center text-[11px] text-muted-foreground")}>{url}</p>
+            {canNativeShare ? (
+              <div className="px-5 pb-2">
+                <button
+                  type="button"
+                  onClick={() => void nativeShare()}
+                  className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-full bg-primary text-sm font-extrabold text-white"
+                >
+                  <Share2 className="size-4" />
+                  Share via other apps
+                </button>
+              </div>
+            ) : null}
+
+            <div className="grid grid-cols-4 gap-2 px-5 py-3">
+              {platforms.map((p) => (
+                <button
+                  key={p.key}
+                  type="button"
+                  onClick={() => openPlatform(p.href)}
+                  className="flex flex-col items-center gap-1.5 rounded-2xl py-2 transition-colors hover:bg-muted"
+                >
+                  <span className="flex size-12 items-center justify-center rounded-full text-white" style={{ backgroundColor: p.color }}>
+                    <BrandIcon path={p.path} className="size-6" />
+                  </span>
+                  <span className="text-[11px] font-bold text-foreground">{p.label}</span>
+                </button>
+              ))}
+            </div>
+
+            <div className="px-5 pb-1 pt-1">
+              <button
+                type="button"
+                onClick={() => void copyLink()}
+                className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-full border border-border text-sm font-extrabold text-foreground"
+              >
+                {copied ? <Check className="size-4 text-emerald-600" /> : <Copy className="size-4" />}
+                {copied ? "Link copied" : "Copy link"}
+              </button>
+            </div>
+            <p className={cn("select-none truncate px-5 pt-2 text-center text-[11px] text-muted-foreground")}>{url}</p>
+          </>
+        )}
       </SheetContent>
     </Sheet>
   );

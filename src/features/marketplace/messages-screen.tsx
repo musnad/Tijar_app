@@ -12,6 +12,7 @@ import { useAuth } from "@/features/auth/auth-context";
 import { useStartShopChat } from "@/features/marketplace/use-start-shop-chat";
 import { haptic } from "@/lib/haptics";
 import { cn } from "@/lib/utils";
+import { fetchDirectMessages, sendDirectMessage } from "@/services/direct-chat-service";
 import {
   fetchMyBusinessIds,
   fetchShopInbox,
@@ -95,7 +96,7 @@ export function EnquiriesScreen() {
                 params={{ conversationId: row.id }}
                 className="flex min-h-[4.5rem] items-center gap-3 px-4 py-3"
               >
-                <Avatar name={row.as_seller ? row.customer_name : row.business_name} src={row.as_seller ? row.customer_avatar_url : row.logo_url} />
+                <Avatar name={row.as_seller ? row.customer_name : row.business_name} src={row.as_seller ? null : row.logo_url} />
                 <div className="min-w-0 flex-1">
                   <p className="flex items-center justify-between gap-2">
                     <span className="truncate font-extrabold">
@@ -158,6 +159,34 @@ export function ShopChatThreadScreen({ conversationId }: { conversationId: strin
     enabled: Boolean(profile?.id),
     refetchInterval: 4_000,
     queryFn: async () => {
+      if (conversationId.startsWith("dm:")) {
+        const r = await fetchDirectMessages(conversationId, profile!.id);
+        if (r.error) throw new Error(r.error);
+        return {
+          inbox: {
+            id: conversationId,
+            business_id: "",
+            customer_id: profile!.id,
+            last_preview: "",
+            last_message_at: new Date().toISOString(),
+            business_name: r.otherName,
+            logo_url: r.otherAvatar,
+            business_slug: null,
+            customer_name: r.otherName,
+            as_seller: false,
+            unread: false,
+            threadKind: "direct" as const,
+          },
+          messages: r.messages.map((m) => ({
+            id: m.id,
+            conversation_id: conversationId,
+            sender_id: m.sender_id,
+            body: m.body,
+            created_at: m.created_at,
+            role: (m.sender_id === profile!.id ? "customer" : "business") as ShopChatMessage["role"],
+          })),
+        };
+      }
       const r = await fetchShopMessages(conversationId, profile!.id);
       if (r.error) throw new Error(r.error);
       return r;
@@ -210,12 +239,14 @@ export function ShopChatThreadScreen({ conversationId }: { conversationId: strin
     if (!body || !profile) return;
     haptic();
     setBusy(true);
-    const r = await sendShopMessage({
-      conversationId,
-      senderId: profile.id,
-      body,
-      asSeller,
-    });
+    const r = conversationId.startsWith("dm:")
+      ? await sendDirectMessage({ threadId: conversationId.replace(/^dm:/, ""), senderId: profile.id, body })
+      : await sendShopMessage({
+          conversationId,
+          senderId: profile.id,
+          body,
+          asSeller,
+        });
     setBusy(false);
     if (r.error) {
       toast.error(r.error);
@@ -237,7 +268,7 @@ export function ShopChatThreadScreen({ conversationId }: { conversationId: strin
         >
           <ArrowLeft className="size-5" />
         </button>
-        <Avatar name={title} src={asSeller ? inbox?.customer_avatar_url ?? null : inbox?.logo_url ?? null} />
+        <Avatar name={title} src={asSeller ? null : inbox?.logo_url ?? null} />
         <div className="min-w-0">
           <p className="truncate font-extrabold leading-tight">{title}</p>
           <p className="text-[11px] text-muted-foreground">{asSeller ? "Customer on TIJAR" : "Usually replies here"}</p>

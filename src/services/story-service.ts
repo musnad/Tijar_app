@@ -290,6 +290,40 @@ export async function publishBusinessStory(input: {
   return { error: null, id: data?.id ?? id };
 }
 
+/** Repost someone else's post onto your 24h story without creating a new product. */
+export async function publishStoryReshare(input: {
+  businessId: string;
+  profileId: string;
+  mediaUrl: string;
+  mediaKind?: "image" | "video";
+  overlayText?: string | null;
+  productId?: string | null;
+  price?: number | null;
+}): Promise<{ error: string | null; id?: string }> {
+  const mediaUrl = input.mediaUrl.trim();
+  if (!mediaUrl) return { error: "This post has no photo or video to add to your story." };
+  const supabase = getSupabaseBrowserClient();
+  const id = crypto.randomUUID();
+  const { data, error } = await supabase
+    .from("business_stories")
+    .insert({
+      id,
+      business_id: input.businessId,
+      profile_id: input.profileId,
+      media_kind: input.mediaKind === "video" ? "video" : "image",
+      storage_path: `${input.businessId}/share-${id}`,
+      playback_url: mediaUrl,
+      overlay_text: input.overlayText?.trim() || null,
+      price: input.price ?? null,
+      product_id: input.productId || null,
+      duration_ms: input.mediaKind === "video" ? 7000 : 5000,
+    })
+    .select("id")
+    .maybeSingle();
+  if (error) return { error: error.message };
+  return { error: null, id: data?.id ?? id };
+}
+
 export async function toggleStoryLike(
   profileId: string,
   storyId: string,

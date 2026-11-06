@@ -150,6 +150,7 @@ export function PlaceOrderSocialBar({
         title={listing.title}
         text={`Place your order from ${listing.shop_name} on TIJAR`}
         url={placeOrderShareUrl(listing.id)}
+        imageUrl={listing.image_urls[0] ?? null}
         onShared={() => void handleShared()}
       />
       {!compact && likes > 0 ? <p className="px-3 text-[14px] font-extrabold">{compactCount(likes)} likes</p> : null}

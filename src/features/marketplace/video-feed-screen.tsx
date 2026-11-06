@@ -1085,6 +1085,10 @@ export function VideoFeedScreen({ initialVideoId }: { initialVideoId?: string })
               }`
             : ""
         }
+        imageUrl={shareTarget ? resolveCoverSrc(shareTarget.cover_path) ?? resolveVideoSrc(shareTarget) : null}
+        mediaKind={shareTarget && isImagePost(shareTarget) ? "image" : "video"}
+        productId={shareTarget?.product_ids?.[0] ?? null}
+        price={shareTarget?.price ?? null}
       />
     </MarketplaceShell>
   );
@@ -1714,6 +1718,9 @@ const VideoSlide = memo(function VideoSlide({
         text={shareText}
         url={shareUrl}
         imageUrl={poster ?? gallery[0] ?? null}
+        mediaKind={image ? "image" : "video"}
+        productId={featured?.id ?? video.product_ids?.[0] ?? null}
+        price={featured?.sale_price != null ? Number(featured.sale_price) : video.price ?? null}
         onShared={() => actions.onRecordShare(video)}
       />
     </article>
