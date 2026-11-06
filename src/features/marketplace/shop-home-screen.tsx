@@ -14,8 +14,13 @@ import {
   countShopsBySector,
   matchesShopSector,
 } from "@/features/marketplace/marketplace-sectors";
+import { ProductCard } from "@/features/marketplace/product-card";
+import { NigeriaAreaFields } from "@/features/location/nigeria-area-fields";
 import { useAuth } from "@/features/auth/auth-context";
-import { fetchCart, fetchMarketplaceShops, type MarketplaceShop } from "@/services/marketplace-service";
+import { useUserArea, writeStoredUserArea } from "@/hooks/use-user-area";
+import { areaRank, formatNigerianLocation } from "@/lib/nigeria-locations";
+import { fetchCart, fetchMarketplaceProducts, fetchMarketplaceShops, type MarketplaceShop } from "@/services/marketplace-service";
+import { saveOwnArea } from "@/services/profile-service";
 
 function ShopCard({ shop }: { shop: MarketplaceShop }) {
   const place = shop.public_location_label ?? shop.location_text;
@@ -64,8 +69,11 @@ function ShopCard({ shop }: { shop: MarketplaceShop }) {
 
 export function ShopHomeScreen() {
   const { profile } = useAuth();
+  const { area, label: areaLabel, save: saveArea } = useUserArea(profile);
   const [query, setQuery] = useState("");
   const [sectorFilter, setSectorFilter] = useState("");
+  const [pickState, setPickState] = useState(area?.state ?? "");
+  const [pickLga, setPickLga] = useState(area?.lga ?? "");
 
   const shopsQuery = useQuery({
     queryKey: ["marketplace-shops"],
@@ -73,6 +81,15 @@ export function ShopHomeScreen() {
       const res = await fetchMarketplaceShops();
       if (res.error) throw new Error(res.error);
       return res.shops;
+    },
+    staleTime: 30_000,
+  });
+  const productsQuery = useQuery({
+    queryKey: ["marketplace-products-home"],
+    queryFn: async () => {
+      const res = await fetchMarketplaceProducts(80);
+      if (res.error) throw new Error(res.error);
+      return res.data;
     },
     staleTime: 30_000,
   });
@@ -92,22 +109,46 @@ export function ShopHomeScreen() {
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return allShops.filter((shop) => {
-      if (sectorFilter && !matchesShopSector(shop, sectorFilter)) return false;
-      if (!q) return true;
-      const hay = [
-        shop.business_name,
-        shop.description ?? "",
-        shop.category_name ?? "",
-        shop.public_location_label ?? "",
-        shop.location_text ?? "",
-        ...shop.product_names,
-      ]
-        .join(" ")
-        .toLowerCase();
-      return q.split(/\s+/).filter(Boolean).every((word) => hay.includes(word));
-    });
-  }, [allShops, query, sectorFilter]);
+    return allShops
+      .filter((shop) => {
+        if (sectorFilter && !matchesShopSector(shop, sectorFilter)) return false;
+        if (!q) return true;
+        const hay = [
+          shop.business_name,
+          shop.description ?? "",
+          shop.category_name ?? "",
+          shop.public_location_label ?? "",
+          shop.location_text ?? "",
+          ...shop.product_names,
+        ]
+          .join(" ")
+          .toLowerCase();
+        return q.split(/\s+/).filter(Boolean).every((word) => hay.includes(word));
+      })
+      .sort((a, b) => {
+        const ra = areaRank(a.public_location_label ?? a.location_text, area ?? {});
+        const rb = areaRank(b.public_location_label ?? b.location_text, area ?? {});
+        return rb - ra || a.business_name.localeCompare(b.business_name);
+      });
+  }, [allShops, query, sectorFilter, area]);
+  const nearbyProducts = useMemo(() => {
+    const products = productsQuery.data ?? [];
+    const shopById = new Map(allShops.map((shop) => [shop.id, shop]));
+    return [...products]
+      .sort((a, b) => {
+        const sa = shopById.get(a.business_id);
+        const sb = shopById.get(b.business_id);
+        const ra = areaRank(sa?.public_location_label ?? sa?.location_text ?? a.business_name, area ?? {});
+        const rb = areaRank(sb?.public_location_label ?? sb?.location_text ?? b.business_name, area ?? {});
+        return rb - ra;
+      })
+      .filter((p) => {
+        if (!area?.state) return true;
+        const shop = shopById.get(p.business_id);
+        return areaRank(shop?.public_location_label ?? shop?.location_text, area) > 0;
+      })
+      .slice(0, 8);
+  }, [productsQuery.data, allShops, area]);
 
   const activeSector = MARKETPLACE_SECTORS.find((s) => s.key === sectorFilter);
   const cartCount = cartQuery.data?.reduce((n, i) => n + Number(i.quantity), 0) ?? 0;
@@ -139,7 +180,9 @@ export function ShopHomeScreen() {
             {firstName ? `Welcome, ${firstName}` : "Discover local shops"}
           </h1>
           <p className="mt-1.5 max-w-[32ch] text-sm leading-relaxed text-white/85">
-            Every TIJAR shop that publishes its business appears here.
+            {areaLabel
+              ? `Shops and products near ${areaLabel} first.`
+              : "Every TIJAR shop that publishes its business appears here."}
           </p>
 
           <div className="relative mt-4">
@@ -192,6 +235,64 @@ export function ShopHomeScreen() {
           </div>
         </div>
       </section>
+
+      {!area?.state ? (
+        <section className="mt-4 rounded-2xl border border-border bg-card p-4">
+          <h2 className="text-sm font-extrabold">Where should we look?</h2>
+          <p className="mt-1 text-xs text-muted-foreground">Pick your state and local government to see nearby products first.</p>
+          <div className="mt-3">
+            <NigeriaAreaFields
+              variant="plain"
+              state={pickState}
+              lga={pickLga}
+              onState={setPickState}
+              onLga={setPickLga}
+            />
+          </div>
+          <Button
+            className="mt-3 min-h-11 w-full rounded-xl font-bold"
+            type="button"
+            disabled={!pickState || !pickLga}
+            onClick={() => {
+              const next = { state: pickState, lga: pickLga };
+              writeStoredUserArea(next);
+              saveArea(next);
+              if (profile?.id) {
+                void saveOwnArea({
+                  state: pickState,
+                  lga: pickLga,
+                  location: formatNigerianLocation(pickState, pickLga),
+                });
+              }
+            }}
+          >
+            Show nearby products
+          </Button>
+        </section>
+      ) : null}
+
+      {nearbyProducts.length > 0 ? (
+        <section className="mt-5">
+          <div className="flex items-end justify-between gap-2">
+            <div>
+              <h2 className="text-base font-extrabold tracking-tight">Near you</h2>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                {areaLabel ? `Suggested from ${areaLabel}` : "Products from shops around you"}
+              </p>
+            </div>
+            <Link to="/shop/nearby" className="text-xs font-bold text-primary">
+              Map
+            </Link>
+          </div>
+          <ul className="mt-3 grid grid-cols-2 gap-3 lg:grid-cols-4">
+            {nearbyProducts.map((product) => (
+              <li key={product.id}>
+                <ProductCard product={product} />
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
 
       {activeSector ? (
         <div className="mt-3 flex items-center justify-between rounded-2xl border border-primary/20 bg-primary/5 px-3 py-2">

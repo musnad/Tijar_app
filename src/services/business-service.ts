@@ -1,3 +1,4 @@
+import { coordinatesForState, parseNigerianLocation } from "@/lib/nigeria-locations";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import type { OnboardingAnswers } from "@/features/onboarding/schemas";
 import type { MemberRole } from "@/lib/business/capabilities";
@@ -236,6 +237,8 @@ export async function completeBusinessSetup(
   const islamicMode = answers.islamicMode === "yes";
   const primaryModel = answers.revenueModels[0] ?? "retail";
 
+  const parsedPlace = parseNigerianLocation(answers.location);
+  const coords = coordinatesForState(parsedPlace.state);
   const { data: business, error: businessError } = await supabase
     .from("businesses")
     .insert({
@@ -243,6 +246,9 @@ export async function completeBusinessSetup(
       business_name: answers.businessName.trim(),
       category_id: answers.categoryId,
       location: answers.location.trim(),
+      public_location_label: answers.location.trim(),
+      latitude: coords?.lat ?? null,
+      longitude: coords?.lng ?? null,
       islamic_mode_enabled: islamicMode,
       operating_mode: primaryModel,
       business_stage: "operating",
@@ -250,11 +256,30 @@ export async function completeBusinessSetup(
     .select("id")
     .single();
 
-  if (businessError || !business) {
-    return { businessId: null, error: businessError?.message ?? "Could not create business" };
+  let businessId = business?.id as string | undefined;
+  if (businessError || !businessId) {
+    if (businessError && /column|schema cache|does not exist/i.test(businessError.message)) {
+      const retry = await supabase
+        .from("businesses")
+        .insert({
+          owner_id: profileId,
+          business_name: answers.businessName.trim(),
+          category_id: answers.categoryId,
+          location: answers.location.trim(),
+          islamic_mode_enabled: islamicMode,
+          operating_mode: primaryModel,
+          business_stage: "operating",
+        })
+        .select("id")
+        .single();
+      if (retry.error || !retry.data) {
+        return { businessId: null, error: retry.error?.message ?? businessError.message };
+      }
+      businessId = retry.data.id as string;
+    } else {
+      return { businessId: null, error: businessError?.message ?? "Could not create business" };
+    }
   }
-
-  const businessId = business.id as string;
 
   const { error: memberError } = await supabase.from("business_members").insert({
     business_id: businessId,

@@ -11,7 +11,7 @@ import {
   SlidersHorizontal,
   X,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { TijarLogo } from "@/components/brand-logo";
 import { Button } from "@/components/ui/button";
@@ -22,7 +22,9 @@ import { ProductCard } from "@/features/marketplace/product-card";
 import { useAuth } from "@/features/auth/auth-context";
 import { haptic } from "@/lib/haptics";
 import { useTranslation } from "@/lib/i18n/context";
+import { useUserArea } from "@/hooks/use-user-area";
 import { AREA_PRESETS } from "@/lib/maps/provider";
+import { areaRank } from "@/lib/nigeria-locations";
 import { cn } from "@/lib/utils";
 import { listBusinessCategories } from "@/services/business-service";
 import {
@@ -51,6 +53,7 @@ const PRICE_CHIPS = [
 export function ShopDiscoverScreen() {
   const { t } = useTranslation();
   const { profile } = useAuth();
+  const { area, coords: areaCoords, label: areaLabel } = useUserArea(profile);
   const [query, setQuery] = useState("");
   const [tab, setTab] = useState<Tab>("products");
   const [category, setCategory] = useState("");
@@ -63,6 +66,12 @@ export function ShopDiscoverScreen() {
   const [geoMessage, setGeoMessage] = useState("");
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
+
+  useEffect(() => {
+    if (centre || !areaCoords) return;
+    setCentre(areaCoords);
+    if (areaLabel) setCentreLabel(areaLabel);
+  }, [areaCoords, areaLabel, centre]);
 
   const productsQuery = useInfiniteQuery({
     queryKey: ["marketplace-products-browse"],
@@ -139,19 +148,25 @@ export function ShopDiscoverScreen() {
     [query, products, shops, categoryNames],
   );
 
-  const filteredProducts = useMemo(
-    () =>
-      filterCatalogProducts(products, {
-        query,
-        kind: tab === "services" ? "service" : tab === "products" ? "goods" : "all",
-        category: category || null,
-        minPrice: minPrice ? Number(minPrice) : null,
-        maxPrice: maxPrice ? Number(maxPrice) : null,
-        availableOnly,
-        attribute: attribute || null,
-      }),
-    [products, query, tab, category, minPrice, maxPrice, availableOnly, attribute],
-  );
+  const filteredProducts = useMemo(() => {
+    const rows = filterCatalogProducts(products, {
+      query,
+      kind: tab === "services" ? "service" : tab === "products" ? "goods" : "all",
+      category: category || null,
+      minPrice: minPrice ? Number(minPrice) : null,
+      maxPrice: maxPrice ? Number(maxPrice) : null,
+      availableOnly,
+      attribute: attribute || null,
+    });
+    const shopById = new Map(shops.map((shop) => [shop.id, shop]));
+    return [...rows].sort((a, b) => {
+      const sa = shopById.get(a.business_id);
+      const sb = shopById.get(b.business_id);
+      const ra = areaRank(sa?.public_location_label ?? sa?.location_text, area ?? {});
+      const rb = areaRank(sb?.public_location_label ?? sb?.location_text, area ?? {});
+      return rb - ra;
+    });
+  }, [products, query, tab, category, minPrice, maxPrice, availableOnly, attribute, shops, area]);
 
   const filteredSellers = useMemo(() => {
     const categoryId = category ? shops.find((s) => s.category_name === category)?.category_id : null;
@@ -211,7 +226,9 @@ export function ShopDiscoverScreen() {
               <TijarLogo variant="mark" className="h-8 w-auto shrink-0" />
               <div className="min-w-0">
                 <h1 className="text-[22px] font-extrabold leading-none tracking-tight text-foreground">{t("shop.explore.title")}</h1>
-                <p className="mt-1 truncate text-[11px] font-medium text-muted-foreground">{t("shop.explore.find")}</p>
+                <p className="mt-1 truncate text-[11px] font-medium text-muted-foreground">
+                  {areaLabel ? `Nearby first · ${areaLabel}` : t("shop.explore.find")}
+                </p>
               </div>
             </div>
             <div className="flex items-center gap-1.5">

@@ -8,22 +8,15 @@ import { AuthOrDivider, GoogleAuthButton, PasswordToggle, authIcons } from "@/fe
 import { signInWithEmail, signInWithGoogle, signUpWithEmail } from "@/features/auth/auth-service";
 import { enterAppAfterAuth } from "@/features/auth/route-guards";
 import { WebAuthLayout } from "@/features/auth/web-auth-layout";
-import { WebAuthField, WebAuthSelect, WebPrimaryButton } from "@/features/auth/web-auth-fields";
+import { WebAuthField, WebPrimaryButton } from "@/features/auth/web-auth-fields";
+import { NigeriaAreaFields } from "@/features/location/nigeria-area-fields";
 import { registerSchema } from "@/features/onboarding/schemas";
+import { writeStoredUserArea } from "@/hooks/use-user-area";
+import { formatNigerianLocation } from "@/lib/nigeria-locations";
 import { useTranslation } from "@/lib/i18n/context";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useAuth } from "@/features/auth/auth-context";
 import { SupabaseSetupNotice } from "@/features/auth/supabase-setup-notice";
-
-const LOCATION_OPTIONS = [
-  "Kano, Nigeria",
-  "Lagos, Nigeria",
-  "Abuja, Nigeria",
-  "Kaduna, Nigeria",
-  "Port Harcourt, Nigeria",
-  "Ibadan, Nigeria",
-  "Other",
-];
 
 export function WebRegisterForm() {
   const { t } = useTranslation();
@@ -32,7 +25,8 @@ export function WebRegisterForm() {
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [location, setLocation] = useState("");
+  const [stateName, setStateName] = useState("");
+  const [lga, setLga] = useState("");
   const [accountMode, setAccountMode] = useState<"customer" | "business">("customer");
   const [agreeTerms, setAgreeTerms] = useState(false);
   const [passwordVisible, setPasswordVisible] = useState(false);
@@ -41,11 +35,14 @@ export function WebRegisterForm() {
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
+    const location = formatNigerianLocation(stateName, lga);
     const parsed = registerSchema.safeParse({
       fullName,
       phone,
       email,
       password,
+      state: stateName,
+      lga,
       location,
       agreeTerms,
     });
@@ -60,6 +57,8 @@ export function WebRegisterForm() {
       fullName: parsed.data.fullName,
       phone: parsed.data.phone,
       location: parsed.data.location,
+      state: parsed.data.state,
+      lga: parsed.data.lga,
       accountMode,
     });
     if (error) {
@@ -73,6 +72,8 @@ export function WebRegisterForm() {
         JSON.stringify({
           businessName: parsed.data.fullName,
           location: parsed.data.location,
+          state: parsed.data.state,
+          lga: parsed.data.lga,
         }),
       );
     }
@@ -91,6 +92,9 @@ export function WebRegisterForm() {
       toast.error("Could not open your account. Try signing in.");
       return;
     }
+    writeStoredUserArea({ state: parsed.data.state, lga: parsed.data.lga });
+    const { saveOwnArea } = await import("@/services/profile-service");
+    await saveOwnArea({ state: parsed.data.state, lga: parsed.data.lga, location: parsed.data.location });
     await enterAppAfterAuth({ prefer: accountMode === "customer" ? "shop" : "onboarding" });
   }
 
@@ -223,14 +227,12 @@ export function WebRegisterForm() {
             <PasswordToggle visible={passwordVisible} onToggle={() => setPasswordVisible((v) => !v)} />
           }
         />
-        <WebAuthSelect
-          id="web-reg-location"
-          label={t("auth.location")}
-          icon={authIcons.map}
-          value={location}
-          onChange={setLocation}
-          placeholder={t("auth.locationPlaceholder")}
-          options={LOCATION_OPTIONS.map((l) => ({ value: l, label: l }))}
+        <NigeriaAreaFields
+          variant="web"
+          state={stateName}
+          lga={lga}
+          onState={setStateName}
+          onLga={setLga}
         />
         <label className="flex cursor-pointer items-start gap-3 text-sm leading-snug text-[#5a6578]">
           <Checkbox

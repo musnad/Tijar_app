@@ -19,6 +19,7 @@ import {
   PAYMENT_METHOD_OPTIONS,
   REVENUE_MODEL_OPTIONS,
 } from "@/features/onboarding/constants";
+import { NigeriaAreaFields } from "@/features/location/nigeria-area-fields";
 import { OnboardingLanguageBar } from "@/features/onboarding/onboarding-language-bar";
 import { MultiSelectOption, YesNoChoice } from "@/features/onboarding/multi-select";
 import {
@@ -26,7 +27,9 @@ import {
   onboardingWizardSchema,
   type OnboardingWizardAnswers,
 } from "@/features/onboarding/schemas";
+import { writeStoredUserArea } from "@/hooks/use-user-area";
 import { useSitePreferences, useTranslation } from "@/lib/i18n/context";
+import { formatNigerianLocation, parseNigerianLocation } from "@/lib/nigeria-locations";
 import { isLocale } from "@/lib/i18n/types";
 import { completeBusinessSetup, listBusinessCategories } from "@/services/business-service";
 import { updateProfile } from "@/services/profile-service";
@@ -62,6 +65,8 @@ export function OnboardingWizard() {
   const [submitting, setSubmitting] = useState(false);
   const [categories, setCategories] = useState<BusinessCategory[]>([]);
   const [answers, setAnswers] = useState<WizardState>(defaultAnswers);
+  const [stateName, setStateName] = useState("");
+  const [lga, setLga] = useState("");
 
   useEffect(() => {
     if (!profile?.preferred_language || !isLocale(profile.preferred_language)) return;
@@ -77,12 +82,19 @@ export function OnboardingWizard() {
         businessName?: string;
         categoryId?: string;
         location?: string;
+        state?: string;
+        lga?: string;
       };
+      const parsed = parseNigerianLocation(pre.location);
+      const nextState = pre.state || parsed.state;
+      const nextLga = pre.lga || parsed.lga;
+      if (nextState) setStateName(nextState);
+      if (nextLga) setLga(nextLga);
       setAnswers((a) => ({
         ...a,
         businessName: pre.businessName ?? a.businessName,
         categoryId: pre.categoryId ?? a.categoryId,
-        location: pre.location ?? a.location,
+        location: formatNigerianLocation(nextState, nextLga) || pre.location || a.location,
       }));
       sessionStorage.removeItem("tijar-onboarding-prefill");
     } catch {
@@ -141,15 +153,24 @@ export function OnboardingWizard() {
       toast.error(t("app.errors.noProfile"));
       return;
     }
+    const location = formatNigerianLocation(stateName, lga) || answers.location || "";
     const parsed = onboardingWizardSchema.safeParse({
       ...answers,
-      location: answers.location ?? "Nigeria",
+      location,
     });
     if (!parsed.success) {
       toast.error(parsed.error.errors[0]?.message ?? t("app.errors.validation"));
       return;
     }
     const full = normalizeOnboardingAnswers(parsed.data);
+    if (stateName) writeStoredUserArea({ state: stateName, lga });
+    if (stateName) {
+      await updateProfile(profile.id, {
+        state: stateName,
+        lga: lga || null,
+        location_text: full.location,
+      });
+    }
     setSubmitting(true);
     const { businessId, error } = await completeBusinessSetup(profile.id, full);
     setSubmitting(false);
@@ -163,8 +184,12 @@ export function OnboardingWizard() {
   }
 
   function next() {
-    if (step === 2 && !answers.location?.trim()) {
-      setAnswers((a) => ({ ...a, location: "Nigeria" }));
+    if (step === 2) {
+      if (!stateName || !lga) {
+        toast.error("Select your state and local government.");
+        return;
+      }
+      setAnswers((a) => ({ ...a, location: formatNigerianLocation(stateName, lga) }));
     }
     if (step < ONBOARDING_STEP_COUNT) {
       setStep((s) => s + 1);
@@ -214,13 +239,22 @@ export function OnboardingWizard() {
               onChange={(e) => setAnswers((a) => ({ ...a, businessName: e.target.value }))}
               placeholder={t("app.onboarding.businessNamePlaceholder")}
             />
-            <Label className="mt-4 block">{t("app.onboarding.locationLabel")}</Label>
-            <Input
-              className="mt-2 min-h-12"
-              value={answers.location ?? ""}
-              onChange={(e) => setAnswers((a) => ({ ...a, location: e.target.value }))}
-              placeholder="Kano, Nigeria"
-            />
+            <div className="mt-4">
+              <NigeriaAreaFields
+                variant="plain"
+                state={stateName}
+                lga={lga}
+                onState={(value) => {
+                  setStateName(value);
+                  setLga("");
+                  setAnswers((a) => ({ ...a, location: formatNigerianLocation(value, "") }));
+                }}
+                onLga={(value) => {
+                  setLga(value);
+                  setAnswers((a) => ({ ...a, location: formatNigerianLocation(stateName, value) }));
+                }}
+              />
+            </div>
           </>
         )}
 

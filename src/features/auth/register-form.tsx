@@ -9,7 +9,6 @@ import {
   AuthField,
   AuthOrDivider,
   AuthScreen,
-  AuthSelectField,
   GoogleAuthButton,
   GradientRegisterButton,
   PasswordToggle,
@@ -19,19 +18,12 @@ import {
 } from "@/features/auth/auth-ui";
 import { signInWithEmail, signInWithGoogle, signUpWithEmail } from "@/features/auth/auth-service";
 import { enterAppAfterAuth } from "@/features/auth/route-guards";
+import { NigeriaAreaFields } from "@/features/location/nigeria-area-fields";
 import { registerSchema } from "@/features/onboarding/schemas";
+import { writeStoredUserArea } from "@/hooks/use-user-area";
+import { formatNigerianLocation } from "@/lib/nigeria-locations";
 import { useTranslation } from "@/lib/i18n/context";
 import { Checkbox } from "@/components/ui/checkbox";
-
-const LOCATION_OPTIONS = [
-  "Kano, Nigeria",
-  "Lagos, Nigeria",
-  "Abuja, Nigeria",
-  "Kaduna, Nigeria",
-  "Port Harcourt, Nigeria",
-  "Ibadan, Nigeria",
-  "Other",
-];
 
 export function RegisterForm() {
   const { t } = useTranslation();
@@ -39,7 +31,8 @@ export function RegisterForm() {
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [location, setLocation] = useState("");
+  const [stateName, setStateName] = useState("");
+  const [lga, setLga] = useState("");
   const [agreeTerms, setAgreeTerms] = useState(false);
   const [passwordVisible, setPasswordVisible] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -47,11 +40,14 @@ export function RegisterForm() {
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
+    const location = formatNigerianLocation(stateName, lga);
     const parsed = registerSchema.safeParse({
       fullName,
       phone,
       email,
       password,
+      state: stateName,
+      lga,
       location,
       agreeTerms,
     });
@@ -66,6 +62,8 @@ export function RegisterForm() {
       fullName: parsed.data.fullName,
       phone: parsed.data.phone,
       location: parsed.data.location,
+      state: parsed.data.state,
+      lga: parsed.data.lga,
     });
     if (error) {
       setLoading(false);
@@ -78,6 +76,8 @@ export function RegisterForm() {
         JSON.stringify({
           businessName: parsed.data.fullName,
           location: parsed.data.location,
+          state: parsed.data.state,
+          lga: parsed.data.lga,
         }),
       );
     }
@@ -96,6 +96,9 @@ export function RegisterForm() {
       toast.error("Could not open your account. Try signing in.");
       return;
     }
+    writeStoredUserArea({ state: parsed.data.state, lga: parsed.data.lga });
+    const { saveOwnArea } = await import("@/services/profile-service");
+    await saveOwnArea({ state: parsed.data.state, lga: parsed.data.lga, location: parsed.data.location });
     await enterAppAfterAuth({ prefer: "onboarding" });
   }
 
@@ -161,14 +164,12 @@ export function RegisterForm() {
               <PasswordToggle visible={passwordVisible} onToggle={() => setPasswordVisible((v) => !v)} />
             }
           />
-          <AuthSelectField
-            id="reg-location"
-            label={t("auth.location")}
-            icon={authIcons.map}
-            value={location}
-            onChange={setLocation}
-            placeholder={t("auth.locationPlaceholder")}
-            options={LOCATION_OPTIONS.map((l) => ({ value: l, label: l }))}
+          <NigeriaAreaFields
+            variant="app"
+            state={stateName}
+            lga={lga}
+            onState={setStateName}
+            onLga={setLga}
           />
           <label className="flex cursor-pointer items-start gap-3 text-sm leading-snug text-[#5a6578]">
             <Checkbox

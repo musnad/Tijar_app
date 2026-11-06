@@ -12,6 +12,7 @@ import { MarketplaceShell } from "@/features/marketplace/marketplace-shell";
 import { NearbyMap } from "@/features/marketplace/nearby-map";
 import { ProductCard } from "@/features/marketplace/product-card";
 import { useAuth } from "@/features/auth/auth-context";
+import { useUserArea } from "@/hooks/use-user-area";
 import { AREA_PRESETS } from "@/lib/maps/provider";
 import { fetchCart, fetchNearbyMarketplaceShops } from "@/services/marketplace-service";
 import { formatDistance } from "@/utils/discover";
@@ -23,11 +24,10 @@ const DEFAULT_CENTRE = AREA_PRESETS[0]!; // Kano
 
 export function NearbyScreen() {
   const { profile } = useAuth();
-  const [centre, setCentre] = useState<{ lat: number; lng: number }>({
-    lat: DEFAULT_CENTRE.lat,
-    lng: DEFAULT_CENTRE.lng,
-  });
-  const [centreLabel, setCentreLabel] = useState(DEFAULT_CENTRE.name);
+  const { coords: areaCoords, label: areaLabel } = useUserArea(profile);
+  const start = areaCoords ?? { lat: DEFAULT_CENTRE.lat, lng: DEFAULT_CENTRE.lng };
+  const [centre, setCentre] = useState<{ lat: number; lng: number }>(start);
+  const [centreLabel, setCentreLabel] = useState(areaLabel || DEFAULT_CENTRE.name);
   const [radiusKm, setRadiusKm] = useState<number>(25);
   const [query, setQuery] = useState("");
   const [selectedShopId, setSelectedShopId] = useState<string | null>(null);
@@ -108,7 +108,11 @@ export function NearbyScreen() {
         setGeoHint("");
       },
       () => {
-        setGeoHint("Location off — showing a city area. Tap Near me to try again.");
+        setGeoHint(
+          areaLabel
+            ? `GPS off — showing ${areaLabel}. Tap Near me to use your live location.`
+            : "Location off — showing a city area. Tap Near me to try again.",
+        );
       },
       { timeout: 10_000, maximumAge: 120_000 },
     );

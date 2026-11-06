@@ -14,7 +14,9 @@ describe("onboardingAnswersSchema", () => {
       phone: "+2348000000000",
       email: "a@example.com",
       password: "secret1",
-      location: "Kano",
+      state: "Kano",
+      lga: "Nassarawa",
+      location: "Nassarawa, Kano",
       agreeTerms: true as const,
     });
     expect(reg.success).toBe(true);

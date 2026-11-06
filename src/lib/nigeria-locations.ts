@@ -1108,10 +1108,19 @@ export function locationMatchesArea(
   locationText: string | null | undefined,
   area: { state?: string | null; lga?: string | null },
 ): boolean {
+  return areaRank(locationText, area) > 0;
+}
+
+/** 3 = same LGA, 2 = same state, 0 = elsewhere. Used to surface nearby products. */
+export function areaRank(
+  locationText: string | null | undefined,
+  area: { state?: string | null; lga?: string | null },
+): number {
   const text = locationText?.trim().toLowerCase() ?? "";
   const state = area.state?.trim().toLowerCase() ?? "";
   const lga = area.lga?.trim().toLowerCase() ?? "";
-  if (lga && text.includes(lga)) return true;
-  if (state && text.includes(state)) return true;
-  return false;
+  if (!text) return 0;
+  if (lga && text.includes(lga)) return 3;
+  if (state && text.includes(state)) return 2;
+  return 0;
 }

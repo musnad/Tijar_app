@@ -45,9 +45,34 @@ export async function updateProfile(
       | "voice_enrolled_at"
       | "account_mode"
       | "active_mode"
+      | "state"
+      | "lga"
+      | "location_text"
     >
   >,
 ) {
   const supabase = getSupabaseBrowserClient();
   return supabase.from("profiles").update(patch).eq("id", profileId).select().single();
+}
+
+export async function saveOwnArea(input: { state: string; lga: string; location: string }) {
+  const { profile } = await fetchCurrentProfile();
+  if (!profile) return;
+  await supabaseSafeAreaUpdate(profile.id, input);
+}
+
+async function supabaseSafeAreaUpdate(
+  profileId: string,
+  input: { state: string; lga: string; location: string },
+) {
+  const supabase = getSupabaseBrowserClient();
+  const { error } = await supabase
+    .from("profiles")
+    .update({
+      state: input.state,
+      lga: input.lga || null,
+      location_text: input.location,
+    })
+    .eq("id", profileId);
+  if (error && /column|schema cache|does not exist/i.test(error.message)) return;
 }

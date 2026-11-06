@@ -21,6 +21,9 @@ export type Profile = {
   /** Provider clone id (e.g. ElevenLabs). */
   custom_voice_id?: string | null;
   voice_enrolled_at?: string | null;
+  state?: string | null;
+  lga?: string | null;
+  location_text?: string | null;
   created_at: string;
   updated_at: string;
 };
