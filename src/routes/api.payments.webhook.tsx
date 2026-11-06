@@ -68,12 +68,7 @@ export const Route = createFileRoute("/api/payments/webhook")({
           const service = readEnvString("SUPABASE_SERVICE_ROLE_KEY");
           if (!env || !service) return Response.json({ ok: false }, { status: 503 });
           const supabase = createClient(env.VITE_SUPABASE_URL, service);
-          let businessId = await findBusinessByReceivingAccount(supabase, credit.accountNumber);
-          if (!businessId && credit.businessReference?.startsWith("tijar-biz-")) {
-            const fromRef = credit.businessReference.slice("tijar-biz-".length);
-            const { data } = await supabase.from("businesses").select("id, virtual_account_number").eq("id", fromRef).maybeSingle();
-            if (data?.id) businessId = data.id as string;
-          }
+          const businessId = await findBusinessByReceivingAccount(supabase, credit.accountNumber);
           if (businessId && credit.reference) {
             const once = await supabase.rpc("credit_seller_wallet_once", {
               p_business_id: businessId,

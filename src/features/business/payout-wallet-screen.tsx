@@ -58,10 +58,9 @@ export function PayoutWalletScreen({
         configured: va.configured,
         account: va.account,
         accounts: va.accounts,
-        wallet:
-          va.wallet.available_ngn > 0 || va.wallet.pending_ngn > 0 ? va.wallet : ledger.wallet,
+        wallet: va.wallet,
         requests: ledger.requests,
-        credits: va.credits.length ? va.credits : ledger.credits,
+        credits: va.credits,
         activity: va.activity,
         payout: va.payout,
         error: va.error || ledger.error,
@@ -102,7 +101,7 @@ export function PayoutWalletScreen({
     const owned = new Set(accounts.map((row) => row.accountNumber.replace(/\D/g, "")).filter((n) => n.length >= 8));
     for (const row of activity) {
       const nuban = (row.accountNumber ?? "").replace(/\D/g, "");
-      if (owned.size && nuban && !owned.has(nuban)) continue;
+      if (!owned.size || !owned.has(nuban)) continue;
       rows.push({
         id: `corv-${row.reference}`,
         title: row.description,
@@ -113,6 +112,8 @@ export function PayoutWalletScreen({
       });
     }
     for (const row of credits) {
+      const nuban = (row.account_number ?? "").replace(/\D/g, "");
+      if (owned.size && !owned.has(nuban)) continue;
       if (rows.some((item) => item.id.endsWith(row.provider_reference))) continue;
       rows.push({
         id: row.id,

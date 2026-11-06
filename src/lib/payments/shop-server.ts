@@ -171,10 +171,9 @@ function creditBelongsToShop(
   accountNumber: string | null | undefined,
   owned: Set<string>,
 ): boolean {
+  if (!owned.size) return false;
   const nuban = String(accountNumber ?? "").replace(/\D/g, "");
-  if (nuban.length < 8) return true;
-  if (!owned.size) return true;
-  return owned.has(nuban);
+  return nuban.length >= 8 && owned.has(nuban);
 }
 
 export async function fastWalletAvailable(admin: SupabaseClient, businessId: string): Promise<number> {
@@ -207,17 +206,13 @@ export async function syncCorvWallet(
       if (nuban.length < 8) continue;
       const rows = await corvAccountActivity(nuban, row.reference);
       for (const tx of rows) {
-        if (tx.accountNumber && !sameNuban(tx.accountNumber, nuban)) continue;
-        const stamped = { ...tx, accountNumber: tx.accountNumber || nuban };
-        if (!activity.some((existing) => existing.reference === stamped.reference)) activity.push(stamped);
-        if (stamped.direction !== "in") continue;
-        await creditOnce(admin, businessId, stamped.amount, stamped.reference, nuban);
+        if (!sameNuban(tx.accountNumber, nuban)) continue;
+        if (!activity.some((existing) => existing.reference === tx.reference)) activity.push(tx);
+        if (tx.direction !== "in") continue;
+        await creditOnce(admin, businessId, tx.amount, tx.reference, nuban);
       }
     }
   }
-  const inbound = activity.filter((row) => row.direction === "in").reduce((sum, row) => sum + row.amount, 0);
-  const outbound = activity.filter((row) => row.direction === "out").reduce((sum, row) => sum + row.amount, 0);
   const ledger = await fastWalletAvailable(admin, businessId);
-  const available = Math.max(ledger, owned.length ? inbound - outbound : 0, 0);
-  return { activity, available };
+  return { activity, available: ledger };
 }

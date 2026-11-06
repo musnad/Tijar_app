@@ -497,7 +497,7 @@ function parseActivityRow(json: unknown): CorvActivity | null {
       "destination_account_number",
       "nuban",
       "accountNo",
-    ]),
+    ]) ?? pickDeepString(data, ["accountNumber", "account_number", "nuban", "virtualAccountNumber"]),
     createdAt: pickString(data, ["createdAt", "created_at", "paidAt", "timestamp", "date"]),
     direction: outgoing ? "out" : "in",
     description: pickString(data, ["narration", "description", "remark"]) ?? (outgoing ? "Withdrawal" : "Money in"),
@@ -587,17 +587,15 @@ export async function corvAccountActivity(
   for (const path of paths) {
     const result = await corvFetch(path);
     if ("error" in result || !result.res.ok) continue;
-    const scopedToThisAccount = Boolean(
-      (resolvedId && path.includes(resolvedId)) || path.includes(encoded) || path.includes(nuban),
-    );
+    const thisVirtualAccount = Boolean(resolvedId && path.includes(`/virtual-accounts/${resolvedId}/`));
     for (const row of parseActivityList(result.json)) {
-      const matches = sameNuban(row.accountNumber, nuban) || (scopedToThisAccount && !row.accountNumber);
+      const matches = sameNuban(row.accountNumber, nuban) || (thisVirtualAccount && !row.accountNumber);
       if (!matches) continue;
       if (!rows.some((existing) => existing.reference === row.reference)) {
         rows.push({ ...row, accountNumber: row.accountNumber || nuban });
       }
     }
-    if (rows.length) return rows;
+    if (thisVirtualAccount && rows.length) return rows;
   }
   return rows;
 }

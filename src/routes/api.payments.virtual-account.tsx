@@ -80,8 +80,7 @@ export const Route = createFileRoute("/api/payments/virtual-account")({
           .limit(80);
         const credits = (creditRows ?? []).filter((row) => {
           const nuban = String(row.account_number ?? "").replace(/\D/g, "");
-          if (nuban.length < 8) return true;
-          return !owned.size || owned.has(nuban);
+          return owned.size > 0 && owned.has(nuban);
         }).slice(0, 40);
         const available = synced.available;
         const banks = corvConfigured() ? (await corvListBanks()).banks : [];
