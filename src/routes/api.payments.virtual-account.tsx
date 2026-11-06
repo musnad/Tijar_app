@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 import { corvConfigured, corvCreateVirtualAccount, corvListBanks } from "@/lib/payments/corv";
-import { shopAdminClient } from "@/lib/payments/shop-server";
+import { shopAdminClient, syncCorvWallet } from "@/lib/payments/shop-server";
 
 export const Route = createFileRoute("/api/payments/virtual-account")({
   server: {
@@ -28,6 +28,33 @@ export const Route = createFileRoute("/api/payments/virtual-account")({
               .eq("id", businessId)
               .maybeSingle()
           : full;
+        const extras = Array.isArray(biz?.virtual_accounts)
+          ? (biz.virtual_accounts as Array<{ accountNumber?: string; account_number?: string; reference?: string }>).map(
+              (row) => ({
+                ...row,
+                accountNumber: row.accountNumber || row.account_number,
+              }),
+            )
+          : [];
+        const account = biz?.virtual_account_number
+          ? {
+              accountName: biz.virtual_account_name,
+              accountNumber: biz.virtual_account_number,
+              bankName: biz.virtual_account_bank_name,
+              bankCode: biz.virtual_account_bank_code,
+              reference: biz.virtual_account_reference,
+            }
+          : null;
+        const accounts = extras.length ? extras : account ? [account] : [];
+        const synced = await syncCorvWallet(
+          ctx.admin,
+          businessId,
+          (accounts as Array<{ accountNumber?: string; reference?: string }>).map((row) => ({
+            accountNumber: row.accountNumber,
+            reference: row.reference ?? account?.reference,
+          })),
+        );
+        const activity = synced.activity;
         const { data: wallet } = await ctx.admin
           .from("seller_wallets")
           .select("available_ngn, pending_ngn")
@@ -39,26 +66,14 @@ export const Route = createFileRoute("/api/payments/virtual-account")({
           .eq("business_id", businessId)
           .order("created_at", { ascending: false })
           .limit(40);
-        const extras = Array.isArray(biz?.virtual_accounts) ? biz.virtual_accounts : [];
-        const account = biz?.virtual_account_number
-          ? {
-              accountName: biz.virtual_account_name,
-              accountNumber: biz.virtual_account_number,
-              bankName: biz.virtual_account_bank_name,
-              bankCode: biz.virtual_account_bank_code,
-              reference: biz.virtual_account_reference,
-            }
-          : null;
+        const available = synced.available;
         const banks = corvConfigured() ? (await corvListBanks()).banks : [];
         return Response.json({
           configured: corvConfigured(),
           banks,
           account,
-          accounts: extras.length
-            ? extras
-            : account
-              ? [account]
-              : [],
+          accounts,
+          activity,
           payout: biz?.payout_account_number
             ? {
                 accountName: biz.payout_account_name,
@@ -68,7 +83,7 @@ export const Route = createFileRoute("/api/payments/virtual-account")({
               }
             : null,
           wallet: {
-            available_ngn: Number(wallet?.available_ngn ?? 0),
+            available_ngn: available,
             pending_ngn: Number(wallet?.pending_ngn ?? 0),
           },
           credits: credits ?? [],

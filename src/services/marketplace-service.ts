@@ -1760,6 +1760,20 @@ export async function fetchVirtualAccountWallet(businessId: string): Promise<{
   accounts: Array<{ accountName: string; accountNumber: string; bankName: string }>;
   wallet: { available_ngn: number; pending_ngn: number };
   credits: import("@/types/database").WalletCredit[];
+  activity: Array<{
+    amount: number;
+    reference: string;
+    accountNumber: string | null;
+    createdAt: string | null;
+    direction: "in" | "out";
+    description: string;
+  }>;
+  payout: {
+    accountName: string | null;
+    accountNumber: string | null;
+    bankName: string | null;
+    bankCode: string | null;
+  } | null;
   error: string | null;
 }> {
   const emptyWallet = { available_ngn: 0, pending_ngn: 0 };
@@ -1768,7 +1782,16 @@ export async function fetchVirtualAccountWallet(businessId: string): Promise<{
     data: { session },
   } = await supabase.auth.getSession();
   if (!session?.access_token) {
-    return { configured: false, account: null, accounts: [], wallet: emptyWallet, credits: [], error: "Sign in first." };
+    return {
+      configured: false,
+      account: null,
+      accounts: [],
+      wallet: emptyWallet,
+      credits: [],
+      activity: [],
+      payout: null,
+      error: "Sign in first.",
+    };
   }
   const res = await fetch(`/api/payments/virtual-account?businessId=${encodeURIComponent(businessId)}`, {
     headers: { Authorization: `Bearer ${session.access_token}` },
@@ -1784,10 +1807,24 @@ export async function fetchVirtualAccountWallet(businessId: string): Promise<{
     accounts?: Array<{ accountName: string; accountNumber: string; bankName: string }>;
     wallet?: { available_ngn: number; pending_ngn: number };
     credits?: import("@/types/database").WalletCredit[];
+    activity?: Array<{
+      amount: number;
+      reference: string;
+      accountNumber: string | null;
+      createdAt: string | null;
+      direction: "in" | "out";
+      description: string;
+    }>;
+    payout?: {
+      accountName: string | null;
+      accountNumber: string | null;
+      bankName: string | null;
+      bankCode: string | null;
+    } | null;
     error?: string;
   };
   if (!res.ok) {
-    return { configured: false, account: null, accounts: [], wallet: emptyWallet, credits: [], error: json.error ?? "Could not load wallet." };
+    return { configured: false, account: null, accounts: [], wallet: emptyWallet, credits: [], activity: [], payout: null, error: json.error ?? "Could not load wallet." };
   }
   return {
     configured: Boolean(json.configured),
@@ -1795,6 +1832,8 @@ export async function fetchVirtualAccountWallet(businessId: string): Promise<{
     accounts: json.accounts ?? (json.account ? [json.account] : []),
     wallet: json.wallet ?? emptyWallet,
     credits: json.credits ?? [],
+    activity: json.activity ?? [],
+    payout: json.payout ?? null,
     error: null,
   };
 }
@@ -1802,6 +1841,12 @@ export async function fetchVirtualAccountWallet(businessId: string): Promise<{
 export async function requestSellerPayout(
   businessId: string,
   amount: number,
+  destination?: {
+    accountNumber: string;
+    accountName: string;
+    bankCode: string;
+    bankName: string;
+  },
 ): Promise<{ error: string | null; message?: string }> {
   const supabase = getSupabaseBrowserClient();
   const {
@@ -1814,7 +1859,7 @@ export async function requestSellerPayout(
       Authorization: `Bearer ${session.access_token}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ businessId, amount }),
+    body: JSON.stringify({ businessId, amount, ...destination }),
   });
   const json = (await res.json()) as { error?: string; message?: string };
   if (!res.ok) return { error: json.error ?? "Payout failed." };

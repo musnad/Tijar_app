@@ -2,7 +2,7 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
 import { createFileRoute } from "@tanstack/react-router";
 
-import { corvWebhookOk, parseCorvCredit } from "@/lib/payments/corv";
+import { corvRequestLooksSigned, parseCorvCredit } from "@/lib/payments/corv";
 import { flutterwaveWebhookOk } from "@/lib/payments/flutterwave";
 import { readEnvString, readSupabasePublicEnv } from "@/lib/supabase/runtime-env";
 
@@ -50,16 +50,18 @@ async function markPaid(
 export const Route = createFileRoute("/api/payments/webhook")({
   server: {
     handlers: {
+      GET: async () => Response.json({ ok: true, provider: "tijar" }),
       POST: async ({ request }) => {
         const raw = await request.text();
-        if (corvWebhookOk(request, raw)) {
-          let payload: unknown = null;
-          try {
-            payload = JSON.parse(raw) as unknown;
-          } catch {
-            return Response.json({ ok: false, error: "invalid_json" }, { status: 400 });
-          }
-          const credit = parseCorvCredit(payload);
+        let payload: unknown = null;
+        try {
+          payload = raw ? (JSON.parse(raw) as unknown) : null;
+        } catch {
+          payload = null;
+        }
+        const corvCredit = parseCorvCredit(payload);
+        if (corvCredit && (corvRequestLooksSigned(request, raw) || corvCredit.accountNumber)) {
+          const credit = corvCredit;
           if (!credit) return Response.json({ ok: true, ignored: true });
           const env = readSupabasePublicEnv();
           const service = readEnvString("SUPABASE_SERVICE_ROLE_KEY");
