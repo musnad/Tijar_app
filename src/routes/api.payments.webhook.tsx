@@ -19,13 +19,14 @@ async function markPaid(
   reference: string | undefined,
   businessId: string | undefined,
   amount: number | undefined,
+  provider: string,
 ) {
   const env = readSupabasePublicEnv();
   const service = readEnvString("SUPABASE_SERVICE_ROLE_KEY");
   if (!env || !service) return;
   const supabase = createClient(env.VITE_SUPABASE_URL, service);
   if (orderId) {
-    await supabase.from("orders").update({ status: "paid", payment_method: "flutterwave", payment_destination: "platform" }).eq("id", orderId);
+    await supabase.from("orders").update({ status: "paid", payment_method: provider, payment_destination: "platform" }).eq("id", orderId);
     if (!businessId) {
       const { data } = await supabase.from("orders").select("business_id, total").eq("id", orderId).maybeSingle();
       businessId = data?.business_id as string | undefined;
@@ -35,8 +36,14 @@ async function markPaid(
   if (reference) {
     await supabase.from("payments").update({ status: "success", provider_reference: reference }).eq("provider_reference", reference);
   }
-  if (businessId && amount && amount > 0) {
-    await supabase.rpc("credit_seller_wallet", { p_business_id: businessId, p_amount: amount });
+  const creditRef = reference || (orderId ? `${provider}-order-${orderId}` : null);
+  if (businessId && amount && amount > 0 && creditRef) {
+    await supabase.rpc("credit_seller_wallet_once", {
+      p_business_id: businessId,
+      p_amount: amount,
+      p_provider: provider,
+      p_reference: creditRef,
+    });
   }
 }
 
@@ -106,6 +113,7 @@ export const Route = createFileRoute("/api/payments/webhook")({
             payload.data?.tx_ref ?? payload.data?.flw_ref,
             payload.data?.meta?.business_id,
             payload.data?.amount,
+            "flutterwave",
           );
           return Response.json({ ok: true });
         }
@@ -123,6 +131,7 @@ export const Route = createFileRoute("/api/payments/webhook")({
             payload.data?.reference,
             payload.data?.metadata?.business_id,
             payload.data?.amount != null ? payload.data.amount / 100 : undefined,
+            "paystack",
           );
           return Response.json({ ok: true });
         }

@@ -24,6 +24,12 @@ export const Route = createFileRoute("/api/payments/virtual-account")({
           .select("available_ngn, pending_ngn")
           .eq("business_id", businessId)
           .maybeSingle();
+        const { data: credits } = await ctx.admin
+          .from("wallet_credits")
+          .select("id, business_id, provider, provider_reference, amount_ngn, account_number, created_at")
+          .eq("business_id", businessId)
+          .order("created_at", { ascending: false })
+          .limit(40);
         return Response.json({
           configured: corvConfigured(),
           account: biz?.virtual_account_number
@@ -47,6 +53,7 @@ export const Route = createFileRoute("/api/payments/virtual-account")({
             available_ngn: Number(wallet?.available_ngn ?? 0),
             pending_ngn: Number(wallet?.pending_ngn ?? 0),
           },
+          credits: credits ?? [],
         });
       },
       POST: async ({ request }) => {

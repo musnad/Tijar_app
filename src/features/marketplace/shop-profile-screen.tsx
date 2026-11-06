@@ -24,6 +24,7 @@ import {
   Store,
   UserRound,
   UtensilsCrossed,
+  Wallet,
 } from "lucide-react";
 import { useEffect } from "react";
 import { toast } from "sonner";
@@ -209,7 +210,10 @@ export function ShopProfileScreen() {
         ]
       : []),
     ...(!demo && canUseBusinessMode(profile) && shopQuery.data?.business
-      ? [{ to: "/shop/create-order", label: "Place your order posts", icon: UtensilsCrossed }]
+      ? [
+          { to: "/shop/payouts", label: "Wallet & payouts", icon: Wallet },
+          { to: "/shop/create-order", label: "Place your order posts", icon: UtensilsCrossed },
+        ]
       : []),
     { to: "/shop/order-now", label: "Place your order", icon: UtensilsCrossed },
     { to: "/app/learn", label: t("shop.profile.learn"), icon: BookOpen },

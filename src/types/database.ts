@@ -151,6 +151,16 @@ export type SellerWallet = {
   pending_ngn: number;
 };
 
+export type WalletCredit = {
+  id: string;
+  business_id: string;
+  provider: string;
+  provider_reference: string;
+  amount_ngn: number;
+  account_number: string | null;
+  created_at: string;
+};
+
 export type PayoutRequest = {
   id: string;
   business_id: string;

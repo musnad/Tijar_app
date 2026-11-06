@@ -7,6 +7,8 @@ import { updateProductImages } from "@/services/product-service";
 
 export { videoPublicStatus };
 
+export const MAX_POST_IMAGES = 6;
+
 export type StudioSubmitInput = {
   businessId: string;
   profileId: string;
@@ -19,6 +21,7 @@ export type StudioSubmitInput = {
   rightsAttested?: boolean;
   asDraft?: boolean;
   durationHintMs?: number;
+  extraImages?: File[];
   onProgress?: (pct: number, label: string) => void;
 };
 

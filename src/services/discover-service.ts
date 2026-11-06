@@ -378,3 +378,12 @@ export async function fetchMyPlatformRoles(profileId: string): Promise<string[]>
   const { data } = await supabase.from("platform_roles").select("role").eq("profile_id", profileId);
   return (data ?? []).map((r) => r.role as string);
 }
+
+export async function recordBusinessShare(businessId: string, channel: string): Promise<void> {
+  const supabase = getSupabaseBrowserClient();
+  await supabase.from("business_events").insert({
+    business_id: businessId,
+    event_type: "STOREFRONT_SHARE",
+    payload: { channel },
+  });
+}

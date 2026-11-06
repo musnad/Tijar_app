@@ -1652,6 +1652,7 @@ export async function saveBusinessPayoutAccount(
 export async function fetchSellerWallet(businessId: string): Promise<{
   wallet: import("@/types/database").SellerWallet;
   requests: import("@/types/database").PayoutRequest[];
+  credits: import("@/types/database").WalletCredit[];
   error: string | null;
 }> {
   const empty = { business_id: businessId, available_ngn: 0, pending_ngn: 0 };
@@ -1663,10 +1664,17 @@ export async function fetchSellerWallet(businessId: string): Promise<{
     .eq("business_id", businessId)
     .order("created_at", { ascending: false })
     .limit(20);
+  const creditRes = await supabase
+    .from("wallet_credits")
+    .select("*")
+    .eq("business_id", businessId)
+    .order("created_at", { ascending: false })
+    .limit(40);
   return {
     wallet: (walletRes.data as import("@/types/database").SellerWallet | null) ?? empty,
     requests: (reqRes.data ?? []) as import("@/types/database").PayoutRequest[],
-    error: walletRes.error?.message ?? reqRes.error?.message ?? null,
+    credits: (creditRes.data ?? []) as import("@/types/database").WalletCredit[],
+    error: walletRes.error?.message ?? reqRes.error?.message ?? creditRes.error?.message ?? null,
   };
 }
 
@@ -1739,6 +1747,7 @@ export async function fetchVirtualAccountWallet(businessId: string): Promise<{
     bankCode: string | null;
   } | null;
   wallet: { available_ngn: number; pending_ngn: number };
+  credits: import("@/types/database").WalletCredit[];
   error: string | null;
 }> {
   const emptyWallet = { available_ngn: 0, pending_ngn: 0 };
@@ -1747,7 +1756,7 @@ export async function fetchVirtualAccountWallet(businessId: string): Promise<{
     data: { session },
   } = await supabase.auth.getSession();
   if (!session?.access_token) {
-    return { configured: false, account: null, wallet: emptyWallet, error: "Sign in first." };
+    return { configured: false, account: null, wallet: emptyWallet, credits: [], error: "Sign in first." };
   }
   const res = await fetch(`/api/payments/virtual-account?businessId=${encodeURIComponent(businessId)}`, {
     headers: { Authorization: `Bearer ${session.access_token}` },
@@ -1761,15 +1770,17 @@ export async function fetchVirtualAccountWallet(businessId: string): Promise<{
       bankCode: string | null;
     } | null;
     wallet?: { available_ngn: number; pending_ngn: number };
+    credits?: import("@/types/database").WalletCredit[];
     error?: string;
   };
   if (!res.ok) {
-    return { configured: false, account: null, wallet: emptyWallet, error: json.error ?? "Could not load wallet." };
+    return { configured: false, account: null, wallet: emptyWallet, credits: [], error: json.error ?? "Could not load wallet." };
   }
   return {
     configured: Boolean(json.configured),
     account: json.account ?? null,
     wallet: json.wallet ?? emptyWallet,
+    credits: json.credits ?? [],
     error: null,
   };
 }

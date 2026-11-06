@@ -24,6 +24,8 @@ export type PlaceOrderListing = {
   ready_from: string | null;
   ready_until: string | null;
   qty_note: string | null;
+  quantity: number | null;
+  sold_count: number;
   is_open: boolean;
   like_count: number;
   comment_count: number;
@@ -85,6 +87,8 @@ function asListing(
     ready_from: (row.ready_from as string | null) ?? null,
     ready_until: (row.ready_until as string | null) ?? null,
     qty_note: (row.qty_note as string | null) ?? null,
+    quantity: row.quantity != null ? Number(row.quantity) : null,
+    sold_count: Number(row.sold_count ?? 0),
     is_open: row.is_open !== false,
     like_count: Number(row.like_count ?? 0),
     comment_count: Number(row.comment_count ?? 0),
@@ -584,6 +588,47 @@ export async function fetchPlaceOrderComments(
     comments: comments.map((c) => ({ ...c, author_name: names.get(c.profile_id) ?? "Shopper" })),
     error: null,
   };
+}
+
+export function placeOrderRemaining(listing: Pick<PlaceOrderListing, "quantity" | "sold_count">): number | null {
+  if (listing.quantity == null || !Number.isFinite(listing.quantity)) return null;
+  return Math.max(0, listing.quantity - listing.sold_count);
+}
+
+export function placeOrderSoldOut(listing: Pick<PlaceOrderListing, "quantity" | "sold_count" | "is_open">): boolean {
+  const left = placeOrderRemaining(listing);
+  return left === 0;
+}
+
+export async function updatePlaceOrderComment(input: {
+  commentId: string;
+  profileId: string;
+  body: string;
+}): Promise<{ error: string | null }> {
+  const text = input.body.trim();
+  if (!text) return { error: "Write a comment first." };
+  const supabase = getSupabaseBrowserClient();
+  const { error } = await supabase
+    .from("place_order_comments")
+    .update({ body: text })
+    .eq("id", input.commentId)
+    .eq("profile_id", input.profileId);
+  if (error && missingTable(error.message)) return { error: "Comments are not set up yet." };
+  return { error: error?.message ?? null };
+}
+
+export async function deletePlaceOrderComment(input: {
+  commentId: string;
+  profileId: string;
+}): Promise<{ error: string | null }> {
+  const supabase = getSupabaseBrowserClient();
+  const { error } = await supabase
+    .from("place_order_comments")
+    .delete()
+    .eq("id", input.commentId)
+    .eq("profile_id", input.profileId);
+  if (error && missingTable(error.message)) return { error: "Comments are not set up yet." };
+  return { error: error?.message ?? null };
 }
 
 export async function postPlaceOrderComment(input: {

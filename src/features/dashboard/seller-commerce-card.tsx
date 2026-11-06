@@ -1,7 +1,7 @@
 "use client";
 
 import { Link } from "@tanstack/react-router";
-import { Clapperboard, Inbox, Package, ShieldCheck, Sparkles } from "lucide-react";
+import { Clapperboard, Inbox, Package, ShieldCheck, Sparkles, Wallet } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { METRIC_DEFINITIONS } from "@/lib/business/capabilities";
@@ -96,6 +96,7 @@ export function SellerCommerceCard({
         <DashLink to="/app/videos" icon={Clapperboard} label="Videos" />
         <DashLink to="/app/inbox" icon={Inbox} label={`Inbox (${enquiryCount})`} />
         <DashLink to="/app/orders" icon={ShieldCheck} label={`Orders (${recentOrderCount})`} />
+        <DashLink to="/app/business/payouts" icon={Wallet} label="Wallet" />
       </div>
 
       <div className="mt-3 flex flex-wrap gap-2">
@@ -143,7 +144,7 @@ function DashLink({
   icon: Icon,
   label,
 }: {
-  to: "/app/products" | "/app/videos" | "/app/inbox" | "/app/orders";
+  to: "/app/products" | "/app/videos" | "/app/inbox" | "/app/orders" | "/app/business/payouts";
   icon: typeof Package;
   label: string;
 }) {

@@ -75,6 +75,7 @@ export function PayoutWalletScreen({
         account: va.account,
         wallet: va.wallet.available_ngn || va.wallet.pending_ngn ? va.wallet : ledger.wallet,
         requests: ledger.requests,
+        credits: va.credits.length ? va.credits : ledger.credits,
         error: va.error || ledger.error,
       };
     },
@@ -95,6 +96,7 @@ export function PayoutWalletScreen({
   const account = walletQuery.data?.account;
   const wallet = walletQuery.data?.wallet ?? { available_ngn: 0, pending_ngn: 0 };
   const requests = walletQuery.data?.requests ?? [];
+  const credits = walletQuery.data?.credits ?? [];
 
   async function createAccount() {
     setCreating(true);
@@ -258,9 +260,37 @@ export function PayoutWalletScreen({
         <BankAccountForm key={selected.id} business={selected} />
       </section>
 
-      {requests.length > 0 ? (
-        <section className="mt-4">
-          <h2 className="text-sm font-extrabold">Withdrawals</h2>
+      <section className="mt-4">
+        <h2 className="text-sm font-extrabold">Incoming payments</h2>
+        {credits.length === 0 ? (
+          <p className="mt-2 text-sm text-muted-foreground">
+            Transfers into the shop account and online checkout payments will show here.
+          </p>
+        ) : (
+          <ul className="mt-2 space-y-2">
+            {credits.map((row) => (
+              <li key={row.id} className="flex items-center justify-between rounded-xl border border-border px-3 py-2 text-sm">
+                <span className="min-w-0">
+                  <span className="block truncate font-bold">Payment received</span>
+                  <span className="text-[11px] text-muted-foreground">
+                    {row.provider}
+                    {row.account_number ? ` · ${row.account_number}` : ""}
+                    {" · "}
+                    {new Date(row.created_at).toLocaleString("en-NG", { dateStyle: "medium", timeStyle: "short" })}
+                  </span>
+                </span>
+                <span className="shrink-0 font-extrabold text-[#1F7A4D]">+{formatNgn(Number(row.amount_ngn))}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <section className="mt-4">
+        <h2 className="text-sm font-extrabold">Withdrawals</h2>
+        {requests.length === 0 ? (
+          <p className="mt-2 text-sm text-muted-foreground">No withdrawal requests yet.</p>
+        ) : (
           <ul className="mt-2 space-y-2">
             {requests.map((row) => (
               <li key={row.id} className="flex items-center justify-between rounded-xl border border-border px-3 py-2 text-sm">
@@ -274,16 +304,16 @@ export function PayoutWalletScreen({
               </li>
             ))}
           </ul>
-        </section>
-      ) : null}
+        )}
+      </section>
 
       <section className="mt-4 pb-8">
-        <h2 className="text-sm font-extrabold">Shop transactions</h2>
+        <h2 className="text-sm font-extrabold">Shop sales ledger</h2>
         {salesQuery.isLoading ? (
           <p className="mt-2 text-sm text-muted-foreground">Loading sales…</p>
         ) : shopSales.length === 0 ? (
           <p className="mt-2 text-sm text-muted-foreground">
-            No shop sales yet. Incoming transfers show in the wallet above.
+            No recorded shop sales yet. Incoming transfers still appear under payments above.
           </p>
         ) : (
           <ul className="mt-2 space-y-2">
