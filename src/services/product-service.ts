@@ -135,14 +135,11 @@ export async function createProduct(
     low_stock_threshold: kind === "service" ? 0 : (input.lowStockThreshold ?? 5),
     notes: input.notes?.trim() || input.description?.trim() || null,
     description: input.description?.trim() || input.notes?.trim() || null,
-    attributes: {
-      ...parseAttributes(input.size, input.colour),
-      ...(input.condition ? { condition: input.condition } : {}),
-    },
+    attributes: parseAttributes(input.size, input.colour),
     variants: variantsFromSizeColour(input.sizes ?? "", input.colours ?? ""),
     video_url: input.videoUrl?.trim() || null,
     catalogue_category: input.catalogueCategory?.trim() || null,
-    is_published: input.isPublished ?? false,
+    is_published: input.isPublished ?? input.salePrice != null,
     currency: "NGN",
     service_type: kind === "service" ? (input.serviceType ?? "general") : "general",
     starts_on: kind === "service" && input.startsOn ? input.startsOn : null,
@@ -309,6 +306,7 @@ export async function updateProduct(
     description: string | null;
     notes: string | null;
     sale_price: number | null;
+    unit: string;
     variants: unknown;
     attributes: Record<string, string>;
     image_url: string | null;

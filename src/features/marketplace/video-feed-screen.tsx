@@ -69,6 +69,7 @@ import { fetchLiveStoryRings, type StoryRing } from "@/services/story-service";
 import { formatDistance, haversineKm } from "@/utils/discover";
 import { cn } from "@/lib/utils";
 import { addToCart, fetchBusinessPayoutAccount, fetchCart, fetchMarketplaceProducts, toggleFavoriteProduct } from "@/services/marketplace-service";
+import { formatPricePerUnit } from "@/lib/catalogue/units";
 import { formatServiceDates, serviceLabel } from "@/lib/catalogue/service-schedule";
 import { parseVariantList } from "@/lib/catalogue/variants";
 import { TijarLogo } from "@/components/brand-logo";
@@ -1630,6 +1631,7 @@ const VideoSlide = memo(function VideoSlide({
               title={featured?.name || video.caption?.trim() || shopName}
               imageUrl={featured?.image_url ?? poster ?? null}
               price={featured?.sale_price != null ? Number(featured.sale_price) : video.price ?? null}
+              unit={featured?.unit}
               host="tijar.ng"
               onPay={() => {
                 if (featured) {
@@ -1830,7 +1832,9 @@ function FeedProductCard({ product, onAdd }: { product: PublicProduct; onAdd: ()
           </p>
           <p className="mt-0.5 truncate text-[11px] text-zinc-500">{blurb}</p>
           <p className="mt-1 text-lg font-black text-primary">
-            {product.sale_price != null ? formatNgn(Number(product.sale_price)) : t("shop.feed.askSeller")}
+            {product.sale_price != null
+              ? formatPricePerUnit(Number(product.sale_price), product.unit, formatNgn)
+              : t("shop.feed.askSeller")}
           </p>
         </div>
       </div>
@@ -2037,6 +2041,7 @@ const ListingSlide = memo(function ListingSlide({
             title={product.name}
             imageUrl={product.image_url}
             price={product.sale_price != null ? Number(product.sale_price) : null}
+            unit={product.unit}
             onPay={() => void navigate({ to: "/shop/buy", search: { productId: product.id } })}
           />
         </div>
@@ -2106,7 +2111,7 @@ function ProductList({
           <div className="min-w-0 flex-1">
             <p className="font-extrabold">{product.name}</p>
             <p className="text-sm font-bold text-primary">
-              {product.sale_price != null ? formatNgn(Number(product.sale_price)) : "No price"}
+              {product.sale_price != null ? formatPricePerUnit(Number(product.sale_price), product.unit, formatNgn) : "No price"}
             </p>
             <p className="text-[11px] text-muted-foreground">
               {product.is_available === false ? "Unavailable" : "Available"} · live catalogue

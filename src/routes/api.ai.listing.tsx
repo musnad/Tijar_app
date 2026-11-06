@@ -58,7 +58,7 @@ export const Route = createFileRoute("/api/ai/listing")({
 
 function sanitizeListing(raw: ListingExtract, fallbackText: string): ListingExtract {
   const fb = fallbackListing(fallbackText);
-  const unit = ["piece", "bag", "carton", "kg", "litre"].includes(raw.unit) ? raw.unit : fb.unit;
+  const unit = ["piece", "bag", "carton", "kg", "litre", "yard", "metre"].includes(raw.unit) ? raw.unit : fb.unit;
   return {
     productName: (raw.productName || fb.productName).slice(0, 120),
     unit,

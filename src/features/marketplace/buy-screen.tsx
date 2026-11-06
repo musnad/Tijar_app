@@ -11,22 +11,23 @@ import { Input } from "@/components/ui/input";
 import { MarketplaceShell } from "@/features/marketplace/marketplace-shell";
 import { isMockFeedId } from "@/features/marketplace/feed-mock";
 import { useAuth } from "@/features/auth/auth-context";
-import { useAccountGate } from "@/features/auth/account-gate";
 import {
+  addToCart,
   fetchBusinessPayoutAccount,
   fetchMarketplaceProduct,
   markBuyerTransferPaid,
-  placeBuyNowOrder,
+  placeOrders,
 } from "@/services/marketplace-service";
+import { formatPricePerUnit, formatUnitWord, lineTotal, normalizeQty, unitMinQty, unitStep } from "@/lib/catalogue/units";
 import { formatNgn } from "@/utils/money";
 import { useTranslation } from "@/lib/i18n/context";
 
-export function BuyScreen({ productId }: { productId?: string }) {
+export function BuyScreen({ productId, initialQty }: { productId?: string; initialQty?: number }) {
   const { t } = useTranslation();
   const { profile, session } = useAuth();
-  const { requireAccount } = useAccountGate();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [qty, setQty] = useState(1);
+  const [qty, setQty] = useState(initialQty && initialQty > 0 ? initialQty : 1);
   const [fulfilment, setFulfilment] = useState<"pickup" | "seller_delivery">("pickup");
   const [phone, setPhone] = useState(profile?.phone ?? "");
   const [note, setNote] = useState("");
@@ -53,13 +54,17 @@ export function BuyScreen({ productId }: { productId?: string }) {
   });
   const account = accountQuery.data;
   const hasAccount = Boolean(account?.payout_account_number);
-  const total = product?.sale_price != null ? Number(product.sale_price) * qty + (fulfilment === "seller_delivery" ? 1500 : 0) : 0;
+  const unitPrice = product?.sale_price != null ? Number(product.sale_price) : 0;
+  const goodsTotal = product?.sale_price != null ? lineTotal(unitPrice, qty) : 0;
+  const total = product?.sale_price != null ? goodsTotal + (fulfilment === "seller_delivery" ? 1500 : 0) : 0;
+  const unitWord = formatUnitWord(product?.unit, qty);
 
   function requireSignIn() {
     if (productId && typeof window !== "undefined") {
       sessionStorage.setItem("tijar-after-login", `/shop/buy?productId=${encodeURIComponent(productId)}`);
     }
-    requireAccount("buy");
+    toast.error(t("shop.buy.signIn"));
+    void navigate({ to: "/login" });
   }
 
   async function confirm() {
@@ -80,20 +85,35 @@ export function BuyScreen({ productId }: { productId?: string }) {
       return;
     }
     setBusy(true);
-    const placed = await placeBuyNowOrder({
+    const added = await addToCart(profile.id, {
+      businessId: product.business_id,
       productId: product.id,
+      productName: product.name,
+      unit: product.unit,
+      unitPrice: Number(product.sale_price),
       quantity: qty,
+      imageUrl: product.image_url,
+    });
+    if (added.error) {
+      toast.error(added.error);
+      setBusy(false);
+      return;
+    }
+    const placed = await placeOrders({
       fulfilment,
       buyerNote: ["Pay: Transfer to shop", note].filter(Boolean).join(" · "),
       buyerPhone: phone,
       idempotencyKey: crypto.randomUUID(),
+      paymentMethod: "transfer",
+      paymentDestination: "seller",
     });
-    if (placed.error || !placed.order) {
+    if (placed.error || placed.orders.length === 0) {
       setBusy(false);
       toast.error(placed.error ?? "Could not place the order.");
       return;
     }
-    setOrderId(placed.order.id);
+    const order = placed.orders[0]!;
+    setOrderId(order.id);
     await queryClient.invalidateQueries({ queryKey: ["marketplace-orders"] });
     setBusy(false);
     toast.success(t("shop.buy.transferReady"));
@@ -146,20 +166,50 @@ export function BuyScreen({ productId }: { productId?: string }) {
                 <div className="min-w-0 flex-1">
                   <p className="font-extrabold text-[#0B1F4D]">{product.name}</p>
                   <p className="text-sm text-muted-foreground">{product.business_name}</p>
-                  <p className="mt-1 font-extrabold text-[#1F7A4D]">{formatNgn(Number(product.sale_price))}</p>
+                  <p className="mt-1 font-extrabold text-[#1F7A4D]">
+                    {formatPricePerUnit(Number(product.sale_price), product.unit, formatNgn)}
+                  </p>
                 </div>
               </div>
 
-              <label className="mt-4 block text-sm font-bold">{t("shop.buy.quantity")}</label>
+              <label className="mt-4 block text-sm font-bold">
+                {product.unit === "yard" || product.unit === "metre" ? `How many ${formatUnitWord(product.unit, 2)}?` : t("shop.buy.quantity")}
+              </label>
               <div className="mt-1 flex items-center gap-2">
-                <Button type="button" variant="outline" className="size-10 rounded-xl p-0" onClick={() => setQty((n) => Math.max(1, n - 1))}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="size-10 rounded-xl p-0"
+                  onClick={() => setQty((n) => normalizeQty(n - unitStep(product.unit), product.unit))}
+                >
                   −
                 </Button>
-                <span className="w-8 text-center font-extrabold">{qty}</span>
-                <Button type="button" variant="outline" className="size-10 rounded-xl p-0" onClick={() => setQty((n) => n + 1)}>
+                <Input
+                  className="h-10 w-20 rounded-xl text-center font-extrabold"
+                  inputMode="decimal"
+                  value={qty}
+                  onChange={(e) => {
+                    const next = Number(e.target.value);
+                    if (!Number.isFinite(next)) return;
+                    setQty(Math.max(unitMinQty(product.unit), next));
+                  }}
+                  onBlur={() => setQty((n) => normalizeQty(n, product.unit))}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="size-10 rounded-xl p-0"
+                  onClick={() => setQty((n) => normalizeQty(n + unitStep(product.unit), product.unit))}
+                >
                   +
                 </Button>
+                <span className="text-sm font-semibold text-muted-foreground">{unitWord}</span>
               </div>
+              {product.sale_price != null ? (
+                <p className="mt-2 text-[13px] font-semibold text-[#0B1F4D]">
+                  {qty} {unitWord} × {formatNgn(Number(product.sale_price))} = {formatNgn(goodsTotal)}
+                </p>
+              ) : null}
 
               <p className="mt-4 text-sm font-bold">{t("shop.buy.fulfilment")}</p>
               <div className="mt-2 grid grid-cols-2 gap-2">

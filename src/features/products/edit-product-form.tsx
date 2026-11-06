@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { AppPageHeader } from "@/features/app-layout/app-page-header";
 import { ProductPhotosField, type ProductPhotoItem } from "@/features/products/product-photos-field";
 import { ProductCard } from "@/features/marketplace/product-card";
+import { GOODS_UNITS } from "@/lib/catalogue/units";
 import { canPublishProduct, productPublishErrors } from "@/lib/catalogue/publish-guard";
 import { parseAttributes, variantsFromSizeColour } from "@/lib/catalogue/variants";
 import { invalidateBusinessQueries } from "@/lib/invalidate-business-queries";
@@ -35,6 +36,7 @@ export function EditProductForm({ businessId, productId }: { businessId: string;
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [salePrice, setSalePrice] = useState("");
+  const [unit, setUnit] = useState<string>("piece");
   const [sizes, setSizes] = useState("");
   const [colours, setColours] = useState("");
   const [photos, setPhotos] = useState<ProductPhotoItem[]>([]);
@@ -49,6 +51,7 @@ export function EditProductForm({ businessId, productId }: { businessId: string;
     setName(product.name);
     setDescription(product.description || product.notes || "");
     setSalePrice(product.sale_price != null ? String(product.sale_price) : "");
+    setUnit(product.unit || "piece");
     setCondition(product.attributes?.["condition"] === "used" ? "used" : "new");
     setServiceType(product.service_type === "course" || product.service_type === "mentorship" ? product.service_type : "general");
     setStartsOn(product.starts_on ? String(product.starts_on).slice(0, 10) : "");
@@ -110,6 +113,7 @@ export function EditProductForm({ businessId, productId }: { businessId: string;
       description: description.trim() || null,
       notes: description.trim() || null,
       sale_price: Number.isFinite(priceNum as number) ? priceNum : null,
+      unit: product.kind === "service" ? product.unit : unit,
       variants: variantsFromSizeColour(sizes, colours),
       attributes: attrs,
       image_url: imageUrl,
@@ -139,7 +143,7 @@ export function EditProductForm({ businessId, productId }: { businessId: string;
     kind: product.kind,
     description,
     sale_price: Number.isFinite(priceNum as number) ? Number(priceNum) : null,
-    unit: product.unit,
+    unit,
     image_url: photos[0]?.url ?? product.image_url,
     is_available: product.kind === "service" || Number(product.stock_quantity) > 0,
     business_name: "Your shop",
@@ -151,7 +155,34 @@ export function EditProductForm({ businessId, productId }: { businessId: string;
       <div className="mt-4 space-y-3">
         <Input value={name} onChange={(e) => setName(e.target.value)} className="min-h-11 rounded-xl" />
         <textarea className="min-h-24 w-full rounded-xl border px-3 py-2" value={description} onChange={(e) => setDescription(e.target.value)} />
-        <Input value={salePrice} onChange={(e) => setSalePrice(e.target.value)} placeholder="Sale price (NGN) *" className="min-h-11 rounded-xl" inputMode="decimal" />
+        <Input
+          value={salePrice}
+          onChange={(e) => setSalePrice(e.target.value)}
+          placeholder={unit === "yard" || unit === "metre" ? `Sale price per ${unit} (NGN) *` : "Sale price (NGN) *"}
+          className="min-h-11 rounded-xl"
+          inputMode="decimal"
+        />
+        {product.kind !== "service" ? (
+          <div className="flex flex-wrap gap-1.5">
+            {GOODS_UNITS.map((u) => (
+              <button
+                key={u}
+                type="button"
+                onClick={() => setUnit(u)}
+                className={`rounded-full px-3 py-1.5 text-[11px] font-bold ${
+                  unit === u ? "bg-primary text-white" : "bg-muted text-muted-foreground"
+                }`}
+              >
+                {u === "yard" ? "Yard" : u === "metre" ? "Metre" : u.charAt(0).toUpperCase() + u.slice(1)}
+              </button>
+            ))}
+          </div>
+        ) : null}
+        {unit === "yard" || unit === "metre" ? (
+          <p className="text-xs text-muted-foreground">
+            Price is per {unit}. If someone buys 3 {unit === "yard" ? "yards" : "metres"}, they pay 3 × this amount.
+          </p>
+        ) : null}
         {product.kind !== "service" && (
           <div className="grid grid-cols-2 gap-1">
             {([["new", "New"], ["used", "Second hand"]] as const).map(([value, label]) => (

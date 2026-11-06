@@ -24,11 +24,12 @@ import { createProduct, updateProductImages } from "@/services/product-service";
 import type { ProductKind } from "@/types/database";
 import { saleLineTotals } from "@/utils/product-profit";
 import { formatNgn } from "@/utils/money";
-import { canPublishProduct, productPublishErrors } from "@/lib/catalogue/publish-guard";
+import { GOODS_UNITS } from "@/lib/catalogue/units";
+import { canPublishProduct, productPublishErrors, productPublishWarnings } from "@/lib/catalogue/publish-guard";
 import { parseVoiceProduct } from "@/utils/voice-product";
 import { aiPostJson } from "@/lib/ai/seller-ai-client";
 
-const goodsUnits = ["piece", "bag", "carton", "kg", "litre"] as const;
+const goodsUnits = GOODS_UNITS;
 
 type FieldErrors = Partial<
   Record<"name" | "salePrice" | "costPrice" | "initialStock" | "lowStockThreshold", string>
@@ -74,8 +75,7 @@ export function NewProductForm({
   const [sizes, setSizes] = useState("");
   const [colours, setColours] = useState("");
   const [videoUrl, setVideoUrl] = useState("");
-  const [isPublished, setIsPublished] = useState(false);
-  const [condition, setCondition] = useState<"new" | "used">("new");
+  const [isPublished, setIsPublished] = useState(true);
   const [serviceType, setServiceType] = useState<"general" | "course" | "mentorship">("general");
   const [startsOn, setStartsOn] = useState("");
   const [endsOn, setEndsOn] = useState("");
@@ -98,6 +98,12 @@ export function NewProductForm({
       : null;
 
   const publishErrors = productPublishErrors({
+    name,
+    sale_price: Number.isFinite(saleNum) ? saleNum : salePrice.trim() ? null : null,
+    image_url: photos[0] ? "pending" : null,
+    is_active: true,
+  });
+  const publishWarnings = productPublishWarnings({
     name,
     sale_price: Number.isFinite(saleNum) ? saleNum : null,
     image_url: photos[0] ? "pending" : null,
@@ -171,25 +177,14 @@ export function NewProductForm({
       return;
     }
 
-    if (photos.length === 0) {
-      const msg = "Add at least one product photo.";
-      setFormError(msg);
-      toast.error(msg);
-      return;
-    }
-
-    // Clean numeric fields so bad input is caught before saving.
+    // Soft-clean optional fields so a typo in price never blocks saving the product.
     const cleanedSale = softMoney(salePrice);
     const cleanedCost = softMoney(costPrice);
     const cleanedStock = kind === "goods" ? softQty(initialStock) : undefined;
     const cleanedLow = kind === "goods" ? softQty(lowThreshold) ?? "5" : undefined;
 
-    if (!cleanedSale) {
-      const msg = "Add a price for this product.";
-      setFieldErrors({ salePrice: msg });
-      setFormError(msg);
-      toast.error(msg);
-      return;
+    if (salePrice.trim() && !cleanedSale) {
+      toast.message(t("app.products.ignoredBadPrice"));
     }
     if (costPrice.trim() && !cleanedCost) {
       toast.message(t("app.products.ignoredBadPrice"));
@@ -221,7 +216,6 @@ export function NewProductForm({
       notes: notes.trim() || undefined,
       description: description.trim() || undefined,
       catalogueCategory: catalogueCategory.trim() || undefined,
-      condition,
       colour: colour.trim() || undefined,
       size: size.trim() || undefined,
       sizes: sizes.trim() || undefined,
@@ -427,16 +421,23 @@ export function NewProductForm({
         </label>
         <label className="mt-3 block">
           <span className="mb-1 block text-xs font-semibold text-muted-foreground">
-            {t("app.products.salePricePlaceholder")} *
+            {unit === "yard" || unit === "metre"
+              ? `Selling price per ${unit}`
+              : t("app.products.salePricePlaceholder")}
           </span>
           <Input
             className="min-h-12 rounded-xl bg-background"
             inputMode="decimal"
             value={salePrice}
             onChange={(e) => setSalePrice(e.target.value)}
-            placeholder="e.g. 15000 or ₦15,000"
+            placeholder={unit === "yard" ? "e.g. 2500 per yard" : "e.g. 15000 or ₦15,000"}
             name="salePrice"
           />
+          {unit === "yard" || unit === "metre" ? (
+            <p className="mt-1 text-xs text-muted-foreground">
+              Shoppers pick how many {unit === "yard" ? "yards" : "metres"} they need. 3 × this price is what they pay.
+            </p>
+          ) : null}
         </label>
         <p className="mt-2 text-xs text-muted-foreground">{t("app.products.priceFormatHint")}</p>
         {previewProfit !== null && Number.isFinite(previewProfit) && (
@@ -451,29 +452,6 @@ export function NewProductForm({
           </p>
         )}
       </FormSection>
-
-      {kind === "goods" && (
-        <FormSection title="Condition" hint="Tell buyers whether this item is brand new or second hand.">
-          <div className="flex gap-2">
-            {([
-              ["new", "New"],
-              ["used", "Second hand"],
-            ] as const).map(([value, label]) => (
-              <button
-                key={value}
-                type="button"
-                onClick={() => setCondition(value)}
-                className={cn(
-                  "flex-1 rounded-xl py-2.5 text-xs font-bold",
-                  condition === value ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground",
-                )}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-        </FormSection>
-      )}
 
       {kind === "service" && (serviceType === "course" || serviceType === "mentorship") && (
         <FormSection title="Course / mentorship dates" hint="Shown on the marketplace so people know when it runs.">
@@ -539,7 +517,7 @@ export function NewProductForm({
         </FormSection>
       )}
 
-      <FormSection title={`${t("app.products.photoSection")} *`} hint={`${t("app.products.photoHint")} At least one photo is required.`}>
+      <FormSection title={t("app.products.photoSection")} hint={t("app.products.photoHint")}>
         <div className="rounded-2xl bg-muted/40 p-4">
           <ProductPhotosField photos={photos} onChange={setPhotos} />
         </div>
@@ -603,13 +581,20 @@ export function NewProductForm({
         />
         <label className="mt-3 flex items-center gap-2 text-sm">
           <input type="checkbox" checked={isPublished} onChange={(e) => setIsPublished(e.target.checked)} />
-          Publish on the marketplace now
+          Publish on marketplace as soon as this has a price
         </label>
       </FormSection>
 
       {publishErrors.length > 0 && isPublished && (
         <ul className="list-disc space-y-1 pl-5 text-xs text-primary">
           {publishErrors.map((err) => (
+            <li key={err}>{err}</li>
+          ))}
+        </ul>
+      )}
+      {publishWarnings.length > 0 && isPublished && (
+        <ul className="list-disc space-y-1 pl-5 text-xs text-muted-foreground">
+          {publishWarnings.map((err) => (
             <li key={err}>{err}</li>
           ))}
         </ul>

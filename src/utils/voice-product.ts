@@ -18,7 +18,25 @@ export type VoiceProductDraft = {
 };
 
 const AMOUNT_RE = /(\d{1,3}(?:[,\s]\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)\s*(k|thousand)?\b/i;
-const UNITS = ["piece", "bag", "bags", "carton", "cartons", "kg", "kilo", "kilogram", "litre", "liter", "job"] as const;
+const UNITS = [
+  "piece",
+  "bag",
+  "bags",
+  "carton",
+  "cartons",
+  "kg",
+  "kilo",
+  "kilogram",
+  "litre",
+  "liter",
+  "yard",
+  "yards",
+  "metre",
+  "meter",
+  "metres",
+  "meters",
+  "job",
+] as const;
 
 function amountToString(num: string, suffix?: string): string {
   let value = Number.parseFloat(num.replace(/[,\s]/g, ""));
@@ -40,6 +58,8 @@ function normalizeUnit(raw: string): string {
   if (u.startsWith("carton")) return "carton";
   if (u.startsWith("kg") || u.startsWith("kilo")) return "kg";
   if (u.startsWith("lit")) return "litre";
+  if (u.startsWith("yard")) return "yard";
+  if (u.startsWith("metr") || u === "meter") return "metre";
   if (u === "job") return "job";
   return "piece";
 }

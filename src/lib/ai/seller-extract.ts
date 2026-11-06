@@ -36,7 +36,7 @@ export type ReportCopy = {
 export const LISTING_SYSTEM = `You extract a product listing for TIJAR, a Nigerian informal marketplace.
 The seller may speak Hausa or English (or mix).
 Return JSON only with keys:
-productName (string), unit (piece|bag|carton|kg|litre), quantity (number or null),
+productName (string), unit (piece|bag|carton|kg|litre|yard|metre), quantity (number or null),
 priceNaira (number or null, naira only), descriptionEn (1-2 short trustworthy sentences),
 descriptionHa (same meaning in simple Hausa), location (market/area or null), notes (null or extra).
 Clean the product name. Do not invent a price. If no location, use null.`;
@@ -75,7 +75,17 @@ export function fallbackListing(text: string): ListingExtract {
     .trim()
     .slice(0, 80);
   const productName = name.split(/[,.]/)[0]?.trim() || "Product";
-  const unit = /kg|kilo/i.test(text) ? "kg" : /litre|liter/i.test(text) ? "litre" : /bag/i.test(text) ? "bag" : "piece";
+  const unit = /yard/i.test(text)
+    ? "yard"
+    : /metre|meter/i.test(text)
+      ? "metre"
+      : /kg|kilo/i.test(text)
+        ? "kg"
+        : /litre|liter/i.test(text)
+          ? "litre"
+          : /bag/i.test(text)
+            ? "bag"
+            : "piece";
   return {
     productName,
     unit,

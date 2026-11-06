@@ -71,6 +71,8 @@ const UNIT_HINTS: { unit: string; re: RegExp }[] = [
   { unit: "carton", re: /\bcartons?\b/i },
   { unit: "kg", re: /\b\d+\s*kg\b|\bkg\b/i },
   { unit: "litre", re: /\b\d+\s*l(?:itre|iter)?s?\b|\blitres?\b|\bliters?\b/i },
+  { unit: "yard", re: /\byards?\b|\byds?\b/i },
+  { unit: "metre", re: /\bmetres?\b|\bmeters?\b|\bmtrs?\b/i },
 ];
 
 function titleCase(name: string): string {

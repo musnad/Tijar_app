@@ -44,6 +44,7 @@ import {
   type PublicFeedVideo,
 } from "@/services/video-feed-service";
 import type { PublicProduct } from "@/types/database";
+import { formatPricePerUnit } from "@/lib/catalogue/units";
 import { formatNgn } from "@/utils/money";
 
 const SAVED_SHOPS_KEY = "tijar-saved-shops";
@@ -107,7 +108,7 @@ function StoreProductCard({ product: p, canPost }: { product: PublicProduct; can
         <div className="px-1.5 pb-2 pt-2">
           <p className="line-clamp-2 text-[13px] font-semibold leading-snug text-[#0B1F4D]">{p.name}</p>
           <p className="mt-0.5 text-[15px] font-extrabold text-[#1F7A4D]">
-            {p.sale_price != null ? formatNgn(p.sale_price) : "On request"}
+            {p.sale_price != null ? formatPricePerUnit(Number(p.sale_price), p.unit, formatNgn) : "On request"}
           </p>
         </div>
       </Link>

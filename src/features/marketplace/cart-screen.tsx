@@ -15,6 +15,7 @@ import { listLocalCart } from "@/lib/local-cart";
 import { cn } from "@/lib/utils";
 import { fetchCart, removeCartItem, updateCartItemQuantity } from "@/services/marketplace-service";
 import type { CartItem } from "@/types/database";
+import { formatPricePerUnit, formatUnitWord, unitStep } from "@/lib/catalogue/units";
 import { formatNgn } from "@/utils/money";
 
 function itemCountLabel(n: number): string {
@@ -30,7 +31,7 @@ export function CartScreen() {
   const [localItems, setLocalItems] = useState<CartItem[]>([]);
 
   const cartQuery = useQuery({
-    queryKey: ["marketplace-cart", actorId],
+    queryKey: ["marketplace-cart-v2", actorId],
     queryFn: async () => {
       const res = await fetchCart(actorId);
       if (res.error && res.items.length === 0) throw new Error(res.error);
@@ -144,8 +145,10 @@ export function CartScreen() {
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
                           <p className="truncate text-[15px] font-extrabold text-[#0B1F4D]">{item.product_name}</p>
-                          <p className="mt-0.5 text-[12px] text-[#9CA3AF]">{item.variant_label || item.unit}</p>
-                          <p className="mt-1 text-[15px] font-extrabold text-[#1F7A4D]">{formatNgn(Number(item.unit_price))}</p>
+                          <p className="mt-0.5 text-[12px] text-[#9CA3AF]">{item.variant_label || formatUnitWord(item.unit, Number(item.quantity))}</p>
+                          <p className="mt-1 text-[15px] font-extrabold text-[#1F7A4D]">
+                            {formatPricePerUnit(Number(item.unit_price), item.unit, formatNgn)}
+                          </p>
                         </div>
                         <button
                           type="button"
@@ -161,7 +164,7 @@ export function CartScreen() {
                           type="button"
                           className="flex size-8 items-center justify-center rounded-full text-lg font-semibold text-[#6B7280]"
                           aria-label="Decrease quantity"
-                          onClick={() => void setQty(item, Number(item.quantity) - 1)}
+                          onClick={() => void setQty(item, Number(item.quantity) - unitStep(item.unit))}
                         >
                           −
                         </button>
@@ -178,7 +181,7 @@ export function CartScreen() {
                           type="button"
                           className="flex size-8 items-center justify-center rounded-full text-lg font-semibold text-[#6B7280]"
                           aria-label="Increase quantity"
-                          onClick={() => void setQty(item, Number(item.quantity) + 1)}
+                          onClick={() => void setQty(item, Number(item.quantity) + unitStep(item.unit))}
                         >
                           +
                         </button>

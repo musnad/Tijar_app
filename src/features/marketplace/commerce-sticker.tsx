@@ -2,6 +2,7 @@
 
 import { Link2 } from "lucide-react";
 
+import { formatPricePerUnit } from "@/lib/catalogue/units";
 import { formatNgn } from "@/utils/money";
 import { cn } from "@/lib/utils";
 
@@ -9,6 +10,7 @@ import { cn } from "@/lib/utils";
 export function CommerceSticker({
   title,
   price,
+  unit,
   imageUrl,
   host = "tijar.ng",
   onPay,
@@ -17,6 +19,7 @@ export function CommerceSticker({
 }: {
   title: string;
   price?: number | null;
+  unit?: string | null;
   imageUrl?: string | null;
   host?: string;
   onPay?: () => void;
@@ -45,7 +48,7 @@ export function CommerceSticker({
           {host}
         </span>
         {price != null ? (
-          <span className="mt-0.5 block text-[15px] font-black text-[#00B86B]">{formatNgn(price)}</span>
+          <span className="mt-0.5 block text-[15px] font-black text-[#00B86B]">{formatPricePerUnit(price, unit, formatNgn)}</span>
         ) : null}
       </span>
       {onPay ? (

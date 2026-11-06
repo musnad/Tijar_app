@@ -12,23 +12,19 @@ import { Input } from "@/components/ui/input";
 import { MarketplaceShell } from "@/features/marketplace/marketplace-shell";
 import { isMockFeedId } from "@/features/marketplace/feed-mock";
 import { useAuth } from "@/features/auth/auth-context";
+import { formatPricePerUnit, formatUnitWord, lineTotal, normalizeQty, unitMinQty, unitStep } from "@/lib/catalogue/units";
 import { formatServiceDates, serviceLabel } from "@/lib/catalogue/service-schedule";
 import { parseVariantList } from "@/lib/catalogue/variants";
 import { haptic } from "@/lib/haptics";
 import { useTranslation } from "@/lib/i18n/context";
 import { displayShopName, shopLinkSlug } from "@/lib/shop-names";
 import { cn } from "@/lib/utils";
-import { ProductSocialBar } from "@/features/marketplace/product-social";
-import { ProductReviews } from "@/features/marketplace/product-reviews";
-import { useAccountGate } from "@/features/auth/account-gate";
-import { isProductSaved } from "@/lib/shop-social";
+import { isProductLiked, likeProduct, isProductSaved } from "@/lib/shop-social";
 import { useDoubleTap } from "@/lib/use-double-tap";
 import {
   addToCart,
   fetchCart,
   fetchMarketplaceProduct,
-  fetchMyLikedProductIds,
-  likeMarketplaceProduct,
   toggleFavoriteProduct,
 } from "@/services/marketplace-service";
 import { enrollInService } from "@/services/customer-service";
@@ -51,23 +47,17 @@ function colourHex(label: string): string {
 
 export function ProductDetailScreen({ productId }: { productId: string }) {
   const { t } = useTranslation();
-  const { profile } = useAuth();
-  const { requireAccount } = useAccountGate();
+  const { profile, session } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const scroller = useRef<HTMLDivElement>(null);
   const [imageIndex, setImageIndex] = useState(0);
   const [saved, setSaved] = useState(false);
+  const [liked, setLiked] = useState(false);
   const [heartBurst, setHeartBurst] = useState(false);
   const [variantId, setVariantId] = useState("");
   const [busy, setBusy] = useState<"cart" | "buy" | null>(null);
-
-  const productLikesQuery = useQuery({
-    queryKey: ["product-likes", profile?.id],
-    enabled: Boolean(profile?.id),
-    queryFn: () => fetchMyLikedProductIds(profile!.id),
-  });
-  const liked = productLikesQuery.data?.has(productId) ?? false;
+  const [qty, setQty] = useState(1);
 
   const productQuery = useQuery({
     queryKey: ["marketplace-product", productId],
@@ -120,6 +110,7 @@ export function ProductDetailScreen({ productId }: { productId: string }) {
   const actorId = profile?.id ?? "guest";
 
   useEffect(() => {
+    setLiked(isProductLiked(actorId, productId));
     setSaved(isProductSaved(actorId, productId));
   }, [actorId, productId]);
 
@@ -139,24 +130,11 @@ export function ProductDetailScreen({ productId }: { productId: string }) {
 
   function burstLike() {
     haptic("success");
+    likeProduct(actorId, productId);
+    setLiked(true);
     setHeartBurst(true);
     window.setTimeout(() => setHeartBurst(false), 700);
-    if (!requireAccount("like") || !profile) {
-      return;
-    }
-    void likeMarketplaceProduct(profile.id, productId).then(({ error }) => {
-      if (error) {
-        toast.error(error);
-        return;
-      }
-      queryClient.setQueryData(["product-likes", profile.id], (prev: Set<string> | undefined) => {
-        const copy = new Set(prev ?? []);
-        copy.add(productId);
-        return copy;
-      });
-      void queryClient.invalidateQueries({ queryKey: ["product-engagement", productId] });
-      toast.success("Liked");
-    });
+    toast.success("Liked");
   }
 
   const onImageTap = useDoubleTap(burstLike);
@@ -169,13 +147,12 @@ export function ProductDetailScreen({ productId }: { productId: string }) {
       return;
     }
     if (buyNow) {
-      if (!requireAccount("buy")) {
-        return;
-      }
-      void navigate({ to: "/shop/buy", search: { productId: product.id } });
+      void navigate({ to: "/shop/buy", search: { productId: product.id, qty } });
       return;
     }
-    if (!requireAccount("cart") || !profile) {
+    if (!session || !profile) {
+      toast.message("Sign in to add items to your cart.");
+      void navigate({ to: "/login" });
       return;
     }
     setBusy("cart");
@@ -185,7 +162,7 @@ export function ProductDetailScreen({ productId }: { productId: string }) {
       productName: product.name,
       unit: product.unit,
       unitPrice: livePrice,
-      quantity: 1,
+      quantity: qty,
       imageUrl: product.image_url,
       variantId: selectedVariant?.id,
       variantLabel: selectedColour || selectedVariant?.label,
@@ -208,7 +185,9 @@ export function ProductDetailScreen({ productId }: { productId: string }) {
       toast.error("This listing is not available.");
       return;
     }
-    if (!requireAccount("generic") || !profile) {
+    if (!session || !profile) {
+      toast.message("Sign in to save products.");
+      void navigate({ to: "/login" });
       return;
     }
     const { favorited, error } = await toggleFavoriteProduct(profile.id, productId);
@@ -345,11 +324,6 @@ export function ProductDetailScreen({ productId }: { productId: string }) {
               )}
 
               <p className="mt-4 text-[13px] font-bold text-muted-foreground">{product.name}</p>
-              {product.attributes?.condition === "used" && (
-                <span className="mt-1 inline-block rounded-full bg-amber-500/95 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
-                  Second hand
-                </span>
-              )}
               {serviceLabel(product) && (
                 <p className="mt-1 text-xs font-bold uppercase tracking-wide text-primary">
                   {serviceLabel(product)}
@@ -359,7 +333,7 @@ export function ProductDetailScreen({ productId }: { productId: string }) {
 
               <div className="mt-1 flex flex-wrap items-center gap-2">
                 <p className="text-[28px] font-black tabular-nums leading-none text-[color:var(--brand-navy,#001B3A)]">
-                  {livePrice != null ? formatNgn(livePrice) : " — "}
+                  {livePrice != null ? formatPricePerUnit(livePrice, product.unit, formatNgn) : "Ask seller"}
                 </p>
                 {off != null ? (
                   <span className="rounded-full bg-primary px-2 py-0.5 text-[11px] font-extrabold text-white">
@@ -384,18 +358,9 @@ export function ProductDetailScreen({ productId }: { productId: string }) {
               </p>
 
               <div className="mt-4 flex items-center gap-3 border-y border-border py-3">
-                {product.business_logo_url ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={product.business_logo_url}
-                    alt=""
-                    className="size-11 shrink-0 rounded-full object-cover ring-1 ring-border"
-                  />
-                ) : (
-                  <span className="flex size-11 items-center justify-center rounded-full bg-primary/10 text-primary">
-                    <Store className="size-5" />
-                  </span>
-                )}
+                <span className="flex size-11 items-center justify-center rounded-full bg-primary/10 text-primary">
+                  <Store className="size-5" />
+                </span>
                 <div className="min-w-0 flex-1">
                   <p className="text-[11px] font-medium text-muted-foreground">Seller</p>
                   <p className="flex items-center gap-1 font-extrabold text-[color:var(--brand-navy,#001B3A)]">
@@ -412,10 +377,6 @@ export function ProductDetailScreen({ productId }: { productId: string }) {
                   <ChevronRight className="size-4" />
                 </Link>
               </div>
-
-              <ProductSocialBar product={product} className="mt-1 -ml-2.5" />
-
-              <ProductReviews productId={product.id} />
 
               {colours.length > 0 && (
                 <div className="mt-4">
@@ -454,6 +415,51 @@ export function ProductDetailScreen({ productId }: { productId: string }) {
               {product.description && (
                 <p className="mt-4 text-sm leading-relaxed text-muted-foreground">{product.description}</p>
               )}
+
+              {product.kind !== "service" ? (
+                <div className="mt-4">
+                  <p className="text-[13px] font-semibold text-muted-foreground">
+                    {product.unit === "yard" || product.unit === "metre"
+                      ? `How many ${formatUnitWord(product.unit, 2)}?`
+                      : "Quantity"}
+                  </p>
+                  <div className="mt-2 flex items-center gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="size-10 rounded-xl p-0"
+                      onClick={() => setQty((n) => normalizeQty(n - unitStep(product.unit), product.unit))}
+                    >
+                      −
+                    </Button>
+                    <Input
+                      className="h-10 w-20 rounded-xl text-center font-extrabold"
+                      inputMode="decimal"
+                      value={qty}
+                      onChange={(e) => {
+                        const next = Number(e.target.value);
+                        if (!Number.isFinite(next)) return;
+                        setQty(Math.max(unitMinQty(product.unit), next));
+                      }}
+                      onBlur={() => setQty((n) => normalizeQty(n, product.unit))}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="size-10 rounded-xl p-0"
+                      onClick={() => setQty((n) => normalizeQty(n + unitStep(product.unit), product.unit))}
+                    >
+                      +
+                    </Button>
+                    <span className="text-sm font-semibold text-muted-foreground">{formatUnitWord(product.unit, qty)}</span>
+                  </div>
+                  {livePrice != null ? (
+                    <p className="mt-2 text-[13px] font-semibold text-[color:var(--brand-navy,#001B3A)]">
+                      {qty} {formatUnitWord(product.unit, qty)} × {formatNgn(livePrice)} = {formatNgn(lineTotal(livePrice, qty))}
+                    </p>
+                  ) : null}
+                </div>
+              ) : null}
 
               {product.kind === "service" && <div className="mt-4"><ServiceEnrollForm productId={product.id} /></div>}
             </div>
