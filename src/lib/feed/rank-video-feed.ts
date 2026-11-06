@@ -56,6 +56,9 @@ const NEW_SELLER = 9;
 const QUALITY = 4;
 const SEARCH = 18;
 const SPONSORED_PENALTY = 25;
+const SEEN_PENALTY = 22;
+const OLDER_UNSEEN = 12;
+const SHUFFLE_JITTER = 3;
 const NEARBY_CLOSE = 55;
 const NEARBY_MID = 32;
 const NEARBY_CITY = 8;
@@ -144,9 +147,11 @@ export function scoreVideo(video: RankableVideo, viewer: ViewerSignals): RankBre
     reasons.push("previously watched through");
   }
 
-  const fresh = freshnessScore(video.publishedAt ?? video.createdAt);
-  score += fresh;
-  if (fresh >= FRESHNESS * 0.7) reasons.push("recent post");
+  if (video.hasAvailableProduct) {
+    score += AVAILABILITY;
+    reasons.push("in-stock tagged product");
+  }
+
   const published = video.publishedAt ?? video.createdAt;
   const fresh = freshnessScore(published);
   score += fresh;
@@ -165,8 +170,6 @@ export function scoreVideo(video: RankableVideo, viewer: ViewerSignals): RankBre
     const key = `${viewer.shuffleSalt}:${video.id}`;
     for (let i = 0; i < key.length; i += 1) h = Math.imul(h ^ key.charCodeAt(i), 16777619);
     score += ((h >>> 0) % (SHUFFLE_JITTER * 10)) / 10;
-  }
-    reasons.push("in-stock tagged product");
   }
 
   const sellerAge = daysSince(video.sellerPublishedAt ?? video.publishedAt);
