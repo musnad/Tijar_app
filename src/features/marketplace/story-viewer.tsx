@@ -8,9 +8,7 @@ import { toast } from "sonner";
 import { ShareSheet } from "@/components/share-sheet";
 import { CommerceSticker } from "@/features/marketplace/commerce-sticker";
 import { useAccountGate } from "@/features/auth/account-gate";
-import { useAuth } from "@/features/auth/auth-context";
 import { cn } from "@/lib/utils";
-import { addToCart } from "@/services/marketplace-service";
 import {
   fetchMyStoryLikedIds,
   fetchStoryComments,
@@ -178,26 +176,15 @@ export function StoryViewer({
   }
 
   function pay() {
-    if (!story) return;
-    if (story.product_id) {
-      void (async () => {
-        if (profile?.id) {
-          const added = await addToCart(profile.id, {
-            businessId: story.business_id,
-            productId: story.product_id!,
-            productName: story.product_name ?? story.overlay_text ?? ring.businessName,
-            unit: "pcs",
-            unitPrice: story.price ?? 0,
-            quantity: 1,
-            imageUrl: story.product_image,
-          });
-          if (added.error) toast.error(added.error);
-        }
-        void navigate({ to: "/shop/buy", search: { productId: story.product_id! } });
-      })();
+    if (!story || !ring) return;
+    if (!story.product_id) {
+      toast.message("This shop has not linked a product. Open the shop to order.");
+      onClose();
+      void navigate({ to: "/b/$slug", params: { slug: ring.slug } });
       return;
     }
-    if (ring) void navigate({ to: "/b/$slug", params: { slug: ring.slug } });
+    onClose();
+    void navigate({ to: "/shop/buy", search: { productId: story.product_id } });
   }
 
   if (!ring || !story) return null;

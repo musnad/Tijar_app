@@ -56,7 +56,7 @@ export function CommerceSticker({
           }}
           className="shrink-0 rounded-full bg-[#00B86B] px-3 py-1.5 text-[11px] font-extrabold text-white"
         >
-          Pay
+          Buy now
         </button>
       ) : null}
     </div>
