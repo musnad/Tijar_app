@@ -129,9 +129,14 @@ async function corvFetch(
 
 const CREATE_PATHS = [
   "/v1/virtual-accounts",
+  "/v1/virtual-account",
   "/api/v1/virtual-accounts",
+  "/api/v1/virtual-account",
   "/v1/collections/virtual-account",
+  "/v1/collections/virtual-accounts",
   "/v1/accounts/virtual",
+  "/v1/dedicated-accounts",
+  "/v1/nuban",
   "/virtual-accounts",
 ];
 
@@ -172,9 +177,6 @@ export async function corvCreateVirtualAccount(input: {
     }
     if (!result.res.ok) {
       lastError = messageFrom(result.json, lastError);
-      if (needsIdentity(lastError)) {
-        return { account: null, error: lastError, needsBvn: true };
-      }
       if (result.res.status === 401 || result.res.status === 403) {
         return { account: null, error: lastError };
       }

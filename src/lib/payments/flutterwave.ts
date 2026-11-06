@@ -97,3 +97,71 @@ export async function flutterwaveTransfer(input: {
   }
   return { reference: json.data?.reference ?? String(json.data?.id ?? input.reference), error: null };
 }
+
+export async function flutterwaveCreateVirtualAccount(input: {
+  reference: string;
+  accountName: string;
+  email: string;
+  phone?: string;
+  bvn?: string;
+}): Promise<{
+  account: {
+    accountNumber: string;
+    accountName: string;
+    bankName: string;
+    bankCode: string | null;
+    reference: string | null;
+  } | null;
+  error: string | null;
+  needsBvn?: boolean;
+}> {
+  const secret = flutterwaveSecret();
+  if (!secret) return { account: null, error: "Flutterwave is not connected yet." };
+  const body: Record<string, unknown> = {
+    email: input.email,
+    is_permanent: true,
+    tx_ref: input.reference,
+    narration: input.accountName,
+    phonenumber: input.phone || undefined,
+  };
+  if (input.bvn) body.bvn = input.bvn;
+  const res = await fetch(`${FLW_URL}/virtual-account-numbers`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${secret}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+  const json = (await res.json()) as {
+    status?: string;
+    message?: string;
+    data?: {
+      account_number?: string;
+      account_name?: string;
+      bank_name?: string;
+      bank_code?: string;
+      flw_ref?: string;
+      order_ref?: string;
+      note?: string;
+    };
+  };
+  const message = json.message || json.data?.note || "Could not create a receiving account.";
+  if (!res.ok || json.status !== "success" || !json.data?.account_number) {
+    return {
+      account: null,
+      error: message,
+      needsBvn: /bvn|nin|kyc|identity/i.test(message),
+    };
+  }
+  return {
+    account: {
+      accountNumber: json.data.account_number,
+      accountName: json.data.account_name || input.accountName,
+      bankName: json.data.bank_name || "Flutterwave",
+      bankCode: json.data.bank_code ?? null,
+      reference: json.data.order_ref || json.data.flw_ref || input.reference,
+    },
+    error: null,
+  };
+}

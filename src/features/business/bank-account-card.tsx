@@ -5,6 +5,7 @@ import { Landmark, Wallet } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { BankAccountForm } from "@/features/business/bank-account-form";
+import { CreateReceivingAccountButton } from "@/features/business/create-receiving-account";
 import { displayShopName } from "@/lib/shop-names";
 import type { Business } from "@/types/database";
 
@@ -24,12 +25,12 @@ export function BankAccountCard({ business }: { business: Business }) {
         <div className="min-w-0 flex-1">
           <p className="text-[11px] font-bold uppercase tracking-wide text-[#1F7A4D]">Shop wallet</p>
           <p className="mt-0.5 text-base font-extrabold text-[#0B1F4D]">
-            {hasVa ? "Buyers pay the TIJAR shop account" : "Open a TIJAR wallet to receive payments"}
+            {hasVa ? "Buyers pay this shop account" : "Open a TIJAR wallet to receive payments"}
           </p>
           <p className="mt-1 text-sm text-muted-foreground">
             {hasVa
               ? `Money for ${shop} lands in the in-app wallet. Withdraw to the cash-out bank below.`
-              : `Create a receiving account, then request withdrawals from Wallet & payouts.`}
+              : `Tap Create account. TIJAR opens a receiving account named ${shop}.`}
           </p>
         </div>
       </div>
@@ -41,19 +42,19 @@ export function BankAccountCard({ business }: { business: Business }) {
               <dd className="font-bold text-[#0B1F4D]">{business.virtual_account_bank_name}</dd>
             </div>
           ) : null}
-          {business.virtual_account_name ? (
-            <div className="flex justify-between gap-2">
-              <dt className="text-muted-foreground">Name</dt>
-              <dd className="truncate font-bold text-[#0B1F4D]">{business.virtual_account_name}</dd>
-            </div>
-          ) : null}
+          <div className="flex justify-between gap-2">
+            <dt className="text-muted-foreground">Name</dt>
+            <dd className="truncate font-bold text-[#0B1F4D]">{business.virtual_account_name || shop}</dd>
+          </div>
           <div className="flex justify-between gap-2">
             <dt className="text-muted-foreground">Number</dt>
             <dd className="font-extrabold tracking-wide text-[#0B1F4D]">{va}</dd>
           </div>
         </dl>
-      ) : null}
-      <Button className="mt-3 min-h-11 w-full rounded-xl bg-[#0B1F4D] font-extrabold text-white" asChild>
+      ) : (
+        <CreateReceivingAccountButton businessId={business.id} shopName={shop} />
+      )}
+      <Button className="mt-3 min-h-11 w-full rounded-xl" variant="outline" asChild>
         <Link to="/app/business/payouts">Open wallet & withdrawals</Link>
       </Button>
 

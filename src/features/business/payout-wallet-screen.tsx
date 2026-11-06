@@ -2,7 +2,7 @@
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -81,8 +81,6 @@ export function PayoutWalletScreen({
     },
   });
 
-  const [bvn, setBvn] = useState("");
-  const [needsBvn, setNeedsBvn] = useState(false);
   const [creating, setCreating] = useState(false);
   const [withdrawAmount, setWithdrawAmount] = useState("");
   const [withdrawing, setWithdrawing] = useState(false);
@@ -98,24 +96,27 @@ export function PayoutWalletScreen({
   const requests = walletQuery.data?.requests ?? [];
   const credits = walletQuery.data?.credits ?? [];
 
-  async function createAccount() {
+  const autoCreateFor = useRef<string | null>(null);
+  async function createAccount(silent = false) {
     setCreating(true);
-    const result = await provisionVirtualAccount(selected.id, needsBvn ? { bvn } : undefined);
+    const result = await provisionVirtualAccount(selected.id);
     setCreating(false);
-    if (result.needsBvn) {
-      setNeedsBvn(true);
-      toast.error(result.error ?? "Enter the shop owner’s BVN to open this account.");
-      return;
-    }
     if (result.error) {
-      toast.error(result.error);
+      if (!silent) toast.error(result.error);
       return;
     }
-    setNeedsBvn(false);
-    toast.success("Shop account is ready. Buyers can transfer into TIJAR.");
+    toast.success(`Receiving account opened as ${shopName}.`);
     await queryClient.invalidateQueries({ queryKey: ["shop-wallet", selected.id] });
     await queryClient.invalidateQueries({ queryKey: ["payout-account", selected.id] });
+    await queryClient.invalidateQueries({ queryKey: ["primary-business"] });
   }
+
+  useEffect(() => {
+    if (!walletQuery.isSuccess || account?.accountNumber) return;
+    if (autoCreateFor.current === selected.id) return;
+    autoCreateFor.current = selected.id;
+    void createAccount(true);
+  }, [walletQuery.isSuccess, account?.accountNumber, selected.id]);
 
   async function withdraw() {
     const amount = Number(withdrawAmount.replace(/,/g, ""));
@@ -216,24 +217,15 @@ export function PayoutWalletScreen({
           </dl>
         ) : (
           <div className="mt-3 space-y-2">
-            {needsBvn ? (
-              <>
-                <label className="block text-xs font-bold">BVN (11 digits)</label>
-                <Input
-                  className="min-h-11 rounded-xl"
-                  inputMode="numeric"
-                  maxLength={11}
-                  value={bvn}
-                  onChange={(e) => setBvn(e.target.value.replace(/\D/g, "").slice(0, 11))}
-                />
-              </>
-            ) : null}
+            <p className="text-sm text-muted-foreground">
+              Opens a receiving account named <span className="font-bold text-foreground">{shopName}</span>.
+            </p>
             <Button
               className="min-h-11 w-full rounded-xl bg-[#0B1F4D] font-extrabold text-white"
               disabled={creating}
               onClick={() => void createAccount()}
             >
-              {creating ? "Opening account…" : needsBvn ? "Submit BVN and open account" : "Create shop account"}
+              {creating ? "Opening account…" : "Create account"}
             </Button>
           </div>
         )}

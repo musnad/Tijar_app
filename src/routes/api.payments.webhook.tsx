@@ -108,10 +108,12 @@ export const Route = createFileRoute("/api/payments/webhook")({
             (payload.event === "charge.completed" || payload.event === "charge.success") &&
             (payload.data?.status === "successful" || payload.data?.status === "success");
           if (!ok) return Response.json({ ok: true, ignored: true });
+          const txRef = payload.data?.tx_ref;
+          const fromVa = txRef?.startsWith("tijar-biz-") ? txRef.slice("tijar-biz-".length) : undefined;
           await markPaid(
             payload.data?.meta?.order_id,
-            payload.data?.tx_ref ?? payload.data?.flw_ref,
-            payload.data?.meta?.business_id,
+            txRef ?? payload.data?.flw_ref,
+            payload.data?.meta?.business_id ?? fromVa,
             payload.data?.amount,
             "flutterwave",
           );
