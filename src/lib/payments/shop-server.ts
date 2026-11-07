@@ -226,3 +226,137 @@ export async function syncCorvWallet(
   );
   return { activity, available };
 }
+
+export async function signedInAdmin(
+  request: Request,
+): Promise<{ admin: SupabaseClient; profile: ShopProfile } | { error: Response }> {
+  const env = readSupabasePublicEnv();
+  if (!env) {
+    return {
+      error: Response.json({ error: "Supabase URL/anon key is missing on the server." }, { status: 503 }),
+    };
+  }
+  const auth = request.headers.get("authorization");
+  if (!auth?.startsWith("Bearer ")) {
+    return { error: Response.json({ error: "Sign in first." }, { status: 401 }) };
+  }
+  const userClient = createClient(env.VITE_SUPABASE_URL, env.VITE_SUPABASE_ANON_KEY, {
+    global: { headers: { Authorization: auth } },
+  });
+  const {
+    data: { user },
+  } = await userClient.auth.getUser();
+  if (!user) return { error: Response.json({ error: "Sign in first." }, { status: 401 }) };
+  const service = supabaseServiceKey();
+  const admin = service ? createClient(env.VITE_SUPABASE_URL, service) : userClient;
+  const { data: profile } = await admin
+    .from("profiles")
+    .select("id, email, full_name, phone")
+    .eq("auth_id", user.id)
+    .maybeSingle();
+  if (!profile) return { error: Response.json({ error: "Profile not found." }, { status: 403 }) };
+  return {
+    admin,
+    profile: {
+      id: profile.id as string,
+      email: (profile.email as string | null) ?? user.email ?? null,
+      full_name: (profile.full_name as string | null) ?? null,
+      phone: (profile.phone as string | null) ?? null,
+    },
+  };
+}
+
+export type ShopReceivingAccount = {
+  accountNumber: string;
+  accountName: string;
+  bankName: string;
+};
+
+export async function loadReceivingAccount(
+  admin: SupabaseClient,
+  businessId: string,
+): Promise<ShopReceivingAccount | null> {
+  const { data } = await admin
+    .from("businesses")
+    .select("business_name, virtual_account_name, virtual_account_number, virtual_account_bank_name, virtual_accounts")
+    .eq("id", businessId)
+    .maybeSingle();
+  const primary = String(data?.virtual_account_number ?? "").replace(/\D/g, "");
+  if (primary.length >= 8) {
+    return {
+      accountNumber: primary,
+      accountName: String(data?.virtual_account_name || data?.business_name || "TIJAR shop"),
+      bankName: String(data?.virtual_account_bank_name || "Bank"),
+    };
+  }
+  const extras = Array.isArray(data?.virtual_accounts) ? data.virtual_accounts : [];
+  for (const extra of extras) {
+    const rec = extra as { accountNumber?: string; account_number?: string; accountName?: string; bankName?: string };
+    const nuban = String(rec.accountNumber || rec.account_number || "").replace(/\D/g, "");
+    if (nuban.length >= 8) {
+      return {
+        accountNumber: nuban,
+        accountName: String(rec.accountName || data?.business_name || "TIJAR shop"),
+        bankName: String(rec.bankName || "Bank"),
+      };
+    }
+  }
+  return null;
+}
+
+function amountsMatch(received: number, expected: number): boolean {
+  if (!Number.isFinite(received) || !Number.isFinite(expected) || expected <= 0) return false;
+  if (Math.abs(received - expected) <= 2) return true;
+  const net = Math.round(expected * 0.99 * 100) / 100;
+  return Math.abs(received - net) <= 5;
+}
+
+export async function findRecentShopCredit(
+  businessId: string,
+  expectedAmount: number,
+  sinceIso?: string | null,
+): Promise<CorvActivity | null> {
+  const env = readSupabasePublicEnv();
+  const service = supabaseServiceKey();
+  if (!env || !service || !corvConfigured()) return null;
+  const admin = createClient(env.VITE_SUPABASE_URL, service);
+  const since = sinceIso ? Date.parse(sinceIso) : Date.now() - 20 * 60 * 1000;
+  const floor = Number.isFinite(since) ? since - 2 * 60 * 1000 : Date.now() - 22 * 60 * 1000;
+  const nubans = await ownedNubans(admin, businessId);
+  const inbox = await corvReceivedPayments();
+  const matches = inbox.filter((row) => {
+    if (row.direction !== "in") return false;
+    if (![...nubans].some((nuban) => sameNuban(row.accountNumber, nuban))) return false;
+    if (!amountsMatch(row.amount, expectedAmount)) return false;
+    const at = row.createdAt ? Date.parse(row.createdAt) : Date.now();
+    return Number.isFinite(at) && at >= floor;
+  });
+  return matches[0] ?? null;
+}
+
+export async function notifyShopBuyerEvent(
+  admin: SupabaseClient,
+  input: {
+    businessId: string;
+    buyerId: string;
+    kind: string;
+    title: string;
+    body: string;
+  },
+) {
+  const { data: shop } = await admin.from("businesses").select("owner_id").eq("id", input.businessId).maybeSingle();
+  if (!shop?.owner_id || shop.owner_id === input.buyerId) return;
+  const payload = {
+    p_recipient: shop.owner_id,
+    p_actor: input.buyerId,
+    p_kind: input.kind,
+    p_title: input.title,
+    p_body: input.body,
+    p_business_id: input.businessId,
+    p_video_post_id: null as string | null,
+  };
+  const first = await admin.rpc("notify_activity", payload);
+  if (first.error) {
+    await admin.rpc("notify_activity", { ...payload, p_kind: "comment" });
+  }
+}

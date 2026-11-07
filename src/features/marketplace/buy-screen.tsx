@@ -2,20 +2,19 @@
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { ArrowLeft, Building2, Landmark } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { MarketplaceShell } from "@/features/marketplace/marketplace-shell";
+import { ShopPayPanel } from "@/features/marketplace/shop-pay-panel";
 import { isMockFeedId } from "@/features/marketplace/feed-mock";
 import { useAuth } from "@/features/auth/auth-context";
 import {
   addToCart,
-  fetchBusinessPayoutAccount,
   fetchMarketplaceProduct,
-  markBuyerTransferPaid,
   placeOrders,
 } from "@/services/marketplace-service";
 import { formatPricePerUnit, formatUnitWord, lineTotal, normalizeQty, unitMinQty, unitStep } from "@/lib/catalogue/units";
@@ -47,13 +46,6 @@ export function BuyScreen({ productId, initialQty }: { productId?: string; initi
   });
 
   const product = productQuery.data;
-  const accountQuery = useQuery({
-    queryKey: ["payout-account", product?.business_id],
-    enabled: Boolean(product?.business_id),
-    queryFn: async () => (await fetchBusinessPayoutAccount(product!.business_id)).account,
-  });
-  const account = accountQuery.data;
-  const hasAccount = Boolean(account?.payout_account_number);
   const unitPrice = product?.sale_price != null ? Number(product.sale_price) : 0;
   const goodsTotal = product?.sale_price != null ? lineTotal(unitPrice, qty) : 0;
   const total = product?.sale_price != null ? goodsTotal + (fulfilment === "seller_delivery" ? 1500 : 0) : 0;
@@ -80,8 +72,8 @@ export function BuyScreen({ productId, initialQty }: { productId?: string; initi
       requireSignIn();
       return;
     }
-    if (!hasAccount) {
-      toast.error(t("shop.buy.noAccount"));
+    if (!phone.trim()) {
+      toast.error("Add your phone number.");
       return;
     }
     setBusy(true);
@@ -116,21 +108,7 @@ export function BuyScreen({ productId, initialQty }: { productId?: string; initi
     setOrderId(order.id);
     await queryClient.invalidateQueries({ queryKey: ["marketplace-orders"] });
     setBusy(false);
-    toast.success(t("shop.buy.transferReady"));
-  }
-
-  async function paidNowClick() {
-    if (!orderId) return;
-    setBusy(true);
-    const r = await markBuyerTransferPaid(orderId);
-    setBusy(false);
-    if (r.error) {
-      toast.error(r.error);
-      return;
-    }
-    setPaidNow(true);
-    toast.success(t("shop.buy.paidMarked"));
-    await queryClient.invalidateQueries({ queryKey: ["marketplace-orders"] });
+    toast.success("Order placed. Copy the shop account to pay.");
   }
 
   return (
@@ -226,42 +204,6 @@ export function BuyScreen({ productId, initialQty }: { productId?: string; initi
               <label className="mt-3 block text-sm font-bold">{t("shop.buy.note")}</label>
               <Input className="mt-1 min-h-11 rounded-xl" value={note} onChange={(e) => setNote(e.target.value)} placeholder={t("shop.buy.notePlaceholder")} />
 
-              <p className="mt-5 text-sm font-extrabold text-[#0B1F4D]">{t("shop.buy.payHow")}</p>
-              <div className="mt-2 flex w-full items-start gap-3 rounded-2xl border border-primary bg-primary/5 p-3 text-left">
-                <Landmark className="mt-0.5 size-5 text-primary" />
-                <span>
-                  <span className="block text-sm font-extrabold">{t("shop.buy.transfer")}</span>
-                  <span className="mt-0.5 block text-[12px] text-muted-foreground">{t("shop.buy.transferHint")}</span>
-                </span>
-              </div>
-
-              <div className="mt-3 rounded-2xl border border-[#EEF1F5] bg-[#F8FAFC] p-3 text-sm">
-                <p className="flex items-center gap-1.5 font-extrabold text-[#0B1F4D]">
-                  <Building2 className="size-4" />
-                  {t("shop.buy.shopAccount")}
-                </p>
-                {accountQuery.isLoading ? (
-                  <p className="mt-2 text-muted-foreground">Loading account…</p>
-                ) : hasAccount ? (
-                  <dl className="mt-2 space-y-1 text-[13px]">
-                    <div className="flex justify-between gap-2">
-                      <dt className="text-muted-foreground">{t("shop.buy.bank")}</dt>
-                      <dd className="font-bold">{account?.payout_bank_name}</dd>
-                    </div>
-                    <div className="flex justify-between gap-2">
-                      <dt className="text-muted-foreground">{t("shop.buy.accountName")}</dt>
-                      <dd className="font-bold">{account?.payout_account_name}</dd>
-                    </div>
-                    <div className="flex justify-between gap-2">
-                      <dt className="text-muted-foreground">{t("shop.buy.accountNumber")}</dt>
-                      <dd className="font-extrabold tracking-wide">{account?.payout_account_number}</dd>
-                    </div>
-                  </dl>
-                ) : (
-                  <p className="mt-2 text-[13px] text-muted-foreground">{t("shop.buy.noAccount")}</p>
-                )}
-              </div>
-
               <div className="mt-5 flex justify-between text-sm">
                 <span className="text-muted-foreground">{t("shop.buy.total")}</span>
                 <span className="text-lg font-extrabold text-[#0B1F4D]">{formatNgn(total)}</span>
@@ -270,21 +212,30 @@ export function BuyScreen({ productId, initialQty }: { productId?: string; initi
                 <Button
                   type="button"
                   className="mt-4 min-h-12 w-full rounded-xl bg-[#1F7A4D] font-extrabold"
-                  disabled={busy || !hasAccount}
+                  disabled={busy}
                   onClick={() => void confirm()}
                 >
                   {busy ? t("shop.buy.working") : t("shop.buy.placeTransfer")}
                 </Button>
               ) : (
                 <>
-                  <Button
-                    type="button"
-                    className="mt-4 min-h-12 w-full rounded-xl bg-[#1F7A4D] font-extrabold"
-                    disabled={busy || paidNow}
-                    onClick={() => void paidNowClick()}
-                  >
-                    {paidNow ? t("shop.buy.paidMarked") : busy ? t("shop.buy.working") : t("shop.buy.paidNow")}
-                  </Button>
+                  {paidNow ? (
+                    <p className="mt-4 rounded-2xl bg-[#1F7A4D]/10 px-3 py-3 text-center text-sm font-extrabold text-[#1F7A4D]">
+                      Paid for product
+                    </p>
+                  ) : (
+                    <ShopPayPanel
+                      businessId={product.business_id}
+                      amount={total}
+                      orderId={orderId}
+                      kind="marketplace"
+                      itemLabel={`${qty} ${unitWord} of ${product.name}`}
+                      onPaid={() => {
+                        setPaidNow(true);
+                        void queryClient.invalidateQueries({ queryKey: ["marketplace-orders"] });
+                      }}
+                    />
+                  )}
                   <Button className="mt-2 min-h-11 w-full rounded-xl" variant="outline" asChild>
                     <Link to="/shop/orders/$orderId" params={{ orderId }}>
                       {t("shop.buy.viewOrder")}

@@ -2,7 +2,7 @@
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { ArrowLeft, Building2, Clock3, Landmark, MapPin, Share2 } from "lucide-react";
+import { ArrowLeft, Clock3, MapPin, Share2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
@@ -11,14 +11,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { MarketplaceShell } from "@/features/marketplace/marketplace-shell";
 import { PlaceOrderSocialBar } from "@/features/marketplace/place-order-social";
+import { ShopPayPanel } from "@/features/marketplace/shop-pay-panel";
 import { useAuth } from "@/features/auth/auth-context";
 import { cn } from "@/lib/utils";
-import { fetchBusinessPayoutAccount } from "@/services/marketplace-service";
 import {
   categoryLabel,
   dayLabel,
   fetchPlaceOrderListing,
-  markPlaceOrderPaid,
   placeYourOrder,
   sharePlaceOrderPost,
   type PlaceOrderFulfilment,
@@ -47,13 +46,6 @@ export function PlaceOrderDetailScreen({ listingId }: { listingId: string }) {
     queryFn: async () => (await fetchPlaceOrderListing(listingId)).listing,
   });
   const listing = listingQuery.data;
-  const accountQuery = useQuery({
-    queryKey: ["payout-account", listing?.business_id],
-    enabled: Boolean(listing?.business_id),
-    queryFn: async () => (await fetchBusinessPayoutAccount(listing!.business_id)).account,
-  });
-  const account = accountQuery.data;
-  const hasAccount = Boolean(account?.payout_account_number);
 
   const deliveryFee = fulfilment === "delivery" ? 500 : 0;
   const total = listing ? listing.price * qty + deliveryFee : 0;
@@ -106,6 +98,7 @@ export function PlaceOrderDetailScreen({ listingId }: { listingId: string }) {
       buyerPhone: phone,
       buyerNote: note,
       unitPrice: listing.price,
+      listingTitle: listing.title,
     });
     setBusy(false);
     if (placed.error || !placed.order) {
@@ -113,23 +106,8 @@ export function PlaceOrderDetailScreen({ listingId }: { listingId: string }) {
       return;
     }
     setOrderId(placed.order.id);
-    toast.success(hasAccount ? "Order placed. Transfer to the shop, then tap I have paid." : "Order placed. The shop will see it as pending.");
+    toast.success("Order placed. Copy the shop account, pay, then tap I’ve made the payment.");
     await queryClient.invalidateQueries({ queryKey: ["place-order-mine"] });
-    await queryClient.invalidateQueries({ queryKey: ["place-order-shop"] });
-    await queryClient.invalidateQueries({ queryKey: ["activity-inbox"] });
-  }
-
-  async function paidNow() {
-    if (!orderId) return;
-    setBusy(true);
-    const r = await markPlaceOrderPaid(orderId);
-    setBusy(false);
-    if (r.error) {
-      toast.error(r.error);
-      return;
-    }
-    setPaid(true);
-    toast.success("Marked as paid. The shop can see it in notifications.");
     await queryClient.invalidateQueries({ queryKey: ["place-order-shop"] });
     await queryClient.invalidateQueries({ queryKey: ["activity-inbox"] });
   }
@@ -198,6 +176,8 @@ export function PlaceOrderDetailScreen({ listingId }: { listingId: string }) {
                 ) : null}
               </p>
 
+              <p className="mt-5 text-sm font-extrabold">Fill this form to place your order</p>
+              <p className="mt-1 text-[12px] text-muted-foreground">The shop that posted this item receives the order.</p>
               <p className="mt-5 text-sm font-extrabold">Pickup or delivery</p>
               <p className="mt-1 text-[12px] text-muted-foreground">Choose how you want this order.</p>
               <div className="mt-2 grid grid-cols-2 gap-2">
@@ -256,29 +236,6 @@ export function PlaceOrderDetailScreen({ listingId }: { listingId: string }) {
               <label className="mt-3 block text-sm font-extrabold">Note for the shop</label>
               <Input className="mt-1 min-h-11 rounded-xl" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Spice level, extra pack…" />
 
-              <p className="mt-5 text-sm font-extrabold">Pay the shop</p>
-              <div className="mt-2 flex items-start gap-3 rounded-2xl border border-primary bg-primary/5 p-3">
-                <Landmark className="mt-0.5 size-5 text-primary" />
-                <span>
-                  <span className="block text-sm font-extrabold">Transfer to shop</span>
-                  <span className="mt-0.5 block text-[12px] text-muted-foreground">Send the total, then tap I have paid.</span>
-                </span>
-              </div>
-              <div className="mt-3 rounded-2xl border border-[#EEF1F5] bg-[#F8FAFC] p-3 text-sm">
-                <p className="flex items-center gap-1.5 font-extrabold text-[#0B1F4D]">
-                  <Building2 className="size-4" /> Shop account
-                </p>
-                {hasAccount ? (
-                  <dl className="mt-2 space-y-1 text-[13px]">
-                    <Row label="Bank" value={account?.payout_bank_name} />
-                    <Row label="Name" value={account?.payout_account_name} />
-                    <Row label="Number" value={account?.payout_account_number} />
-                  </dl>
-                ) : (
-                  <p className="mt-2 text-[13px] text-muted-foreground">This shop has not added a bank account yet.</p>
-                )}
-              </div>
-
               <div className="mt-4 flex justify-between text-sm">
                 <span className="text-muted-foreground">Total</span>
                 <span className="text-lg font-extrabold text-[#0B1F4D]">{formatNgn(total)}</span>
@@ -294,14 +251,24 @@ export function PlaceOrderDetailScreen({ listingId }: { listingId: string }) {
                 </Button>
               ) : (
                 <>
-                  <Button
-                    type="button"
-                    className="mt-4 min-h-12 w-full rounded-xl bg-[#1F7A4D] font-extrabold"
-                    disabled={busy || paid}
-                    onClick={() => void paidNow()}
-                  >
-                    {paid ? "Payment marked" : busy ? "Saving…" : "I have paid"}
-                  </Button>
+                  {paid ? (
+                    <p className="mt-4 rounded-2xl bg-[#1F7A4D]/10 px-3 py-3 text-center text-sm font-extrabold text-[#1F7A4D]">
+                      Paid · ordered
+                    </p>
+                  ) : (
+                    <ShopPayPanel
+                      businessId={listing.business_id}
+                      amount={total}
+                      orderId={orderId}
+                      kind="place_order"
+                      itemLabel={`${qty} × ${listing.title}`}
+                      onPaid={() => {
+                        setPaid(true);
+                        void queryClient.invalidateQueries({ queryKey: ["place-order-shop"] });
+                        void queryClient.invalidateQueries({ queryKey: ["activity-inbox"] });
+                      }}
+                    />
+                  )}
                   <Button className="mt-2 min-h-11 w-full rounded-xl" variant="outline" asChild>
                     <Link to="/shop/order-now">Back to today’s orders</Link>
                   </Button>
@@ -330,11 +297,3 @@ function Choice({ active, onClick, label }: { active: boolean; onClick: () => vo
   );
 }
 
-function Row({ label, value }: { label: string; value?: string | null }) {
-  return (
-    <div className="flex justify-between gap-2">
-      <dt className="text-muted-foreground">{label}</dt>
-      <dd className="font-bold">{value}</dd>
-    </div>
-  );
-}

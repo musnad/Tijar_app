@@ -92,6 +92,8 @@ import { Route as ApiAiTranscribeRouteImport } from './routes/api.ai.transcribe'
 import { Route as ApiAssistantChatRouteImport } from './routes/api.assistant.chat'
 import { Route as ApiPaymentsFlutterwaveRouteImport } from './routes/api.payments.flutterwave'
 import { Route as ApiPaymentsPayoutRouteImport } from './routes/api.payments.payout'
+import { Route as ApiPaymentsShopAccountRouteImport } from './routes/api.payments.shop-account'
+import { Route as ApiPaymentsConfirmOrderRouteImport } from './routes/api.payments.confirm-order'
 import { Route as ApiPaymentsStatusRouteImport } from './routes/api.payments.status'
 import { Route as ApiPaymentsVirtualAccountRouteImport } from './routes/api.payments.virtual-account'
 import { Route as ApiPaymentsWebhookRouteImport } from './routes/api.payments.webhook'
@@ -548,6 +550,16 @@ const ApiPaymentsPayoutRoute = ApiPaymentsPayoutRouteImport.update({
   path: '/api/payments/payout',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPaymentsShopAccountRoute = ApiPaymentsShopAccountRouteImport.update({
+  id: '/api/payments/shop-account',
+  path: '/api/payments/shop-account',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPaymentsConfirmOrderRoute = ApiPaymentsConfirmOrderRouteImport.update({
+  id: '/api/payments/confirm-order',
+  path: '/api/payments/confirm-order',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPaymentsStatusRoute = ApiPaymentsStatusRouteImport.update({
   id: '/api/payments/status',
   path: '/api/payments/status',
@@ -835,6 +847,8 @@ export interface FileRoutesByFullPath {
   '/api/assistant/chat': typeof ApiAssistantChatRoute
   '/api/payments/flutterwave': typeof ApiPaymentsFlutterwaveRoute
   '/api/payments/payout': typeof ApiPaymentsPayoutRoute
+  '/api/payments/shop-account': typeof ApiPaymentsShopAccountRoute
+  '/api/payments/confirm-order': typeof ApiPaymentsConfirmOrderRoute
   '/api/payments/status': typeof ApiPaymentsStatusRoute
   '/api/payments/virtual-account': typeof ApiPaymentsVirtualAccountRoute
   '/api/payments/webhook': typeof ApiPaymentsWebhookRoute
@@ -953,6 +967,8 @@ export interface FileRoutesByTo {
   '/api/assistant/chat': typeof ApiAssistantChatRoute
   '/api/payments/flutterwave': typeof ApiPaymentsFlutterwaveRoute
   '/api/payments/payout': typeof ApiPaymentsPayoutRoute
+  '/api/payments/shop-account': typeof ApiPaymentsShopAccountRoute
+  '/api/payments/confirm-order': typeof ApiPaymentsConfirmOrderRoute
   '/api/payments/status': typeof ApiPaymentsStatusRoute
   '/api/payments/virtual-account': typeof ApiPaymentsVirtualAccountRoute
   '/api/payments/webhook': typeof ApiPaymentsWebhookRoute
@@ -1079,6 +1095,8 @@ export interface FileRoutesById {
   '/api/assistant/chat': typeof ApiAssistantChatRoute
   '/api/payments/flutterwave': typeof ApiPaymentsFlutterwaveRoute
   '/api/payments/payout': typeof ApiPaymentsPayoutRoute
+  '/api/payments/shop-account': typeof ApiPaymentsShopAccountRoute
+  '/api/payments/confirm-order': typeof ApiPaymentsConfirmOrderRoute
   '/api/payments/status': typeof ApiPaymentsStatusRoute
   '/api/payments/virtual-account': typeof ApiPaymentsVirtualAccountRoute
   '/api/payments/webhook': typeof ApiPaymentsWebhookRoute
@@ -1206,6 +1224,8 @@ export interface FileRouteTypes {
     | '/api/assistant/chat'
     | '/api/payments/flutterwave'
     | '/api/payments/payout'
+    | '/api/payments/shop-account'
+    | '/api/payments/confirm-order'
     | '/api/payments/status'
     | '/api/payments/virtual-account'
     | '/api/payments/webhook'
@@ -1324,6 +1344,8 @@ export interface FileRouteTypes {
     | '/api/assistant/chat'
     | '/api/payments/flutterwave'
     | '/api/payments/payout'
+    | '/api/payments/shop-account'
+    | '/api/payments/confirm-order'
     | '/api/payments/status'
     | '/api/payments/virtual-account'
     | '/api/payments/webhook'
@@ -1449,6 +1471,8 @@ export interface FileRouteTypes {
     | '/api/assistant/chat'
     | '/api/payments/flutterwave'
     | '/api/payments/payout'
+    | '/api/payments/shop-account'
+    | '/api/payments/confirm-order'
     | '/api/payments/status'
     | '/api/payments/virtual-account'
     | '/api/payments/webhook'
@@ -1526,6 +1550,8 @@ export interface RootRouteChildren {
   ApiAssistantChatRoute: typeof ApiAssistantChatRoute
   ApiPaymentsFlutterwaveRoute: typeof ApiPaymentsFlutterwaveRoute
   ApiPaymentsPayoutRoute: typeof ApiPaymentsPayoutRoute
+  ApiPaymentsShopAccountRoute: typeof ApiPaymentsShopAccountRoute
+  ApiPaymentsConfirmOrderRoute: typeof ApiPaymentsConfirmOrderRoute
   ApiPaymentsStatusRoute: typeof ApiPaymentsStatusRoute
   ApiPaymentsVirtualAccountRoute: typeof ApiPaymentsVirtualAccountRoute
   ApiPaymentsWebhookRoute: typeof ApiPaymentsWebhookRoute
@@ -2117,6 +2143,20 @@ declare module '@tanstack/react-router' {
       path: '/api/payments/payout'
       fullPath: '/api/payments/payout'
       preLoaderRoute: typeof ApiPaymentsPayoutRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/payments/shop-account': {
+      id: '/api/payments/shop-account'
+      path: '/api/payments/shop-account'
+      fullPath: '/api/payments/shop-account'
+      preLoaderRoute: typeof ApiPaymentsShopAccountRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/payments/confirm-order': {
+      id: '/api/payments/confirm-order'
+      path: '/api/payments/confirm-order'
+      fullPath: '/api/payments/confirm-order'
+      preLoaderRoute: typeof ApiPaymentsConfirmOrderRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/payments/status': {
@@ -2726,6 +2766,8 @@ const rootRouteChildren: RootRouteChildren = {
   ApiAssistantChatRoute: ApiAssistantChatRoute,
   ApiPaymentsFlutterwaveRoute: ApiPaymentsFlutterwaveRoute,
   ApiPaymentsPayoutRoute: ApiPaymentsPayoutRoute,
+  ApiPaymentsShopAccountRoute: ApiPaymentsShopAccountRoute,
+  ApiPaymentsConfirmOrderRoute: ApiPaymentsConfirmOrderRoute,
   ApiPaymentsStatusRoute: ApiPaymentsStatusRoute,
   ApiPaymentsVirtualAccountRoute: ApiPaymentsVirtualAccountRoute,
   ApiPaymentsWebhookRoute: ApiPaymentsWebhookRoute,

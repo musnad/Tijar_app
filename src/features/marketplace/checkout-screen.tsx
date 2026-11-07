@@ -15,12 +15,12 @@ import { isMockFeedId } from "@/features/marketplace/feed-mock";
 import { haptic } from "@/lib/haptics";
 import { clearLocalCart, listLocalCart } from "@/lib/local-cart";
 import {
-  fetchBusinessPayoutAccount,
   fetchCart,
   listAddresses,
   placeOrders,
   saveAddress,
 } from "@/services/marketplace-service";
+import { fetchShopReceivingAccount } from "@/services/shop-pay-service";
 import type { CartItem } from "@/types/database";
 import { formatNgn } from "@/utils/money";
 
@@ -101,12 +101,12 @@ export function CheckoutScreen() {
     queryKey: ["checkout-accounts", shopIds.join(",")],
     enabled: shopIds.length > 0,
     queryFn: async () => {
-      const rows = await Promise.all(shopIds.map((id) => fetchBusinessPayoutAccount(id)));
+      const rows = await Promise.all(shopIds.map((id) => fetchShopReceivingAccount(id)));
       return rows.map((r, i) => ({ businessId: shopIds[i]!, account: r.account }));
     },
   });
   const shopAccounts = accountsQuery.data ?? [];
-  const missingAccount = shopAccounts.some((r) => !r.account?.payout_account_number);
+  const missingAccount = shopAccounts.some((r) => !r.account?.accountNumber);
   const goods = useMemo(() => items.reduce((s, i) => s + Number(i.quantity) * Number(i.unit_price), 0), [items]);
   const shipping = 2_500;
   const tax = goods >= 50_000 ? 4_000 : Math.round(goods * 0.075);
@@ -144,7 +144,7 @@ export function CheckoutScreen() {
     }
     if (missingAccount) {
       setBusy(false);
-      toast.error("A shop in this cart has not added a bank account yet.");
+      toast.error("A shop in this cart has no virtual account yet.");
       return;
     }
 
@@ -188,7 +188,7 @@ export function CheckoutScreen() {
     await queryClient.invalidateQueries({ queryKey: ["marketplace-cart"] });
     await queryClient.invalidateQueries({ queryKey: ["marketplace-orders"] });
     setBusy(false);
-    toast.success("Order placed. Transfer to the shop account, then tap Paid now.");
+    toast.success("Order placed. Copy the shop virtual account on the next screen to pay.");
     void navigate({ to: "/shop/orders/$orderId", params: { orderId: placed.orders[0]!.id } });
   }
 
@@ -275,7 +275,7 @@ export function CheckoutScreen() {
                   Transfer to shop
                 </h2>
                 <p className="mt-1 text-[12px] text-muted-foreground">
-                  Send the total to the account below, then tap Paid now on the order screen.
+                  After you place the order, copy the shop virtual account. That starts a 15-minute timer to pay.
                 </p>
                 {accountsQuery.isLoading ? (
                   <p className="mt-2 text-sm text-muted-foreground">Loading shop account…</p>
@@ -288,23 +288,23 @@ export function CheckoutScreen() {
                         <Landmark className="size-4 text-[#1F7A4D]" />
                         Shop account
                       </p>
-                      {row.account?.payout_account_number ? (
+                      {row.account?.accountNumber ? (
                         <dl className="mt-2 space-y-1 text-[13px]">
                           <div className="flex justify-between gap-2">
                             <dt className="text-[#6B7280]">Bank</dt>
-                            <dd className="font-bold">{row.account.payout_bank_name}</dd>
+                            <dd className="font-bold">{row.account.bankName}</dd>
                           </div>
                           <div className="flex justify-between gap-2">
                             <dt className="text-[#6B7280]">Account name</dt>
-                            <dd className="font-bold">{row.account.payout_account_name}</dd>
+                            <dd className="font-bold">{row.account.accountName}</dd>
                           </div>
                           <div className="flex justify-between gap-2">
                             <dt className="text-[#6B7280]">Account number</dt>
-                            <dd className="font-extrabold tracking-wide">{row.account.payout_account_number}</dd>
+                            <dd className="font-extrabold tracking-wide">{row.account.accountNumber}</dd>
                           </div>
                         </dl>
                       ) : (
-                        <p className="mt-2 text-[13px] text-muted-foreground">This shop has not added an account number yet.</p>
+                        <p className="mt-2 text-[13px] text-muted-foreground">This shop has not opened a virtual account yet.</p>
                       )}
                     </div>
                   ))

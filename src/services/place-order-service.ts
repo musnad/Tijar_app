@@ -254,6 +254,7 @@ export async function placeYourOrder(input: {
   buyerPhone?: string;
   buyerNote?: string;
   unitPrice: number;
+  listingTitle?: string;
 }): Promise<{ order: PlaceOrderRequest | null; error: string | null }> {
   const supabase = getSupabaseBrowserClient();
   const total = Number(input.quantity) * Number(input.unitPrice) + (input.fulfilment === "delivery" ? 500 : 0);
@@ -283,12 +284,15 @@ export async function placeYourOrder(input: {
     return { order: null, error: error.message };
   }
   const order = data as PlaceOrderRequest;
+  const { data: buyer } = await supabase.from("profiles").select("full_name").eq("id", input.buyerId).maybeSingle();
+  const buyerName = String(buyer?.full_name ?? "").trim() || "A customer";
+  const item = input.listingTitle?.trim() || "an order";
   await notifyShopPlaceOrder({
     businessId: input.businessId,
     buyerId: input.buyerId,
     kind: "place_order",
-    title: `Pending · ${input.quantity} order`,
-    body: placeOrderNoticeBody({
+    title: `${buyerName} placed an order`,
+    body: `${buyerName} placed an order of ${input.quantity} × ${item} · ${placeOrderNoticeBody({
       fulfilment: input.fulfilment,
       quantity: input.quantity,
       total,
@@ -297,7 +301,7 @@ export async function placeYourOrder(input: {
       note: input.buyerNote,
       slotDay: input.slotDay,
       slotTime: input.slotTime,
-    }),
+    })}`,
   });
   return { order, error: null };
 }

@@ -4,16 +4,14 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { ArrowLeft, MapPin, Phone } from "lucide-react";
 import { toast } from "sonner";
-import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { MarketplaceShell } from "@/features/marketplace/marketplace-shell";
 import { OrderTrackTimeline } from "@/features/marketplace/order-track-timeline";
+import { ShopPayPanel } from "@/features/marketplace/shop-pay-panel";
 import { useAuth } from "@/features/auth/auth-context";
 import {
-  fetchBusinessPayoutAccount,
   fetchOrderDetail,
-  markBuyerTransferPaid,
   transitionOrder,
 } from "@/services/marketplace-service";
 import { formatNgn } from "@/utils/money";
@@ -22,7 +20,6 @@ import { formatOrderWhen, orderStatusLabel } from "@/utils/order-tracking";
 export function OrderDetailScreen({ orderId }: { orderId: string }) {
   const { profile } = useAuth();
   const queryClient = useQueryClient();
-  const [paying, setPaying] = useState(false);
   const detailQuery = useQuery({
     queryKey: ["marketplace-order", orderId, profile?.id ?? "guest"],
     queryFn: async () => {
@@ -34,14 +31,9 @@ export function OrderDetailScreen({ orderId }: { orderId: string }) {
 
   const order = detailQuery.data?.order;
   const items = detailQuery.data?.items ?? [];
-  const accountQuery = useQuery({
-    queryKey: ["payout-account", order?.business_id],
-    enabled: Boolean(order?.business_id),
-    queryFn: async () => (await fetchBusinessPayoutAccount(order!.business_id)).account,
-  });
-  const account = accountQuery.data;
   const awaitingPay = order?.status === "pending_payment";
   const buyerSaidPaid = Boolean(order?.buyer_marked_paid_at);
+  const itemLabel = items.map((i) => `${i.quantity} × ${i.product_name}`).join(", ") || "an order";
 
   return (
     <MarketplaceShell>
@@ -152,57 +144,24 @@ export function OrderDetailScreen({ orderId }: { orderId: string }) {
             </div>
           </section>
 
-          {awaitingPay && account?.payout_account_number ? (
-            <section className="rounded-2xl border border-border bg-card p-4 shadow-sm">
-              <h2 className="text-sm font-extrabold">Transfer to this shop</h2>
-              <p className="mt-1 text-xs text-muted-foreground">
-                Send {formatNgn(Number(order.total))} then tap Paid now. The shop confirms it into today’s sales.
+          {awaitingPay && order.business_id ? (
+            buyerSaidPaid || order.status === "paid" ? (
+              <p className="rounded-2xl bg-[#1F7A4D]/10 px-3 py-3 text-center text-sm font-extrabold text-[#1F7A4D]">
+                Paid · ordered
               </p>
-              <dl className="mt-3 space-y-1 text-sm">
-                <div className="flex justify-between gap-2">
-                  <dt className="text-muted-foreground">Bank</dt>
-                  <dd className="font-bold">{account.payout_bank_name}</dd>
-                </div>
-                <div className="flex justify-between gap-2">
-                  <dt className="text-muted-foreground">Account name</dt>
-                  <dd className="font-bold">{account.payout_account_name}</dd>
-                </div>
-                <div className="flex justify-between gap-2">
-                  <dt className="text-muted-foreground">Account number</dt>
-                  <dd className="font-extrabold tracking-wide">{account.payout_account_number}</dd>
-                </div>
-              </dl>
-              <Button
-                type="button"
-                variant="outline"
-                className="mt-3 min-h-11 w-full rounded-xl"
-                onClick={() => {
-                  void navigator.clipboard.writeText(account.payout_account_number ?? "");
-                  toast.success("Account number copied");
+            ) : (
+              <ShopPayPanel
+                businessId={order.business_id}
+                amount={Number(order.total)}
+                orderId={order.id}
+                kind="marketplace"
+                itemLabel={itemLabel}
+                onPaid={() => {
+                  void queryClient.invalidateQueries({ queryKey: ["marketplace-order", orderId] });
+                  void queryClient.invalidateQueries({ queryKey: ["marketplace-orders"] });
                 }}
-              >
-                Copy account number
-              </Button>
-              <Button
-                type="button"
-                className="mt-2 min-h-12 w-full rounded-xl bg-[#1F7A4D] font-bold"
-                disabled={paying || buyerSaidPaid}
-                onClick={async () => {
-                  setPaying(true);
-                  const r = await markBuyerTransferPaid(order.id);
-                  setPaying(false);
-                  if (r.error) {
-                    toast.error(r.error);
-                    return;
-                  }
-                  toast.success("Told the shop you have paid. They will confirm.");
-                  await queryClient.invalidateQueries({ queryKey: ["marketplace-order", orderId] });
-                  await queryClient.invalidateQueries({ queryKey: ["marketplace-orders"] });
-                }}
-              >
-                {buyerSaidPaid ? "Paid now — waiting for shop" : paying ? "Sending…" : "Paid now"}
-              </Button>
-            </section>
+              />
+            )
           ) : null}
 
           {order.status === "pending_payment" && (

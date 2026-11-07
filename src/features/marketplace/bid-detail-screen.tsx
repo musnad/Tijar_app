@@ -37,14 +37,13 @@ import {
   fetchBidderCard,
   fetchBidOffers,
   fetchVideoPostById,
-  markBidPaid,
   pauseBid,
   placeBid,
   releaseBidUnpaid,
   resumeBid,
   type BidOffer,
 } from "@/services/bid-service";
-import { fetchBusinessPayoutAccount } from "@/services/marketplace-service";
+import { ShopPayPanel } from "@/features/marketplace/shop-pay-panel";
 import { isImagePost, resolvePostGallery } from "@/services/video-feed-service";
 import { formatNgn } from "@/utils/money";
 
@@ -264,18 +263,6 @@ export function BidDetailScreen({ postId }: { postId: string }) {
     }
   }
 
-  async function sayPaid() {
-    setBusy("sayPaid");
-    const r = await markBidPaid(postId);
-    setBusy(null);
-    if (r.error) {
-      toast.error(r.error);
-      return;
-    }
-    haptic("success");
-    toast.success("Told the shop you have paid. They will confirm.");
-    await refresh();
-  }
 
   return (
     <div className="pb-8">
@@ -459,13 +446,20 @@ export function BidDetailScreen({ postId }: { postId: string }) {
 
       {/* Winner: pay the shop */}
       {isWinner && (phase === "sold" || phase === "paid") ? (
-        <WinnerPaymentPanel
-          businessId={post.business_id}
-          markedPaid={Boolean(post.bid_buyer_marked_paid_at)}
-          paid={phase === "paid"}
-          busy={busy === "sayPaid"}
-          onSayPaid={() => void sayPaid()}
-        />
+        {phase === "paid" || post.bid_buyer_marked_paid_at ? (
+          <p className="mt-4 rounded-2xl bg-[#1F7A4D]/10 px-3 py-3 text-center text-sm font-extrabold text-[#1F7A4D]">
+            Paid
+          </p>
+        ) : (
+          <ShopPayPanel
+            businessId={post.business_id}
+            amount={Number(post.top_bid ?? post.bid_starting_price ?? 0)}
+            orderId={post.id}
+            kind="bid"
+            itemLabel={post.caption?.trim() || "winning bid"}
+            onPaid={() => void refresh()}
+          />
+        )}
       ) : null}
 
       {/* Control room — shop only */}
@@ -681,53 +675,3 @@ function BidRow({
   );
 }
 
-function WinnerPaymentPanel({
-  businessId,
-  markedPaid,
-  paid,
-  busy,
-  onSayPaid,
-}: {
-  businessId: string;
-  markedPaid: boolean;
-  paid: boolean;
-  busy: boolean;
-  onSayPaid: () => void;
-}) {
-  const accountQuery = useQuery({
-    queryKey: ["payout-account", businessId],
-    queryFn: async () => (await fetchBusinessPayoutAccount(businessId)).account,
-  });
-  const account = accountQuery.data ?? null;
-  return (
-    <div className="mt-4 rounded-2xl border border-border p-4">
-      <p className="text-[13px] font-extrabold text-foreground">You won — pay the shop</p>
-      {account?.payout_account_number ? (
-        <dl className="mt-2 space-y-1 text-[13px]">
-          <div className="flex justify-between gap-2">
-            <dt className="text-muted-foreground">Bank</dt>
-            <dd className="font-bold">{account.payout_bank_name}</dd>
-          </div>
-          <div className="flex justify-between gap-2">
-            <dt className="text-muted-foreground">Account name</dt>
-            <dd className="font-bold">{account.payout_account_name}</dd>
-          </div>
-          <div className="flex justify-between gap-2">
-            <dt className="text-muted-foreground">Account number</dt>
-            <dd className="font-extrabold tracking-wide">{account.payout_account_number}</dd>
-          </div>
-        </dl>
-      ) : (
-        <p className="mt-1 text-[12px] text-muted-foreground">Ask the shop for their transfer details.</p>
-      )}
-      <Button
-        type="button"
-        className="mt-3 min-h-11 w-full rounded-xl bg-[#1F7A4D] font-bold text-white hover:bg-[#1F7A4D]/90"
-        disabled={busy || markedPaid || paid}
-        onClick={onSayPaid}
-      >
-        {paid ? "Paid" : markedPaid ? "Paid — waiting for shop" : busy ? "Sending…" : "I have paid"}
-      </Button>
-    </div>
-  );
-}

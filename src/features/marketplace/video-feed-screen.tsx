@@ -46,6 +46,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { MarketplaceShell } from "@/features/marketplace/marketplace-shell";
+import { ShopPayPanel } from "@/features/marketplace/shop-pay-panel";
 import { useAuth } from "@/features/auth/auth-context";
 import { useAccountGate } from "@/features/auth/account-gate";
 import { CommerceSticker } from "@/features/marketplace/commerce-sticker";
@@ -68,7 +69,7 @@ import {
 import { fetchLiveStoryRings, type StoryRing } from "@/services/story-service";
 import { formatDistance, haversineKm } from "@/utils/discover";
 import { cn } from "@/lib/utils";
-import { addToCart, fetchBusinessPayoutAccount, fetchCart, fetchMarketplaceProducts, toggleFavoriteProduct } from "@/services/marketplace-service";
+import { addToCart, fetchCart, fetchMarketplaceProducts, toggleFavoriteProduct } from "@/services/marketplace-service";
 import { formatPricePerUnit } from "@/lib/catalogue/units";
 import { formatServiceDates, serviceLabel } from "@/lib/catalogue/service-schedule";
 import { parseVariantList } from "@/lib/catalogue/variants";
@@ -126,7 +127,6 @@ import {
   bidPaymentSecondsLeft,
   confirmBidPayment,
   deleteVideoPost,
-  markBidPaid,
   releaseBidUnpaid,
 } from "@/services/bid-service";
 import { usePrimaryBusiness } from "@/hooks/use-primary-business";
@@ -1320,70 +1320,25 @@ const BidPanel = memo(function BidPanel({ video }: { video: PublicFeedVideo }) {
 
 function WinnerPayment({ video }: { video: PublicFeedVideo }) {
   const queryClient = useQueryClient();
-  const accountQuery = useQuery({
-    queryKey: ["payout-account", video.business_id],
-    queryFn: async () => (await fetchBusinessPayoutAccount(video.business_id)).account,
-  });
-  const account = accountQuery.data ?? null;
   const markedPaid = Boolean(video.bid_buyer_marked_paid_at);
-  const [busy, setBusy] = useState(false);
-
-  async function sayPaid() {
-    setBusy(true);
-    const r = await markBidPaid(video.id);
-    setBusy(false);
-    if (r.error) {
-      toast.error(r.error);
-      return;
-    }
-    haptic("success");
-    toast.success("Told the shop you have paid. They will confirm.");
-    await queryClient.invalidateQueries({ queryKey: ["video-feed"] });
+  if (markedPaid || video.bid_status === "paid") {
+    return (
+      <p className="mt-3 rounded-xl bg-[#1F7A4D]/10 px-3 py-3 text-center text-[13px] font-extrabold text-[#1F7A4D]">
+        Paid
+      </p>
+    );
   }
-
   return (
-    <div className="mt-3 rounded-xl border border-[#E5E7EB] bg-white p-3">
-      <p className="text-[13px] font-extrabold text-[#0B1F4D]">You won — pay to keep it</p>
-      {account?.payout_account_number ? (
-        <>
-          <dl className="mt-2 space-y-1 text-[13px]">
-            <div className="flex justify-between gap-2">
-              <dt className="text-[#6B7280]">Bank</dt>
-              <dd className="font-bold">{account.payout_bank_name}</dd>
-            </div>
-            <div className="flex justify-between gap-2">
-              <dt className="text-[#6B7280]">Account name</dt>
-              <dd className="font-bold">{account.payout_account_name}</dd>
-            </div>
-            <div className="flex justify-between gap-2">
-              <dt className="text-[#6B7280]">Account number</dt>
-              <dd className="font-extrabold tracking-wide">{account.payout_account_number}</dd>
-            </div>
-          </dl>
-          <Button
-            type="button"
-            variant="outline"
-            className="mt-2 min-h-10 w-full rounded-xl"
-            onClick={() => {
-              void navigator.clipboard.writeText(account.payout_account_number ?? "");
-              toast.success("Account number copied");
-            }}
-          >
-            Copy account number
-          </Button>
-        </>
-      ) : (
-        <p className="mt-1 text-[12px] text-[#6B7280]">Ask the shop for their transfer details.</p>
-      )}
-      <Button
-        type="button"
-        className="mt-2 min-h-11 w-full rounded-xl bg-[#1F7A4D] font-bold text-white hover:bg-[#1F7A4D]/90"
-        disabled={busy || markedPaid}
-        onClick={() => void sayPaid()}
-      >
-        {markedPaid ? "Paid — waiting for shop" : busy ? "Sending…" : "I have paid"}
-      </Button>
-    </div>
+    <ShopPayPanel
+      businessId={video.business_id}
+      amount={Number(video.top_bid ?? video.bid_starting_price ?? video.price ?? 0)}
+      orderId={video.id}
+      kind="bid"
+      itemLabel={video.caption?.trim() || "winning bid"}
+      onPaid={() => {
+        void queryClient.invalidateQueries({ queryKey: ["video-feed"] });
+      }}
+    />
   );
 }
 
