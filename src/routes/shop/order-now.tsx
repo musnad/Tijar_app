@@ -1,7 +1,5 @@
-import { createFileRoute } from "@tanstack/react-router";
-
-import { PlaceOrderBoardScreen } from "@/features/marketplace/place-order-board-screen";
+import { Outlet, createFileRoute } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/shop/order-now")({
-  component: PlaceOrderBoardScreen,
+  component: () => <Outlet />,
 });

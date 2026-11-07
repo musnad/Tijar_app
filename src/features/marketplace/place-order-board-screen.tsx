@@ -135,7 +135,6 @@ function ListingCard({ listing }: { listing: PlaceOrderListing }) {
       <Link
         to="/shop/order-now/$listingId"
         params={{ listingId: listing.id }}
-        search={{ form: true }}
         className="flex gap-3"
       >
         <div className="size-[6.5rem] shrink-0 bg-muted">
@@ -174,7 +173,7 @@ function ListingCard({ listing }: { listing: PlaceOrderListing }) {
       </Link>
       <div className="px-3 pb-3">
         <Button className="min-h-10 w-full rounded-full bg-[#1F7A4D] text-sm font-extrabold" asChild>
-          <Link to="/shop/order-now/$listingId" params={{ listingId: listing.id }} search={{ form: true }}>
+          <Link to="/shop/order-now/$listingId" params={{ listingId: listing.id }}>
             Place your order
           </Link>
         </Button>

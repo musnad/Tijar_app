@@ -7,12 +7,6 @@ import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
 import { ShopPayPanel } from "@/features/marketplace/shop-pay-panel";
 import { useAuth } from "@/features/auth/auth-context";
 import { cn } from "@/lib/utils";
@@ -25,15 +19,7 @@ import { formatNgn } from "@/utils/money";
 
 const DEFAULT_SLOT = "11:00–14:00";
 
-export function PlaceOrderFormSheet({
-  listing,
-  open,
-  onOpenChange,
-}: {
-  listing: PlaceOrderListing;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-}) {
+export function PlaceOrderForm({ listing }: { listing: PlaceOrderListing }) {
   const { profile, session } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -109,112 +95,106 @@ export function PlaceOrderFormSheet({
     await queryClient.invalidateQueries({ queryKey: ["activity-inbox"] });
   }
 
+  if (orderId) {
+    if (paid) {
+      return (
+        <p className="rounded-2xl bg-[#1F7A4D]/10 px-3 py-3 text-center text-sm font-extrabold text-[#1F7A4D]">
+          Paid · ordered
+        </p>
+      );
+    }
+    return (
+      <ShopPayPanel
+        businessId={listing.business_id}
+        amount={total}
+        orderId={orderId}
+        kind="place_order"
+        itemLabel={`${qty} × ${listing.title}`}
+        onPaid={() => {
+          setPaid(true);
+          void queryClient.invalidateQueries({ queryKey: ["place-order-shop"] });
+          void queryClient.invalidateQueries({ queryKey: ["activity-inbox"] });
+        }}
+      />
+    );
+  }
+
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent
-        side="bottom"
-        className="max-h-[88vh] overflow-y-auto rounded-t-3xl px-4 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-5"
-      >
-        <SheetHeader className="text-left">
-          <SheetTitle className="text-lg font-extrabold text-[#0B1F4D]">Your order</SheetTitle>
-          <p className="text-[13px] text-muted-foreground">
-            {listing.title} · {formatNgn(listing.price)} · {listing.shop_name}
-          </p>
-        </SheetHeader>
+    <div className="rounded-2xl border border-[#1F7A4D]/25 bg-[#F4FBF7] p-4">
+      <p className="text-base font-extrabold text-[#0B1F4D]">Order form</p>
+      <p className="mt-0.5 text-[12px] text-muted-foreground">Fill this and send it to {listing.shop_name}.</p>
 
-        {orderId ? (
-          paid ? (
-            <p className="mt-5 rounded-2xl bg-[#1F7A4D]/10 px-3 py-3 text-center text-sm font-extrabold text-[#1F7A4D]">
-              Paid · ordered
-            </p>
-          ) : (
-            <ShopPayPanel
-              businessId={listing.business_id}
-              amount={total}
-              orderId={orderId}
-              kind="place_order"
-              itemLabel={`${qty} × ${listing.title}`}
-              onPaid={() => {
-                setPaid(true);
-                void queryClient.invalidateQueries({ queryKey: ["place-order-shop"] });
-                void queryClient.invalidateQueries({ queryKey: ["activity-inbox"] });
-              }}
-            />
-          )
-        ) : (
-          <div className="mt-4 space-y-4">
-            <div>
-              <p className="text-sm font-extrabold text-[#0B1F4D]">How many?</p>
-              <div className="mt-2 flex items-center gap-3">
-                <Button type="button" variant="outline" className="size-11 rounded-xl p-0 text-lg" onClick={() => setQty((n) => Math.max(1, n - 1))}>
-                  −
-                </Button>
-                <span className="w-8 text-center text-xl font-extrabold">{qty}</span>
-                <Button type="button" variant="outline" className="size-11 rounded-xl p-0 text-lg" onClick={() => setQty((n) => n + 1)}>
-                  +
-                </Button>
-              </div>
-            </div>
-
-            {listing.pickup_enabled && listing.delivery_enabled ? (
-              <div>
-                <p className="text-sm font-extrabold text-[#0B1F4D]">Pickup or delivery</p>
-                <div className="mt-2 grid grid-cols-2 gap-2">
-                  <Choice active={fulfilment === "pickup"} onClick={() => setFulfilment("pickup")} label="Pickup" />
-                  <Choice active={fulfilment === "delivery"} onClick={() => setFulfilment("delivery")} label="Delivery · ₦500" />
-                </div>
-              </div>
-            ) : (
-              <p className="text-[13px] font-semibold text-muted-foreground">
-                {fulfilment === "delivery" ? "Delivery · ₦500" : listing.location_label ? `Pickup at ${listing.location_label}` : "Pickup"}
-              </p>
-            )}
-
-            {dayOptions.length > 1 ? (
-              <div>
-                <p className="text-sm font-extrabold text-[#0B1F4D]">When</p>
-                <div className="mt-2 grid grid-cols-2 gap-2">
-                  <Choice active={slotDay === "today"} onClick={() => setSlotDay("today")} label="Today" />
-                  <Choice active={slotDay === "tomorrow"} onClick={() => setSlotDay("tomorrow")} label="Tomorrow" />
-                </div>
-              </div>
-            ) : (
-              <p className="text-[13px] font-semibold text-muted-foreground">
-                {slotDay === "tomorrow" ? "Ready tomorrow" : "Ready today"}
-              </p>
-            )}
-
-            <div>
-              <label className="text-sm font-extrabold text-[#0B1F4D]">Phone</label>
-              <Input className="mt-1 min-h-12 rounded-xl" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="080…" inputMode="tel" />
-            </div>
-            {fulfilment === "delivery" ? (
-              <div>
-                <label className="text-sm font-extrabold text-[#0B1F4D]">Delivery address</label>
-                <Input className="mt-1 min-h-12 rounded-xl" value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Street, area, landmark" />
-              </div>
-            ) : null}
-            <div>
-              <label className="text-sm font-extrabold text-[#0B1F4D]">Note (optional)</label>
-              <Input className="mt-1 min-h-12 rounded-xl" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Spice, extra pack…" />
-            </div>
-
-            <div className="flex items-center justify-between pt-1">
-              <span className="text-sm text-muted-foreground">Total</span>
-              <span className="text-xl font-extrabold text-[#0B1F4D]">{formatNgn(total)}</span>
-            </div>
-            <Button
-              type="button"
-              className="min-h-12 w-full rounded-xl bg-[#1F7A4D] font-extrabold text-white hover:bg-[#1F7A4D]/90"
-              disabled={busy}
-              onClick={() => void submit()}
-            >
-              {busy ? "Sending…" : "Send order"}
+      <div className="mt-4 space-y-4">
+        <div>
+          <p className="text-sm font-extrabold text-[#0B1F4D]">How many?</p>
+          <div className="mt-2 flex items-center gap-3">
+            <Button type="button" variant="outline" className="size-11 rounded-xl bg-white p-0 text-lg" onClick={() => setQty((n) => Math.max(1, n - 1))}>
+              −
+            </Button>
+            <span className="w-8 text-center text-xl font-extrabold">{qty}</span>
+            <Button type="button" variant="outline" className="size-11 rounded-xl bg-white p-0 text-lg" onClick={() => setQty((n) => n + 1)}>
+              +
             </Button>
           </div>
+        </div>
+
+        {listing.pickup_enabled && listing.delivery_enabled ? (
+          <div>
+            <p className="text-sm font-extrabold text-[#0B1F4D]">Pickup or delivery</p>
+            <div className="mt-2 grid grid-cols-2 gap-2">
+              <Choice active={fulfilment === "pickup"} onClick={() => setFulfilment("pickup")} label="Pickup" />
+              <Choice active={fulfilment === "delivery"} onClick={() => setFulfilment("delivery")} label="Delivery · ₦500" />
+            </div>
+          </div>
+        ) : (
+          <p className="text-[13px] font-semibold text-muted-foreground">
+            {fulfilment === "delivery" ? "Delivery · ₦500" : listing.location_label ? `Pickup at ${listing.location_label}` : "Pickup"}
+          </p>
         )}
-      </SheetContent>
-    </Sheet>
+
+        {dayOptions.length > 1 ? (
+          <div>
+            <p className="text-sm font-extrabold text-[#0B1F4D]">When</p>
+            <div className="mt-2 grid grid-cols-2 gap-2">
+              <Choice active={slotDay === "today"} onClick={() => setSlotDay("today")} label="Today" />
+              <Choice active={slotDay === "tomorrow"} onClick={() => setSlotDay("tomorrow")} label="Tomorrow" />
+            </div>
+          </div>
+        ) : (
+          <p className="text-[13px] font-semibold text-muted-foreground">
+            {slotDay === "tomorrow" ? "Ready tomorrow" : "Ready today"}
+          </p>
+        )}
+
+        <div>
+          <label className="text-sm font-extrabold text-[#0B1F4D]">Phone</label>
+          <Input className="mt-1 min-h-12 rounded-xl bg-white" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="080…" inputMode="tel" />
+        </div>
+        {fulfilment === "delivery" ? (
+          <div>
+            <label className="text-sm font-extrabold text-[#0B1F4D]">Delivery address</label>
+            <Input className="mt-1 min-h-12 rounded-xl bg-white" value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Street, area, landmark" />
+          </div>
+        ) : null}
+        <div>
+          <label className="text-sm font-extrabold text-[#0B1F4D]">Note (optional)</label>
+          <Input className="mt-1 min-h-12 rounded-xl bg-white" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Spice, extra pack…" />
+        </div>
+
+        <div className="flex items-center justify-between pt-1">
+          <span className="text-sm text-muted-foreground">Total</span>
+          <span className="text-xl font-extrabold text-[#0B1F4D]">{formatNgn(total)}</span>
+        </div>
+        <Button
+          type="button"
+          className="min-h-12 w-full rounded-xl bg-[#1F7A4D] font-extrabold text-white hover:bg-[#1F7A4D]/90"
+          disabled={busy}
+          onClick={() => void submit()}
+        >
+          {busy ? "Sending…" : "Send order"}
+        </Button>
+      </div>
+    </div>
   );
 }
 

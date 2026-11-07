@@ -181,7 +181,6 @@ export function StoryViewer({
       void navigate({
         to: "/shop/order-now/$listingId",
         params: { listingId: story.place_order_listing_id },
-        search: { form: true },
       });
       return;
     }
