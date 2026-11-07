@@ -1922,6 +1922,7 @@ const PlaceOrderSlide = memo(function PlaceOrderSlide({
           <Link
             to="/shop/order-now/$listingId"
             params={{ listingId: listing.id }}
+            search={{ form: true }}
             className="inline-flex min-h-11 w-full items-center justify-center rounded-full bg-primary text-sm font-extrabold text-white"
           >
             Place your order

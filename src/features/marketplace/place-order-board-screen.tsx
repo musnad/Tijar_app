@@ -135,6 +135,7 @@ function ListingCard({ listing }: { listing: PlaceOrderListing }) {
       <Link
         to="/shop/order-now/$listingId"
         params={{ listingId: listing.id }}
+        search={{ form: true }}
         className="flex gap-3"
       >
         <div className="size-[6.5rem] shrink-0 bg-muted">
@@ -171,6 +172,13 @@ function ListingCard({ listing }: { listing: PlaceOrderListing }) {
           <p className="mt-1.5 text-[15px] font-extrabold text-[#1F7A4D]">{formatNgn(listing.price)}</p>
         </div>
       </Link>
+      <div className="px-3 pb-3">
+        <Button className="min-h-10 w-full rounded-full bg-[#1F7A4D] text-sm font-extrabold" asChild>
+          <Link to="/shop/order-now/$listingId" params={{ listingId: listing.id }} search={{ form: true }}>
+            Place your order
+          </Link>
+        </Button>
+      </div>
       <PlaceOrderSocialBar listing={listing} compact className="border-t border-border px-1" />
     </div>
   );
