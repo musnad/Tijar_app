@@ -25,8 +25,11 @@ import {
   placeOrderStatusLabel,
   publishPlaceOrderListing,
   updatePlaceOrderStatus,
+  listingWhenLabel,
+  localYmd,
   type PlaceOrderCategory,
   type PlaceOrderDay,
+  type PlaceOrderSlot,
 } from "@/services/place-order-service";
 import { formatNgn } from "@/utils/money";
 
@@ -46,8 +49,8 @@ export function PlaceOrderComposeScreen() {
   const [availableOn, setAvailableOn] = useState<PlaceOrderDay>("today");
   const [pickup, setPickup] = useState(true);
   const [delivery, setDelivery] = useState(true);
-  const [readyFrom, setReadyFrom] = useState("10:00");
-  const [readyUntil, setReadyUntil] = useState("18:00");
+  const [sameDay, setSameDay] = useState<PlaceOrderSlot>({ date: localYmd(0), from: "10:00", until: "18:00" });
+  const [nextDay, setNextDay] = useState<PlaceOrderSlot>({ date: localYmd(1), from: "10:00", until: "18:00" });
   const [qtyNote, setQtyNote] = useState("");
   const [busy, setBusy] = useState(false);
   const search = useSearch({ strict: false }) as { tab?: string };
@@ -97,6 +100,14 @@ export function PlaceOrderComposeScreen() {
       toast.error("Turn on pickup, delivery, or both.");
       return;
     }
+    if (availableOn !== "tomorrow" && (!sameDay.date || !sameDay.from || !sameDay.until)) {
+      toast.error("Pick a same-day date and time.");
+      return;
+    }
+    if (availableOn !== "today" && (!nextDay.date || !nextDay.from || !nextDay.until)) {
+      toast.error("Pick a next-day date and time.");
+      return;
+    }
     setBusy(true);
     const published = await publishPlaceOrderListing({
       businessId: business.id,
@@ -112,8 +123,10 @@ export function PlaceOrderComposeScreen() {
       availableOn,
       pickupEnabled: pickup,
       deliveryEnabled: delivery,
-      readyFrom,
-      readyUntil,
+      sameDay: availableOn === "tomorrow" ? null : sameDay,
+      nextDay: availableOn === "today" ? null : nextDay,
+      readyFrom: availableOn === "tomorrow" ? nextDay.from : sameDay.from,
+      readyUntil: availableOn === "tomorrow" ? nextDay.until : sameDay.until,
       qtyNote,
     });
     setBusy(false);
@@ -211,6 +224,22 @@ export function PlaceOrderComposeScreen() {
                   </button>
                 ))}
               </div>
+              {availableOn !== "tomorrow" ? (
+                <DayTimeFields
+                  title="Same day"
+                  slot={sameDay}
+                  minDate={localYmd(0)}
+                  onChange={setSameDay}
+                />
+              ) : null}
+              {availableOn !== "today" ? (
+                <DayTimeFields
+                  title="Next day"
+                  slot={nextDay}
+                  minDate={localYmd(1)}
+                  onChange={setNextDay}
+                />
+              ) : null}
               <p className="mt-3 text-sm font-extrabold">How they collect</p>
               <div className="mt-2 grid grid-cols-2 gap-2">
                 <button type="button" onClick={() => setPickup((v) => !v)} className={cn("min-h-11 rounded-xl border text-[13px] font-extrabold", pickup ? "border-[#1F7A4D] bg-[#1F7A4D] text-white" : "border-border")}>
@@ -219,16 +248,6 @@ export function PlaceOrderComposeScreen() {
                 <button type="button" onClick={() => setDelivery((v) => !v)} className={cn("min-h-11 rounded-xl border text-[13px] font-extrabold", delivery ? "border-[#1F7A4D] bg-[#1F7A4D] text-white" : "border-border")}>
                   Delivery
                 </button>
-              </div>
-              <div className="mt-3 grid grid-cols-2 gap-2">
-                <label className="text-sm font-extrabold">
-                  Ready from
-                  <Input className="mt-1 min-h-11 rounded-xl" type="time" value={readyFrom} onChange={(e) => setReadyFrom(e.target.value)} />
-                </label>
-                <label className="text-sm font-extrabold">
-                  Until
-                  <Input className="mt-1 min-h-11 rounded-xl" type="time" value={readyUntil} onChange={(e) => setReadyUntil(e.target.value)} />
-                </label>
               </div>
               <label className="mt-3 block text-sm font-extrabold">Location</label>
               <Input className="mt-1 min-h-11 rounded-xl" value={location} onChange={(e) => setLocation(e.target.value)} placeholder="Area, street, landmark" />
@@ -250,7 +269,7 @@ export function PlaceOrderComposeScreen() {
                         <div className="flex items-center justify-between gap-2">
                           <div className="min-w-0">
                             <p className="truncate text-sm font-bold">{item.title}</p>
-                            <p className="text-[11px] text-muted-foreground">{item.is_open ? "Open" : "Closed"} · {formatNgn(item.price)}</p>
+                            <p className="text-[11px] text-muted-foreground">{item.is_open ? "Open" : "Closed"} · {formatNgn(item.price)} · {listingWhenLabel(item)}</p>
                           </div>
                           {item.is_open ? (
                             <Button
@@ -326,5 +345,43 @@ export function PlaceOrderComposeScreen() {
         </div>
       </div>
     </MarketplaceShell>
+  );
+}
+
+function DayTimeFields({
+  title,
+  slot,
+  minDate,
+  onChange,
+}: {
+  title: string;
+  slot: PlaceOrderSlot;
+  minDate: string;
+  onChange: (slot: PlaceOrderSlot) => void;
+}) {
+  return (
+    <div className="mt-3 rounded-2xl border border-border bg-[#F8FAFC] p-3">
+      <p className="text-sm font-extrabold text-[#0B1F4D]">{title} date & time</p>
+      <label className="mt-2 block text-[12px] font-bold text-muted-foreground">
+        Date
+        <Input
+          className="mt-1 min-h-11 rounded-xl bg-white"
+          type="date"
+          min={minDate}
+          value={slot.date}
+          onChange={(e) => onChange({ ...slot, date: e.target.value })}
+        />
+      </label>
+      <div className="mt-2 grid grid-cols-2 gap-2">
+        <label className="text-[12px] font-bold text-muted-foreground">
+          From
+          <Input className="mt-1 min-h-11 rounded-xl bg-white" type="time" value={slot.from} onChange={(e) => onChange({ ...slot, from: e.target.value })} />
+        </label>
+        <label className="text-[12px] font-bold text-muted-foreground">
+          Until
+          <Input className="mt-1 min-h-11 rounded-xl bg-white" type="time" value={slot.until} onChange={(e) => onChange({ ...slot, until: e.target.value })} />
+        </label>
+      </div>
+    </div>
   );
 }

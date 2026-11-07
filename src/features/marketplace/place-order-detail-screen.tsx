@@ -10,7 +10,7 @@ import { PlaceOrderForm } from "@/features/marketplace/place-order-form-sheet";
 import { PlaceOrderSocialBar } from "@/features/marketplace/place-order-social";
 import {
   categoryLabel,
-  dayLabel,
+  listingWhenLabel,
   fetchPlaceOrderListing,
   placeOrderSoldOut,
   sharePlaceOrderPost,
@@ -74,7 +74,7 @@ export function PlaceOrderDetailScreen({ listingId }: { listingId: string }) {
                 <span>{categoryLabel(listing.category)}</span>
                 <span className="inline-flex items-center gap-1">
                   <Clock3 className="size-3.5" />
-                  {dayLabel(listing.available_on)}
+                  {listingWhenLabel(listing)}
                 </span>
                 {listing.location_label ? (
                   <span className="inline-flex items-center gap-1">

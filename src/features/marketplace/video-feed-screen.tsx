@@ -115,7 +115,7 @@ import { isMockFeedId } from "@/features/marketplace/feed-mock";
 import { ProductSocialBar } from "@/features/marketplace/product-social";
 import {
   categoryLabel,
-  dayLabel,
+  listingWhenLabel,
   fetchPlaceOrderListings,
   placeOrderRemaining,
   placeOrderSoldOut,
@@ -1859,7 +1859,7 @@ const PlaceOrderSlide = memo(function PlaceOrderSlide({
           <span className="min-w-0">
             <span className="block truncate text-[15px] font-extrabold text-foreground">{listing.shop_name}</span>
             <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
-              Place your order · {dayLabel(listing.available_on)}
+              Place your order · {listingWhenLabel(listing)}
               {listing.location_label ? (
                 <>
                   <span aria-hidden>·</span>

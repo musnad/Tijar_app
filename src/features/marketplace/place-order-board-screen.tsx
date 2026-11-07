@@ -14,7 +14,7 @@ import { canUseBusinessMode } from "@/lib/account-mode";
 import { cn } from "@/lib/utils";
 import {
   categoryLabel,
-  dayLabel,
+  listingWhenLabel,
   fetchPlaceOrderListings,
   type PlaceOrderCategory,
   type PlaceOrderListing,
@@ -129,7 +129,7 @@ function Chip({ active, onClick, children }: { active: boolean; onClick: () => v
 
 function ListingCard({ listing }: { listing: PlaceOrderListing }) {
   const photo = listing.image_urls[0];
-  const when = useMemo(() => dayLabel(listing.available_on), [listing.available_on]);
+  const when = useMemo(() => listingWhenLabel(listing), [listing]);
   return (
     <div className="overflow-hidden rounded-2xl border border-border bg-white shadow-[0_1px_2px_rgba(15,40,50,0.05)]">
       <Link

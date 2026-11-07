@@ -11,9 +11,11 @@ import { ShopPayPanel } from "@/features/marketplace/shop-pay-panel";
 import { useAuth } from "@/features/auth/auth-context";
 import { cn } from "@/lib/utils";
 import {
+  formatSlotWindow,
   placeYourOrder,
   type PlaceOrderFulfilment,
   type PlaceOrderListing,
+  type PlaceOrderSlot,
 } from "@/services/place-order-service";
 import { formatNgn } from "@/utils/money";
 
@@ -26,6 +28,7 @@ export function PlaceOrderForm({ listing }: { listing: PlaceOrderListing }) {
   const [qty, setQty] = useState(1);
   const [fulfilment, setFulfilment] = useState<PlaceOrderFulfilment>("pickup");
   const [slotDay, setSlotDay] = useState<"today" | "tomorrow">("today");
+  const [slotTime, setSlotTime] = useState("");
   const [phone, setPhone] = useState(profile?.phone ?? "");
   const [address, setAddress] = useState("");
   const [note, setNote] = useState("");
@@ -36,14 +39,26 @@ export function PlaceOrderForm({ listing }: { listing: PlaceOrderListing }) {
   const deliveryFee = fulfilment === "delivery" ? 500 : 0;
   const total = listing.price * qty + deliveryFee;
   const dayOptions = useMemo(() => {
-    if (listing.available_on === "today") return ["today"] as const;
-    if (listing.available_on === "tomorrow") return ["tomorrow"] as const;
-    return ["today", "tomorrow"] as const;
-  }, [listing.available_on]);
+    const options: Array<"today" | "tomorrow"> = [];
+    if (listing.same_day) options.push("today");
+    if (listing.next_day) options.push("tomorrow");
+    if (options.length === 0) {
+      if (listing.available_on === "today") return ["today"] as const;
+      if (listing.available_on === "tomorrow") return ["tomorrow"] as const;
+      return ["today", "tomorrow"] as const;
+    }
+    return options;
+  }, [listing]);
+  const selectedSlot: PlaceOrderSlot | null = slotDay === "tomorrow" ? listing.next_day : listing.same_day;
 
   useEffect(() => {
     if (!dayOptions.includes(slotDay)) setSlotDay(dayOptions[0]!);
   }, [dayOptions, slotDay]);
+
+  useEffect(() => {
+    const slot = slotDay === "tomorrow" ? listing.next_day : listing.same_day;
+    setSlotTime(slot?.from || DEFAULT_SLOT.slice(0, 5));
+  }, [listing.next_day, listing.same_day, slotDay]);
 
   useEffect(() => {
     if (!listing.pickup_enabled && listing.delivery_enabled) setFulfilment("delivery");
@@ -76,7 +91,7 @@ export function PlaceOrderForm({ listing }: { listing: PlaceOrderListing }) {
       quantity: qty,
       fulfilment,
       slotDay: dayOptions.includes(slotDay) ? slotDay : dayOptions[0]!,
-      slotTime: listing.ready_from?.trim() || DEFAULT_SLOT,
+      slotTime: selectedSlot ? `${formatSlotWindow({ ...selectedSlot, from: slotTime || selectedSlot.from, until: selectedSlot.until })}` : slotTime || DEFAULT_SLOT,
       deliveryAddress: address,
       buyerPhone: phone,
       buyerNote: note,
@@ -152,19 +167,34 @@ export function PlaceOrderForm({ listing }: { listing: PlaceOrderListing }) {
           </p>
         )}
 
-        {dayOptions.length > 1 ? (
-          <div>
-            <p className="text-sm font-extrabold text-[#0B1F4D]">When</p>
+        <div>
+          <p className="text-sm font-extrabold text-[#0B1F4D]">When</p>
+          {dayOptions.length > 1 ? (
             <div className="mt-2 grid grid-cols-2 gap-2">
-              <Choice active={slotDay === "today"} onClick={() => setSlotDay("today")} label="Today" />
-              <Choice active={slotDay === "tomorrow"} onClick={() => setSlotDay("tomorrow")} label="Tomorrow" />
+              {listing.same_day ? (
+                <Choice active={slotDay === "today"} onClick={() => setSlotDay("today")} label={formatSlotWindow(listing.same_day) || "Same day"} />
+              ) : null}
+              {listing.next_day ? (
+                <Choice active={slotDay === "tomorrow"} onClick={() => setSlotDay("tomorrow")} label={formatSlotWindow(listing.next_day) || "Next day"} />
+              ) : null}
             </div>
-          </div>
-        ) : (
-          <p className="text-[13px] font-semibold text-muted-foreground">
-            {slotDay === "tomorrow" ? "Ready tomorrow" : "Ready today"}
-          </p>
-        )}
+          ) : (
+            <p className="mt-1 text-[13px] font-semibold text-muted-foreground">
+              {formatSlotWindow(selectedSlot) || (slotDay === "tomorrow" ? "Next day" : "Same day")}
+            </p>
+          )}
+          <label className="mt-3 block text-sm font-extrabold text-[#0B1F4D]">
+            Time
+            <Input
+              className="mt-1 min-h-12 rounded-xl bg-white"
+              type="time"
+              min={selectedSlot?.from}
+              max={selectedSlot?.until}
+              value={slotTime}
+              onChange={(e) => setSlotTime(e.target.value)}
+            />
+          </label>
+        </div>
 
         <div>
           <label className="text-sm font-extrabold text-[#0B1F4D]">Phone</label>

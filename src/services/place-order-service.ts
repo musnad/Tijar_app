@@ -6,6 +6,7 @@ export const PLACE_ORDER_CATEGORIES = ["food", "snacks", "drinks", "meals", "oth
 export type PlaceOrderCategory = (typeof PLACE_ORDER_CATEGORIES)[number];
 export type PlaceOrderDay = "today" | "tomorrow" | "both";
 export type PlaceOrderFulfilment = "pickup" | "delivery";
+export type PlaceOrderSlot = { date: string; from: string; until: string };
 
 export type PlaceOrderListing = {
   id: string;
@@ -23,6 +24,8 @@ export type PlaceOrderListing = {
   delivery_enabled: boolean;
   ready_from: string | null;
   ready_until: string | null;
+  same_day: PlaceOrderSlot | null;
+  next_day: PlaceOrderSlot | null;
   qty_note: string | null;
   quantity: number | null;
   sold_count: number;
@@ -63,11 +66,92 @@ function missingTable(message: string): boolean {
   return /place_order_listings|place_order_requests|place_order_likes|place_order_comments|schema cache|does not exist/i.test(message);
 }
 
+export function localYmd(offsetDays = 0): string {
+  const d = new Date();
+  d.setDate(d.getDate() + offsetDays);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+export function formatSlotDate(ymd: string | null | undefined): string {
+  if (!ymd) return "";
+  const d = new Date(`${ymd}T12:00:00`);
+  if (Number.isNaN(d.getTime())) return ymd;
+  return d.toLocaleDateString("en-NG", { weekday: "short", day: "numeric", month: "short" });
+}
+
+export function formatSlotWindow(slot: PlaceOrderSlot | null | undefined): string {
+  if (!slot) return "";
+  const when = formatSlotDate(slot.date);
+  const from = slot.from || "";
+  const until = slot.until || "";
+  const hours = from && until ? `${from}–${until}` : from || until;
+  return [when, hours].filter(Boolean).join(" · ");
+}
+
+function parseSlot(value: unknown): PlaceOrderSlot | null {
+  if (!value || typeof value !== "object") return null;
+  const rec = value as Record<string, unknown>;
+  const date = String(rec.date ?? "").slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
+  return {
+    date,
+    from: String(rec.from ?? rec.ready_from ?? "").slice(0, 5) || "10:00",
+    until: String(rec.until ?? rec.ready_until ?? "").slice(0, 5) || "18:00",
+  };
+}
+
+function parseSchedule(row: Record<string, unknown>): { same: PlaceOrderSlot | null; next: PlaceOrderSlot | null } {
+  const direct = row.schedule;
+  if (direct && typeof direct === "object") {
+    const rec = direct as Record<string, unknown>;
+    return { same: parseSlot(rec.same ?? rec.today), next: parseSlot(rec.next ?? rec.tomorrow) };
+  }
+  const raw = String(row.ready_from ?? "");
+  if (raw.startsWith("sched:")) {
+    try {
+      const rec = JSON.parse(raw.slice(6)) as Record<string, unknown>;
+      return { same: parseSlot(rec.same ?? rec.today), next: parseSlot(rec.next ?? rec.tomorrow) };
+    } catch {
+      /* fall through */
+    }
+  }
+  const from = raw && !raw.startsWith("sched:") && !raw.startsWith("{") ? raw.slice(0, 5) : "10:00";
+  const until = String(row.ready_until ?? "18:00").slice(0, 5);
+  const created = String(row.created_at ?? "");
+  const base = created ? created.slice(0, 10) : localYmd(0);
+  const nextDate = (() => {
+    const d = new Date(`${base}T12:00:00`);
+    d.setDate(d.getDate() + 1);
+    return d.toISOString().slice(0, 10);
+  })();
+  const available = String(row.available_on ?? "today");
+  return {
+    same: available === "tomorrow" ? null : { date: base, from, until },
+    next: available === "today" ? null : { date: nextDate, from, until },
+  };
+}
+
+export function encodePlaceOrderSchedule(input: {
+  availableOn: PlaceOrderDay;
+  same?: PlaceOrderSlot | null;
+  next?: PlaceOrderSlot | null;
+}): string {
+  const payload = {
+    same: input.availableOn === "tomorrow" ? null : input.same ?? { date: localYmd(0), from: "10:00", until: "18:00" },
+    next: input.availableOn === "today" ? null : input.next ?? { date: localYmd(1), from: "10:00", until: "18:00" },
+  };
+  return `sched:${JSON.stringify(payload)}`;
+}
+
 function asListing(
   row: Record<string, unknown>,
   shop?: { business_name?: string | null; public_slug?: string | null; logo_url?: string | null; id?: string },
 ): PlaceOrderListing {
   const images = Array.isArray(row.image_urls) ? (row.image_urls as string[]).filter(Boolean) : [];
+  const schedule = parseSchedule(row);
   return {
     id: row.id as string,
     business_id: row.business_id as string,
@@ -86,6 +170,8 @@ function asListing(
     delivery_enabled: row.delivery_enabled !== false,
     ready_from: (row.ready_from as string | null) ?? null,
     ready_until: (row.ready_until as string | null) ?? null,
+    same_day: schedule.same,
+    next_day: schedule.next,
     qty_note: (row.qty_note as string | null) ?? null,
     quantity: row.quantity != null ? Number(row.quantity) : null,
     sold_count: Number(row.sold_count ?? 0),
@@ -190,6 +276,8 @@ export async function publishPlaceOrderListing(input: {
   availableOn: PlaceOrderDay;
   pickupEnabled: boolean;
   deliveryEnabled: boolean;
+  sameDay?: PlaceOrderSlot | null;
+  nextDay?: PlaceOrderSlot | null;
   readyFrom?: string;
   readyUntil?: string;
   qtyNote?: string;
@@ -219,8 +307,12 @@ export async function publishPlaceOrderListing(input: {
       available_on: input.availableOn,
       pickup_enabled: input.pickupEnabled,
       delivery_enabled: input.deliveryEnabled,
-      ready_from: input.readyFrom?.trim() || null,
-      ready_until: input.readyUntil?.trim() || null,
+      ready_from: encodePlaceOrderSchedule({
+        availableOn: input.availableOn,
+        same: input.sameDay ?? (input.readyFrom ? { date: localYmd(0), from: input.readyFrom, until: input.readyUntil || "18:00" } : null),
+        next: input.nextDay ?? (input.readyFrom ? { date: localYmd(1), from: input.readyFrom, until: input.readyUntil || "18:00" } : null),
+      }),
+      ready_until: (input.sameDay?.until || input.nextDay?.until || input.readyUntil)?.trim() || null,
       qty_note: input.qtyNote?.trim() || null,
       is_open: true,
     })
@@ -486,6 +578,11 @@ export function dayLabel(value: PlaceOrderDay): string {
   if (value === "today") return "Same day";
   if (value === "tomorrow") return "Next day";
   return "Same day & next day";
+}
+
+export function listingWhenLabel(listing: Pick<PlaceOrderListing, "available_on" | "same_day" | "next_day">): string {
+  const bits = [formatSlotWindow(listing.same_day), formatSlotWindow(listing.next_day)].filter(Boolean);
+  return bits.join(" · ") || dayLabel(listing.available_on);
 }
 
 export function categoryLabel(value: PlaceOrderCategory): string {
