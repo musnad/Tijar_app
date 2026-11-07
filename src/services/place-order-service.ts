@@ -53,6 +53,8 @@ export type PlaceOrderRequest = {
   buyer_note: string | null;
   unit_price: number;
   total: number;
+  platform_fee_ngn?: number | null;
+  seller_net_ngn?: number | null;
   status: string;
   buyer_marked_paid_at: string | null;
   created_at: string;
@@ -548,6 +550,8 @@ async function decorateRequests(rows: Record<string, unknown>[]): Promise<PlaceO
       buyer_note: (row.buyer_note as string | null) ?? null,
       unit_price: Number(row.unit_price),
       total: Number(row.total),
+      platform_fee_ngn: row.platform_fee_ngn != null ? Number(row.platform_fee_ngn) : null,
+      seller_net_ngn: row.seller_net_ngn != null ? Number(row.seller_net_ngn) : null,
       status: row.status as string,
       buyer_marked_paid_at: (row.buyer_marked_paid_at as string | null) ?? null,
       created_at: row.created_at as string,

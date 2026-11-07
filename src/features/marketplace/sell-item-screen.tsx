@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { MarketplaceShell } from "@/features/marketplace/marketplace-shell";
+import { SellerFeePreview } from "@/features/marketplace/seller-fee-preview";
 import { useAuth } from "@/features/auth/auth-context";
 import { usePrimaryBusiness } from "@/hooks/use-primary-business";
 import {
@@ -300,6 +301,7 @@ export function SellItemScreen() {
                 inputMode="decimal"
                 required
               />
+              <SellerFeePreview price={Number(normalizeMoneyRaw(price) ?? 0)} />
             </div>
           )}
         </section>

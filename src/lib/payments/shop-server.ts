@@ -1,6 +1,7 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 import { corvConfigured, corvReceivedPayments, sameNuban, type CorvActivity } from "@/lib/payments/corv";
+import { PLATFORM_FEE_SETTLE_EMAIL, platformFeeSplit } from "@/lib/platform-fee";
 import { readEnvString, readSupabasePublicEnv } from "@/lib/supabase/runtime-env";
 
 export type ShopProfile = {
@@ -214,7 +215,13 @@ export async function syncCorvWallet(
   const reserved = (outs ?? [])
     .filter((row) => ["paid", "processing", "pending"].includes(String(row.status)))
     .reduce((sum, row) => sum + Number(row.amount_ngn ?? 0), 0);
-  const available = Math.max(inbound - reserved, 0);
+  const [{ data: feesPaid }, { data: feesEarned }] = await Promise.all([
+    admin.from("platform_fees").select("fee_ngn").eq("business_id", businessId),
+    admin.from("platform_fees").select("fee_ngn").eq("platform_business_id", businessId),
+  ]);
+  const taken = (feesPaid ?? []).reduce((sum, row) => sum + Number(row.fee_ngn ?? 0), 0);
+  const earned = (feesEarned ?? []).reduce((sum, row) => sum + Number(row.fee_ngn ?? 0), 0);
+  const available = Math.max(inbound - reserved - taken + earned, 0);
   await admin.from("seller_wallets").upsert(
     {
       business_id: businessId,
@@ -359,4 +366,103 @@ export async function notifyShopBuyerEvent(
   if (first.error) {
     await admin.rpc("notify_activity", { ...payload, p_kind: "comment" });
   }
+}
+
+export async function findPlatformBusinessId(admin: SupabaseClient): Promise<string | null> {
+  const rpc = await admin.rpc("tijar_platform_business_id");
+  if (!rpc.error && rpc.data) return String(rpc.data);
+  const { data: profile } = await admin
+    .from("profiles")
+    .select("id")
+    .ilike("email", PLATFORM_FEE_SETTLE_EMAIL)
+    .maybeSingle();
+  if (!profile?.id) return null;
+  const { data: shop } = await admin.from("businesses").select("id").eq("owner_id", profile.id).order("created_at", { ascending: true }).limit(1).maybeSingle();
+  return (shop?.id as string | undefined) ?? null;
+}
+
+export async function applyPlatformFee(
+  admin: SupabaseClient,
+  input: {
+    source: "marketplace" | "place_order" | "bid";
+    sourceId: string;
+    businessId: string;
+    gross: number;
+  },
+): Promise<{ fee: number; net: number }> {
+  const split = platformFeeSplit(input.gross);
+  const rpc = await admin.rpc("apply_tijar_platform_fee", {
+    p_source: input.source,
+    p_source_id: input.sourceId,
+    p_business_id: input.businessId,
+    p_gross: split.gross,
+  });
+  if (!rpc.error) {
+    const row = Array.isArray(rpc.data) ? rpc.data[0] : rpc.data;
+    return {
+      fee: Number((row as { fee_ngn?: number } | null)?.fee_ngn ?? split.fee),
+      net: Number((row as { seller_net_ngn?: number } | null)?.seller_net_ngn ?? split.net),
+    };
+  }
+
+  const existing = await admin
+    .from("platform_fees")
+    .select("id")
+    .eq("source", input.source)
+    .eq("source_id", input.sourceId)
+    .maybeSingle();
+  if (existing.data) return { fee: split.fee, net: split.net };
+
+  const platformId = await findPlatformBusinessId(admin);
+  const inserted = await admin.from("platform_fees").insert({
+    source: input.source,
+    source_id: input.sourceId,
+    business_id: input.businessId,
+    platform_business_id: platformId,
+    gross_ngn: split.gross,
+    fee_rate: split.rate,
+    fee_ngn: split.fee,
+    seller_net_ngn: split.net,
+    settled_to_email: PLATFORM_FEE_SETTLE_EMAIL,
+  });
+  if (inserted.error) return { fee: split.fee, net: split.net };
+
+  if (input.source === "marketplace") {
+    await admin.from("orders").update({ platform_fee_ngn: split.fee, seller_net_ngn: split.net }).eq("id", input.sourceId);
+  } else if (input.source === "place_order") {
+    await admin.from("place_order_requests").update({ platform_fee_ngn: split.fee, seller_net_ngn: split.net }).eq("id", input.sourceId);
+  }
+
+  if (split.fee > 0) {
+    const { data: wallet } = await admin.from("seller_wallets").select("available_ngn").eq("business_id", input.businessId).maybeSingle();
+    if (wallet) {
+      await admin
+        .from("seller_wallets")
+        .update({
+          available_ngn: Math.max(Number(wallet.available_ngn ?? 0) - split.fee, 0),
+          updated_at: new Date().toISOString(),
+        })
+        .eq("business_id", input.businessId);
+    }
+    if (platformId) {
+      const ref = `${input.source}:${input.sourceId}`;
+      const once = await admin.rpc("credit_seller_wallet_once", {
+        p_business_id: platformId,
+        p_amount: split.fee,
+        p_provider: "tijar_fee",
+        p_reference: ref,
+        p_account_number: null,
+      });
+      if (once.error) {
+        await admin.from("wallet_credits").insert({
+          business_id: platformId,
+          provider: "tijar_fee",
+          provider_reference: ref,
+          amount_ngn: split.fee,
+        });
+        await admin.rpc("credit_seller_wallet", { p_business_id: platformId, p_amount: split.fee });
+      }
+    }
+  }
+  return { fee: split.fee, net: split.net };
 }

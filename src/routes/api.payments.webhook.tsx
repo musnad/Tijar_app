@@ -3,7 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import { createFileRoute } from "@tanstack/react-router";
 
 import { corvRequestLooksSigned, corvWebhookConfigSecret, corvWebhookOk, parseCorvCredit } from "@/lib/payments/corv";
-import { findBusinessByReceivingAccount } from "@/lib/payments/shop-server";
+import { applyPlatformFee, findBusinessByReceivingAccount } from "@/lib/payments/shop-server";
 import { flutterwaveWebhookOk } from "@/lib/payments/flutterwave";
 import { readEnvString, readSupabasePublicEnv } from "@/lib/supabase/runtime-env";
 
@@ -45,6 +45,14 @@ async function markPaid(
       p_provider: provider,
       p_reference: creditRef,
     });
+    if (orderId) {
+      await applyPlatformFee(supabase, {
+        source: "marketplace",
+        sourceId: orderId,
+        businessId,
+        gross: amount,
+      });
+    }
   }
 }
 

@@ -100,7 +100,8 @@ export function PayoutWalletScreen({
     const owned = new Set(accounts.map((row) => row.accountNumber.replace(/\D/g, "")).filter((n) => n.length >= 8));
     for (const row of activity) {
       const nuban = (row.accountNumber ?? "").replace(/\D/g, "");
-      if (!owned.size || !owned.has(nuban)) continue;
+      const feeLine = !nuban && /fee/i.test(row.description ?? "");
+      if (!feeLine && (!owned.size || !owned.has(nuban))) continue;
       rows.push({
         id: `corv-${row.reference}`,
         title: row.description,
@@ -230,7 +231,7 @@ export function PayoutWalletScreen({
           {hide ? "₦••••••" : formatNgn(wallet.available_ngn)}
         </p>
         <p className="mt-1 text-xs text-white/70">
-          {wallet.pending_ngn > 0 ? `${formatNgn(wallet.pending_ngn)} pending` : "Ready to send or receive"}
+          {wallet.pending_ngn > 0 ? `${formatNgn(wallet.pending_ngn)} pending` : "Balance after TIJAR’s 3% fee on paid sales (min ₦50)"}
         </p>
         <div className="mt-5 grid grid-cols-2 gap-2">
           <Button

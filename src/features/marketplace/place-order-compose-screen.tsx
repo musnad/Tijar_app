@@ -31,6 +31,7 @@ import {
   type PlaceOrderDay,
   type PlaceOrderSlot,
 } from "@/services/place-order-service";
+import { SellerFeePreview, SellerFeeResult } from "@/features/marketplace/seller-fee-preview";
 import { formatNgn } from "@/utils/money";
 
 export function PlaceOrderComposeScreen() {
@@ -205,6 +206,7 @@ export function PlaceOrderComposeScreen() {
               </div>
               <label className="mt-3 block text-sm font-extrabold">Price (₦)</label>
               <Input className="mt-1 min-h-11 rounded-xl" inputMode="numeric" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="2500" />
+              <SellerFeePreview price={Number(price)} />
               <p className="mt-3 text-sm font-extrabold">Available</p>
               <div className="mt-2 grid grid-cols-3 gap-2">
                 {(
@@ -312,6 +314,7 @@ export function PlaceOrderComposeScreen() {
                     {order.quantity} × {formatNgn(order.unit_price)} · {order.fulfilment === "delivery" ? "Delivery" : "Pickup"} · {order.slot_day === "today" ? "Same day" : "Next day"} · {order.slot_time}
                   </p>
                   <p className="mt-1 text-sm font-extrabold text-[#1F7A4D]">{formatNgn(order.total)}</p>
+                  {paid ? <SellerFeeResult gross={Number(order.total)} fee={order.platform_fee_ngn} net={order.seller_net_ngn} /> : <SellerFeePreview price={Number(order.total)} />}
                   <p className="mt-2 text-[12px] font-semibold">Phone {order.buyer_phone || "not given"}</p>
                   {order.fulfilment === "delivery" ? (
                     <p className="text-[12px]">Deliver to {order.delivery_address || "no address yet"}</p>

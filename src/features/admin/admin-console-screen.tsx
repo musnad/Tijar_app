@@ -53,6 +53,7 @@ import {
   fetchAdminBusinesses,
   fetchAdminOrders,
   fetchAdminPayments,
+  fetchAdminPlatformFees,
   fetchAdminProfiles,
   fetchAdminTransactions,
   fetchAdminUpgradeRequests,
@@ -244,7 +245,7 @@ export function AdminConsoleScreen() {
   const [tab, setTab] = useState<Tab>("overview");
   const [query, setQuery] = useState("");
   const [userKind, setUserKind] = useState<"all" | AccountCategory>("all");
-  const [ratePct, setRatePct] = useState(DEFAULT_PLATFORM_COMMISSION_RATE * 100);
+  const ratePct = DEFAULT_PLATFORM_COMMISSION_RATE * 100;
   const [notesById, setNotesById] = useState<Record<string, string>>({});
   const [approvingAll, setApprovingAll] = useState(false);
   const commissionRate = Math.max(0, ratePct) / 100;
@@ -318,12 +319,28 @@ export function AdminConsoleScreen() {
     },
   });
 
+  const feesQuery = useQuery({
+    queryKey: ["admin-platform-fees"],
+    enabled: isAdmin,
+    queryFn: async () => {
+      const r = await fetchAdminPlatformFees();
+      if (r.error) throw new Error(r.error);
+      return r.fees;
+    },
+  });
+
   const businesses = businessesQuery.data ?? [];
   const users = usersQuery.data ?? [];
   const orders = ordersQuery.data ?? [];
   const transactions = txQuery.data ?? [];
   const payments = paymentsQuery.data ?? [];
   const upgrades = upgradesQuery.data ?? [];
+  const fees = feesQuery.data ?? [];
+  const collectedFees = useMemo(() => fees.reduce((n, f) => n + Number(f.fee_ngn), 0), [fees]);
+  const collectedToday = useMemo(() => {
+    const today = new Date().toISOString().slice(0, 10);
+    return fees.filter((f) => dayKey(f.created_at) === today).reduce((n, f) => n + Number(f.fee_ngn), 0);
+  }, [fees]);
 
   const stats = useMemo(() => {
     const today = new Date().toISOString().slice(0, 10);
@@ -619,7 +636,7 @@ export function AdminConsoleScreen() {
           <Kpi icon={BadgeCheck} label="KYC queue" value={String(stats.pendingKyc)} hint={`${stats.pendingApps} applications`} />
           <Kpi icon={Wallet} label="Sales (ledger)" value={formatNgnCompact(stats.salesVolume)} hint={`${formatNgnCompact(stats.salesToday)} today`} />
           <Kpi icon={Building2} label="Marketplace GMV" value={formatNgnCompact(stats.gmv)} hint={`${stats.ordersToday} orders today`} />
-          <Kpi icon={Percent} label="Commission" value={formatNgnCompact(finance.totalCommission)} hint={`${ratePct}% of volume`} />
+          <Kpi icon={Percent} label="Platform fees" value={formatNgnCompact(collectedFees)} hint={`${formatNgnCompact(collectedToday)} today · 3% min ₦50`} />
         </div>
       </section>
 
@@ -739,9 +756,9 @@ export function AdminConsoleScreen() {
                 </button>
               </li>
               <li className="flex justify-between gap-3">
-                <span>Platform commission</span>
+                <span>Platform fees collected</span>
                 <button type="button" className="font-bold text-primary" onClick={() => setTab("finance")}>
-                  {formatNgn(finance.totalCommission)}
+                  {formatNgn(collectedFees)}
                 </button>
               </li>
             </ul>
@@ -751,28 +768,52 @@ export function AdminConsoleScreen() {
 
       {tab === "finance" && (
         <div className="mt-4 space-y-4">
-          <div className="flex flex-wrap items-end gap-3 rounded-2xl border border-border bg-card p-4">
-            <label className="text-sm font-semibold">
-              Commission rate
-              <Input
-                type="number"
-                min={0}
-                max={40}
-                step={0.1}
-                value={ratePct}
-                onChange={(e) => setRatePct(Number(e.target.value) || 0)}
-                className="mt-1 h-10 w-28 rounded-xl"
-              />
-            </label>
-            <p className="pb-2 text-xs text-muted-foreground">
-              Applied to marketplace GMV and recorded business sales.
+          <div className="rounded-2xl border border-border bg-card p-4">
+            <p className="text-sm font-extrabold">TIJAR platform fee</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              3% of each paid sale, minimum ₦50, settled into {TIJAR_SUPER_ADMIN_EMAIL}. Counting starts from fees recorded going forward — not estimated on old volume.
             </p>
           </div>
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <FinanceStat label="User spend" value={formatNgn(finance.userSpendTotal)} hint="Marketplace checkouts" />
-            <FinanceStat label="Business making" value={formatNgn(finance.businessGross)} hint="Ledger + marketplace" />
-            <FinanceStat label="TIJAR commission" value={formatNgn(finance.totalCommission)} hint={`${ratePct}% take`} />
-            <FinanceStat label="Business net" value={formatNgn(finance.businessNet)} hint="After commission" />
+            <FinanceStat label="Fees collected" value={formatNgn(collectedFees)} hint="Real paid sales only" />
+            <FinanceStat label="Collected today" value={formatNgn(collectedToday)} hint="Paid orders today" />
+            <FinanceStat label="Paid sales counted" value={String(fees.length)} hint="Fee records" />
+            <FinanceStat label="Settles to" value="Admin wallet" hint={TIJAR_SUPER_ADMIN_EMAIL} />
+          </div>
+          <div className="rounded-2xl border border-border bg-card p-4">
+            <h2 className="font-extrabold">Fee ledger</h2>
+            {feesQuery.isError ? (
+              <p className="mt-2 text-sm text-destructive">Run migration 000075 in Supabase so fees can be stored.</p>
+            ) : fees.length === 0 ? (
+              <p className="mt-2 text-sm text-muted-foreground">No platform fees yet. The next paid order will appear here.</p>
+            ) : (
+              <div className="mt-3 overflow-x-auto">
+                <table className="w-full min-w-[640px] text-left text-sm">
+                  <thead className="text-[11px] uppercase text-muted-foreground">
+                    <tr>
+                      <th className="px-3 py-2">When</th>
+                      <th className="px-3 py-2">Shop</th>
+                      <th className="px-3 py-2">Source</th>
+                      <th className="px-3 py-2">Price</th>
+                      <th className="px-3 py-2">Fee</th>
+                      <th className="px-3 py-2">Seller net</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {fees.slice(0, 80).map((fee) => (
+                      <tr key={fee.id} className="border-t border-border">
+                        <td className="px-3 py-2.5 text-muted-foreground">{formatWhen(fee.created_at)}</td>
+                        <td className="px-3 py-2.5">{fee.businesses?.business_name ?? "Shop"}</td>
+                        <td className="px-3 py-2.5 capitalize">{fee.source.replace("_", " ")}</td>
+                        <td className="px-3 py-2.5 tabular-nums">{formatNgn(Number(fee.gross_ngn))}</td>
+                        <td className="px-3 py-2.5 tabular-nums font-bold text-primary">{formatNgn(Number(fee.fee_ngn))}</td>
+                        <td className="px-3 py-2.5 tabular-nums">{formatNgn(Number(fee.seller_net_ngn))}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
           <div className="grid gap-4 lg:grid-cols-2">
             <div className="rounded-2xl border border-border bg-card p-4">
@@ -1195,7 +1236,9 @@ function OrderRow({ order, rate }: { order: AdminOrder; rate: number }) {
               : (order.payment_method ?? "—")}
       </td>
       <td className="px-3 py-2.5 font-extrabold tabular-nums">{formatNgn(total)}</td>
-      <td className="px-3 py-2.5 tabular-nums text-muted-foreground">{formatNgn(commissionOnAmount(total, rate))}</td>
+      <td className="px-3 py-2.5 tabular-nums text-muted-foreground">
+        {order.platform_fee_ngn != null ? formatNgn(Number(order.platform_fee_ngn)) : "—"}
+      </td>
       <td className="px-3 py-2.5 text-muted-foreground">{formatWhen(order.created_at)}</td>
     </tr>
   );

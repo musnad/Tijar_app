@@ -67,6 +67,8 @@ export type MarketplaceOrder = {
   delivery_fee: number;
   payment_fee?: number;
   total: number;
+  platform_fee_ngn?: number | null;
+  seller_net_ngn?: number | null;
   currency: string;
   buyer_phone: string | null;
   buyer_note: string | null;

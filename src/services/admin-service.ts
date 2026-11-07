@@ -145,6 +145,36 @@ export async function fetchAdminTransactions(): Promise<{
   return { transactions: (data ?? []) as AdminTransaction[], error: null };
 }
 
+export type AdminPlatformFee = {
+  id: string;
+  source: string;
+  source_id: string;
+  business_id: string;
+  platform_business_id: string | null;
+  gross_ngn: number;
+  fee_ngn: number;
+  seller_net_ngn: number;
+  settled_to_email: string;
+  created_at: string;
+  businesses?: { business_name: string } | null;
+};
+
+export async function fetchAdminPlatformFees(): Promise<{
+  fees: AdminPlatformFee[];
+  error: string | null;
+}> {
+  const supabase = getSupabaseBrowserClient();
+  const joined = await supabase
+    .from("platform_fees")
+    .select("*, businesses(business_name)")
+    .order("created_at", { ascending: false })
+    .limit(800);
+  if (!joined.error) return { fees: (joined.data ?? []) as AdminPlatformFee[], error: null };
+  const { data, error } = await supabase.from("platform_fees").select("*").order("created_at", { ascending: false }).limit(800);
+  if (error) return { fees: [], error: error.message };
+  return { fees: (data ?? []) as AdminPlatformFee[], error: null };
+}
+
 export async function fetchAdminPayments(): Promise<{
   payments: AdminPayment[];
   error: string | null;

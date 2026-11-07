@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 import {
+  applyPlatformFee,
   findRecentShopCredit,
   loadReceivingAccount,
   notifyShopBuyerEvent,
@@ -79,6 +80,12 @@ export const Route = createFileRoute("/api/payments/confirm-order")({
             .eq("buyer_profile_id", ctx.profile.id);
         }
 
+        const fee = await applyPlatformFee(ctx.admin, {
+          source: kind === "place_order" ? "place_order" : kind === "bid" ? "bid" : "marketplace",
+          sourceId: orderId,
+          businessId,
+          gross: amount,
+        });
         const notifyKind =
           kind === "place_order" ? "place_order_paid" : kind === "bid" ? "bid_paid" : "purchase";
         await notifyShopBuyerEvent(ctx.admin, {
@@ -86,10 +93,10 @@ export const Route = createFileRoute("/api/payments/confirm-order")({
           buyerId: ctx.profile.id,
           kind: notifyKind,
           title: `${buyerName} paid ${money}`,
-          body: `${buyerName} paid ${money} for ${item} into ${account.accountNumber}.`,
+          body: `${buyerName} paid ${money} for ${item} into ${account.accountNumber}. You keep ₦${fee.net.toLocaleString("en-NG")} after the 3% TIJAR fee of ₦${fee.fee.toLocaleString("en-NG")}.`,
         });
 
-        return Response.json({ paid: true, reference: credit.reference });
+        return Response.json({ paid: true, reference: credit.reference, platformFee: fee.fee, sellerNet: fee.net });
       },
     },
   },

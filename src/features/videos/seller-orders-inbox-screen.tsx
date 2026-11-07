@@ -9,6 +9,7 @@ import { canSellerTransition } from "@/lib/checkout/order-status";
 import { fetchSellerOrders } from "@/services/seller-dashboard-service";
 import { fetchShopPlaceOrders, placeOrderPayLabel, placeOrderStatusLabel } from "@/services/place-order-service";
 import { transitionOrder } from "@/services/marketplace-service";
+import { SellerFeePreview, SellerFeeResult } from "@/features/marketplace/seller-fee-preview";
 import { formatNgn } from "@/utils/money";
 import { orderStatusLabel } from "@/utils/order-tracking";
 
@@ -70,6 +71,11 @@ export function SellerOrdersInboxScreen({ businessId }: { businessId: string }) 
                   {order.fulfilment === "delivery" ? "Delivery" : "Pickup"} · {order.quantity} · {order.slot_time}
                 </p>
                 <p className="mt-1 text-sm font-extrabold text-primary">{formatNgn(order.total)}</p>
+                {paid ? (
+                  <SellerFeeResult gross={Number(order.total)} fee={order.platform_fee_ngn} net={order.seller_net_ngn} />
+                ) : (
+                  <SellerFeePreview price={Number(order.total)} />
+                )}
                 <p className="mt-2 text-xs font-semibold">Phone {order.buyer_phone || "not given"}</p>
                 {order.fulfilment === "delivery" ? (
                   <p className="text-xs">Deliver to {order.delivery_address || "no address yet"}</p>
@@ -100,6 +106,11 @@ export function SellerOrdersInboxScreen({ businessId }: { businessId: string }) 
                 </div>
                 <p className="font-extrabold text-primary">{formatNgn(Number(o.total))}</p>
               </div>
+              {o.status === "paid" || o.buyer_marked_paid_at ? (
+                <SellerFeeResult gross={Number(o.total)} fee={o.platform_fee_ngn} net={o.seller_net_ngn} />
+              ) : (
+                <SellerFeePreview price={Number(o.total)} />
+              )}
               {o.buyer_note ? <p className="mt-2 text-xs text-muted-foreground">{o.buyer_note}</p> : null}
               {o.buyer_marked_paid_at && o.status === "pending_payment" ? (
                 <p className="mt-2 rounded-xl bg-[#1F7A4D]/10 px-3 py-2 text-xs font-bold text-[#1F7A4D]">

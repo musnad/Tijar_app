@@ -61,7 +61,26 @@ export const Route = createFileRoute("/api/payments/virtual-account")({
             reference: row.reference ?? account?.reference,
           })),
         );
-        const activity = synced.activity;
+        const { data: feeRows } = await ctx.admin
+          .from("platform_fees")
+          .select("id, business_id, platform_business_id, fee_ngn, gross_ngn, seller_net_ngn, source, created_at")
+          .or(`business_id.eq.${businessId},platform_business_id.eq.${businessId}`)
+          .order("created_at", { ascending: false })
+          .limit(40);
+        const feeActivity = (feeRows ?? []).map((row) => {
+          const incoming = row.platform_business_id === businessId;
+          return {
+            amount: Number(row.fee_ngn),
+            reference: `fee-${row.id}`,
+            accountNumber: null as string | null,
+            createdAt: row.created_at as string,
+            direction: incoming ? ("in" as const) : ("out" as const),
+            description: incoming
+              ? `Platform fee 3% on ₦${Number(row.gross_ngn).toLocaleString("en-NG")}`
+              : `TIJAR fee 3% · you keep ₦${Number(row.seller_net_ngn).toLocaleString("en-NG")}`,
+          };
+        });
+        const activity = [...synced.activity, ...feeActivity];
         const { data: wallet } = await ctx.admin
           .from("seller_wallets")
           .select("available_ngn, pending_ngn")
@@ -79,6 +98,7 @@ export const Route = createFileRoute("/api/payments/virtual-account")({
           .order("created_at", { ascending: false })
           .limit(80);
         const credits = (creditRows ?? []).filter((row) => {
+          if (row.provider === "tijar_fee") return true;
           const nuban = String(row.account_number ?? "").replace(/\D/g, "");
           return owned.size > 0 && owned.has(nuban);
         }).slice(0, 40);
