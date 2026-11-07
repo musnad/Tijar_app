@@ -446,7 +446,7 @@ export function BidDetailScreen({ postId }: { postId: string }) {
 
       {/* Winner: pay the shop */}
       {isWinner && (phase === "sold" || phase === "paid") ? (
-        {phase === "paid" || post.bid_buyer_marked_paid_at ? (
+        phase === "paid" || post.bid_buyer_marked_paid_at ? (
           <p className="mt-4 rounded-2xl bg-[#1F7A4D]/10 px-3 py-3 text-center text-sm font-extrabold text-[#1F7A4D]">
             Paid
           </p>
@@ -459,7 +459,7 @@ export function BidDetailScreen({ postId }: { postId: string }) {
             itemLabel={post.caption?.trim() || "winning bid"}
             onPaid={() => void refresh()}
           />
-        )}
+        )
       ) : null}
 
       {/* Control room — shop only */}
