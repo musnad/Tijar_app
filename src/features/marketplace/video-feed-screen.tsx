@@ -329,28 +329,30 @@ export function VideoFeedScreen({ initialVideoId }: { initialVideoId?: string })
     },
     initialPageParam: null as string | null,
     getNextPageParam: (last) => last.nextCursor,
-    staleTime: 20_000,
-    refetchOnMount: "always",
+    staleTime: 90_000,
+    gcTime: 30 * 60_000,
+    refetchOnMount: false,
+    placeholderData: (previous) => previous,
   });
 
   const listingsQuery = useQuery({
     queryKey: ["for-you-listings", feedRound],
     queryFn: async () => {
       const offset = feedOffsetForRound(feedRound, 24);
-      let r = await fetchMarketplaceProducts(80, null, offset);
+      let r = await fetchMarketplaceProducts(24, null, offset);
       if (!r.error && r.data.length === 0 && offset > 0) {
-        r = await fetchMarketplaceProducts(80);
+        r = await fetchMarketplaceProducts(24);
       }
       if (r.error) throw new Error(r.error);
       return r.data;
     },
-    staleTime: 20_000,
+    staleTime: 90_000,
   });
 
   const placeOrdersQuery = useQuery({
     queryKey: ["for-you-place-orders"],
-    queryFn: async () => (await fetchPlaceOrderListings({ day: "all" })).listings,
-    staleTime: 30_000,
+    queryFn: async () => (await fetchPlaceOrderListings({ day: "all", limit: 8 })).listings,
+    staleTime: 90_000,
   });
 
   const liveVideos = useMemo(() => {
@@ -918,9 +920,9 @@ export function VideoFeedScreen({ initialVideoId }: { initialVideoId?: string })
             const video = item.video;
             const index = videoIndexById.get(video.id) ?? 0;
             const idx = activeIndex < 0 ? 0 : activeIndex;
-            const mountMedia = index >= idx - 1 && index <= idx + 2;
             const isActive = activeId === video.id;
             const isNext = index === idx + 1;
+            const mountMedia = isActive || (!dataSaver && isNext);
             return (
               <VideoSlide
                 key={item.key}
@@ -930,8 +932,8 @@ export function VideoFeedScreen({ initialVideoId }: { initialVideoId?: string })
                 muted={feedMuted}
                 onToggleMute={toggleFeedMute}
                 mounted={mountMedia}
-                preload={isActive || (!dataSaver && isNext)}
-                eagerPreload={isNext}
+                preload={isActive}
+                eagerPreload={false}
                 products={productsByVideo.get(video.id) ?? EMPTY_PRODUCTS}
                 liked={likedQuery.data?.has(video.id) ?? mockLiked.has(video.id)}
                 saved={savedQuery.data?.has(video.id) ?? false}
@@ -1574,13 +1576,13 @@ const VideoSlide = memo(function VideoSlide({
           <video
             ref={ref}
             className="h-full w-full object-cover"
-            src={src}
+            src={active || preload ? src : undefined}
             poster={poster}
             autoPlay={active && !paused}
             muted={muted}
             playsInline
             loop
-            preload={preload || active ? "auto" : "metadata"}
+            preload={active ? "auto" : "metadata"}
             onCanPlay={() => {
               if (active && !paused) void ref.current?.play().catch(() => undefined);
             }}

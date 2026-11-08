@@ -152,7 +152,7 @@ export function productGallery(product: PublicProduct): string[] {
   return out;
 }
 
-export const FEED_PAGE_SIZE = 12;
+export const FEED_PAGE_SIZE = 8;
 
 export async function fetchPublicVideoFeed(opts?: {
   limit?: number;
@@ -349,7 +349,7 @@ export async function fetchFeedViewerSignals(
     supabase.from("marketplace_favorites").select("product_id").eq("profile_id", profileId).not("product_id", "is", null),
     supabase.from("account_blocks").select("blocked_profile_id").eq("blocker_id", profileId),
     supabase.from("account_mutes").select("muted_profile_id").eq("muter_id", profileId),
-    supabase.from("feed_events").select("video_post_id").eq("profile_id", profileId).eq("kind", "complete").limit(80),
+    supabase.from("feed_events").select("video_post_id").eq("profile_id", profileId).eq("kind", "complete").limit(40),
   ]);
   const categoryPref = new Set<string>();
   return {
@@ -388,7 +388,7 @@ export async function rankAndLoadFeed(
     opts?.viewerLat != null && opts?.viewerLng != null
       ? { lat: opts.viewerLat, lng: opts.viewerLng }
       : null;
-  const fetchLimit = Math.max(limit * 5, 60);
+  const fetchLimit = Math.max(limit * 2, 16);
 
   let [raw, signals] = await Promise.all([
     fetchPublicVideoFeed({ limit: fetchLimit, before, offset }),

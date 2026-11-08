@@ -11,6 +11,7 @@ import {
 } from "@tanstack/react-router";
 import { useEffect, type ReactNode } from "react";
 import { useRouterState } from "@tanstack/react-router";
+import { SpeedInsights } from "@vercel/speed-insights/react";
 import { Toaster } from "@/components/ui/sonner";
 import { isTijarNativeApp } from "@/lib/tijar-native-app";
 
@@ -120,7 +121,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       {
         rel: "stylesheet",
-        href: "https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap",
+        href: "https://fonts.googleapis.com/css2?family=Manrope:wght@600;700;800&display=swap",
       },
     ],
   }),
@@ -238,6 +239,7 @@ function RootComponent() {
           <AccountGateProvider>
             <RootLayout />
             <Toaster richColors position="top-center" />
+            <SpeedInsights />
           </AccountGateProvider>
         </AuthProvider>
       </SitePreferencesProvider>

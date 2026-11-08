@@ -25,6 +25,8 @@ export function FeedImage({
     <img
       src={shown}
       alt={alt}
+      width={width}
+      height={Math.round(width * 1.25)}
       decoding="async"
       loading={eager ? "eager" : "lazy"}
       fetchPriority={eager ? "high" : "low"}

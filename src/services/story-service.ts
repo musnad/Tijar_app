@@ -96,7 +96,7 @@ export async function fetchLiveStoryRings(opts: {
   viewerLng?: number | null;
 }): Promise<{ rings: StoryRing[]; error: string | null }> {
   const supabase = getSupabaseBrowserClient();
-  const live = await supabase.from("public_live_stories").select("*").order("created_at", { ascending: true }).limit(200);
+  const live = await supabase.from("public_live_stories").select("*").order("created_at", { ascending: true }).limit(48);
   let rows = live.data ?? [];
   if (live.error) {
     if (missingTable(live.error.message)) return { rings: [], error: null };
@@ -105,7 +105,7 @@ export async function fetchLiveStoryRings(opts: {
       .select("*")
       .gt("expires_at", new Date().toISOString())
       .order("created_at", { ascending: true })
-      .limit(200);
+      .limit(48);
     if (fallback.error) {
       if (missingTable(fallback.error.message)) return { rings: [], error: null };
       return { rings: [], error: fallback.error.message };

@@ -1,3 +1,4 @@
+import { compressImageFile } from "@/lib/media/compress-upload";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 
 const BUCKET = "product-images";
@@ -34,6 +35,8 @@ export async function uploadProductImage(
   }
 
   const supabase = getSupabaseBrowserClient();
+  const packed = await compressImageFile(file);
+  file = packed;
   const {
     data: { session },
   } = await supabase.auth.getSession();

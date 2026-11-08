@@ -103,6 +103,7 @@ export function ShopDiscoverScreen() {
   const categoriesQuery = useQuery({
     queryKey: ["business-categories"],
     queryFn: async () => (await listBusinessCategories()).data,
+    staleTime: 10 * 60_000,
   });
   const peopleQuery = useQuery({
     queryKey: ["public-people-search", query],

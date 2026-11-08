@@ -25,6 +25,20 @@ export default defineConfig({
   optimizeDeps: {
     exclude: ["tesseract.js"],
   },
+  build: {
+    cssCodeSplit: true,
+    modulePreload: { polyfill: false },
+    rollupOptions: {
+      output: {
+        manualChunks(id: string) {
+          if (id.includes("node_modules/recharts") || id.includes("/d3-")) return "charts";
+          if (id.includes("node_modules/leaflet")) return "maps";
+          if (id.includes("jspdf")) return "pdf";
+          return undefined;
+        },
+      },
+    },
+  },
   plugins: [
     tailwindcss(),
     tanstackStart({

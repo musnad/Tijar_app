@@ -210,6 +210,7 @@ export async function fetchPlaceOrderListings(filters?: {
   day?: "today" | "tomorrow" | "all";
   category?: PlaceOrderCategory | "all";
   search?: string;
+  limit?: number;
 }): Promise<{ listings: PlaceOrderListing[]; error: string | null }> {
   const supabase = getSupabaseBrowserClient();
   let query = supabase
@@ -217,7 +218,7 @@ export async function fetchPlaceOrderListings(filters?: {
     .select("*")
     .eq("is_open", true)
     .order("created_at", { ascending: false })
-    .limit(80);
+    .limit(filters?.limit ?? 80);
   const day = filters?.day ?? "all";
   if (day === "today") query = query.in("available_on", ["today", "both"]);
   if (day === "tomorrow") query = query.in("available_on", ["tomorrow", "both"]);

@@ -1,3 +1,4 @@
+import { compressImageFile } from "@/lib/media/compress-upload";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 
 const BUCKET = "business-logos";
@@ -7,6 +8,7 @@ export async function uploadBusinessLogo(
   file: File,
 ): Promise<{ publicUrl: string | null; error: string | null }> {
   const supabase = getSupabaseBrowserClient();
+  file = await compressImageFile(file, 640);
   const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
   const path = `${businessId}/logo.${ext}`;
 
