@@ -10,6 +10,7 @@ import { StatusBadge } from "@/features/app-layout/status-badge";
 import { BankAccountCard } from "@/features/business/bank-account-card";
 import { BusinessQuickActions } from "@/features/business/business-quick-actions";
 import { KycSubmitCard } from "@/features/business/kyc-submit-card";
+import { VerifiedBadgeCard } from "@/features/business/verified-badge-card";
 import { translateDnaList, translateDnaSlug } from "@/features/business/translate-dna-label";
 import { useTranslation } from "@/lib/i18n/context";
 import type { Business, BusinessDna } from "@/types/database";
@@ -46,7 +47,7 @@ export function BusinessScreen({
 }) {
   const { t } = useTranslation();
 
-  const verified = business?.verification_status === "verified";
+  const verified = Boolean(business?.verified_badge);
   const revenueLabels = dna ? translateDnaList(t, dna.revenue_models) : [];
   const paymentLabels = dna ? translateDnaList(t, dna.payment_methods) : [];
   const goalLabels = dna ? translateDnaList(t, dna.goals) : [];
@@ -145,6 +146,7 @@ export function BusinessScreen({
           <BusinessQuickActions />
           <BankAccountCard business={business} />
           <KycSubmitCard business={business} />
+          <VerifiedBadgeCard business={business} />
 
           <Link
             to="/app/business/publish"

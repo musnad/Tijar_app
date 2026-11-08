@@ -71,7 +71,7 @@ function asPublicBusiness(row: Record<string, unknown>, fallbackSlug: string): P
     public_phone: (row.public_phone as string | null) ?? null,
     public_whatsapp: (row.public_whatsapp as string | null) ?? null,
     opening_hours: ((row.opening_hours as Record<string, string> | null) ?? {}) as Record<string, string>,
-    is_verified: Boolean(row.is_verified) || (row.verification_status as string) === "verified",
+    is_verified: Boolean(row.is_verified),
     verification_status: (row.verification_status as string) ?? "unverified",
     is_informal: (row.is_informal as boolean | undefined) ?? true,
   };

@@ -421,6 +421,30 @@ export async function submitKycForReview(
   return { error: error?.message ?? null };
 }
 
+export async function requestVerifiedBadge(businessId: string): Promise<{ error: string | null }> {
+  const supabase = getSupabaseBrowserClient();
+  const { error } = await supabase.rpc("request_verified_badge", { p_business_id: businessId });
+  return { error: error?.message ?? null };
+}
+
+export async function fetchVerifiedBadgeRequest(businessId: string): Promise<{
+  status: "pending" | "approved" | "rejected" | null;
+  error: string | null;
+}> {
+  const supabase = getSupabaseBrowserClient();
+  const { data, error } = await supabase
+    .from("verified_badge_requests")
+    .select("status")
+    .eq("business_id", businessId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) return { status: null, error: error.message };
+  const status = data?.status;
+  if (status === "pending" || status === "approved" || status === "rejected") return { status, error: null };
+  return { status: null, error: null };
+}
+
 export async function inviteBusinessStaff(
   businessId: string,
   email: string,

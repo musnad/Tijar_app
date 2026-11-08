@@ -115,6 +115,8 @@ export type Business = {
   cover_image_url?: string | null;
   islamic_mode_enabled: boolean;
   verification_status: string;
+  /** Blue tick on the public shop name. Independent of KYC approval. */
+  verified_badge?: boolean;
   public_slug: string | null;
   is_published: boolean;
   public_phone: string | null;

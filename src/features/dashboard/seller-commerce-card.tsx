@@ -27,7 +27,7 @@ export function SellerCommerceCard({
   recentOrderCount: number;
   enquiryCount: number;
 }) {
-  const verified = business.verification_status === "verified";
+  const verified = Boolean(business.verified_badge);
 
   return (
     <section className="mt-6 rounded-2xl border border-border bg-card p-4 shadow-sm">
@@ -46,9 +46,9 @@ export function SellerCommerceCard({
       <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
         <Stat label="Profile" value={`${completeness.score}%`} hint={completeness.missing[0] ? `Next: ${completeness.missing[0]}` : "Complete"} />
         <Stat
-          label="Verification"
-          value={verified ? "Verified" : business.verification_status.replace(/_/g, " ")}
-          hint={verified ? "TIJAR checked this shop" : "Finish KYC from Business settings"}
+          label="Blue tick"
+          value={verified ? "On" : "Off"}
+          hint={verified ? "Admin assigned the verification icon" : "Request it from Business account"}
         />
         <Stat label="Live listings" value={String(publishedProducts)} hint="Published catalogue items" />
         <Stat

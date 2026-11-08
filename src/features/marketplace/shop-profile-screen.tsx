@@ -182,7 +182,7 @@ export function ShopProfileScreen() {
       : profile.full_name?.trim() || t("shop.profile.member");
   const username = demo ? t("shop.profile.guest") : shopUsername(name, shop?.public_slug);
   const showDisplayName = !usernameMatchesName(name, username);
-  const verified = !demo && canUseBusinessMode(profile);
+  const verified = Boolean(shop?.verified_badge);
   const followers = followersQuery.data?.length ?? 0;
   const following = (followsQuery.data?.length ?? 0) + (peopleFollowQuery.data?.length ?? 0);
   const saved = favQuery.data ?? 0;

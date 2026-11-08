@@ -57,9 +57,12 @@ import {
   fetchAdminProfiles,
   fetchAdminTransactions,
   fetchAdminUpgradeRequests,
+  fetchVerifiedBadgeRequests,
   reviewBusinessUpgrade,
+  reviewVerifiedBadgeRequest,
   setBusinessPublished,
   setBusinessVerification,
+  setBusinessVerifiedBadge,
   shopName,
   type AdminBusiness,
   type AdminOrder,
@@ -78,7 +81,8 @@ type Tab =
   | "businesses"
   | "users"
   | "transactions"
-  | "orders";
+  | "orders"
+  | "ticks";
 
 const KYC_QUEUE: KycStatus[] = ["submitted", "under_review", "in_progress", "requires_update"];
 
@@ -279,6 +283,16 @@ export function AdminConsoleScreen() {
     },
   });
 
+  const badgeRequestsQuery = useQuery({
+    queryKey: ["admin-badge-requests"],
+    enabled: isAdmin,
+    queryFn: async () => {
+      const r = await fetchVerifiedBadgeRequests();
+      if (r.error) throw new Error(r.error);
+      return r.requests;
+    },
+  });
+
   const usersQuery = useQuery({
     queryKey: ["admin-users"],
     enabled: isAdmin,
@@ -335,6 +349,7 @@ export function AdminConsoleScreen() {
   const transactions = txQuery.data ?? [];
   const payments = paymentsQuery.data ?? [];
   const upgrades = upgradesQuery.data ?? [];
+  const badgeRequests = badgeRequestsQuery.data ?? [];
   const fees = feesQuery.data ?? [];
   const collectedFees = useMemo(() => fees.reduce((n, f) => n + Number(f.fee_ngn), 0), [fees]);
   const collectedToday = useMemo(() => {
@@ -352,6 +367,7 @@ export function AdminConsoleScreen() {
       users: users.length,
       businesses: businesses.length,
       verified: businesses.filter((b) => b.verification_status === "verified").length,
+      ticks: businesses.filter((b) => b.verified_badge).length,
       pendingKyc: businesses.filter((b) => KYC_QUEUE.includes(b.verification_status as KycStatus)).length,
       pendingApps: upgrades.filter((r) => r.status === "pending").length,
       transactions: transactions.length,
@@ -431,6 +447,7 @@ export function AdminConsoleScreen() {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ["admin-businesses"] }),
       queryClient.invalidateQueries({ queryKey: ["admin-upgrades"] }),
+      queryClient.invalidateQueries({ queryKey: ["admin-badge-requests"] }),
       queryClient.invalidateQueries({ queryKey: ["admin-users"] }),
       queryClient.invalidateQueries({ queryKey: ["admin-orders"] }),
       queryClient.invalidateQueries({ queryKey: ["admin-transactions"] }),
@@ -476,6 +493,7 @@ export function AdminConsoleScreen() {
     { id: "kyc", label: "KYC" },
     { id: "applications", label: "Applications" },
     { id: "businesses", label: "Businesses" },
+    { id: "ticks", label: "Blue ticks" },
     { id: "users", label: "Users" },
     { id: "transactions", label: "Transactions" },
     { id: "orders", label: "Orders" },
@@ -632,7 +650,7 @@ export function AdminConsoleScreen() {
         </div>
         <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-6">
           <Kpi icon={Users} label="Users" value={String(stats.users)} hint={`${stats.newUsersToday} today`} />
-          <Kpi icon={Store} label="Businesses" value={String(stats.businesses)} hint={`${stats.verified} KYC verified`} />
+          <Kpi icon={Store} label="Businesses" value={String(stats.businesses)} hint={`${stats.ticks} blue ticks · ${stats.verified} KYC`} />
           <Kpi icon={BadgeCheck} label="KYC queue" value={String(stats.pendingKyc)} hint={`${stats.pendingApps} applications`} />
           <Kpi icon={Wallet} label="Sales (ledger)" value={formatNgnCompact(stats.salesVolume)} hint={`${formatNgnCompact(stats.salesToday)} today`} />
           <Kpi icon={Building2} label="Marketplace GMV" value={formatNgnCompact(stats.gmv)} hint={`${stats.ordersToday} orders today`} />
@@ -657,6 +675,9 @@ export function AdminConsoleScreen() {
             {item.label}
             {item.id === "kyc" && stats.pendingKyc > 0 ? ` (${stats.pendingKyc})` : ""}
             {item.id === "applications" && stats.pendingApps > 0 ? ` (${stats.pendingApps})` : ""}
+            {item.id === "ticks" && badgeRequests.filter((r) => r.status === "pending").length > 0
+              ? ` (${badgeRequests.filter((r) => r.status === "pending").length})`
+              : ""}
           </button>
         ))}
       </div>
@@ -973,7 +994,7 @@ export function AdminConsoleScreen() {
       {tab === "businesses" && (
         <AdminTable
           empty="No businesses yet."
-          headers={["Business", "Shop phone", "Owner phone", "Making", "KYC", "Listing", "Actions"]}
+          headers={["Business", "Shop phone", "Owner phone", "Making", "KYC", "Tick", "Listing", "Actions"]}
         >
           {bizFinanceRows.map(({ biz, gross }) => (
             <tr key={biz.id} className="border-t border-border align-top">
@@ -994,6 +1015,9 @@ export function AdminConsoleScreen() {
                 <StatusPill label={biz.verification_status} tone={kycTone(biz.verification_status)} />
               </td>
               <td className="px-3 py-3">
+                <StatusPill label={biz.verified_badge ? "tick" : "none"} tone={biz.verified_badge ? "ok" : "muted"} />
+              </td>
+              <td className="px-3 py-3">
                 <StatusPill
                   label={biz.moderation_status}
                   tone={biz.moderation_status === "approved" ? "ok" : biz.moderation_status === "suspended" ? "bad" : "warn"}
@@ -1009,7 +1033,7 @@ export function AdminConsoleScreen() {
                         const { error } = await setBusinessVerification(biz.id, "verified");
                         if (error) toast.error(error);
                         else {
-                          toast.success("Shop approved");
+                          toast.success("Shop approved (no blue tick)");
                           void refreshAll();
                         }
                       }}
@@ -1017,6 +1041,22 @@ export function AdminConsoleScreen() {
                       Approve
                     </Button>
                   ) : null}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-8 rounded-lg text-xs"
+                    onClick={async () => {
+                      const next = !biz.verified_badge;
+                      const { error } = await setBusinessVerifiedBadge(biz.id, next);
+                      if (error) toast.error(error);
+                      else {
+                        toast.success(next ? "Blue tick assigned" : "Blue tick removed");
+                        void refreshAll();
+                      }
+                    }}
+                  >
+                    {biz.verified_badge ? "Remove tick" : "Give tick"}
+                  </Button>
                   <Button
                     size="sm"
                     variant="outline"
@@ -1053,6 +1093,63 @@ export function AdminConsoleScreen() {
             </tr>
           ))}
         </AdminTable>
+      )}
+
+      {tab === "ticks" && (
+        <ul className="mt-4 space-y-3">
+          <li className="rounded-2xl border border-primary/20 bg-primary/5 px-4 py-3 text-sm">
+            Approving a shop does not add the blue tick. Grant it here, or from the Businesses table, only when you want
+            that shop marked verified in public.
+          </li>
+          {badgeRequests.length === 0 ? (
+            <EmptyState title="No tick requests" body="Shops can request the verification icon from their business account." />
+          ) : null}
+          {badgeRequests.map((req) => (
+            <li key={req.id} className="rounded-2xl border border-border bg-card p-4 shadow-sm">
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <div>
+                  <p className="font-extrabold">{req.businesses?.business_name ?? "Shop"}</p>
+                  <p className="text-xs text-muted-foreground">{formatWhen(req.created_at)}</p>
+                </div>
+                <StatusPill
+                  label={req.status}
+                  tone={req.status === "approved" ? "ok" : req.status === "rejected" ? "bad" : "warn"}
+                />
+              </div>
+              {req.status === "pending" ? (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <Button
+                    className="rounded-xl font-bold"
+                    onClick={async () => {
+                      const { error } = await reviewVerifiedBadgeRequest(req.id, true);
+                      if (error) toast.error(error);
+                      else {
+                        toast.success("Blue tick assigned");
+                        void refreshAll();
+                      }
+                    }}
+                  >
+                    Grant tick
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="rounded-xl font-bold"
+                    onClick={async () => {
+                      const { error } = await reviewVerifiedBadgeRequest(req.id, false);
+                      if (error) toast.error(error);
+                      else {
+                        toast.message("Request declined");
+                        void refreshAll();
+                      }
+                    }}
+                  >
+                    Decline
+                  </Button>
+                </div>
+              ) : null}
+            </li>
+          ))}
+        </ul>
       )}
 
       {tab === "users" && (

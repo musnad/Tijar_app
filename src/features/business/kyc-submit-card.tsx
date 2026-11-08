@@ -34,9 +34,10 @@ export function KycSubmitCard({ business }: { business: Business }) {
 
   return (
     <section className="mt-5 rounded-2xl border border-border bg-card p-4">
-      <h2 className="text-sm font-extrabold">Shop verification</h2>
+      <h2 className="text-sm font-extrabold">Shop approval (KYC)</h2>
       <p className="mt-1 text-xs text-muted-foreground">
-        Status: {status.replace(/_/g, " ")}. Admin confirms after you submit — this does not auto-approve.
+        Status: {status.replace(/_/g, " ")}. Admin can approve your shop without giving the blue tick. Request the
+        verification icon separately below.
       </p>
       {locked ? null : (
         <div className="mt-3 space-y-2">

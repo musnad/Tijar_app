@@ -211,6 +211,7 @@ export async function setBusinessVerification(
     if (biz?.is_published && !hasCoords) {
       patch.is_published = false;
     }
+    // Do not grant the public tick. Admin assigns verified_badge separately.
   }
   const { error } = await supabase.from("businesses").update(patch).eq("id", businessId);
   return { error: error?.message ?? null };
@@ -247,6 +248,67 @@ export async function approveAllBusinesses(): Promise<{
     approved += 1;
   }
   return { applications, shops: approved, error: null };
+}
+
+export async function setBusinessVerifiedBadge(
+  businessId: string,
+  on: boolean,
+): Promise<{ error: string | null }> {
+  const supabase = getSupabaseBrowserClient();
+  const { error } = await supabase.rpc("set_business_verified_badge", {
+    p_business_id: businessId,
+    p_on: on,
+  });
+  if (!error) return { error: null };
+  if (!/schema cache|could not find the function|does not exist/i.test(error.message)) {
+    return { error: error.message };
+  }
+  const fallback = await supabase.from("businesses").update({ verified_badge: on }).eq("id", businessId);
+  return { error: fallback.error?.message ?? null };
+}
+
+export type VerifiedBadgeRequest = {
+  id: string;
+  business_id: string;
+  profile_id: string;
+  status: "pending" | "approved" | "rejected";
+  note: string | null;
+  created_at: string;
+  businesses?: { business_name: string } | null;
+};
+
+export async function fetchVerifiedBadgeRequests(): Promise<{
+  requests: VerifiedBadgeRequest[];
+  error: string | null;
+}> {
+  const supabase = getSupabaseBrowserClient();
+  const joined = await supabase
+    .from("verified_badge_requests")
+    .select("*, businesses(business_name)")
+    .order("created_at", { ascending: false })
+    .limit(200);
+  if (!joined.error) return { requests: (joined.data ?? []) as VerifiedBadgeRequest[], error: null };
+  const { data, error } = await supabase
+    .from("verified_badge_requests")
+    .select("*")
+    .order("created_at", { ascending: false })
+    .limit(200);
+  if (error) return { requests: [], error: error.message };
+  return { requests: (data ?? []) as VerifiedBadgeRequest[], error: null };
+}
+
+export async function reviewVerifiedBadgeRequest(
+  requestId: string,
+  approve: boolean,
+  notes?: string,
+): Promise<{ error: string | null }> {
+  const supabase = getSupabaseBrowserClient();
+  const { error } = await supabase.rpc("review_verified_badge_request", {
+    p_request_id: requestId,
+    p_approve: approve,
+    p_notes: notes?.trim() || null,
+  });
+  return { error: error?.message ?? null };
 }
 
 export async function setBusinessPublished(
