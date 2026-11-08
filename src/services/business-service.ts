@@ -4,6 +4,7 @@ import type { OnboardingAnswers } from "@/features/onboarding/schemas";
 import type { MemberRole } from "@/lib/business/capabilities";
 import { isSlugAvailable } from "@/services/discover-service";
 import type { Business, BusinessCategory, BusinessDna } from "@/types/database";
+import { INFORMAL_BUSINESS_CATEGORIES } from "@/lib/informal-categories";
 import { isValidSlug, slugifyBusinessName } from "@/utils/discover";
 
 export async function listBusinessCategories(): Promise<{
@@ -18,9 +19,26 @@ export async function listBusinessCategories(): Promise<{
     .order("sort_order");
 
   if (error) {
-    return { data: [], error: error.message };
+    return {
+      data: INFORMAL_BUSINESS_CATEGORIES.map((c) => ({
+        id: `local-${c.slug}`,
+        name: c.name,
+        slug: c.slug,
+        sort_order: c.sort_order,
+      })),
+      error: null,
+    };
   }
-  return { data: (data ?? []) as BusinessCategory[], error: null };
+  const rows = (data ?? []) as BusinessCategory[];
+  if (rows.length >= 8) return { data: rows, error: null };
+  const have = new Set(rows.map((r) => r.slug));
+  const extra = INFORMAL_BUSINESS_CATEGORIES.filter((c) => !have.has(c.slug)).map((c) => ({
+    id: `local-${c.slug}`,
+    name: c.name,
+    slug: c.slug,
+    sort_order: c.sort_order,
+  }));
+  return { data: [...rows, ...extra].sort((a, b) => a.sort_order - b.sort_order), error: null };
 }
 
 /**

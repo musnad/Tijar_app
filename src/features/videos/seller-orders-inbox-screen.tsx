@@ -78,7 +78,11 @@ export function SellerOrdersInboxScreen({ businessId }: { businessId: string }) 
                 )}
                 <p className="mt-2 text-xs font-semibold">Phone {order.buyer_phone || "not given"}</p>
                 {order.fulfilment === "delivery" ? (
-                  <p className="text-xs">Deliver to {order.delivery_address || "no address yet"}</p>
+                  <p className="text-xs">
+                    {order.pickup_address || order.dropoff_address
+                      ? `Pickup: ${order.pickup_address || "—"} · Drop-off: ${order.dropoff_address || order.delivery_address || "—"}`
+                      : `Pickup & drop-off: ${order.delivery_address || "no address yet"}`}
+                  </p>
                 ) : (
                   <p className="text-xs">Customer will pick up</p>
                 )}

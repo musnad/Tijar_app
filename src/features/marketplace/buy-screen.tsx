@@ -29,6 +29,8 @@ export function BuyScreen({ productId, initialQty }: { productId?: string; initi
   const [qty, setQty] = useState(initialQty && initialQty > 0 ? initialQty : 1);
   const [fulfilment, setFulfilment] = useState<"pickup" | "seller_delivery">("pickup");
   const [phone, setPhone] = useState(profile?.phone ?? "");
+  const [pickupAddress, setPickupAddress] = useState("");
+  const [dropoffAddress, setDropoffAddress] = useState("");
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [orderId, setOrderId] = useState<string | null>(null);
@@ -76,6 +78,16 @@ export function BuyScreen({ productId, initialQty }: { productId?: string; initi
       toast.error("Add your phone number.");
       return;
     }
+    if (fulfilment === "seller_delivery") {
+      if (pickupAddress.trim().length < 4) {
+        toast.error("Add a pickup destination.");
+        return;
+      }
+      if (dropoffAddress.trim().length < 4) {
+        toast.error("Add a drop-off destination.");
+        return;
+      }
+    }
     setBusy(true);
     const added = await addToCart(profile.id, {
       businessId: product.business_id,
@@ -93,7 +105,14 @@ export function BuyScreen({ productId, initialQty }: { productId?: string; initi
     }
     const placed = await placeOrders({
       fulfilment,
-      buyerNote: ["Pay: Transfer to shop", note].filter(Boolean).join(" · "),
+      buyerNote: [
+        "Pay: Transfer to shop",
+        fulfilment === "seller_delivery" ? `Pickup: ${pickupAddress.trim()}` : null,
+        fulfilment === "seller_delivery" ? `Drop-off: ${dropoffAddress.trim()}` : null,
+        note,
+      ]
+        .filter(Boolean)
+        .join(" · "),
       buyerPhone: phone,
       idempotencyKey: crypto.randomUUID(),
       paymentMethod: "transfer",
@@ -198,6 +217,15 @@ export function BuyScreen({ productId, initialQty }: { productId?: string; initi
                   {t("shop.buy.delivery")}
                 </Button>
               </div>
+
+              {fulfilment === "seller_delivery" ? (
+                <>
+                  <label className="mt-4 block text-sm font-bold">Pickup destination</label>
+                  <Input className="mt-1 min-h-11 rounded-xl" value={pickupAddress} onChange={(e) => setPickupAddress(e.target.value)} placeholder="Where should they collect from?" />
+                  <label className="mt-3 block text-sm font-bold">Drop-off destination</label>
+                  <Input className="mt-1 min-h-11 rounded-xl" value={dropoffAddress} onChange={(e) => setDropoffAddress(e.target.value)} placeholder="Where should they deliver to?" />
+                </>
+              ) : null}
 
               <label className="mt-4 block text-sm font-bold">{t("shop.buy.phone")}</label>
               <Input className="mt-1 min-h-11 rounded-xl" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder={t("shop.buy.phonePlaceholder")} />

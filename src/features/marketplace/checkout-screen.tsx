@@ -52,6 +52,7 @@ export function CheckoutScreen() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [localItems, setLocalItems] = useState<CartItem[]>([]);
+  const [pickupStreet, setPickupStreet] = useState("");
   const [addr, setAddr] = useState({
     full_name: profile?.full_name?.trim() || "",
     phone: profile?.phone?.trim() || "",
@@ -121,15 +122,21 @@ export function CheckoutScreen() {
       return;
     }
     if (!addr.full_name.trim() || !addr.street.trim() || !addr.phone.trim()) {
-      setError("Add a delivery name, address, and phone.");
-      toast.error("Add a delivery name, address, and phone.");
+      setError("Add a drop-off name, address, and phone.");
+      toast.error("Add a drop-off name, address, and phone.");
+      setEditing(true);
+      return;
+    }
+    if (pickupStreet.trim().length < 4) {
+      setError("Add a pickup destination.");
+      toast.error("Add a pickup destination.");
       setEditing(true);
       return;
     }
     haptic("success");
     setBusy(true);
 
-    const note = `Pay: Transfer to shop · ${addr.street}`;
+    const note = `Pay: Transfer to shop · Pickup: ${pickupStreet.trim()} · Drop-off: ${addr.street}`;
 
     if (!profile) {
       setBusy(false);
@@ -231,7 +238,7 @@ export function CheckoutScreen() {
                 <div className="flex items-center justify-between">
                   <h2 id="addr-heading" className="flex items-center gap-1.5 text-[15px] font-extrabold text-[#1F7A4D]">
                     <MapPin className="size-4" />
-                    Delivery Address
+                    Pickup & drop-off
                   </h2>
                   <button
                     type="button"
@@ -244,7 +251,8 @@ export function CheckoutScreen() {
                 {editing ? (
                   <div className="mt-2 space-y-2 rounded-2xl border border-[#EEF1F5] p-3">
                     <Input className="min-h-11 rounded-xl" value={addr.full_name} onChange={(e) => setAddr({ ...addr, full_name: e.target.value })} placeholder="Full name" aria-label="Full name" />
-                    <Input className="min-h-11 rounded-xl" value={addr.street} onChange={(e) => setAddr({ ...addr, street: e.target.value })} placeholder="Street address" aria-label="Street address" />
+                    <Input className="min-h-11 rounded-xl" value={pickupStreet} onChange={(e) => setPickupStreet(e.target.value)} placeholder="Pickup destination" aria-label="Pickup destination" />
+                    <Input className="min-h-11 rounded-xl" value={addr.street} onChange={(e) => setAddr({ ...addr, street: e.target.value })} placeholder="Drop-off destination" aria-label="Drop-off destination" />
                     <div className="grid grid-cols-2 gap-2">
                       <Input className="min-h-11 rounded-xl" value={addr.city} onChange={(e) => setAddr({ ...addr, city: e.target.value })} placeholder="City" aria-label="City" />
                       <Input className="min-h-11 rounded-xl" value={addr.state} onChange={(e) => setAddr({ ...addr, state: e.target.value })} placeholder="State" aria-label="State" />
@@ -259,7 +267,8 @@ export function CheckoutScreen() {
                     <MapPin className="mt-0.5 size-4 shrink-0 text-[#1F7A4D]" aria-hidden />
                     <address className="min-w-0 text-[13px] not-italic leading-snug text-[#374151]">
                       <span className="font-extrabold text-[#0B1F4D]">{addr.full_name}</span>
-                      <span className="mt-0.5 block">{addr.street}</span>
+                      <span className="mt-0.5 block">Pickup: {pickupStreet || "Add pickup"}</span>
+                      <span className="block">Drop-off: {addr.street}</span>
                       <span className="block">
                         {addr.state}, {addr.country}
                       </span>

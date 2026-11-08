@@ -1,0 +1,53 @@
+-- Informal business categories (every shop picks one) + pickup/drop-off on delivery orders.
+
+alter table public.place_order_requests
+  add column if not exists pickup_address text,
+  add column if not exists dropoff_address text;
+
+insert into public.business_categories (name, slug, sort_order, active) values
+  ('Street food & bukka', 'street-food', 10, true),
+  ('Restaurant & kitchen', 'restaurant', 20, true),
+  ('Snacks & drinks', 'snacks-drinks', 30, true),
+  ('Food & provisions', 'provision', 40, true),
+  ('Fresh produce', 'fresh-produce', 50, true),
+  ('Meat, fish & poultry', 'meat-fish', 60, true),
+  ('Farm & agro', 'agriculture', 70, true),
+  ('Livestock', 'livestock', 80, true),
+  ('Tailoring & sewing', 'tailoring', 90, true),
+  ('Fashion & clothes', 'fashion', 100, true),
+  ('Shoes & bags', 'shoes-bags', 110, true),
+  ('Beauty, salon & barbing', 'beauty', 120, true),
+  ('Phones & accessories', 'phones', 130, true),
+  ('Phone repair', 'phone-repair', 140, true),
+  ('Electronics & gadgets', 'electronics', 150, true),
+  ('Home & kitchenware', 'home-kitchen', 160, true),
+  ('Building materials', 'building-materials', 170, true),
+  ('Plumbing & electrical', 'plumbing-electrical', 180, true),
+  ('Mechanic & auto repair', 'mechanic', 190, true),
+  ('Auto parts & spare', 'auto-parts', 200, true),
+  ('Okada & bike transport', 'okada', 210, true),
+  ('Keke, taxi & transport', 'transport', 220, true),
+  ('Dispatch & delivery', 'logistics', 230, true),
+  ('Laundry & cleaning', 'laundry', 240, true),
+  ('Crafts & handmade', 'crafts', 250, true),
+  ('Furniture & woodwork', 'furniture', 260, true),
+  ('Printing & graphics', 'printing', 270, true),
+  ('Photo & video', 'photo-video', 280, true),
+  ('Lessons & vocational', 'lessons', 290, true),
+  ('Chemist & herbal', 'health', 300, true),
+  ('Events & catering', 'events', 310, true),
+  ('POS & agency banking', 'pos-agency', 320, true),
+  ('Water & ice', 'water-ice', 330, true),
+  ('Retail stall', 'retail', 340, true),
+  ('Wholesale', 'wholesale', 350, true),
+  ('Digital services', 'digital-services', 360, true),
+  ('Professional services', 'professional-services', 370, true),
+  ('Manufacturing', 'manufacturing', 380, true),
+  ('Online business', 'online-business', 390, true),
+  ('Other informal trade', 'other', 999, true)
+on conflict (slug) do update
+set name = excluded.name,
+    sort_order = excluded.sort_order,
+    active = true;
+
+notify pgrst, 'reload schema';

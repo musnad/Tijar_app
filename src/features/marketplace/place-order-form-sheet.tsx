@@ -30,7 +30,8 @@ export function PlaceOrderForm({ listing }: { listing: PlaceOrderListing }) {
   const [slotDay, setSlotDay] = useState<"today" | "tomorrow">("today");
   const [slotTime, setSlotTime] = useState("");
   const [phone, setPhone] = useState(profile?.phone ?? "");
-  const [address, setAddress] = useState("");
+  const [pickupAddress, setPickupAddress] = useState("");
+  const [dropoffAddress, setDropoffAddress] = useState("");
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [orderId, setOrderId] = useState<string | null>(null);
@@ -61,6 +62,7 @@ export function PlaceOrderForm({ listing }: { listing: PlaceOrderListing }) {
   }, [listing.next_day, listing.same_day, slotDay]);
 
   useEffect(() => {
+    if (listing.location_label) setPickupAddress((cur) => cur || listing.location_label || "");
     if (!listing.pickup_enabled && listing.delivery_enabled) setFulfilment("delivery");
     else if (listing.pickup_enabled && !listing.delivery_enabled) setFulfilment("pickup");
   }, [listing]);
@@ -79,9 +81,15 @@ export function PlaceOrderForm({ listing }: { listing: PlaceOrderListing }) {
       toast.error("Add your phone number.");
       return;
     }
-    if (fulfilment === "delivery" && address.trim().length < 6) {
-      toast.error("Add a delivery address.");
-      return;
+    if (fulfilment === "delivery") {
+      if (pickupAddress.trim().length < 4) {
+        toast.error("Add a pickup destination.");
+        return;
+      }
+      if (dropoffAddress.trim().length < 4) {
+        toast.error("Add a drop-off destination.");
+        return;
+      }
     }
     setBusy(true);
     const placed = await placeYourOrder({
@@ -92,7 +100,9 @@ export function PlaceOrderForm({ listing }: { listing: PlaceOrderListing }) {
       fulfilment,
       slotDay: dayOptions.includes(slotDay) ? slotDay : dayOptions[0]!,
       slotTime: selectedSlot ? `${formatSlotWindow({ ...selectedSlot, from: slotTime || selectedSlot.from, until: selectedSlot.until })}` : slotTime || DEFAULT_SLOT,
-      deliveryAddress: address,
+      deliveryAddress: dropoffAddress,
+      pickupAddress,
+      dropoffAddress,
       buyerPhone: phone,
       buyerNote: note,
       unitPrice: listing.price,
@@ -201,9 +211,25 @@ export function PlaceOrderForm({ listing }: { listing: PlaceOrderListing }) {
           <Input className="mt-1 min-h-12 rounded-xl bg-white" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="080…" inputMode="tel" />
         </div>
         {fulfilment === "delivery" ? (
-          <div>
-            <label className="text-sm font-extrabold text-[#0B1F4D]">Delivery address</label>
-            <Input className="mt-1 min-h-12 rounded-xl bg-white" value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Street, area, landmark" />
+          <div className="space-y-3">
+            <label className="block text-sm font-extrabold text-[#0B1F4D]">
+              Pickup destination
+              <Input
+                className="mt-1 min-h-12 rounded-xl bg-white"
+                value={pickupAddress}
+                onChange={(e) => setPickupAddress(e.target.value)}
+                placeholder={listing.location_label || "Where should they collect from?"}
+              />
+            </label>
+            <label className="block text-sm font-extrabold text-[#0B1F4D]">
+              Drop-off destination
+              <Input
+                className="mt-1 min-h-12 rounded-xl bg-white"
+                value={dropoffAddress}
+                onChange={(e) => setDropoffAddress(e.target.value)}
+                placeholder="Where should they deliver to?"
+              />
+            </label>
           </div>
         ) : null}
         <div>

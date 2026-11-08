@@ -249,6 +249,52 @@ export async function openaiTranslate(
   return out.replace(/^["']|["']$/g, "").trim();
 }
 
+export async function openaiVisionSearchQuery(
+  imageDataUrl: string,
+  config: OpenAiClientConfig = {},
+): Promise<string> {
+  const resolved = resolveConfig(config);
+  const res = await fetchWithTimeout(
+    resolved.fetchImpl,
+    `${resolved.baseUrl}/chat/completions`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${resolved.apiKey}`,
+        "Content-Type": "application/json",
+        Accept: "application/json",
+        "User-Agent": USER_AGENT,
+      },
+      body: JSON.stringify({
+        model: resolved.chatModel,
+        temperature: 0.1,
+        max_tokens: 40,
+        messages: [
+          {
+            role: "system",
+            content:
+              "You name products in a shopper photo for a Nigerian informal marketplace. Reply with 2 to 6 short search words only, no sentence, no quotes. Example: red ankara gown",
+          },
+          {
+            role: "user",
+            content: [
+              { type: "text", text: "What product is this? Search words only." },
+              { type: "image_url", image_url: { url: imageDataUrl.slice(0, 1_400_000) } },
+            ],
+          },
+        ],
+      }),
+    },
+    resolved.timeoutMs,
+  );
+  if (!res.ok) {
+    throw mapHttpError(res.status, "Could not read that photo.");
+  }
+  const data = (await res.json()) as { choices?: Array<{ message?: { content?: string } }> };
+  const out = data.choices?.[0]?.message?.content?.trim() ?? "";
+  return out.replace(/^["']|["']$/g, "").replace(/\s+/g, " ").slice(0, 80);
+}
+
 export async function openaiChat(
   input: { system: string; user: string },
   config: OpenAiClientConfig = {},

@@ -7,12 +7,14 @@ import {
   ChevronRight,
   Compass,
   MapPin,
+  Camera,
   Search,
   SlidersHorizontal,
   Users,
   X,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
 
 import { TijarLogo } from "@/components/brand-logo";
 import { Button } from "@/components/ui/button";
@@ -40,6 +42,7 @@ import {
   filterCatalogSellers,
 } from "@/utils/discover-catalog";
 import { filterListings, formatDistance } from "@/utils/discover";
+import { searchQueryFromProductImage } from "@/lib/search-by-image";
 import { searchPublicPeople } from "@/services/public-profile-service";
 import type { PublicProduct } from "@/types/database";
 
@@ -68,6 +71,7 @@ export function ShopDiscoverScreen() {
   const [geoMessage, setGeoMessage] = useState("");
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [imageSearching, setImageSearching] = useState(false);
 
   useEffect(() => {
     if (centre || !areaCoords) return;
@@ -131,11 +135,11 @@ export function ShopDiscoverScreen() {
   const shops = shopsQuery.data ?? [];
 
   const categoryNames = useMemo(() => {
+    const fromApi = (categoriesQuery.data ?? []).map((c) => c.name);
     const fromProducts = products.map((p) => p.category_name).filter(Boolean) as string[];
-    const populated = new Set(fromProducts);
-    const fromApi = (categoriesQuery.data ?? []).map((c) => c.name).filter((name) => populated.has(name));
-    return [...new Set([...fromApi, ...fromProducts])];
-  }, [categoriesQuery.data, products]);
+    const fromShops = shops.map((s) => s.category_name).filter(Boolean) as string[];
+    return [...new Set([...fromApi, ...fromShops, ...fromProducts])];
+  }, [categoriesQuery.data, products, shops]);
 
   const categoryCounts = useMemo(() => {
     const counts = new Map<string, number>();
@@ -275,9 +279,35 @@ export function ShopDiscoverScreen() {
                 }}
                 onFocus={() => setShowSuggestions(true)}
                 onBlur={() => window.setTimeout(() => setShowSuggestions(false), 180)}
-                placeholder={t("shop.explore.search")}
-                className="h-11 rounded-full border-border bg-muted/70 pl-10 pr-10"
+                placeholder="Search by product name"
+                className="h-11 rounded-full border-border bg-muted/70 pl-10 pr-20"
               />
+              <label className="absolute right-10 top-1/2 flex size-8 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full text-muted-foreground">
+                <Camera className="size-4" />
+                <span className="sr-only">Search by photo</span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  className="hidden"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    e.target.value = "";
+                    if (!file) return;
+                    setImageSearching(true);
+                    haptic();
+                    const r = await searchQueryFromProductImage(file);
+                    setImageSearching(false);
+                    if (r.error && !r.query) {
+                      toast.error(r.error);
+                      return;
+                    }
+                    setQuery(r.query);
+                    setTab("products");
+                    setShowSuggestions(false);
+                  }}
+                />
+              </label>
               {query ? (
                 <button
                   type="button"
@@ -287,6 +317,9 @@ export function ShopDiscoverScreen() {
                 >
                   <X className="size-4" />
                 </button>
+              ) : null}
+              {imageSearching ? (
+                <p className="mt-1 px-1 text-[11px] font-semibold text-muted-foreground">Looking at your photo…</p>
               ) : null}
               {showSuggestions && suggestions.length > 0 && (
                 <ul className="absolute inset-x-0 z-20 mt-1 overflow-hidden rounded-2xl border border-border bg-white shadow-lg">

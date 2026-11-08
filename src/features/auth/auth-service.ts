@@ -1,5 +1,5 @@
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
-import { absoluteAppUrl } from "@/lib/site-url";
+import { absoluteAuthUrl } from "@/lib/site-url";
 
 export async function signUpWithEmail(input: {
   email: string;
@@ -15,7 +15,7 @@ export async function signUpWithEmail(input: {
 }) {
   const supabase = getSupabaseBrowserClient();
   const mode = input.accountMode ?? "business";
-  const emailRedirect = absoluteAppUrl(mode === "customer" ? "/shop" : "/app/onboarding");
+  const emailRedirect = absoluteAuthUrl(mode === "customer" ? "/shop" : "/app/onboarding");
   return supabase.auth.signUp({
     email: input.email.trim(),
     password: input.password,
@@ -49,7 +49,7 @@ export async function signOut() {
 
 export async function sendPasswordReset(email: string) {
   const supabase = getSupabaseBrowserClient();
-  const redirectTo = absoluteAppUrl("/reset-password");
+  const redirectTo = absoluteAuthUrl("/reset-password");
   return supabase.auth.resetPasswordForEmail(email.trim(), {
     redirectTo: redirectTo.startsWith("http") ? redirectTo : undefined,
   });
@@ -70,11 +70,12 @@ export async function signInWithGoogle(input?: { next?: string; accountMode?: "c
       window.sessionStorage.setItem("tijar-oauth-next", input.next);
     }
   }
-  const redirectTo = absoluteAppUrl("/auth/callback");
+  const redirectTo = absoluteAuthUrl("/auth/callback");
   return supabase.auth.signInWithOAuth({
     provider: "google",
     options: {
-      redirectTo: redirectTo.startsWith("http") ? redirectTo : undefined,
+      redirectTo,
+      skipBrowserRedirect: false,
       queryParams: { prompt: "select_account" },
     },
   });

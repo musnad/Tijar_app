@@ -20,6 +20,15 @@ export function getConfiguredSiteOrigin(): string {
   return "";
 }
 
+function isLocalHostOrigin(origin: string): boolean {
+  try {
+    const host = new URL(origin).hostname;
+    return host === "localhost" || host === "127.0.0.1" || host === "::1" || host.endsWith(".local");
+  } catch {
+    return /localhost|127\.0\.0\.1/.test(origin);
+  }
+}
+
 /** Best origin for auth redirects and absolute links (browser or configured production URL). */
 export function getSiteOrigin(): string {
   if (typeof window !== "undefined") {
@@ -28,8 +37,24 @@ export function getSiteOrigin(): string {
   return getConfiguredSiteOrigin() || PRODUCTION_ORIGIN;
 }
 
+/** Google / email auth must never send users (or Google's consent screen) to localhost. */
+export function getAuthRedirectOrigin(): string {
+  const configured = getConfiguredSiteOrigin();
+  if (configured && !isLocalHostOrigin(configured)) return configured;
+  if (typeof window !== "undefined") {
+    const live = canonicalizeOrigin(window.location.origin);
+    if (!isLocalHostOrigin(live)) return live;
+  }
+  return PRODUCTION_ORIGIN;
+}
+
 export function absoluteAppUrl(path: string): string {
   const normalized = path.startsWith("/") ? path : `/${path}`;
   const origin = getSiteOrigin();
   return origin ? `${origin}${normalized}` : normalized;
+}
+
+export function absoluteAuthUrl(path: string): string {
+  const normalized = path.startsWith("/") ? path : `/${path}`;
+  return `${getAuthRedirectOrigin()}${normalized}`;
 }

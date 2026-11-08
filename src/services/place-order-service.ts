@@ -49,6 +49,8 @@ export type PlaceOrderRequest = {
   slot_day: "today" | "tomorrow";
   slot_time: string;
   delivery_address: string | null;
+  pickup_address?: string | null;
+  dropoff_address?: string | null;
   buyer_phone: string | null;
   buyer_note: string | null;
   unit_price: number;
@@ -345,6 +347,8 @@ export async function placeYourOrder(input: {
   slotDay: "today" | "tomorrow";
   slotTime: string;
   deliveryAddress?: string;
+  pickupAddress?: string;
+  dropoffAddress?: string;
   buyerPhone?: string;
   buyerNote?: string;
   unitPrice: number;
@@ -352,25 +356,37 @@ export async function placeYourOrder(input: {
 }): Promise<{ order: PlaceOrderRequest | null; error: string | null }> {
   const supabase = getSupabaseBrowserClient();
   const total = Number(input.quantity) * Number(input.unitPrice) + (input.fulfilment === "delivery" ? 500 : 0);
-  const { data, error } = await supabase
-    .from("place_order_requests")
-    .insert({
-      listing_id: input.listingId,
-      business_id: input.businessId,
-      buyer_id: input.buyerId,
-      quantity: input.quantity,
-      fulfilment: input.fulfilment,
-      slot_day: input.slotDay,
-      slot_time: input.slotTime.trim(),
-      delivery_address: input.deliveryAddress?.trim() || null,
-      buyer_phone: input.buyerPhone?.trim() || null,
-      buyer_note: input.buyerNote?.trim() || null,
-      unit_price: input.unitPrice,
-      total,
-      status: "placed",
-    })
-    .select("*")
-    .single();
+  const pickup = input.pickupAddress?.trim() || null;
+  const dropoff = input.dropoffAddress?.trim() || input.deliveryAddress?.trim() || null;
+  const combined =
+    input.fulfilment === "delivery" && (pickup || dropoff)
+      ? [pickup ? `Pickup: ${pickup}` : null, dropoff ? `Drop-off: ${dropoff}` : null].filter(Boolean).join(" · ")
+      : input.deliveryAddress?.trim() || null;
+  const row: Record<string, unknown> = {
+    listing_id: input.listingId,
+    business_id: input.businessId,
+    buyer_id: input.buyerId,
+    quantity: input.quantity,
+    fulfilment: input.fulfilment,
+    slot_day: input.slotDay,
+    slot_time: input.slotTime.trim(),
+    delivery_address: combined,
+    pickup_address: pickup,
+    dropoff_address: dropoff,
+    buyer_phone: input.buyerPhone?.trim() || null,
+    buyer_note: input.buyerNote?.trim() || null,
+    unit_price: input.unitPrice,
+    total,
+    status: "placed",
+  };
+  let { data, error } = await supabase.from("place_order_requests").insert(row).select("*").single();
+  if (error && /pickup_address|dropoff_address|schema cache|column/i.test(error.message)) {
+    delete row.pickup_address;
+    delete row.dropoff_address;
+    const retry = await supabase.from("place_order_requests").insert(row).select("*").single();
+    data = retry.data;
+    error = retry.error;
+  }
   if (error) {
     if (missingTable(error.message)) {
       return { order: null, error: "Place your order is not set up yet. Apply migration 000040 in Supabase." };
@@ -391,7 +407,7 @@ export async function placeYourOrder(input: {
       quantity: input.quantity,
       total,
       phone: input.buyerPhone,
-      address: input.deliveryAddress,
+      address: combined,
       note: input.buyerNote,
       slotDay: input.slotDay,
       slotTime: input.slotTime,
@@ -418,7 +434,7 @@ function placeOrderNoticeBody(input: {
     input.slotTime,
     `Phone ${input.phone?.trim() || "not given"}`,
   ];
-  if (input.fulfilment === "delivery") bits.push(`Address ${input.address?.trim() || "not given"}`);
+  if (input.fulfilment === "delivery") bits.push(input.address?.trim() || "no pickup/drop-off yet");
   if (input.note?.trim()) bits.push(`Note: ${input.note.trim()}`);
   return bits.join(" · ");
 }
@@ -546,6 +562,8 @@ async function decorateRequests(rows: Record<string, unknown>[]): Promise<PlaceO
       slot_day: row.slot_day as "today" | "tomorrow",
       slot_time: row.slot_time as string,
       delivery_address: (row.delivery_address as string | null) ?? null,
+      pickup_address: (row.pickup_address as string | null) ?? null,
+      dropoff_address: (row.dropoff_address as string | null) ?? null,
       buyer_phone: (row.buyer_phone as string | null) ?? buyer?.phone ?? null,
       buyer_note: (row.buyer_note as string | null) ?? null,
       unit_price: Number(row.unit_price),
