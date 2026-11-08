@@ -2,7 +2,10 @@
 -- Admin grants or revokes it. A shop can request it from their business account.
 
 alter table public.businesses
-  add column if not exists verified_badge boolean not null default false;
+  add column if not exists verified_badge boolean not null default false,
+  add column if not exists cover_image_url text,
+  add column if not exists is_informal boolean not null default true,
+  add column if not exists is_personal boolean not null default false;
 
 create table if not exists public.verified_badge_requests (
   id uuid primary key default gen_random_uuid(),
