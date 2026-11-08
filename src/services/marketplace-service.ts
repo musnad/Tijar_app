@@ -45,7 +45,7 @@ const MARKETPLACE_SHOP_SELECT =
   "id, slug, business_name, description, location_text, public_location_label, latitude, longitude, logo_url, cover_image_url, category_id, category_name, public_phone, public_whatsapp, opening_hours, is_verified, verification_status, is_informal";
 
 const MARKETPLACE_SHOP_SELECT_CORE =
-  "id, slug, business_name, description, location_text, public_location_label, latitude, longitude, logo_url, category_id, category_name, public_phone, public_whatsapp, opening_hours, is_verified, verification_status, is_informal";
+  "id, slug, business_name, description, location_text, public_location_label, latitude, longitude, logo_url, category_id, category_name, public_phone, public_whatsapp, opening_hours, is_verified, verification_status";
 
 const MARKETPLACE_PRODUCT_SELECT =
   "id, business_id, name, kind, description, sale_price, unit, image_url, extra_image_urls, video_url, attributes, variants, currency, is_available, created_at, updated_at, is_informal, business_name, business_slug, business_logo_url, category_name, service_type, starts_on, ends_on";

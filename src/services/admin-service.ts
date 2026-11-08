@@ -293,7 +293,10 @@ export async function fetchVerifiedBadgeRequests(): Promise<{
     .select("*")
     .order("created_at", { ascending: false })
     .limit(200);
-  if (error) return { requests: [], error: error.message };
+  if (error) {
+    const missing = /schema cache|does not exist|could not find the table|404/i.test(error.message);
+    return { requests: [], error: missing ? null : error.message };
+  }
   return { requests: (data ?? []) as VerifiedBadgeRequest[], error: null };
 }
 

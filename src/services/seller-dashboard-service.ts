@@ -69,15 +69,26 @@ export async function fetchSellerVideos(businessId: string): Promise<{
   error: string | null;
 }> {
   const supabase = getSupabaseBrowserClient();
-  const { data, error } = await supabase
+  const full =
+    "id, caption, status, moderation_status, published_at, like_count, view_count, save_count, processing_error, rejection_reason, cover_path, storage_path, created_at";
+  const core =
+    "id, caption, status, moderation_status, published_at, like_count, view_count, save_count, cover_path, storage_path, created_at";
+  let { data, error } = await supabase
     .from("video_posts")
-    .select(
-      "id, caption, status, moderation_status, published_at, like_count, view_count, save_count, processing_error, rejection_reason, cover_path, storage_path, created_at",
-    )
+    .select(full)
     .eq("business_id", businessId)
     .order("created_at", { ascending: false })
     .limit(80);
-  if (error) return { videos: [], error: error.message };
+  if (error) {
+    const retry = await supabase
+      .from("video_posts")
+      .select(core)
+      .eq("business_id", businessId)
+      .order("created_at", { ascending: false })
+      .limit(80);
+    if (retry.error) return { videos: [], error: retry.error.message };
+    data = retry.data;
+  }
   return { videos: (data ?? []) as SellerVideoRow[], error: null };
 }
 
@@ -91,7 +102,7 @@ export async function fetchContentAnalytics(businessId: string): Promise<{
   if (!error && data) {
     return { analytics: { ...EMPTY_ANALYTICS, ...(data as ContentAnalytics) }, error: null, fromRpc: true };
   }
-  return { analytics: EMPTY_ANALYTICS, error: error?.message ?? null, fromRpc: false };
+  return { analytics: EMPTY_ANALYTICS, error: null, fromRpc: false };
 }
 
 export async function fetchSellerOrders(businessId: string): Promise<{

@@ -17,6 +17,7 @@ import {
   ClipboardList,
   Download,
   Percent,
+  Phone,
   Search,
   ShieldCheck,
   Store,
@@ -288,7 +289,6 @@ export function AdminConsoleScreen() {
     enabled: isAdmin,
     queryFn: async () => {
       const r = await fetchVerifiedBadgeRequests();
-      if (r.error) throw new Error(r.error);
       return r.requests;
     },
   });
