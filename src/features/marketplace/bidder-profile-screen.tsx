@@ -55,7 +55,9 @@ export function BidderProfileScreen({ profileId, postId }: { profileId: string; 
 
       {!postId ? (
         <p className="mt-8 rounded-2xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
-          Open this account from its bid to see the full details.
+          <Link to="/shop/u/$profileId" params={{ profileId }} className="font-extrabold text-primary">
+            Open public profile
+          </Link>
         </p>
       ) : cardQuery.isLoading ? (
         <p className="mt-8 text-center text-sm text-muted-foreground">Loading account…</p>

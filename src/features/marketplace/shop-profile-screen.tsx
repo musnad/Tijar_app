@@ -152,7 +152,11 @@ export function ShopProfileScreen() {
     const slug = shop
       ? shopLinkSlug(shopUsername(shop.business_name, shop.public_slug), shop.id)
       : "";
-    const url = slug ? `${window.location.origin}/b/${slug}` : `${window.location.origin}/shop/profile`;
+    const url = profile?.id
+      ? `${window.location.origin}/shop/u/${profile.id}`
+      : slug
+        ? `${window.location.origin}/b/${slug}`
+        : `${window.location.origin}/shop/profile`;
     try {
       if (typeof navigator !== "undefined" && navigator.share) {
         await navigator.share({ title: profile?.full_name ?? "TIJAR profile", url });
@@ -350,6 +354,11 @@ export function ShopProfileScreen() {
           ) : (
             <>
               <Button asChild variant="outline" className="min-h-10 flex-1 rounded-lg border-border font-extrabold">
+                <Link to="/shop/u/$profileId" params={{ profileId: profile.id }}>
+                  View profile
+                </Link>
+              </Button>
+              <Button asChild variant="outline" className="min-h-10 rounded-lg border-border font-extrabold">
                 <Link to="/shop/edit-profile">
                   <Pencil className="mr-1.5 size-4" />
                   {t("shop.profile.edit")}

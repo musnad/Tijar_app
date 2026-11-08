@@ -226,19 +226,14 @@ export function FollowersScreen() {
 }
 
 function ConnectionRow({ person, onAction }: { person: SocialConnection; onAction: () => void }) {
-  const hrefShop = person.shopSlug;
   const title = person.shopName ?? person.name;
   const hideName = usernameMatchesName(title, person.handle);
   return (
     <li className="flex items-center gap-3 rounded-2xl border border-border bg-card p-3">
-      {hrefShop ? (
-        <Link to="/b/$slug" params={{ slug: hrefShop }}>
-          <Avatar name={person.shopName ?? person.name} src={person.avatarUrl} />
-        </Link>
-      ) : (
-        <Avatar name={person.name} src={person.avatarUrl} />
-      )}
-      <div className="min-w-0 flex-1">
+      <Link to="/shop/u/$profileId" params={{ profileId: person.profileId }}>
+        <Avatar name={person.shopName ?? person.name} src={person.avatarUrl} />
+      </Link>
+      <Link to="/shop/u/$profileId" params={{ profileId: person.profileId }} className="min-w-0 flex-1">
         {hideName ? (
           <p className="truncate font-bold">@{person.handle}</p>
         ) : (
@@ -251,7 +246,7 @@ function ConnectionRow({ person, onAction }: { person: SocialConnection; onActio
           {person.source === "shop" ? "follows your shop" : "follows you"}
           {person.theyFollowYou && person.followingThem ? " · friends" : ""}
         </p>
-      </div>
+      </Link>
       <Button
         size="sm"
         className={cn("rounded-full font-bold", person.followingThem && "bg-[color:var(--brand-navy,#001B3A)]")}

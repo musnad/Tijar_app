@@ -9,6 +9,7 @@ import {
   MapPin,
   Search,
   SlidersHorizontal,
+  Users,
   X,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
@@ -39,9 +40,10 @@ import {
   filterCatalogSellers,
 } from "@/utils/discover-catalog";
 import { filterListings, formatDistance } from "@/utils/discover";
+import { searchPublicPeople } from "@/services/public-profile-service";
 import type { PublicProduct } from "@/types/database";
 
-type Tab = "products" | "services" | "sellers" | "categories";
+type Tab = "products" | "services" | "sellers" | "categories" | "people";
 
 const PRICE_CHIPS = [
   { id: "any" as const, labelKey: "shop.explore.anyPrice", min: "", max: "" },
@@ -97,6 +99,15 @@ export function ShopDiscoverScreen() {
   const categoriesQuery = useQuery({
     queryKey: ["business-categories"],
     queryFn: async () => (await listBusinessCategories()).data,
+  });
+  const peopleQuery = useQuery({
+    queryKey: ["public-people-search", query],
+    enabled: tab === "people" || query.trim().length > 0,
+    queryFn: async () => {
+      const r = await searchPublicPeople(query);
+      if (r.error && r.people.length === 0) throw new Error(r.error);
+      return r.people;
+    },
   });
   const cartQuery = useQuery({
     queryKey: ["marketplace-cart", profile?.id],
@@ -210,11 +221,19 @@ export function ShopDiscoverScreen() {
     { id: "products", label: t("shop.explore.products") },
     { id: "services", label: t("shop.explore.services") },
     { id: "sellers", label: t("shop.explore.sellers") },
+    { id: "people", label: "People" },
     { id: "categories", label: t("shop.explore.categories") },
   ];
+  const people = peopleQuery.data ?? [];
   const activePrice = PRICE_CHIPS.find((c) => c.min === minPrice && c.max === maxPrice)?.id ?? "any";
   const resultCount =
-    tab === "sellers" ? filteredSellers.length : tab === "categories" ? categoryNames.length : filteredProducts.length;
+    tab === "sellers"
+      ? filteredSellers.length
+      : tab === "people"
+        ? people.length
+        : tab === "categories"
+          ? categoryNames.length
+          : filteredProducts.length;
   const loading = products.length === 0 && (productsQuery.isPending || shopsQuery.isLoading);
 
   return (
@@ -306,7 +325,7 @@ export function ShopDiscoverScreen() {
             </div>
           </div>
 
-          <nav className="grid grid-cols-4" aria-label={t("shop.explore.title")}>
+          <nav className="grid grid-cols-5" aria-label={t("shop.explore.title")}>
             {tabs.map((item) => {
               const active = tab === item.id;
               return (
@@ -433,6 +452,48 @@ export function ShopDiscoverScreen() {
           ) : null}
 
           {geoMessage ? <p className="px-4 pb-2 text-[11px] text-muted-foreground">{geoMessage}</p> : null}
+
+          {query.trim() && people.length > 0 && tab !== "people" ? (
+            <section className="pb-2" aria-label="People">
+              <div className="flex items-center justify-between px-4 pb-2">
+                <h2 className="text-[13px] font-extrabold tracking-tight">People</h2>
+                <button
+                  type="button"
+                  className="text-[12px] font-bold text-primary"
+                  onClick={() => {
+                    haptic();
+                    setTab("people");
+                  }}
+                >
+                  {t("shop.explore.seeAll")}
+                </button>
+              </div>
+              <ul className="space-y-2 px-4 pb-2">
+                {people.slice(0, 4).map((person) => (
+                  <li key={person.id}>
+                    <Link
+                      to="/shop/u/$profileId"
+                      params={{ profileId: person.id }}
+                      className="flex min-h-[3.5rem] items-center gap-3 rounded-2xl border border-border bg-card px-3 py-2"
+                    >
+                      {person.avatarUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={person.avatarUrl} alt="" className="size-10 shrink-0 rounded-full object-cover" />
+                      ) : (
+                        <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-[color:var(--brand-navy,#001B3A)] text-sm font-extrabold text-white">
+                          {person.fullName.slice(0, 1)}
+                        </span>
+                      )}
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-extrabold">{person.fullName}</span>
+                        <span className="block truncate text-[11px] text-muted-foreground">@{person.handle}</span>
+                      </span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
 
           {query.trim() && filteredSellers.length > 0 && tab !== "sellers" ? (
             <section className="pb-2" aria-label={t("shop.explore.sellers")}>
@@ -588,6 +649,45 @@ export function ShopDiscoverScreen() {
                     </div>
                   ) : null}
                 </>
+              )}
+            </>
+          )}
+
+          {tab === "people" && (
+            <>
+              {people.length === 0 && !peopleQuery.isLoading ? (
+                <EmptyExplore title="No people found" body="Try a name, or open a shop and view the owner's profile." />
+              ) : (
+                <ul className="space-y-2 px-4 pb-6">
+                  {(peopleQuery.isLoading ? [] : people).map((person) => (
+                    <li key={person.id}>
+                      <Link
+                        to="/shop/u/$profileId"
+                        params={{ profileId: person.id }}
+                        className="flex min-h-[4.5rem] items-center gap-3 rounded-2xl border border-border bg-card p-3"
+                      >
+                        {person.avatarUrl ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={person.avatarUrl} alt="" className="size-14 shrink-0 rounded-full object-cover" />
+                        ) : (
+                          <span className="flex size-14 shrink-0 items-center justify-center rounded-full bg-[color:var(--brand-navy,#001B3A)] text-lg font-extrabold text-white">
+                            {person.fullName.slice(0, 1)}
+                          </span>
+                        )}
+                        <div className="min-w-0 flex-1">
+                          <p className="flex items-center gap-1 font-extrabold">
+                            <span className="truncate">{person.fullName}</span>
+                            {person.verifiedBadge ? (
+                              <BadgeCheck className="size-4 shrink-0 fill-primary text-white" aria-label={t("shop.explore.verified")} />
+                            ) : null}
+                          </p>
+                          <p className="truncate text-[12px] text-muted-foreground">@{person.handle}</p>
+                        </div>
+                        <Users className="size-4 shrink-0 text-muted-foreground" />
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
               )}
             </>
           )}

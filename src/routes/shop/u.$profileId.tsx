@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-import { BidderProfileScreen } from "@/features/marketplace/bidder-profile-screen";
+import { PublicProfileScreen } from "@/features/marketplace/public-profile-screen";
 
 export const Route = createFileRoute("/shop/u/$profileId")({
   validateSearch: (s: Record<string, unknown>) => ({
@@ -12,5 +12,5 @@ export const Route = createFileRoute("/shop/u/$profileId")({
 function Page() {
   const { profileId } = Route.useParams();
   const { post } = Route.useSearch();
-  return <BidderProfileScreen profileId={profileId} postId={post ?? null} />;
+  return <PublicProfileScreen profileId={profileId} postId={post ?? null} />;
 }
