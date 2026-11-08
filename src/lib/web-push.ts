@@ -1,7 +1,7 @@
 import { readEnvString } from "@/lib/supabase/runtime-env";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 
-const SW_URL = "/sw.js";
+const SW_URL = "/push-sw.js";
 
 export function pushSupported(): boolean {
   return (

@@ -7,7 +7,7 @@ import { toast } from "sonner";
 
 import { useAuth } from "@/features/auth/auth-context";
 import { enableWebPush, notificationsGranted, syncWebPushSubscription, vapidPublicKey } from "@/lib/web-push";
-import { fetchActivityNotifications, type ActivityNotification } from "@/services/social-service";
+import { activityNotificationPath, fetchActivityNotifications, type ActivityNotification } from "@/services/social-service";
 
 const SEEN_KEY = "tijar-notif-last-seen";
 const PERMISSION_KEY = "tijar-notif-permission-asked";
@@ -40,13 +40,7 @@ function PopupIcon({ kind }: { kind: ActivityNotification["kind"] }) {
 }
 
 function target(n: ActivityNotification): string {
-  if (n.kind === "order_update") return n.orderId ? `/shop/orders/${n.orderId}` : "/shop/orders";
-  if (n.kind === "shop_reply") return n.href ?? "/shop/enquiries";
-  if (n.kind === "cart" || n.kind === "purchase") return "/app/orders";
-  if (n.productId) return `/shop/p/${n.productId}`;
-  if (n.href) return n.href;
-  if (n.videoPostId) return `/shop?v=${n.videoPostId}`;
-  return "/shop/notifications";
+  return activityNotificationPath(n);
 }
 
 let soundCtx: AudioContext | null = null;

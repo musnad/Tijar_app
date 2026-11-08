@@ -1,16 +1,22 @@
 const CLEARED_KEY = "tijar-sw-cleared";
 
-/** Leftover service workers on localhost:3000 intercept Vite modules and break login. */
+function scriptUrl(registration: ServiceWorkerRegistration): string {
+  return registration.active?.scriptURL ?? registration.waiting?.scriptURL ?? registration.installing?.scriptURL ?? "";
+}
+
+/** Leftover PWA workers on localhost intercept Vite. Keep the push worker. */
 export async function clearServiceWorkers() {
   if (typeof window === "undefined" || !("serviceWorker" in navigator)) return;
   const registrations = await navigator.serviceWorker.getRegistrations();
-  const hadWorker = registrations.length > 0;
-  await Promise.all(registrations.map((registration) => registration.unregister()));
+  const stale = registrations.filter((registration) => !scriptUrl(registration).includes("push-sw.js"));
+  if (stale.length === 0) return;
+  await Promise.all(stale.map((registration) => registration.unregister()));
   if ("caches" in window) {
     const keys = await caches.keys();
     await Promise.all(keys.map((key) => caches.delete(key)));
   }
-  if (hadWorker && !sessionStorage.getItem(CLEARED_KEY)) {
+  const isLocal = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+  if (isLocal && !sessionStorage.getItem(CLEARED_KEY)) {
     sessionStorage.setItem(CLEARED_KEY, "1");
     window.location.reload();
   }

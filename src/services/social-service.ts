@@ -40,6 +40,7 @@ export type ActivityNotification = {
   businessId: string | null;
   videoPostId: string | null;
   productId: string | null;
+  listingId: string | null;
   orderId: string | null;
   actorId: string | null;
   actorName: string | null;
@@ -47,6 +48,28 @@ export type ActivityNotification = {
   readAt: string | null;
   createdAt: string;
 };
+
+/** Open the exact post / order the notification is about. */
+export function activityNotificationPath(n: {
+  kind: ActivityNotificationKind | string;
+  href?: string | undefined;
+  listingId?: string | null;
+  productId?: string | null;
+  videoPostId?: string | null;
+  orderId?: string | null;
+}): string {
+  if (n.kind === "order_update") return n.orderId ? `/shop/orders/${n.orderId}` : "/shop/orders";
+  if (n.kind === "shop_reply") return n.href ?? "/shop/enquiries";
+  if (n.kind === "cart" || n.kind === "purchase") return "/app/orders";
+  if (n.kind === "place_order" || n.kind === "place_order_paid") {
+    return n.listingId ? `/shop/order-now/${n.listingId}` : "/shop/create-order?tab=orders";
+  }
+  if (n.listingId) return `/shop/order-now/${n.listingId}`;
+  if (n.productId) return `/shop/p/${n.productId}`;
+  if (n.videoPostId) return `/shop?v=${encodeURIComponent(n.videoPostId)}`;
+  if (n.href) return n.href;
+  return "/shop";
+}
 
 export type NotificationToggles = Pick<
   NotificationPreferences,
@@ -320,13 +343,27 @@ export async function fetchActivityNotifications(profileId: string): Promise<{
 }> {
   try {
   const supabase = getSupabaseBrowserClient();
-  const { data, error } = await supabase
+  const selectWithListing =
+    "id, kind, title, body, business_id, video_post_id, product_id, listing_id, order_id, actor_id, read_at, created_at";
+  const selectCore =
+    "id, kind, title, body, business_id, video_post_id, product_id, order_id, actor_id, read_at, created_at";
+  let { data, error } = await supabase
     .from("activity_notifications")
-    .select("id, kind, title, body, business_id, video_post_id, product_id, order_id, actor_id, read_at, created_at")
+    .select(selectWithListing)
     .eq("recipient_id", profileId)
     .order("created_at", { ascending: false })
     .limit(80);
-  if (error) return { items: [], unread: 0, error: error.message };
+  if (error) {
+    const retry = await supabase
+      .from("activity_notifications")
+      .select(selectCore)
+      .eq("recipient_id", profileId)
+      .order("created_at", { ascending: false })
+      .limit(80);
+    if (retry.error) return { items: [], unread: 0, error: error.message };
+    data = retry.data;
+    error = null;
+  }
   const rows = data ?? [];
   const actorIds = [...new Set(rows.map((r) => r.actor_id as string | null).filter(Boolean))] as string[];
   const { data: actors } =
@@ -340,25 +377,15 @@ export async function fetchActivityNotifications(profileId: string): Promise<{
     const actorShop = actorShops.get(r.actor_id as string);
     const videoPostId = (r.video_post_id as string | null) ?? null;
     const productId = (r.product_id as string | null) ?? null;
+    const listingId = ((r as { listing_id?: string | null }).listing_id as string | null) ?? null;
     const orderId = (r.order_id as string | null) ?? null;
-    const isPlaceOrderish = r.kind === "place_order" || r.kind === "place_order_paid";
-    const isMarketplaceOrder = r.kind === "cart" || r.kind === "purchase";
-    const href =
-      r.kind === "order_update"
-        ? orderId
-          ? `/shop/orders/${orderId}`
-          : "/shop/orders"
-        : r.kind === "shop_reply"
-          ? "/shop/enquiries"
-          : isMarketplaceOrder
-            ? "/app/orders"
-            : isPlaceOrderish
-              ? "/shop/create-order?tab=orders"
-              : productId
-                ? `/shop/p/${productId}`
-                : videoPostId
-                  ? `/shop?v=${videoPostId}`
-                  : undefined;
+    const href = activityNotificationPath({
+      kind: r.kind as string,
+      listingId,
+      productId,
+      videoPostId,
+      orderId,
+    });
     return {
       id: r.id as string,
       kind: r.kind as ActivityNotification["kind"],
@@ -366,6 +393,7 @@ export async function fetchActivityNotifications(profileId: string): Promise<{
       businessId: (r.business_id as string | null) ?? null,
       videoPostId,
       productId,
+      listingId,
       orderId,
       actorId: (r.actor_id as string | null) ?? null,
       actorName: (actor?.full_name as string | null) ?? null,

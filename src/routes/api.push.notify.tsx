@@ -13,6 +13,7 @@ type NotifyBody = {
   business_id?: string | null;
   video_post_id?: string | null;
   product_id?: string | null;
+  listing_id?: string | null;
   order_id?: string | null;
 };
 
@@ -27,11 +28,14 @@ function targetFor(row: NotifyBody): string {
   const kind = row.kind ?? "";
   if (kind === "order_update" && row.order_id) return `/shop/orders/${row.order_id}`;
   if (kind === "cart" || kind === "purchase") return "/app/orders";
-  if (kind === "place_order" || kind === "place_order_paid") return "/shop/create-order?tab=orders";
+  if (kind === "place_order" || kind === "place_order_paid") {
+    return row.listing_id ? `/shop/order-now/${row.listing_id}` : "/shop/create-order?tab=orders";
+  }
+  if (row.listing_id) return `/shop/order-now/${row.listing_id}`;
   if (row.product_id) return `/shop/p/${row.product_id}`;
   if (row.video_post_id) return `/shop?v=${row.video_post_id}`;
   if (kind === "follow" || kind === "follow_back") return "/shop/notifications";
-  return "/shop/notifications";
+  return "/shop";
 }
 
 export const Route = createFileRoute("/api/push/notify")({

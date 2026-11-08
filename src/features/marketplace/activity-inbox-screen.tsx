@@ -3,6 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { Bell, Heart, MessageCircle, Package, UserPlus } from "lucide-react";
+import type { ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
 import { FeedImage } from "@/components/media/feed-image";
@@ -25,10 +26,79 @@ function timeAgo(iso: string): string {
 }
 
 function kindIcon(kind: ActivityNotification["kind"]) {
-  if (kind === "place_order" || kind === "place_order_paid") return Package;
+  if (kind === "place_order" || kind === "place_order_paid" || kind === "new_post" || kind === "purchase") return Package;
   if (kind === "comment" || kind === "comment_reply") return MessageCircle;
   if (kind === "follow_back") return Heart;
   return UserPlus;
+}
+
+function NotificationRowLink({
+  item,
+  className,
+  children,
+}: {
+  item: ActivityNotification;
+  className?: string;
+  children: ReactNode;
+}) {
+  if (item.kind === "place_order" || item.kind === "place_order_paid") {
+    return (
+      <Link to="/shop/create-order" search={{ tab: "orders" }} className={className}>
+        {children}
+      </Link>
+    );
+  }
+  if (item.listingId) {
+    return (
+      <Link to="/shop/order-now/$listingId" params={{ listingId: item.listingId }} className={className}>
+        {children}
+      </Link>
+    );
+  }
+  if (item.productId) {
+    return (
+      <Link to="/shop/p/$productId" params={{ productId: item.productId }} className={className}>
+        {children}
+      </Link>
+    );
+  }
+  if (item.videoPostId) {
+    return (
+      <Link to="/shop" search={{ v: item.videoPostId }} className={className}>
+        {children}
+      </Link>
+    );
+  }
+  if (item.kind === "order_update") {
+    return item.orderId ? (
+      <Link to="/shop/orders/$orderId" params={{ orderId: item.orderId }} className={className}>
+        {children}
+      </Link>
+    ) : (
+      <Link to="/shop/orders" className={className}>
+        {children}
+      </Link>
+    );
+  }
+  if (item.kind === "cart" || item.kind === "purchase") {
+    return (
+      <Link to="/app/orders" className={className}>
+        {children}
+      </Link>
+    );
+  }
+  if (item.kind === "shop_reply") {
+    return (
+      <Link to="/shop/enquiries" className={className}>
+        {children}
+      </Link>
+    );
+  }
+  return (
+    <Link to="/shop" className={className}>
+      {children}
+    </Link>
+  );
 }
 
 export function ActivityInboxScreen() {
@@ -76,7 +146,7 @@ export function ActivityInboxScreen() {
       <div className="flex items-start justify-between gap-3">
         <div>
           <h1 className="text-xl font-extrabold">Notifications</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Follows, comments, and Place your order requests (pending or paid).</p>
+          <p className="mt-1 text-sm text-muted-foreground">Tap a post to open it and buy or place your order.</p>
         </div>
         {unread > 0 ? (
           <Button
@@ -105,12 +175,8 @@ export function ActivityInboxScreen() {
           const Icon = kindIcon(item.kind);
           return (
             <li key={item.id}>
-              <Link
-                {...(item.href
-                  ? { to: "/shop/create-order" as const, search: { tab: "orders" as const } }
-                  : item.videoPostId
-                    ? { to: "/shop" as const, search: { v: item.videoPostId } }
-                    : { to: "/shop/followers" as const })}
+              <NotificationRowLink
+                item={item}
                 className={cn(
                   "flex gap-3 rounded-2xl border border-border p-3",
                   item.readAt ? "bg-card" : "border-primary/20 bg-primary/5",
@@ -133,7 +199,7 @@ export function ActivityInboxScreen() {
                   </span>
                   <span className="mt-0.5 block text-sm leading-snug text-foreground">{item.body}</span>
                 </span>
-              </Link>
+              </NotificationRowLink>
             </li>
           );
         })}
