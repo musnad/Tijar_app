@@ -50,6 +50,7 @@ import { ShopPayPanel } from "@/features/marketplace/shop-pay-panel";
 import { useAuth } from "@/features/auth/auth-context";
 import { useAccountGate } from "@/features/auth/account-gate";
 import { CommerceSticker } from "@/features/marketplace/commerce-sticker";
+import { BusinessOfTheWeekCard } from "@/features/marketplace/business-of-the-week-card";
 import { StoriesRow } from "@/features/marketplace/stories-row";
 import { StoryViewer } from "@/features/marketplace/story-viewer";
 import { useViewerLocation } from "@/hooks/use-viewer-location";
@@ -66,6 +67,7 @@ import {
   rememberSeenFeedIds,
   rotateFeedSalt,
 } from "@/lib/feed/feed-session";
+import { fetchActiveBusinessOfTheWeek, isPromotionLive } from "@/services/business-of-the-week-service";
 import { fetchLiveStoryRings, type StoryRing } from "@/services/story-service";
 import { formatDistance, haversineKm } from "@/utils/discover";
 import { cn } from "@/lib/utils";
@@ -396,6 +398,16 @@ export function VideoFeedScreen({ initialVideoId }: { initialVideoId?: string })
     queryKey: ["video-follows", profile?.id ?? "guest"],
     queryFn: async () => fetchMyFollowedBusinessIds(profile?.id ?? "guest"),
   });
+  const botwQuery = useQuery({
+    queryKey: ["business-of-the-week"],
+    queryFn: async () => {
+      const r = await fetchActiveBusinessOfTheWeek();
+      if (r.error) throw new Error(r.error);
+      return r.featured && isPromotionLive(r.featured) ? r.featured : null;
+    },
+    staleTime: 60_000,
+    refetchInterval: 60_000,
+  });
   const storiesQuery = useQuery({
     queryKey: [
       "live-stories",
@@ -506,6 +518,7 @@ export function VideoFeedScreen({ initialVideoId }: { initialVideoId?: string })
       restoredRef.current = false;
       scrollerRef.current?.scrollTo({ top: 0, behavior: "smooth" });
       void queryClient.invalidateQueries({ queryKey: ["live-stories"] });
+      void queryClient.invalidateQueries({ queryKey: ["business-of-the-week"] });
       void queryClient.invalidateQueries({ queryKey: ["for-you-place-orders"] });
     }
     window.addEventListener(HOME_REFRESH_EVENT, onHomeRefresh);
@@ -722,6 +735,27 @@ export function VideoFeedScreen({ initialVideoId }: { initialVideoId?: string })
   const taggedIds = new Set(productIds);
   const extraListings = liveListings.filter((p) => !taggedIds.has(p.id));
   const followed = followQuery.data ?? new Set<string>();
+  const featured = botwQuery.data ?? null;
+  const storyRings = useMemo(() => {
+    const rings = storiesQuery.data ?? [];
+    if (!featured) return rings;
+    const existing = rings.find((r) => r.businessId === featured.businessId);
+    const ring: StoryRing = existing
+      ? { ...existing, featured: true, unseen: true }
+      : {
+          businessId: featured.businessId,
+          businessName: featured.businessName,
+          logoUrl: featured.logoUrl,
+          slug: featured.slug,
+          isVerified: featured.isVerified,
+          unseen: true,
+          distanceKm: null,
+          locationLabel: featured.locationLabel,
+          stories: [],
+          featured: true,
+        };
+    return [ring, ...rings.filter((r) => r.businessId !== featured.businessId)];
+  }, [storiesQuery.data, featured]);
   const viewerHere = location.coords;
   const nearbyKm = (lat?: number | null, lng?: number | null) => {
     if (!viewerHere || lat == null || lng == null) return null;
@@ -828,9 +862,16 @@ export function VideoFeedScreen({ initialVideoId }: { initialVideoId?: string })
           </p>
         ) : null}
         <StoriesRow
-          rings={storiesQuery.data ?? []}
+          rings={storyRings}
           canCreate={Boolean(businessQuery.data?.business)}
-          onOpen={setStoryBusinessId}
+          onOpen={(businessId) => {
+            const ring = storyRings.find((r) => r.businessId === businessId);
+            if (ring?.featured && ring.stories.length === 0 && ring.slug) {
+              void navigate({ to: "/b/$slug", params: { slug: ring.slug } });
+              return;
+            }
+            setStoryBusinessId(businessId);
+          }}
         />
 
         <FeedActionsContext.Provider value={feedActions}>
@@ -839,6 +880,13 @@ export function VideoFeedScreen({ initialVideoId }: { initialVideoId?: string })
           style={{ WebkitOverflowScrolling: "touch" }}
           className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-contain touch-pan-y [overflow-anchor:none] [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         >
+          {feedTab === "foryou" && featured ? (
+            <BusinessOfTheWeekCard
+              featured={featured}
+              following={followed.has(featured.businessId) || mockFollowing.has(featured.businessId)}
+              onFollow={() => feedActions.onFollowShop(featured.businessId, featured.businessName)}
+            />
+          ) : null}
           {feedQuery.isPending
             ? Array.from({ length: 3 }, (_, i) => <FeedSkeleton key={`sk-${i}`} />)
             : null}
@@ -1061,7 +1109,7 @@ export function VideoFeedScreen({ initialVideoId }: { initialVideoId?: string })
 
       {storyBusinessId ? (
         <StoryViewer
-          rings={(storiesQuery.data ?? []) as StoryRing[]}
+          rings={storyRings.filter((ring) => ring.stories.length > 0)}
           startBusinessId={storyBusinessId}
           profileId={profile?.id ?? null}
           ownerBusinessId={businessQuery.data?.business?.id ?? null}

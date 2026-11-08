@@ -45,9 +45,11 @@ export function StoriesRow({
             <span
               className={cn(
                 "flex size-[4.15rem] items-center justify-center rounded-full p-[2.5px]",
-                ring.unseen
-                  ? "bg-gradient-to-tr from-[#00B86B] via-[#1F7A4D] to-[#0A2540]"
-                  : "bg-[#D1D5DB]",
+                ring.featured
+                  ? "bg-gradient-to-tr from-[#F5C542] via-[#00B86B] to-[#0A2540]"
+                  : ring.unseen
+                    ? "bg-gradient-to-tr from-[#00B86B] via-[#1F7A4D] to-[#0A2540]"
+                    : "bg-[#D1D5DB]",
               )}
             >
               <span className="flex size-full items-center justify-center overflow-hidden rounded-full bg-white p-[2px]">

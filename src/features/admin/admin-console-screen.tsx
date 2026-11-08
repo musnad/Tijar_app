@@ -31,6 +31,7 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { downloadAdminCsv } from "@/features/admin/admin-export";
+import { BusinessOfTheWeekAdmin } from "@/features/admin/business-of-the-week-admin";
 import {
   accountCategory,
   businessGross,
@@ -83,7 +84,8 @@ type Tab =
   | "users"
   | "transactions"
   | "orders"
-  | "ticks";
+  | "ticks"
+  | "week";
 
 const KYC_QUEUE: KycStatus[] = ["submitted", "under_review", "in_progress", "requires_update"];
 
@@ -453,6 +455,8 @@ export function AdminConsoleScreen() {
       queryClient.invalidateQueries({ queryKey: ["admin-transactions"] }),
       queryClient.invalidateQueries({ queryKey: ["admin-payments"] }),
       queryClient.invalidateQueries({ queryKey: ["moderation-listings"] }),
+      queryClient.invalidateQueries({ queryKey: ["admin-botw"] }),
+      queryClient.invalidateQueries({ queryKey: ["business-of-the-week"] }),
     ]);
   }
 
@@ -494,6 +498,7 @@ export function AdminConsoleScreen() {
     { id: "applications", label: "Applications" },
     { id: "businesses", label: "Businesses" },
     { id: "ticks", label: "Blue ticks" },
+    { id: "week", label: "This week" },
     { id: "users", label: "Users" },
     { id: "transactions", label: "Transactions" },
     { id: "orders", label: "Orders" },
@@ -700,7 +705,7 @@ export function AdminConsoleScreen() {
         </Button>
       </div>
 
-      {tab !== "overview" && tab !== "finance" && (
+      {tab !== "overview" && tab !== "finance" && tab !== "week" && (
         <div className="relative mt-4">
           <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
@@ -1151,6 +1156,8 @@ export function AdminConsoleScreen() {
           ))}
         </ul>
       )}
+
+      {tab === "week" && <BusinessOfTheWeekAdmin businesses={businesses} />}
 
       {tab === "users" && (
         <>

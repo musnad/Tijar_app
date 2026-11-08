@@ -44,6 +44,7 @@ export type StoryRing = {
   distanceKm: number | null;
   locationLabel: string | null;
   stories: LiveStory[];
+  featured?: boolean;
 };
 
 function publicStoryUrl(path: string | null | undefined): string {
