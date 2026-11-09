@@ -27,7 +27,7 @@ import { getMapsProvider } from "@/lib/maps/provider";
 import { languageForLocale } from "@/lib/translation/languages";
 import { cn } from "@/lib/utils";
 import { useStartShopChat } from "@/features/marketplace/use-start-shop-chat";
-import { reportListing } from "@/services/marketplace-service";
+import { fetchMarketplaceProduct, reportListing } from "@/services/marketplace-service";
 import { updateBusinessProfile } from "@/services/business-service";
 import { updateProfile } from "@/services/profile-service";
 import { fetchStorefront, recordBusinessShare, submitEnquiry } from "@/services/discover-service";
@@ -77,12 +77,26 @@ function productBadge(p: PublicProduct): string | null {
 }
 
 function StoreProductCard({ product: p, canPost }: { product: PublicProduct; canPost?: boolean }) {
+  const queryClient = useQueryClient();
   const badge = productBadge(p) || p.category_name;
+  function prefetch() {
+    void queryClient.prefetchQuery({
+      queryKey: ["marketplace-product", p.id],
+      queryFn: async () => {
+        const res = await fetchMarketplaceProduct(p.id);
+        if (res.error || !res.product) throw new Error(res.error ?? "Product not found");
+        return res.product;
+      },
+      staleTime: 30_000,
+    });
+  }
   return (
     <div>
       <Link
         to="/shop/p/$productId"
         params={{ productId: p.id }}
+        preload="intent"
+        onPointerDown={prefetch}
         className="block overflow-hidden rounded-2xl bg-white text-left shadow-[0_1px_0_rgba(11,31,77,0.04)]"
       >
         <div className="relative aspect-[4/3] overflow-hidden bg-[#F3F4F6]">
@@ -130,10 +144,13 @@ function ShopPostTile({ video, shopName }: { video: PublicFeedVideo; shopName: s
   const src = resolveVideoSrc(video);
   const image = isImagePost(video);
   const poster = cover || src;
+  const productId = video.product_ids?.[0];
   return (
     <Link
-      to="/shop"
-      search={{ v: video.id }}
+      {...(productId
+        ? { to: "/shop/p/$productId" as const, params: { productId } }
+        : { to: "/shop" as const, search: { v: video.id } })}
+      preload="intent"
       className="relative block aspect-[3/4] overflow-hidden bg-[#F3F4F6]"
       aria-label={`${image ? "Photo" : "Video"} from ${shopName}`}
     >

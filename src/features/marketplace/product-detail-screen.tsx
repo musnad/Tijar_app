@@ -19,8 +19,7 @@ import { haptic } from "@/lib/haptics";
 import { useTranslation } from "@/lib/i18n/context";
 import { displayShopName, shopLinkSlug } from "@/lib/shop-names";
 import { cn } from "@/lib/utils";
-import { ProductSocialBar } from "@/features/marketplace/product-social";
-import { isProductLiked, likeProduct, toggleProductLike, isProductSaved } from "@/lib/shop-social";
+import { isProductLiked, likeProduct, isProductSaved, toggleProductLike } from "@/lib/shop-social";
 import { useDoubleTap } from "@/lib/use-double-tap";
 import {
   addToCart,
@@ -268,10 +267,6 @@ export function ProductDetailScreen({ productId }: { productId: string }) {
               onClick={() => void favorite()}
             >
               <Bookmark className={cn("size-6", saved ? "fill-[color:var(--brand-navy,#001B3A)] text-[color:var(--brand-navy,#001B3A)]" : "text-[color:var(--brand-navy,#001B3A)]")} />
-            </button>
-            <Link
-              to="/shop/cart"
-              className="relative flex size-11 items-center justify-center rounded-full"
               aria-label={`Cart, ${cartCount} items`}
             >
               <ShoppingBag className="size-6 text-[color:var(--brand-navy,#001B3A)]" />
@@ -329,6 +324,10 @@ export function ProductDetailScreen({ productId }: { productId: string }) {
                     </div>
                   ))}
                 </div>
+                {heartBurst || liked ? (
+                  <Heart
+                    className={cn(
+                      "pointer-events-none absolute left-1/2 top-1/2 size-16 -translate-x-1/2 -translate-y-1/2 text-red-500 transition-all",
                 {heartBurst ? (
                   <Heart
                     className="pointer-events-none absolute left-1/2 top-1/2 z-[2] size-20 -translate-x-1/2 -translate-y-1/2 fill-red-500 text-red-500 [animation:feed-heart_450ms_ease-out]"
@@ -381,10 +380,6 @@ export function ProductDetailScreen({ productId }: { productId: string }) {
               )}
 
               <ProductSocialBar product={product} className="mt-3 gap-1" />
-              <p className="mt-4 text-[13px] font-bold text-muted-foreground">{product.name}</p>
-              {serviceLabel(product) && (
-                <p className="mt-1 text-xs font-bold uppercase tracking-wide text-primary">
-                  {serviceLabel(product)}
                   {formatServiceDates(product) ? ` · ${formatServiceDates(product)}` : ""}
                 </p>
               )}
@@ -419,16 +414,22 @@ export function ProductDetailScreen({ productId }: { productId: string }) {
                 <span className="flex size-11 items-center justify-center rounded-full bg-primary/10 text-primary">
                   <Store className="size-5" />
                 </span>
-                <div className="min-w-0 flex-1">
+                <Link
+                  to="/b/$slug"
+                  params={{ slug: shopLinkSlug(product.business_slug, product.business_id) }}
+                  preload="intent"
+                  className="min-w-0 flex-1"
+                >
                   <p className="text-[11px] font-medium text-muted-foreground">Seller</p>
                   <p className="flex items-center gap-1 font-extrabold text-[color:var(--brand-navy,#001B3A)]">
                     <span className="truncate">{displayShopName(product.business_name)}</span>
                     <BadgeCheck className="size-4 shrink-0 fill-primary text-white" aria-label="Verified seller" />
                   </p>
-                </div>
+                </Link>
                 <Link
                   to="/b/$slug"
                   params={{ slug: shopLinkSlug(product.business_slug, product.business_id) }}
+                  preload="intent"
                   className="inline-flex min-h-11 shrink-0 items-center gap-0.5 rounded-full border border-border px-3 text-[12px] font-bold text-[color:var(--brand-navy,#001B3A)]"
                 >
                   View Store

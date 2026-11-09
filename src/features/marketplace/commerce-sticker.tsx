@@ -14,6 +14,7 @@ export function CommerceSticker({
   imageUrl,
   host = "tijar.ng",
   onPay,
+  onOpen,
   ctaLabel = "Buy now",
   className,
 }: {
@@ -23,13 +24,28 @@ export function CommerceSticker({
   imageUrl?: string | null;
   host?: string;
   onPay?: () => void;
+  onOpen?: () => void;
   ctaLabel?: string;
   className?: string;
 }) {
   return (
     <div
+      role={onOpen ? "button" : undefined}
+      tabIndex={onOpen ? 0 : undefined}
+      onClick={onOpen}
+      onKeyDown={
+        onOpen
+          ? (e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                onOpen();
+              }
+            }
+          : undefined
+      }
       className={cn(
         "flex max-w-[16.5rem] items-center gap-2.5 rounded-2xl bg-black/72 p-2 pr-2.5 text-left shadow-lg backdrop-blur-md",
+        onOpen && "cursor-pointer",
         className,
       )}
     >

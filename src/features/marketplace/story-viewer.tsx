@@ -1,5 +1,6 @@
 "use client";
 
+import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { ArrowLeft, Eye, Heart, MessageCircle, Send, Share2 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -9,6 +10,8 @@ import { ShareSheet } from "@/components/share-sheet";
 import { CommerceSticker } from "@/features/marketplace/commerce-sticker";
 import { useAccountGate } from "@/features/auth/account-gate";
 import { cn } from "@/lib/utils";
+import { fetchStorefront } from "@/services/discover-service";
+import { fetchMarketplaceProduct } from "@/services/marketplace-service";
 import {
   fetchMyStoryLikedIds,
   fetchStoryComments,
@@ -44,6 +47,7 @@ export function StoryViewer({
 }) {
   const { requireAccount } = useAccountGate();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const startIndex = Math.max(0, rings.findIndex((r) => r.businessId === startBusinessId));
   const [ringIndex, setRingIndex] = useState(startIndex);
   const [itemIndex, setItemIndex] = useState(0);
@@ -72,6 +76,32 @@ export function StoryViewer({
     typeof window !== "undefined" && ring
       ? `${window.location.origin}/b/${ring.slug}`
       : "";
+
+  useEffect(() => {
+    if (!ring?.slug) return;
+    void queryClient.prefetchQuery({
+      queryKey: ["storefront", ring.slug],
+      queryFn: async () => {
+        const r = await fetchStorefront(ring.slug);
+        if (r.error) throw new Error(r.error);
+        return r;
+      },
+      staleTime: 30_000,
+    });
+  }, [queryClient, ring?.slug]);
+
+  useEffect(() => {
+    if (!story?.product_id) return;
+    void queryClient.prefetchQuery({
+      queryKey: ["marketplace-product", story.product_id],
+      queryFn: async () => {
+        const res = await fetchMarketplaceProduct(story.product_id!);
+        if (res.error || !res.product) throw new Error(res.error ?? "Product not found");
+        return res.product;
+      },
+      staleTime: 30_000,
+    });
+  }, [queryClient, story?.product_id]);
 
   useEffect(() => {
     if (!story || !profileId || seenIds.has(story.id)) return;
@@ -174,6 +204,29 @@ export function StoryViewer({
     else setViewers(r.people);
   }
 
+  function openShop() {
+    if (!ring?.slug) return;
+    onClose();
+    void navigate({ to: "/b/$slug", params: { slug: ring.slug } });
+  }
+
+  function openProduct() {
+    if (!story || !ring) return;
+    onClose();
+    if (story.place_order_listing_id) {
+      void navigate({
+        to: "/shop/order-now/$listingId",
+        params: { listingId: story.place_order_listing_id },
+      });
+      return;
+    }
+    if (story.product_id) {
+      void navigate({ to: "/shop/p/$productId", params: { productId: story.product_id } });
+      return;
+    }
+    void navigate({ to: "/b/$slug", params: { slug: ring.slug } });
+  }
+
   function pay() {
     if (!story || !ring) return;
     onClose();
@@ -188,7 +241,6 @@ export function StoryViewer({
       void navigate({ to: "/shop/buy", search: { productId: story.product_id } });
       return;
     }
-    toast.message("Open the shop to order.");
     void navigate({ to: "/b/$slug", params: { slug: ring.slug } });
   }
 
@@ -215,18 +267,20 @@ export function StoryViewer({
         <button type="button" onClick={onClose} className="flex size-11 items-center justify-center" aria-label="Back">
           <ArrowLeft className="size-6" />
         </button>
-        {ring.logoUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={ring.logoUrl} alt="" className="size-9 rounded-full object-cover" />
-        ) : (
-          <span className="flex size-9 items-center justify-center rounded-full bg-[#00B86B] text-sm font-extrabold">
-            {ring.businessName.slice(0, 1)}
-          </span>
-        )}
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-[15px] font-extrabold">{ring.businessName}</p>
-          <p className="text-[11px] text-white/70">{timeAgo(story.created_at)}</p>
-        </div>
+        <button type="button" onClick={openShop} className="flex min-w-0 flex-1 items-center gap-2 text-left">
+          {ring.logoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={ring.logoUrl} alt="" className="size-9 rounded-full object-cover" />
+          ) : (
+            <span className="flex size-9 items-center justify-center rounded-full bg-[#00B86B] text-sm font-extrabold">
+              {ring.businessName.slice(0, 1)}
+            </span>
+          )}
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-[15px] font-extrabold">{ring.businessName}</p>
+            <p className="text-[11px] text-white/70">{timeAgo(story.created_at)}</p>
+          </div>
+        </button>
         {isOwner ? (
           <button type="button" onClick={() => void openViewers()} className="flex items-center gap-1 rounded-full bg-black/25 px-2.5 py-1.5 text-[12px] font-bold">
             <Eye className="size-4" />
@@ -257,6 +311,7 @@ export function StoryViewer({
             imageUrl={story.product_image || ring.logoUrl}
             price={stickerPrice}
             host="tijar.ng"
+            onOpen={openProduct}
             onPay={pay}
           />
         </div>

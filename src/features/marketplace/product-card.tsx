@@ -11,7 +11,7 @@ import { isMockFeedId } from "@/features/marketplace/feed-mock";
 import { haptic } from "@/lib/haptics";
 import { ensureSavedProduct, isProductLiked, likeProduct } from "@/lib/shop-social";
 import { useDoubleTap } from "@/lib/use-double-tap";
-import { addToCart, likeMarketplaceProduct } from "@/services/marketplace-service";
+import { addToCart, fetchMarketplaceProduct, likeMarketplaceProduct } from "@/services/marketplace-service";
 import { formatNgn } from "@/utils/money";
 import type { PublicProduct } from "@/types/database";
 import { formatPricePerUnit } from "@/lib/catalogue/units";
@@ -56,9 +56,19 @@ export function ProductCard({
     }
   }
 
-  const onPhotoTap = useDoubleTap(burstLike, () => {
-    void navigate({ to: "/shop/p/$productId", params: { productId: product.id } });
-  });
+  const onPhotoTap = useDoubleTap(burstLike);
+
+  function prefetch() {
+    void queryClient.prefetchQuery({
+      queryKey: ["marketplace-product", product.id],
+      queryFn: async () => {
+        const res = await fetchMarketplaceProduct(product.id);
+        if (res.error || !res.product) throw new Error(res.error ?? "Product not found");
+        return res.product;
+      },
+      staleTime: 30_000,
+    });
+  }
 
   async function quickAdd(e: React.MouseEvent) {
     e.preventDefault();
@@ -96,6 +106,8 @@ export function ProductCard({
     <Link
       to="/shop/p/$productId"
       params={{ productId: product.id }}
+      preload="intent"
+      onPointerDown={prefetch}
       className={cn(
         "group relative flex flex-col overflow-hidden rounded-2xl border border-border/80 bg-card shadow-[0_1px_2px_rgba(15,40,50,0.04)] will-change-transform transition-transform duration-200 hover:-translate-y-0.5 hover:border-primary/35 hover:shadow-md",
         compact && "rounded-xl",
@@ -103,11 +115,7 @@ export function ProductCard({
     >
       <div
         className={cn("relative overflow-hidden bg-muted", compact ? "aspect-[4/3]" : "aspect-square")}
-        onClick={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          onPhotoTap();
-        }}
+        onClick={() => onPhotoTap()}
       >
         {product.image_url ? (
           <FeedImage
