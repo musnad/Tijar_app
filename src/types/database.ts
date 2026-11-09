@@ -115,6 +115,12 @@ export type Business = {
   cover_image_url?: string | null;
   islamic_mode_enabled: boolean;
   verification_status: string;
+  kyc_provider?: string | null;
+  kyc_id_type?: string | null;
+  kyc_id_last4?: string | null;
+  kyc_full_name?: string | null;
+  kyc_verified_at?: string | null;
+  kyc_reference?: string | null;
   /** Blue tick on the public shop name. Independent of KYC approval. */
   verified_badge?: boolean;
   public_slug: string | null;

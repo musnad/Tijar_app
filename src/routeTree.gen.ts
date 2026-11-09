@@ -90,10 +90,12 @@ import { Route as ApiAiReportRouteImport } from './routes/api.ai.report'
 import { Route as ApiAiSaleRouteImport } from './routes/api.ai.sale'
 import { Route as ApiAiTranscribeRouteImport } from './routes/api.ai.transcribe'
 import { Route as ApiAssistantChatRouteImport } from './routes/api.assistant.chat'
+import { Route as ApiKycVerifyRouteImport } from './routes/api.kyc.verify'
+import { Route as ApiPaymentsConfirmOrderRouteImport } from './routes/api.payments.confirm-order'
 import { Route as ApiPaymentsFlutterwaveRouteImport } from './routes/api.payments.flutterwave'
 import { Route as ApiPaymentsPayoutRouteImport } from './routes/api.payments.payout'
+import { Route as ApiPaymentsPaystackRouteImport } from './routes/api.payments.paystack'
 import { Route as ApiPaymentsShopAccountRouteImport } from './routes/api.payments.shop-account'
-import { Route as ApiPaymentsConfirmOrderRouteImport } from './routes/api.payments.confirm-order'
 import { Route as ApiPaymentsStatusRouteImport } from './routes/api.payments.status'
 import { Route as ApiPaymentsVirtualAccountRouteImport } from './routes/api.payments.virtual-account'
 import { Route as ApiPaymentsWebhookRouteImport } from './routes/api.payments.webhook'
@@ -540,6 +542,16 @@ const ApiAssistantChatRoute = ApiAssistantChatRouteImport.update({
   path: '/api/assistant/chat',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiKycVerifyRoute = ApiKycVerifyRouteImport.update({
+  id: '/api/kyc/verify',
+  path: '/api/kyc/verify',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPaymentsConfirmOrderRoute = ApiPaymentsConfirmOrderRouteImport.update({
+  id: '/api/payments/confirm-order',
+  path: '/api/payments/confirm-order',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPaymentsFlutterwaveRoute = ApiPaymentsFlutterwaveRouteImport.update({
   id: '/api/payments/flutterwave',
   path: '/api/payments/flutterwave',
@@ -550,14 +562,14 @@ const ApiPaymentsPayoutRoute = ApiPaymentsPayoutRouteImport.update({
   path: '/api/payments/payout',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPaymentsPaystackRoute = ApiPaymentsPaystackRouteImport.update({
+  id: '/api/payments/paystack',
+  path: '/api/payments/paystack',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPaymentsShopAccountRoute = ApiPaymentsShopAccountRouteImport.update({
   id: '/api/payments/shop-account',
   path: '/api/payments/shop-account',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiPaymentsConfirmOrderRoute = ApiPaymentsConfirmOrderRouteImport.update({
-  id: '/api/payments/confirm-order',
-  path: '/api/payments/confirm-order',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiPaymentsStatusRoute = ApiPaymentsStatusRouteImport.update({
@@ -845,10 +857,12 @@ export interface FileRoutesByFullPath {
   '/api/ai/sale': typeof ApiAiSaleRoute
   '/api/ai/transcribe': typeof ApiAiTranscribeRoute
   '/api/assistant/chat': typeof ApiAssistantChatRoute
+  '/api/kyc/verify': typeof ApiKycVerifyRoute
+  '/api/payments/confirm-order': typeof ApiPaymentsConfirmOrderRoute
   '/api/payments/flutterwave': typeof ApiPaymentsFlutterwaveRoute
   '/api/payments/payout': typeof ApiPaymentsPayoutRoute
+  '/api/payments/paystack': typeof ApiPaymentsPaystackRoute
   '/api/payments/shop-account': typeof ApiPaymentsShopAccountRoute
-  '/api/payments/confirm-order': typeof ApiPaymentsConfirmOrderRoute
   '/api/payments/status': typeof ApiPaymentsStatusRoute
   '/api/payments/virtual-account': typeof ApiPaymentsVirtualAccountRoute
   '/api/payments/webhook': typeof ApiPaymentsWebhookRoute
@@ -965,10 +979,12 @@ export interface FileRoutesByTo {
   '/api/ai/sale': typeof ApiAiSaleRoute
   '/api/ai/transcribe': typeof ApiAiTranscribeRoute
   '/api/assistant/chat': typeof ApiAssistantChatRoute
+  '/api/kyc/verify': typeof ApiKycVerifyRoute
+  '/api/payments/confirm-order': typeof ApiPaymentsConfirmOrderRoute
   '/api/payments/flutterwave': typeof ApiPaymentsFlutterwaveRoute
   '/api/payments/payout': typeof ApiPaymentsPayoutRoute
+  '/api/payments/paystack': typeof ApiPaymentsPaystackRoute
   '/api/payments/shop-account': typeof ApiPaymentsShopAccountRoute
-  '/api/payments/confirm-order': typeof ApiPaymentsConfirmOrderRoute
   '/api/payments/status': typeof ApiPaymentsStatusRoute
   '/api/payments/virtual-account': typeof ApiPaymentsVirtualAccountRoute
   '/api/payments/webhook': typeof ApiPaymentsWebhookRoute
@@ -1093,10 +1109,12 @@ export interface FileRoutesById {
   '/api/ai/sale': typeof ApiAiSaleRoute
   '/api/ai/transcribe': typeof ApiAiTranscribeRoute
   '/api/assistant/chat': typeof ApiAssistantChatRoute
+  '/api/kyc/verify': typeof ApiKycVerifyRoute
+  '/api/payments/confirm-order': typeof ApiPaymentsConfirmOrderRoute
   '/api/payments/flutterwave': typeof ApiPaymentsFlutterwaveRoute
   '/api/payments/payout': typeof ApiPaymentsPayoutRoute
+  '/api/payments/paystack': typeof ApiPaymentsPaystackRoute
   '/api/payments/shop-account': typeof ApiPaymentsShopAccountRoute
-  '/api/payments/confirm-order': typeof ApiPaymentsConfirmOrderRoute
   '/api/payments/status': typeof ApiPaymentsStatusRoute
   '/api/payments/virtual-account': typeof ApiPaymentsVirtualAccountRoute
   '/api/payments/webhook': typeof ApiPaymentsWebhookRoute
@@ -1222,10 +1240,12 @@ export interface FileRouteTypes {
     | '/api/ai/sale'
     | '/api/ai/transcribe'
     | '/api/assistant/chat'
+    | '/api/kyc/verify'
+    | '/api/payments/confirm-order'
     | '/api/payments/flutterwave'
     | '/api/payments/payout'
+    | '/api/payments/paystack'
     | '/api/payments/shop-account'
-    | '/api/payments/confirm-order'
     | '/api/payments/status'
     | '/api/payments/virtual-account'
     | '/api/payments/webhook'
@@ -1342,10 +1362,12 @@ export interface FileRouteTypes {
     | '/api/ai/sale'
     | '/api/ai/transcribe'
     | '/api/assistant/chat'
+    | '/api/kyc/verify'
+    | '/api/payments/confirm-order'
     | '/api/payments/flutterwave'
     | '/api/payments/payout'
+    | '/api/payments/paystack'
     | '/api/payments/shop-account'
-    | '/api/payments/confirm-order'
     | '/api/payments/status'
     | '/api/payments/virtual-account'
     | '/api/payments/webhook'
@@ -1469,10 +1491,12 @@ export interface FileRouteTypes {
     | '/api/ai/sale'
     | '/api/ai/transcribe'
     | '/api/assistant/chat'
+    | '/api/kyc/verify'
+    | '/api/payments/confirm-order'
     | '/api/payments/flutterwave'
     | '/api/payments/payout'
+    | '/api/payments/paystack'
     | '/api/payments/shop-account'
-    | '/api/payments/confirm-order'
     | '/api/payments/status'
     | '/api/payments/virtual-account'
     | '/api/payments/webhook'
@@ -1548,10 +1572,12 @@ export interface RootRouteChildren {
   ApiAiSaleRoute: typeof ApiAiSaleRoute
   ApiAiTranscribeRoute: typeof ApiAiTranscribeRoute
   ApiAssistantChatRoute: typeof ApiAssistantChatRoute
+  ApiKycVerifyRoute: typeof ApiKycVerifyRoute
+  ApiPaymentsConfirmOrderRoute: typeof ApiPaymentsConfirmOrderRoute
   ApiPaymentsFlutterwaveRoute: typeof ApiPaymentsFlutterwaveRoute
   ApiPaymentsPayoutRoute: typeof ApiPaymentsPayoutRoute
+  ApiPaymentsPaystackRoute: typeof ApiPaymentsPaystackRoute
   ApiPaymentsShopAccountRoute: typeof ApiPaymentsShopAccountRoute
-  ApiPaymentsConfirmOrderRoute: typeof ApiPaymentsConfirmOrderRoute
   ApiPaymentsStatusRoute: typeof ApiPaymentsStatusRoute
   ApiPaymentsVirtualAccountRoute: typeof ApiPaymentsVirtualAccountRoute
   ApiPaymentsWebhookRoute: typeof ApiPaymentsWebhookRoute
@@ -2131,6 +2157,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAssistantChatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/kyc/verify': {
+      id: '/api/kyc/verify'
+      path: '/api/kyc/verify'
+      fullPath: '/api/kyc/verify'
+      preLoaderRoute: typeof ApiKycVerifyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/payments/confirm-order': {
+      id: '/api/payments/confirm-order'
+      path: '/api/payments/confirm-order'
+      fullPath: '/api/payments/confirm-order'
+      preLoaderRoute: typeof ApiPaymentsConfirmOrderRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/payments/flutterwave': {
       id: '/api/payments/flutterwave'
       path: '/api/payments/flutterwave'
@@ -2145,18 +2185,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPaymentsPayoutRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/payments/paystack': {
+      id: '/api/payments/paystack'
+      path: '/api/payments/paystack'
+      fullPath: '/api/payments/paystack'
+      preLoaderRoute: typeof ApiPaymentsPaystackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/payments/shop-account': {
       id: '/api/payments/shop-account'
       path: '/api/payments/shop-account'
       fullPath: '/api/payments/shop-account'
       preLoaderRoute: typeof ApiPaymentsShopAccountRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/payments/confirm-order': {
-      id: '/api/payments/confirm-order'
-      path: '/api/payments/confirm-order'
-      fullPath: '/api/payments/confirm-order'
-      preLoaderRoute: typeof ApiPaymentsConfirmOrderRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/payments/status': {
@@ -2764,10 +2804,12 @@ const rootRouteChildren: RootRouteChildren = {
   ApiAiSaleRoute: ApiAiSaleRoute,
   ApiAiTranscribeRoute: ApiAiTranscribeRoute,
   ApiAssistantChatRoute: ApiAssistantChatRoute,
+  ApiKycVerifyRoute: ApiKycVerifyRoute,
+  ApiPaymentsConfirmOrderRoute: ApiPaymentsConfirmOrderRoute,
   ApiPaymentsFlutterwaveRoute: ApiPaymentsFlutterwaveRoute,
   ApiPaymentsPayoutRoute: ApiPaymentsPayoutRoute,
+  ApiPaymentsPaystackRoute: ApiPaymentsPaystackRoute,
   ApiPaymentsShopAccountRoute: ApiPaymentsShopAccountRoute,
-  ApiPaymentsConfirmOrderRoute: ApiPaymentsConfirmOrderRoute,
   ApiPaymentsStatusRoute: ApiPaymentsStatusRoute,
   ApiPaymentsVirtualAccountRoute: ApiPaymentsVirtualAccountRoute,
   ApiPaymentsWebhookRoute: ApiPaymentsWebhookRoute,
