@@ -51,7 +51,7 @@ alter table public.business_kyc_checks
 
 update public.businesses
 set
-  verification_status = 'unverified',
+  verification_status = 'not_started',
   kyc_provider = null,
   kyc_id_type = null,
   kyc_id_last4 = null,
