@@ -17,6 +17,7 @@ import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { TijarLogo } from "@/components/brand-logo";
+import { isTijarNativeApp } from "@/lib/tijar-native-app";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { AppLanguageButton } from "@/features/app-layout/app-language-button";
@@ -259,6 +260,7 @@ export function ShopDiscoverScreen() {
     );
   }
 
+  const nativeApp = isTijarNativeApp();
   const cartCount = cartQuery.data?.reduce((n, i) => n + Number(i.quantity), 0) ?? 0;
   const tabs: { id: Tab; label: string }[] = [
     { id: "products", label: t("shop.explore.products") },
@@ -281,11 +283,11 @@ export function ShopDiscoverScreen() {
 
   return (
     <MarketplaceShell cartCount={cartCount} hideTopBar variant="feed">
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-white">
-        <header className="shrink-0 border-b border-border pt-[max(0.35rem,env(safe-area-inset-top))]">
+      <div className={cn("flex min-h-0 flex-1 flex-col overflow-hidden", nativeApp ? "bg-[var(--native-canvas,#F3F5F8)]" : "bg-white")}>
+        <header className={cn("shrink-0 pt-[max(0.35rem,env(safe-area-inset-top))]", nativeApp ? "border-0" : "border-b border-border")}>
           <div className="flex flex-wrap items-center justify-between gap-2 px-4 pb-2 pt-2">
             <div className="flex min-w-0 flex-1 items-center gap-2.5">
-              <TijarLogo variant="mark" className="h-8 w-auto shrink-0" />
+              {nativeApp ? null : <TijarLogo variant="mark" className="h-8 w-auto shrink-0" />}
               <div className="min-w-0">
                 <h1 className="truncate text-[20px] font-extrabold leading-none tracking-tight text-foreground sm:text-[22px]">{t("shop.explore.title")}</h1>
                 <p className="mt-1 truncate text-[11px] font-medium text-muted-foreground">
@@ -294,11 +296,11 @@ export function ShopDiscoverScreen() {
               </div>
             </div>
             <div className="flex shrink-0 items-center gap-1 sm:gap-1.5">
-              <AppLanguageButton />
-              <Button type="button" variant="outline" size="sm" className="min-h-10 rounded-full px-2.5 text-xs sm:min-h-11 sm:px-3" asChild>
+              {nativeApp ? null : <AppLanguageButton />}
+              <Button type="button" variant={nativeApp ? "default" : "outline"} size="sm" className={cn("min-h-10 rounded-full px-2.5 text-xs sm:min-h-11 sm:px-3", nativeApp && "h-10 shadow-[0_6px_16px_rgba(18,155,122,0.28)]")} asChild>
                 <Link to="/shop/order-now">Order</Link>
               </Button>
-              <Button type="button" variant="outline" size="sm" className="min-h-10 rounded-full px-2.5 text-xs sm:min-h-11 sm:px-3" asChild>
+              <Button type="button" variant="outline" size="sm" className={cn("min-h-10 rounded-full px-2.5 text-xs sm:min-h-11 sm:px-3", nativeApp && "h-10 border-0 bg-white shadow-[0_4px_14px_rgba(11,31,58,0.08)]")} asChild>
                 <Link to="/shop/nearby">
                   <MapPin className="size-4 sm:mr-1" />
                   <span className="hidden sm:inline">{t("shop.explore.map")}</span>
@@ -319,7 +321,10 @@ export function ShopDiscoverScreen() {
                 onFocus={() => setShowSuggestions(true)}
                 onBlur={() => window.setTimeout(() => setShowSuggestions(false), 180)}
                 placeholder={t("shop.explore.search")}
-                className="h-11 rounded-full border-border bg-muted/70 pl-10 pr-20"
+                className={cn(
+                  "h-11 rounded-full pl-10 pr-20",
+                  nativeApp ? "border-0 bg-white shadow-[0_6px_20px_rgba(11,31,58,0.06)]" : "border-border bg-muted/70",
+                )}
               />
               <label className="absolute right-10 top-1/2 flex size-8 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full text-muted-foreground">
                 <Camera className="size-4" />
@@ -397,7 +402,14 @@ export function ShopDiscoverScreen() {
             </div>
           </div>
 
-          <nav className="grid grid-cols-5" aria-label={t("shop.explore.title")}>
+          <nav
+            className={cn(
+              nativeApp
+                ? "mx-3 mb-2 flex gap-1 overflow-x-auto rounded-full bg-white/80 p-1 shadow-[0_4px_14px_rgba(11,31,58,0.06)] [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                : "grid grid-cols-5",
+            )}
+            aria-label={t("shop.explore.title")}
+          >
             {tabs.map((item) => {
               const active = tab === item.id;
               return (
@@ -410,11 +422,13 @@ export function ShopDiscoverScreen() {
                   }}
                   className={cn(
                     "relative flex min-h-11 items-center justify-center px-0.5 text-[11px] min-[380px]:px-1 min-[380px]:text-[13px]",
+                    nativeApp && "min-h-9 shrink-0 rounded-full px-3 text-[12px] font-bold",
                     active ? "font-extrabold text-primary" : "font-semibold text-muted-foreground",
+                    nativeApp && active && "bg-[#0B1F3A] text-white shadow-sm",
                   )}
                 >
                   {item.label}
-                  {active ? <span className="absolute inset-x-5 bottom-0 h-[3px] rounded-full bg-primary" /> : null}
+                  {!nativeApp && active ? <span className="absolute inset-x-5 bottom-0 h-[3px] rounded-full bg-primary" /> : null}
                 </button>
               );
             })}

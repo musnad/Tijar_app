@@ -19,6 +19,7 @@ import { formatServiceDates, serviceLabel } from "@/lib/catalogue/service-schedu
 import { displayShopName, shopLinkSlug } from "@/lib/shop-names";
 import { FeedImage } from "@/components/media/feed-image";
 import { cn } from "@/lib/utils";
+import { isTijarNativeApp } from "@/lib/tijar-native-app";
 import { useTranslation } from "@/lib/i18n/context";
 
 export function ProductCard({
@@ -57,6 +58,7 @@ export function ProductCard({
   }
 
   const onPhotoTap = useDoubleTap(burstLike);
+  const nativeApp = isTijarNativeApp();
 
   function prefetch() {
     void queryClient.prefetchQuery({
@@ -111,6 +113,8 @@ export function ProductCard({
       className={cn(
         "group relative flex flex-col overflow-hidden rounded-2xl border border-border/80 bg-card shadow-[0_1px_2px_rgba(15,40,50,0.04)] will-change-transform transition-transform duration-200 hover:-translate-y-0.5 hover:border-primary/35 hover:shadow-md",
         compact && "rounded-xl",
+        nativeApp &&
+          "rounded-[22px] border-0 shadow-[0_10px_28px_rgba(11,31,58,0.08)] hover:translate-y-0 hover:border-0 hover:shadow-[0_10px_28px_rgba(11,31,58,0.08)]",
       )}
     >
       <div
@@ -145,7 +149,10 @@ export function ProductCard({
         <button
           type="button"
           aria-label={`Add ${product.name} to cart`}
-          className="absolute bottom-2 right-2 flex size-9 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-md transition hover:scale-105 active:scale-95"
+          className={cn(
+            "absolute bottom-2 right-2 flex size-9 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-md transition hover:scale-105 active:scale-95",
+            nativeApp && "size-10 shadow-[0_8px_18px_rgba(18,155,122,0.35)]",
+          )}
           onClick={(e) => void quickAdd(e)}
         >
           <Plus className="size-4" strokeWidth={2.75} />

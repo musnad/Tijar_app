@@ -76,6 +76,7 @@ import { formatPricePerUnit } from "@/lib/catalogue/units";
 import { formatServiceDates, serviceLabel } from "@/lib/catalogue/service-schedule";
 import { parseVariantList } from "@/lib/catalogue/variants";
 import { TijarLogo } from "@/components/brand-logo";
+import { isTijarNativeApp } from "@/lib/tijar-native-app";
 import { FeedImage } from "@/components/media/feed-image";
 import { MediaCarousel } from "@/components/media/media-carousel";
 import { FeedSkeleton } from "@/features/marketplace/feed-skeleton";
@@ -860,7 +861,12 @@ export function VideoFeedScreen({ initialVideoId }: { initialVideoId?: string })
 
   return (
     <MarketplaceShell cartCount={cartCount} hideTopBar variant="feed">
-      <div className="relative mx-auto flex min-h-0 w-full min-w-0 max-w-lg flex-1 flex-col overflow-hidden bg-white text-foreground md:max-w-xl">
+      <div
+        className={cn(
+          "relative mx-auto flex min-h-0 w-full min-w-0 max-w-lg flex-1 flex-col overflow-hidden text-foreground md:max-w-xl",
+          isTijarNativeApp() ? "bg-[var(--native-canvas,#F3F5F8)]" : "bg-white",
+        )}
+      >
         <FeedActionsContext.Provider value={feedActions}>
         <div
           ref={scrollerRef}
@@ -1194,8 +1200,15 @@ function FeedTopBar({ tab, onTab }: { tab: FeedTab; onTab: (t: FeedTab) => void 
         .toUpperCase()
     : "";
 
+  const nativeApp = isTijarNativeApp();
+
   return (
-    <header className="border-b border-border bg-white pt-[max(0.4rem,env(safe-area-inset-top))]">
+    <header
+      className={cn(
+        "pt-[max(0.4rem,env(safe-area-inset-top))]",
+        nativeApp ? "native-feed-header border-0 bg-transparent" : "border-b border-border bg-white",
+      )}
+    >
       <div className="flex min-h-12 items-center gap-1 px-3 py-1.5">
         <Link
           to="/shop"
@@ -1205,23 +1218,45 @@ function FeedTopBar({ tab, onTab }: { tab: FeedTab; onTab: (t: FeedTab) => void 
             window.dispatchEvent(new Event(HOME_REFRESH_EVENT));
           }}
         >
-          <TijarLogo compact className="h-8 max-w-[148px] object-left" />
-          <p className="mt-0.5 text-[9px] font-extrabold uppercase tracking-[0.16em] text-primary">
-            {t("shop.feed.brand")}
-          </p>
+          <TijarLogo compact className={cn("object-left", nativeApp ? "h-7 max-w-[128px]" : "h-8 max-w-[148px]")} />
+          {nativeApp ? null : (
+            <p className="mt-0.5 text-[9px] font-extrabold uppercase tracking-[0.16em] text-primary">
+              {t("shop.feed.brand")}
+            </p>
+          )}
         </Link>
-        <AppLanguageButton />
+        {nativeApp ? (
+          <Link
+            to="/shop/browse"
+            aria-label={t("shop.nav.shop")}
+            className="flex size-10 items-center justify-center rounded-full bg-white/90 text-foreground shadow-[0_4px_14px_rgba(11,31,58,0.08)]"
+          >
+            <ShoppingBag className="size-[18px]" />
+          </Link>
+        ) : (
+          <AppLanguageButton />
+        )}
         <Link
           to="/shop/favorites"
           aria-label={t("shop.feed.saved")}
-          className="flex size-11 min-h-11 min-w-11 items-center justify-center text-foreground"
+          className={cn(
+            "flex items-center justify-center text-foreground",
+            nativeApp
+              ? "size-10 rounded-full bg-white/90 shadow-[0_4px_14px_rgba(11,31,58,0.08)]"
+              : "size-11 min-h-11 min-w-11",
+          )}
         >
           <Heart className="size-5" />
         </Link>
         <Link
           to="/shop/notifications"
           aria-label={t("shop.feed.notifications")}
-          className="relative flex size-11 min-h-11 min-w-11 items-center justify-center text-foreground"
+          className={cn(
+            "relative flex items-center justify-center text-foreground",
+            nativeApp
+              ? "size-10 rounded-full bg-white/90 shadow-[0_4px_14px_rgba(11,31,58,0.08)]"
+              : "size-11 min-h-11 min-w-11",
+          )}
         >
           <Bell className="size-5" />
           {unread > 0 ? (
@@ -1230,22 +1265,27 @@ function FeedTopBar({ tab, onTab }: { tab: FeedTab; onTab: (t: FeedTab) => void 
             </span>
           ) : null}
         </Link>
-        <Link
-          to="/shop/profile"
-          onClick={(event) => {
-            if (!requireAccount("profile")) event.preventDefault();
-          }}
-          aria-label={t("shop.feed.profile")}
-          className="flex size-9 min-h-9 min-w-9 items-center justify-center overflow-hidden rounded-full bg-[color:var(--brand-navy,#001B3A)] text-[10px] font-bold text-white"
-        >
-          {profile?.avatar_url ? (
-            <FeedImage src={profile.avatar_url} alt="" eager width={72} />
-          ) : (
-            initials || "?"
-          )}
-        </Link>
+        {nativeApp ? null : (
+          <Link
+            to="/shop/profile"
+            onClick={(event) => {
+              if (!requireAccount("profile")) event.preventDefault();
+            }}
+            aria-label={t("shop.feed.profile")}
+            className="flex size-9 min-h-9 min-w-9 items-center justify-center overflow-hidden rounded-full bg-[color:var(--brand-navy,#001B3A)] text-[10px] font-bold text-white"
+          >
+            {profile?.avatar_url ? (
+              <FeedImage src={profile.avatar_url} alt="" eager width={72} />
+            ) : (
+              initials || "?"
+            )}
+          </Link>
+        )}
       </div>
-      <nav className="grid grid-cols-3" aria-label="Feed">
+      <nav
+        className={cn("grid grid-cols-3", nativeApp && "native-feed-tabs mx-3 mb-2")}
+        aria-label="Feed"
+      >
         {tabs.map((item) => {
           const active = tab === item.id;
           return (
@@ -1258,11 +1298,13 @@ function FeedTopBar({ tab, onTab }: { tab: FeedTab; onTab: (t: FeedTab) => void 
               }}
               className={cn(
                 "relative flex min-h-11 items-center justify-center px-2 text-[14px]",
+                nativeApp && "min-h-9 rounded-full text-[12px]",
                 active ? "font-extrabold text-primary" : "font-semibold text-muted-foreground",
+                nativeApp && active && "bg-white text-[#0B1F3A] shadow-[0_4px_12px_rgba(11,31,58,0.08)]",
               )}
             >
               {item.label}
-              {active ? <span className="absolute inset-x-8 bottom-0 h-[3px] rounded-full bg-primary" /> : null}
+              {!nativeApp && active ? <span className="absolute inset-x-8 bottom-0 h-[3px] rounded-full bg-primary" /> : null}
             </button>
           );
         })}
@@ -1542,7 +1584,7 @@ const VideoSlide = memo(function VideoSlide({
     <article
       data-video-id={video.id}
       style={SLIDE_STYLE}
-      className="w-full shrink-0 border-b border-border bg-white pb-3"
+      className="w-full shrink-0 border-b border-border bg-white pb-3" data-feed-post=""
     >
       <div className="flex items-center gap-2 px-3 py-2">
         <FeedShopAvatar
@@ -1918,7 +1960,7 @@ const PlaceOrderSlide = memo(function PlaceOrderSlide({
     <article
       data-video-id={`place-order:${listing.id}`}
       style={SLIDE_STYLE}
-      className="w-full shrink-0 border-b border-border bg-white pb-3"
+      className="w-full shrink-0 border-b border-border bg-white pb-3" data-feed-post=""
     >
       <div className="flex items-center gap-2 px-3 py-2">
         <FeedShopAvatar name={listing.shop_name} src={listing.shop_logo} slug={slug} />
@@ -2018,7 +2060,7 @@ const ListingSlide = memo(function ListingSlide({
     <article
       data-video-id={`listing:${product.id}`}
       style={SLIDE_STYLE}
-      className="w-full shrink-0 border-b border-border bg-white pb-3"
+      className="w-full shrink-0 border-b border-border bg-white pb-3" data-feed-post=""
     >
       <div className="flex items-center gap-2 px-3 py-2">
         <FeedShopAvatar name={shop} src={product.business_logo_url} slug={slug} />

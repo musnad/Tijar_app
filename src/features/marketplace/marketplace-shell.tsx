@@ -2,7 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { Link, useRouterState } from "@tanstack/react-router";
-import { Compass, Home, MessageCircle, PlusSquare, ShoppingBag, UserRound, Clapperboard } from "lucide-react";
+import { Compass, Home, MessageCircle, Plus, PlusSquare, ShoppingBag, UserRound, Clapperboard } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { TijarLogo } from "@/components/brand-logo";
@@ -26,10 +26,11 @@ function initials(name: string): string {
 function MarketplaceTopBar({ leftSlot }: { leftSlot?: ReactNode }) {
   const { profile, session } = useAuth();
   const { t } = useTranslation();
+  const nativeApp = isTijarNativeApp();
   const name = profile?.full_name ?? "";
 
   return (
-    <header className="grid grid-cols-[auto_1fr_auto] items-center gap-2 pb-3">
+    <header className={cn("grid grid-cols-[auto_1fr_auto] items-center gap-2", nativeApp ? "pb-2 pt-1" : "pb-3")}>
       {leftSlot ?? <div className="size-10" />}
 
       <div className="flex justify-center px-1">
@@ -39,22 +40,34 @@ function MarketplaceTopBar({ leftSlot }: { leftSlot?: ReactNode }) {
       </div>
 
       <div className="flex items-center justify-end gap-1.5">
-        <AccountModeSwitch className="hidden min-[420px]:inline-flex" />
-        <AppLanguageButton />
-        {!session ? (
-          <Button size="sm" className="h-9 rounded-full px-3 text-xs font-bold" asChild>
-            <Link to="/register" search={{ intent: "customer" } as never}>
-              {t("shop.signup")}
-            </Link>
-          </Button>
-        ) : (
+        {nativeApp ? (
           <Link
-            to="/shop/profile"
-            className="flex size-10 items-center justify-center rounded-full border border-border bg-card text-xs font-bold text-primary"
-            aria-label={t("shop.nav.profile")}
+            to="/shop/browse"
+            className="flex size-10 items-center justify-center rounded-full bg-white text-foreground shadow-[0_4px_14px_rgba(11,31,58,0.08)]"
+            aria-label={t("shop.nav.shop")}
           >
-            {initials(name)}
+            <ShoppingBag className="size-5" />
           </Link>
+        ) : (
+          <>
+            <AccountModeSwitch className="hidden min-[420px]:inline-flex" />
+            <AppLanguageButton />
+            {!session ? (
+              <Button size="sm" className="h-9 rounded-full px-3 text-xs font-bold" asChild>
+                <Link to="/register" search={{ intent: "customer" } as never}>
+                  {t("shop.signup")}
+                </Link>
+              </Button>
+            ) : (
+              <Link
+                to="/shop/profile"
+                className="flex size-10 items-center justify-center rounded-full border border-border bg-card text-xs font-bold text-primary"
+                aria-label={t("shop.nav.profile")}
+              >
+                {initials(name)}
+              </Link>
+            )}
+          </>
         )}
       </div>
     </header>
@@ -103,21 +116,29 @@ export function MarketplaceShell({
     pathname === "/shop/create-order" ||
     pathname === "/shop/business-apply";
 
-  const tabs = feed
+  const tabs = nativeApp
     ? [
         { to: "/shop" as const, label: t("shop.nav.home"), icon: Home, exact: true },
         { to: "/shop/discover" as const, label: t("shop.nav.explore"), icon: Compass },
-        { to: "/shop/create" as const, label: t("shop.nav.sell"), icon: PlusSquare, forceActive: sellActive },
+        { to: "/shop/create" as const, label: t("shop.nav.sell"), icon: Plus, forceActive: sellActive, fab: true },
         { to: "/shop/enquiries" as const, label: t("shop.nav.messages"), icon: MessageCircle, badge: unread },
         { to: "/shop/profile" as const, label: t("shop.nav.profile"), icon: UserRound },
       ]
-    : [
-        { to: "/shop" as const, label: t("shop.nav.forYou"), icon: Clapperboard, exact: true },
-        { to: "/shop/discover" as const, label: t("shop.nav.discover"), icon: Compass },
-        { to: "/shop/create" as const, label: t("shop.nav.sell"), icon: PlusSquare, forceActive: sellActive },
-        { to: "/shop/browse" as const, label: t("shop.nav.shop"), icon: ShoppingBag, badge: cartCount },
-        { to: "/shop/profile" as const, label: t("shop.nav.profile"), icon: UserRound },
-      ];
+    : feed
+      ? [
+          { to: "/shop" as const, label: t("shop.nav.home"), icon: Home, exact: true },
+          { to: "/shop/discover" as const, label: t("shop.nav.explore"), icon: Compass },
+          { to: "/shop/create" as const, label: t("shop.nav.sell"), icon: PlusSquare, forceActive: sellActive },
+          { to: "/shop/enquiries" as const, label: t("shop.nav.messages"), icon: MessageCircle, badge: unread },
+          { to: "/shop/profile" as const, label: t("shop.nav.profile"), icon: UserRound },
+        ]
+      : [
+          { to: "/shop" as const, label: t("shop.nav.forYou"), icon: Clapperboard, exact: true },
+          { to: "/shop/discover" as const, label: t("shop.nav.discover"), icon: Compass },
+          { to: "/shop/create" as const, label: t("shop.nav.sell"), icon: PlusSquare, forceActive: sellActive },
+          { to: "/shop/browse" as const, label: t("shop.nav.shop"), icon: ShoppingBag, badge: cartCount },
+          { to: "/shop/profile" as const, label: t("shop.nav.profile"), icon: UserRound },
+        ];
 
   const pageScroll = !feed && !hideNav && !mapLayout;
   const canvasWidth = nativeApp
@@ -126,9 +147,14 @@ export function MarketplaceShell({
 
   return (
     <div
+      data-native-shop={nativeApp ? "true" : undefined}
       className={cn(
         "flex h-full min-h-0 max-h-dvh w-full min-w-0 flex-col overflow-hidden",
-        feed || hideNav ? "bg-white text-foreground" : "bg-background text-foreground",
+        nativeApp
+          ? "native-shop bg-[var(--native-canvas,#F3F5F8)] text-foreground"
+          : feed || hideNav
+            ? "bg-white text-foreground"
+            : "bg-background text-foreground",
       )}
     >
       <main
@@ -152,14 +178,24 @@ export function MarketplaceShell({
 
       {!hideNav && <nav
         className={cn(
-          "z-40 shrink-0 border-t border-border pt-1 pb-[max(0.5rem,env(safe-area-inset-bottom))]",
-          feed
-            ? "relative bg-white pb-[max(0.55rem,env(safe-area-inset-bottom))]"
-            : "relative app-bottom-nav bg-background/95 backdrop-blur-sm",
+          "z-40 shrink-0",
+          nativeApp
+            ? "native-shop-dock relative border-0 bg-transparent px-3 pb-[max(0.45rem,env(safe-area-inset-bottom))] pt-4"
+            : cn(
+                "border-t border-border pt-1 pb-[max(0.5rem,env(safe-area-inset-bottom))]",
+                feed
+                  ? "relative bg-white pb-[max(0.55rem,env(safe-area-inset-bottom))]"
+                  : "relative app-bottom-nav bg-background/95 backdrop-blur-sm",
+              ),
         )}
         aria-label={t("shop.nav.shop")}
       >
-        <div className={cn("mx-auto grid w-full grid-cols-5 gap-0 px-1", canvasWidth)}>
+        <div
+          className={cn(
+            "mx-auto grid w-full grid-cols-5 gap-0",
+            nativeApp ? "native-shop-dock-inner max-w-lg px-1" : cn("px-1", canvasWidth),
+          )}
+        >
           {tabs.map((tab) => {
             const active =
               "forceActive" in tab && tab.forceActive
@@ -168,6 +204,7 @@ export function MarketplaceShell({
                   ? pathname === "/shop" || pathname === "/shop/"
                   : pathname === tab.to || pathname.startsWith(`${tab.to}/`);
             const Icon = tab.icon;
+            const fab = "fab" in tab && tab.fab;
             return (
               <Link
                 key={`${tab.to}-${tab.label}`}
@@ -178,13 +215,23 @@ export function MarketplaceShell({
                   event.preventDefault();
                   window.dispatchEvent(new Event(HOME_REFRESH_EVENT));
                 }}
+                aria-label={tab.label}
                 className={cn(
                   "relative flex min-h-11 min-w-11 touch-manipulation flex-col items-center justify-center gap-0.5 py-1 text-[10px] font-semibold",
-                  active ? "text-primary" : "text-muted-foreground",
+                  nativeApp && "native-shop-tab min-h-14 text-[9px] font-bold tracking-wide",
+                  fab && nativeApp && "native-shop-fab text-white",
+                  !fab && (active ? "text-primary" : "text-muted-foreground"),
                 )}
               >
-                <Icon className={cn("size-5", active && "stroke-[2.5]", tab.to === "/shop/profile" && active && "fill-current")} />
-                {tab.label}
+                <Icon
+                  className={cn(
+                    "size-5",
+                    fab && nativeApp && "size-6",
+                    active && !fab && "stroke-[2.5]",
+                    tab.to === "/shop/profile" && active && "fill-current",
+                  )}
+                />
+                {fab && nativeApp ? null : tab.label}
                 {"badge" in tab && tab.badge && tab.badge > 0 ? (
                   <span className="absolute right-[18%] top-1 flex size-4 items-center justify-center rounded-full bg-primary text-[9px] font-bold text-white">
                     {tab.badge > 9 ? "9+" : tab.badge}

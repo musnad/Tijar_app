@@ -45,7 +45,7 @@ function NativeRuntime() {
       setBackgroundColor: (opts: { color: string }) => Promise<void>;
     }>("StatusBar");
     void status?.setStyle({ style: "LIGHT" }).catch(() => undefined);
-    void status?.setBackgroundColor({ color: "#F4F7FB" }).catch(() => undefined);
+    void status?.setBackgroundColor({ color: "#F3F5F8" }).catch(() => undefined);
 
     const app = capacitorPlugin<{
       addListener: (

@@ -4,6 +4,7 @@ import { Link } from "@tanstack/react-router";
 import { Plus } from "lucide-react";
 
 import { FeedImage } from "@/components/media/feed-image";
+import { isTijarNativeApp } from "@/lib/tijar-native-app";
 import { cn } from "@/lib/utils";
 import type { StoryRing } from "@/services/story-service";
 import { formatDistance } from "@/utils/discover";
@@ -19,8 +20,10 @@ export function StoriesRow({
 }) {
   if (!canCreate && rings.length === 0) return null;
 
+  const nativeApp = isTijarNativeApp();
+
   return (
-    <div className="border-b border-[#EEF1F5] bg-white">
+    <div className={cn(nativeApp ? "native-stories bg-transparent" : "border-b border-[#EEF1F5] bg-white")}>
       <div className="flex gap-3 overflow-x-auto px-3 py-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {canCreate ? (
           <Link to="/shop/create-story" className="flex w-[4.5rem] shrink-0 flex-col items-center gap-1">

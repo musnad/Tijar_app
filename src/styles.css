@@ -1093,13 +1093,20 @@
 }
 
 /* TIJAR Android app — phone chrome, designed marketplace/dashboard (not the marketing site) */
+html.tijar-android-webview {
+  --native-canvas: #f3f5f8;
+  --native-ink: #0b1f3a;
+  --native-teal: #129b7a;
+}
+
 html.tijar-android-webview,
 html.tijar-android-webview body {
   max-width: 100vw;
   overflow-x: hidden;
   overscroll-behavior: none;
   -webkit-tap-highlight-color: transparent;
-  background: #ffffff;
+  background: var(--native-canvas);
+  color: var(--native-ink);
 }
 
 html.tijar-android-webview body {
@@ -1108,6 +1115,48 @@ html.tijar-android-webview body {
 
 html.tijar-android-webview .app-bottom-nav {
   padding-bottom: max(0.5rem, env(safe-area-inset-bottom, 0px));
+}
+
+html.tijar-android-webview .native-shop-dock-inner {
+  display: grid;
+  height: 64px;
+  align-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  border-radius: 28px;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 12px 36px rgba(11, 31, 58, 0.14);
+  backdrop-filter: blur(18px);
+}
+
+html.tijar-android-webview .native-shop-fab {
+  z-index: 2;
+  width: 56px;
+  height: 56px;
+  margin: -22px auto 0;
+  border-radius: 9999px;
+  background: linear-gradient(160deg, #0b3d4a 0%, #129b7a 100%);
+  box-shadow: 0 10px 22px rgba(18, 155, 122, 0.42);
+}
+
+html.tijar-android-webview .native-feed-tabs {
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.72);
+  padding: 3px;
+  box-shadow: 0 4px 14px rgba(11, 31, 58, 0.06);
+}
+
+html.tijar-android-webview [data-feed-post] {
+  width: auto !important;
+  margin: 10px 12px 14px;
+  overflow: hidden;
+  border: 0;
+  border-radius: 22px;
+  background: #fff;
+  box-shadow: 0 12px 32px rgba(11, 31, 58, 0.08);
+}
+
+html.tijar-android-webview .native-stories {
+  padding-bottom: 2px;
 }
 
 html.tijar-android-webview .lg\:max-w-6xl,
@@ -1134,12 +1183,22 @@ html.tijar-android-webview .group:hover {
 }
 
 html.tijar-android-webview #main-content {
-  background: #ffffff;
+  background: var(--native-canvas);
 }
 
 html.tijar-android-webview nav[aria-label] {
   background: rgba(255, 255, 255, 0.96);
   box-shadow: 0 -8px 24px -18px rgba(11, 31, 77, 0.35);
+}
+
+html.tijar-android-webview .native-shop-dock {
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+html.tijar-android-webview .native-shop-fab {
+  justify-self: center;
+  color: #fff !important;
 }
 
 html.tijar-android-webview button,

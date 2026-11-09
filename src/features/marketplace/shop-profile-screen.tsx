@@ -48,6 +48,7 @@ import { displayShopName, shopLinkSlug, shopUsername, usernameMatchesName } from
 import { haptic } from "@/lib/haptics";
 import { invalidateBusinessQueries } from "@/lib/invalidate-business-queries";
 import { useTranslation } from "@/lib/i18n/context";
+import { isTijarNativeApp } from "@/lib/tijar-native-app";
 import { cn } from "@/lib/utils";
 import {
   fetchFollowedBusinesses,
@@ -71,7 +72,14 @@ function joinedLabel(iso: string | undefined): string {
 function Frame({ children }: { children: ReactNode }) {
   return (
     <MarketplaceShell hideTopBar variant="feed">
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-white">{children}</div>
+      <div
+        className={cn(
+          "flex min-h-0 flex-1 flex-col overflow-hidden",
+          isTijarNativeApp() ? "bg-[var(--native-canvas,#F3F5F8)]" : "bg-white",
+        )}
+      >
+        {children}
+      </div>
     </MarketplaceShell>
   );
 }
