@@ -7,7 +7,8 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/features/auth/auth-context";
-import { NG_BANKS } from "@/lib/payments/ng-banks";
+import { NigerianBankSelect } from "@/features/business/nigerian-bank-select";
+import { ngBankName } from "@/lib/payments/ng-banks";
 import { saveBusinessPayoutAccount } from "@/services/marketplace-service";
 import type { Business } from "@/types/database";
 
@@ -18,7 +19,7 @@ export function BankAccountForm({ business }: { business: Business }) {
   const [number, setNumber] = useState(business.payout_account_number ?? "");
   const [bankCode, setBankCode] = useState(business.payout_bank_code ?? "058");
   const [saving, setSaving] = useState(false);
-  const bank = NG_BANKS.find((b) => b.code === bankCode);
+  const bankName = ngBankName(bankCode);
 
   useEffect(() => {
     setName(business.payout_account_name ?? profile?.full_name ?? "");
@@ -41,7 +42,7 @@ export function BankAccountForm({ business }: { business: Business }) {
       {
         payout_account_name: name,
         payout_account_number: number,
-        payout_bank_name: bank?.name ?? "Bank",
+        payout_bank_name: bankName,
         payout_bank_code: bankCode,
       },
       profile.id,
@@ -83,17 +84,7 @@ export function BankAccountForm({ business }: { business: Business }) {
         onChange={(e) => setNumber(e.target.value.replace(/[^\d\s]/g, ""))}
       />
       <label className="block text-xs font-bold text-[#0B1F4D]">Bank</label>
-      <select
-        className="min-h-11 w-full rounded-xl border border-input bg-background px-3 text-sm"
-        value={bankCode}
-        onChange={(e) => setBankCode(e.target.value)}
-      >
-        {NG_BANKS.map((b) => (
-          <option key={b.code} value={b.code}>
-            {b.name}
-          </option>
-        ))}
-      </select>
+      <NigerianBankSelect value={bankCode} onChange={setBankCode} />
       <Button type="submit" className="min-h-11 w-full rounded-xl bg-[#1F7A4D] font-extrabold text-white hover:bg-[#1F7A4D]/90" disabled={saving}>
         {saving ? "Saving…" : business.payout_account_number ? "Save bank account" : "Add bank account"}
       </Button>

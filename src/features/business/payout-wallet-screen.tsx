@@ -15,7 +15,8 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { CreateReceivingAccountButton } from "@/features/business/create-receiving-account";
-import { NG_BANKS } from "@/lib/payments/ng-banks";
+import { NigerianBankSelect } from "@/features/business/nigerian-bank-select";
+import { ngBankName } from "@/lib/payments/ng-banks";
 import { displayShopName } from "@/lib/shop-names";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { fetchOwnedBusinesses } from "@/services/business-service";
@@ -103,7 +104,7 @@ export function PayoutWalletScreen({
   const wallet = walletQuery.data?.wallet ?? { available_ngn: 0, pending_ngn: 0 };
   const requests = walletQuery.data?.requests ?? [];
   const activity = walletQuery.data?.activity ?? [];
-  const bank = NG_BANKS.find((row) => row.code === bankCode);
+  const bankName = ngBankName(bankCode);
 
   const feed = useMemo(() => {
     const rows: Array<{
@@ -203,7 +204,7 @@ export function PayoutWalletScreen({
       accountNumber,
       accountName: accountName || shopName,
       bankCode,
-      bankName: bank?.name ?? "Bank",
+      bankName,
       pin: transferPin,
     });
     if (result.error) {
@@ -393,20 +394,15 @@ export function PayoutWalletScreen({
           onChange={(e) => setWithdrawAmount(e.target.value)}
         />
         <label className="mt-3 block text-xs font-bold">Bank</label>
-        <select
-          className="mt-1 min-h-11 w-full rounded-xl border border-input bg-background px-3 text-sm font-semibold"
-          value={bankCode}
-          onChange={(e) => {
-            setBankCode(e.target.value);
-            void lookupName(accountNumber, e.target.value);
-          }}
-        >
-          {NG_BANKS.map((row) => (
-            <option key={row.code} value={row.code}>
-              {row.name}
-            </option>
-          ))}
-        </select>
+        <div className="mt-1">
+          <NigerianBankSelect
+            value={bankCode}
+            onChange={(code) => {
+              setBankCode(code);
+              void lookupName(accountNumber, code);
+            }}
+          />
+        </div>
         <label className="mt-3 block text-xs font-bold">Account number</label>
         <Input
           className="mt-1 min-h-11 rounded-xl tracking-wide"
