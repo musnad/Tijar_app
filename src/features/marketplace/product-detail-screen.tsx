@@ -267,6 +267,10 @@ export function ProductDetailScreen({ productId }: { productId: string }) {
               onClick={() => void favorite()}
             >
               <Bookmark className={cn("size-6", saved ? "fill-[color:var(--brand-navy,#001B3A)] text-[color:var(--brand-navy,#001B3A)]" : "text-[color:var(--brand-navy,#001B3A)]")} />
+            </button>
+            <Link
+              to="/shop/cart"
+              className="relative flex size-11 items-center justify-center rounded-full"
               aria-label={`Cart, ${cartCount} items`}
             >
               <ShoppingBag className="size-6 text-[color:var(--brand-navy,#001B3A)]" />
