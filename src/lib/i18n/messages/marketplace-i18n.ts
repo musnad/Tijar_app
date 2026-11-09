@@ -250,6 +250,11 @@ const FLAT: Record<string, L7> = {
   "shop.explore.marketplaceShop": row("Marketplace shop", "Shagon kasuwa", "متجر السوق", "Ṣọ́ọ̀bù ọjà", "Ụlọ ahịa ahịa", "Duka la soko", "Teeru luumo"),
   "shop.buy.notePlaceholder": row("Colour, size, pickup time…", "Launi, girma, lokacin ɗauka…", "اللون، المقاس، وقت الاستلام…", "Àwọ̀, ìwọ̀n, àkókò gígba…", "Agba, nha, oge nnweta…", "Rangi, ukubwa, muda wa kuchukua…", "Goobu, mawnude, waktu ittaade…"),
 
+  "shop.profile.posts": row("Posts", "Rubuce-rubuce", "المنشورات", "Àwọn àtẹ̀jáde", "Mpụta", "Machapisho", "Binndi"),
+  "shop.profile.products": row("Products", "Kayayyaki", "المنتجات", "Àwọn ọjà", "Ngwaahịa", "Bidhaa", "Ngalu"),
+  "shop.profile.menu": row("Menu", "Mazaɓa", "القائمة", "Àkójọ", "Nchịkọta", "Menyu", "Doggol"),
+  "shop.profile.emptyPosts": row("No posts yet. Share a product or video to appear here.", "Babu rubutu tukuna. Raba samfuri ko bidiyo.", "لا منشورات بعد. شارك منتجاً أو فيديو ليظهر هنا.", "Kò sí àtẹ̀jáde síbẹ̀.", "Onwebeghị mpụta.", "Hakuna machapisho bado.", "Alaa binndi tawo."),
+  "shop.profile.emptyProducts": row("No products listed yet.", "Babu kayayyaki tukuna.", "لا منتجات بعد.", "Kò sí ọjà síbẹ̀.", "Onwebeghị ngwaahịa.", "Hakuna bidhaa bado.", "Alaa ngalu tawo."),
   "shop.profile.following": row("Following", "Wanda kake bi", "تتابع", "Tí ò ń tẹ̀lé", "Ndị ị na-eso", "Unaofuata", "Rewotoɗaa"),
   "shop.profile.followers": row("Followers", "Masu bi", "المتابعون", "Àwọn olùtẹ̀lé", "Ndị na-eso", "Wafuasi", "Rewotooɓe"),
   "shop.profile.saved": row("Saved", "An adana", "المحفوظ", "Tí a fi pamọ́", "Echedoro", "Imehifadhiwa", "Danndaama"),

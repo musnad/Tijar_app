@@ -285,6 +285,9 @@ export type BusinessEnquiry = {
 
 export type NotificationPreferences = {
   profile_id: string;
+  general: boolean;
+  likes: boolean;
+  comments: boolean;
   order_updates: boolean;
   enquiry_replies: boolean;
   followed_shops: boolean;

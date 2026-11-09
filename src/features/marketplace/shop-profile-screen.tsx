@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import {
   BadgeCheck,
   Bell,
@@ -10,11 +10,14 @@ import {
   CalendarDays,
   ChevronRight,
   CircleHelp,
+  Grid3x3,
   Heart,
   Languages,
   LayoutDashboard,
+  LogOut,
   Mail,
   MapPin,
+  Menu,
   Package,
   Pencil,
   Phone,
@@ -26,29 +29,34 @@ import {
   UtensilsCrossed,
   Wallet,
 } from "lucide-react";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import type { LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Switch } from "@/components/ui/switch";
 import { MarketplaceShell } from "@/features/marketplace/marketplace-shell";
+import { ProductCard } from "@/features/marketplace/product-card";
 import { useAuth } from "@/features/auth/auth-context";
 import { useAccountGate } from "@/features/auth/account-gate";
+import { signOut } from "@/features/auth/auth-service";
 import { usePrimaryBusiness } from "@/hooks/use-primary-business";
 import { canUseBusinessMode } from "@/lib/account-mode";
 import { displayShopName, shopLinkSlug, shopUsername, usernameMatchesName } from "@/lib/shop-names";
 import { haptic } from "@/lib/haptics";
 import { useTranslation } from "@/lib/i18n/context";
+import { cn } from "@/lib/utils";
 import {
-  countFavoriteProducts,
   fetchFollowedBusinesses,
   fetchNotificationPreferences,
   listAddresses,
   saveNotificationPreferences,
 } from "@/services/marketplace-service";
+import { fetchProfilePosts, fetchProfileProducts } from "@/services/public-profile-service";
 import { fetchActivityNotifications, fetchFollowersForMe, fetchPeopleIFollow } from "@/services/social-service";
+import { resolveCoverSrc } from "@/services/video-feed-service";
 import type { NotificationPreferences } from "@/types/database";
 
 function joinedLabel(iso: string | undefined): string {
@@ -66,21 +74,19 @@ function Frame({ children }: { children: ReactNode }) {
 
 export function ShopProfileScreen() {
   const { t } = useTranslation();
-  const { profile, session, loading } = useAuth();
+  const { profile, session, loading, refreshProfile } = useAuth();
   const { requireAccount } = useAccountGate();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const shopQuery = usePrimaryBusiness(profile?.id);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [tab, setTab] = useState<"posts" | "products">("posts");
 
   useEffect(() => {
     if (loading || session) return;
     requireAccount("profile");
   }, [loading, session, requireAccount]);
 
-  const favQuery = useQuery({
-    queryKey: ["marketplace-fav-count", profile?.id],
-    enabled: Boolean(profile?.id),
-    queryFn: async () => countFavoriteProducts(profile!.id),
-  });
   const followsQuery = useQuery({
     queryKey: ["followed-shops", profile?.id ?? "guest"],
     queryFn: async () => {
@@ -130,6 +136,16 @@ export function ShopProfileScreen() {
         return [];
       }
     },
+  });
+  const postsQuery = useQuery({
+    queryKey: ["own-profile-posts", profile?.id],
+    enabled: Boolean(profile?.id),
+    queryFn: () => fetchProfilePosts(profile!.id),
+  });
+  const productsQuery = useQuery({
+    queryKey: ["own-profile-products", profile?.id],
+    enabled: Boolean(profile?.id),
+    queryFn: () => fetchProfileProducts(profile!.id),
   });
   const prefsQuery = useQuery({
     queryKey: ["notification-prefs", profile?.id],
@@ -187,9 +203,10 @@ export function ShopProfileScreen() {
   const username = demo ? t("shop.profile.guest") : shopUsername(name, shop?.public_slug);
   const showDisplayName = !usernameMatchesName(name, username);
   const verified = Boolean(shop?.verified_badge);
+  const posts = postsQuery.data ?? [];
+  const products = productsQuery.data ?? [];
   const followers = followersQuery.data?.length ?? 0;
   const following = (followsQuery.data?.length ?? 0) + (peopleFollowQuery.data?.length ?? 0);
-  const saved = favQuery.data ?? 0;
   const bio = demo
     ? t("shop.profile.guestBio")
     : profile.bio?.trim() || t("shop.profile.defaultBio");
@@ -203,6 +220,7 @@ export function ShopProfileScreen() {
   const email = demo ? null : profile.email;
   const joined = demo ? "" : joinedLabel(profile.created_at);
   const prefs = prefsQuery.data;
+  const shopSlug = shop ? shopLinkSlug(shop.public_slug, shop.id) : "";
 
   const menu: { to: string; label: string; icon: LucideIcon; badge?: number }[] = [
     ...(!demo && (canUseBusinessMode(profile) || shopQuery.data?.business)
@@ -231,6 +249,10 @@ export function ShopProfileScreen() {
     { to: "/shop/help", label: t("shop.profile.help"), icon: CircleHelp },
   ];
 
+  function patchPrefs(next: NotificationPreferences) {
+    savePrefs.mutate(next);
+  }
+
   return (
     <Frame>
       <header className="sticky top-0 z-20 shrink-0 border-b border-border/70 bg-white/95 px-4 pb-2 pt-[max(0.6rem,env(safe-area-inset-top))] backdrop-blur-md">
@@ -249,18 +271,22 @@ export function ShopProfileScreen() {
           >
             <Share2 className="size-5" strokeWidth={1.9} />
           </button>
-          <Link
-            to="/shop/notifications"
-            aria-label={t("shop.profile.notifications")}
+          <button
+            type="button"
+            onClick={() => {
+              haptic();
+              setMenuOpen(true);
+            }}
+            aria-label={t("shop.profile.menu")}
             className="relative flex size-10 items-center justify-center rounded-full text-[color:var(--brand-navy,#001B3A)] transition active:bg-muted"
           >
-            <Bell className="size-5" strokeWidth={1.9} />
+            <Menu className="size-6" strokeWidth={1.9} />
             {notifBadge > 0 ? (
               <span className="absolute right-1.5 top-1.5 flex size-4 items-center justify-center rounded-full bg-primary text-[9px] font-extrabold text-white">
                 {notifBadge > 9 ? "9+" : notifBadge}
               </span>
             ) : null}
-          </Link>
+          </button>
         </div>
       </header>
 
@@ -290,7 +316,11 @@ export function ShopProfileScreen() {
             </span>
           )}
           <div className="grid min-w-0 flex-1 grid-cols-3" role="group" aria-label={t("shop.nav.profile")}>
-            <Stat value={saved} label={t("shop.profile.saved")} to="/shop/favorites" />
+            <Stat
+              value={posts.length}
+              label={t("shop.profile.posts")}
+              onClick={() => setTab("posts")}
+            />
             <Stat value={followers} label={t("shop.profile.followers")} to="/shop/followers" />
             <Stat value={following} label={t("shop.profile.following")} to="/shop/follows" />
           </div>
@@ -304,10 +334,12 @@ export function ShopProfileScreen() {
             {bio}
           </p>
           <ul className="mt-2 space-y-1 text-[12.5px] font-medium text-muted-foreground">
-            <li className="flex items-center gap-1.5">
-              <MapPin className="size-3.5 shrink-0 text-primary" aria-hidden />
-              <span className="truncate">{location}</span>
-            </li>
+            {location ? (
+              <li className="flex items-center gap-1.5">
+                <MapPin className="size-3.5 shrink-0 text-primary" aria-hidden />
+                <span className="truncate">{location}</span>
+              </li>
+            ) : null}
             {phone ? (
               <li>
                 <a href={`tel:${phone}`} className="flex items-center gap-1.5">
@@ -354,16 +386,19 @@ export function ShopProfileScreen() {
           ) : (
             <>
               <Button asChild variant="outline" className="min-h-10 flex-1 rounded-lg border-border font-extrabold">
-                <Link to="/shop/u/$profileId" params={{ profileId: profile.id }}>
-                  View profile
-                </Link>
-              </Button>
-              <Button asChild variant="outline" className="min-h-10 rounded-lg border-border font-extrabold">
                 <Link to="/shop/edit-profile">
                   <Pencil className="mr-1.5 size-4" />
                   {t("shop.profile.edit")}
                 </Link>
               </Button>
+              {shopSlug ? (
+                <Button asChild variant="outline" className="min-h-10 rounded-lg border-border font-extrabold">
+                  <Link to="/b/$slug" params={{ slug: shopSlug }}>
+                    <Store className="mr-1.5 size-4" />
+                    Shop
+                  </Link>
+                </Button>
+              ) : null}
               <Button
                 type="button"
                 variant="outline"
@@ -377,80 +412,247 @@ export function ShopProfileScreen() {
           )}
         </section>
 
-        {!demo && prefs ? (
-          <section className="mx-5 mt-4 rounded-2xl border border-border bg-white p-4 shadow-[0_1px_2px_rgba(15,40,50,0.04)]">
-            <div className="flex items-center justify-between gap-3">
-              <p className="flex items-center gap-2 text-[14px] font-extrabold text-[color:var(--brand-navy,#001B3A)]">
-                <Bell className="size-4 text-primary" aria-hidden />
-                {t("shop.profile.notifSettings")}
-              </p>
-              <Switch
-                checked={prefs.general}
-                disabled={savePrefs.isPending}
-                aria-label={t("shop.settings.generalNotifs")}
-                onCheckedChange={(general) =>
-                  savePrefs.mutate(
-                    general
-                      ? {
-                          ...prefs,
-                          general: true,
-                          likes: true,
-                          comments: true,
-                          order_updates: true,
-                          enquiry_replies: true,
-                          followed_shops: true,
-                          marketing: true,
-                        }
-                      : { ...prefs, general: false },
-                  )
-                }
-              />
-            </div>
-            <p className="mt-1.5 text-[12px] leading-snug text-muted-foreground">
-              {t("shop.profile.notifHint")}
-            </p>
-            <Link
-              to="/shop/settings"
-              onClick={() => haptic()}
-              className="mt-2.5 inline-flex items-center gap-1 text-[12.5px] font-extrabold text-primary"
-            >
-              {t("shop.profile.manageNotifs")}
-              <ChevronRight className="size-3.5" />
-            </Link>
-          </section>
-        ) : null}
-
-        <nav className="mt-4" aria-label={t("shop.profile.account")}>
-          <ul>
-            {menu.map((item, index) => {
-              const Icon = item.icon;
-              return (
-                <li key={item.to} style={{ animation: `tijar-row-in 0.35s ease ${index * 45}ms both` }}>
-                  <Link
-                    to={item.to as "/shop/orders"}
-                    onClick={() => haptic()}
-                    className="flex min-h-[3.25rem] items-center gap-3 px-4 text-[15px] font-semibold text-[color:var(--brand-navy,#001B3A)] transition active:bg-muted/70"
-                  >
-                    <Icon className="size-5 shrink-0 text-[color:var(--brand-navy,#001B3A)]" strokeWidth={1.75} />
-                    <span className="flex-1">{item.label}</span>
-                    {item.badge && item.badge > 0 ? (
-                      <span className="flex size-5 items-center justify-center rounded-full bg-primary text-[10px] font-extrabold text-white">
-                        {item.badge > 9 ? "9+" : item.badge}
-                      </span>
-                    ) : null}
-                    <ChevronRight className="size-5 text-muted-foreground/70" />
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
+        <nav className="mt-4 grid grid-cols-2 border-b border-border">
+          {(
+            [
+              { id: "posts" as const, label: t("shop.profile.posts"), icon: Grid3x3, count: posts.length },
+              { id: "products" as const, label: t("shop.profile.products"), icon: Package, count: products.length },
+            ]
+          ).map((item) => {
+            const active = tab === item.id;
+            const Icon = item.icon;
+            return (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => setTab(item.id)}
+                className={cn(
+                  "relative flex min-h-11 items-center justify-center gap-1.5 text-[13px]",
+                  active ? "font-extrabold text-[color:var(--brand-navy,#001B3A)]" : "font-semibold text-muted-foreground",
+                )}
+              >
+                <Icon className="size-4" />
+                {item.label}
+                {active ? <span className="absolute inset-x-8 bottom-0 h-[2px] bg-[color:var(--brand-navy,#001B3A)]" /> : null}
+              </button>
+            );
+          })}
         </nav>
+
+        {tab === "posts" ? (
+          posts.length === 0 ? (
+            <p className="px-5 py-10 text-center text-sm text-muted-foreground">{t("shop.profile.emptyPosts")}</p>
+          ) : (
+            <ul className="grid grid-cols-3 gap-px bg-border">
+              {posts.map((post) => {
+                const cover = post.image_urls?.[0] || resolveCoverSrc(post.cover_path) || post.business_logo_url;
+                return (
+                  <li key={post.id}>
+                    <Link to="/shop" search={{ v: post.id }} className="block aspect-square bg-muted">
+                      {cover ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={cover} alt="" className="size-full object-cover" />
+                      ) : (
+                        <span className="flex size-full items-center justify-center text-[10px] font-bold text-muted-foreground">
+                          {t("shop.profile.posts")}
+                        </span>
+                      )}
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          )
+        ) : products.length === 0 ? (
+          <p className="px-5 py-10 text-center text-sm text-muted-foreground">{t("shop.profile.emptyProducts")}</p>
+        ) : (
+          <ul className="grid grid-cols-2 gap-2.5 px-4 py-4">
+            {products.map((product) => (
+              <li key={product.id}>
+                <ProductCard product={product} compact />
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
+
+      <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
+        <SheetContent
+          side="right"
+          className="flex h-full w-[86%] max-w-sm flex-col gap-0 overflow-hidden p-0"
+        >
+          <SheetHeader className="shrink-0 border-b border-border px-4 pb-3 pt-5 text-left">
+            <SheetTitle className="text-[17px] font-extrabold">{t("shop.profile.menu")}</SheetTitle>
+          </SheetHeader>
+          <div
+            className="min-h-0 flex-1 overflow-y-auto pb-[max(1.5rem,env(safe-area-inset-bottom))]"
+            style={{ WebkitOverflowScrolling: "touch" }}
+          >
+            {!demo && prefs ? (
+              <section className="border-b border-border px-4 py-4">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="flex items-center gap-2 text-[14px] font-extrabold text-[color:var(--brand-navy,#001B3A)]">
+                    <Bell className="size-4 text-primary" aria-hidden />
+                    {t("shop.profile.notifSettings")}
+                  </p>
+                  <Switch
+                    checked={prefs.general}
+                    disabled={savePrefs.isPending}
+                    aria-label={t("shop.settings.generalNotifs")}
+                    onCheckedChange={(general) =>
+                      patchPrefs(
+                        general
+                          ? {
+                              ...prefs,
+                              general: true,
+                              likes: true,
+                              comments: true,
+                              order_updates: true,
+                              enquiry_replies: true,
+                              followed_shops: true,
+                              marketing: true,
+                            }
+                          : { ...prefs, general: false },
+                      )
+                    }
+                  />
+                </div>
+                <p className="mt-1.5 text-[12px] leading-snug text-muted-foreground">{t("shop.profile.notifHint")}</p>
+                <ul className="mt-3 space-y-2.5">
+                  <NotifRow
+                    label={t("shop.settings.likes")}
+                    checked={prefs.likes}
+                    disabled={savePrefs.isPending}
+                    onChange={(likes) => patchPrefs({ ...prefs, general: likes || prefs.comments || prefs.order_updates, likes })}
+                  />
+                  <NotifRow
+                    label={t("shop.settings.comments")}
+                    checked={prefs.comments}
+                    disabled={savePrefs.isPending}
+                    onChange={(comments) =>
+                      patchPrefs({ ...prefs, general: comments || prefs.likes || prefs.order_updates, comments })
+                    }
+                  />
+                  <NotifRow
+                    label={t("shop.settings.purchasesOrders")}
+                    checked={prefs.order_updates}
+                    disabled={savePrefs.isPending}
+                    onChange={(order_updates) => patchPrefs({ ...prefs, general: order_updates || prefs.likes, order_updates })}
+                  />
+                  <NotifRow
+                    label={t("shop.settings.shopReplies")}
+                    checked={prefs.enquiry_replies}
+                    disabled={savePrefs.isPending}
+                    onChange={(enquiry_replies) => patchPrefs({ ...prefs, enquiry_replies })}
+                  />
+                  <NotifRow
+                    label={t("shop.settings.shopsIFollow")}
+                    checked={prefs.followed_shops}
+                    disabled={savePrefs.isPending}
+                    onChange={(followed_shops) => patchPrefs({ ...prefs, followed_shops })}
+                  />
+                  <NotifRow
+                    label={t("shop.settings.tips")}
+                    checked={prefs.marketing}
+                    disabled={savePrefs.isPending}
+                    onChange={(marketing) => patchPrefs({ ...prefs, marketing })}
+                  />
+                </ul>
+                <Link
+                  to="/shop/settings"
+                  onClick={() => {
+                    haptic();
+                    setMenuOpen(false);
+                  }}
+                  className="mt-3 inline-flex items-center gap-1 text-[12.5px] font-extrabold text-primary"
+                >
+                  {t("shop.profile.manageNotifs")}
+                  <ChevronRight className="size-3.5" />
+                </Link>
+              </section>
+            ) : null}
+
+            <nav aria-label={t("shop.profile.account")}>
+              <ul>
+                {menu.map((item) => {
+                  const Icon = item.icon;
+                  return (
+                    <li key={item.to}>
+                      <Link
+                        to={item.to as "/shop/orders"}
+                        onClick={() => {
+                          haptic();
+                          setMenuOpen(false);
+                        }}
+                        className="flex min-h-[3.15rem] items-center gap-3 px-4 text-[15px] font-semibold text-[color:var(--brand-navy,#001B3A)] transition active:bg-muted/70"
+                      >
+                        <Icon className="size-5 shrink-0" strokeWidth={1.75} />
+                        <span className="flex-1">{item.label}</span>
+                        {item.badge && item.badge > 0 ? (
+                          <span className="flex size-5 items-center justify-center rounded-full bg-primary text-[10px] font-extrabold text-white">
+                            {item.badge > 9 ? "9+" : item.badge}
+                          </span>
+                        ) : null}
+                        <ChevronRight className="size-5 text-muted-foreground/70" />
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+            </nav>
+
+            {!demo ? (
+              <button
+                type="button"
+                className="mt-2 flex min-h-[3.15rem] w-full items-center gap-3 px-4 text-[15px] font-semibold text-[#b42318] transition active:bg-muted/70"
+                onClick={async () => {
+                  setMenuOpen(false);
+                  await signOut();
+                  await refreshProfile();
+                  void navigate({ to: "/shop" });
+                }}
+              >
+                <LogOut className="size-5" strokeWidth={1.75} />
+                {t("shop.settings.logOut")}
+              </button>
+            ) : null}
+          </div>
+        </SheetContent>
+      </Sheet>
     </Frame>
   );
 }
 
-function Stat({ value, label, to }: { value: number; label: string; to?: string }) {
+function NotifRow({
+  label,
+  checked,
+  disabled,
+  onChange,
+}: {
+  label: string;
+  checked: boolean;
+  disabled?: boolean;
+  onChange: (v: boolean) => void;
+}) {
+  return (
+    <label className="flex min-h-9 items-center justify-between gap-3 text-[13px] font-medium text-[color:var(--brand-navy,#001B3A)]">
+      {label}
+      <Switch checked={checked} disabled={disabled} onCheckedChange={onChange} />
+    </label>
+  );
+}
+
+function Stat({
+  value,
+  label,
+  to,
+  onClick,
+}: {
+  value: number;
+  label: string;
+  to?: string;
+  onClick?: () => void;
+}) {
   const inner = (
     <>
       <p className="text-[17px] font-extrabold tabular-nums leading-none text-[color:var(--brand-navy,#001B3A)]">{value}</p>
@@ -462,6 +664,13 @@ function Stat({ value, label, to }: { value: number; label: string; to?: string 
       <Link to={to} className="text-center" aria-label={`${value} ${label}`}>
         {inner}
       </Link>
+    );
+  }
+  if (onClick) {
+    return (
+      <button type="button" className="text-center" aria-label={`${value} ${label}`} onClick={onClick}>
+        {inner}
+      </button>
     );
   }
   return (
