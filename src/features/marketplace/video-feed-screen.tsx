@@ -502,7 +502,9 @@ export function VideoFeedScreen({ initialVideoId }: { initialVideoId?: string })
       setActiveId(initialVideoId);
       const root = scrollerRef.current;
       const node = root?.querySelector(`[data-video-id="${initialVideoId}"]`) as HTMLElement | null;
-      if (root && node) root.scrollTop = node.offsetTop;
+      if (root && node) {
+        root.scrollTop = node.getBoundingClientRect().top - root.getBoundingClientRect().top + root.scrollTop;
+      }
       return;
     }
     setActiveId(videos[0]!.id);
@@ -859,40 +861,39 @@ export function VideoFeedScreen({ initialVideoId }: { initialVideoId?: string })
   return (
     <MarketplaceShell cartCount={cartCount} hideTopBar variant="feed">
       <div className="relative mx-auto flex min-h-0 w-full max-w-lg flex-1 flex-col overflow-hidden bg-white text-foreground">
-        <FeedTopBar tab={feedTab} onTab={setFeedTab} />
-        {feedTab === "nearby" && location.status === "denied" ? (
-          <button
-            type="button"
-            onClick={() => location.request()}
-            className="w-full bg-[#0A2540] px-4 py-2 text-left text-[12px] font-semibold text-white"
-          >
-            Location is off. Showing shops you follow. Tap to enable Nearby.
-          </button>
-        ) : null}
-        {feedTab === "nearby" && location.status === "granted" && location.coords ? (
-          <p className="bg-[#E8F5EE] px-4 py-1.5 text-[12px] font-semibold text-[#1F7A4D]">
-            Shops within {NEARBY_RADIUS_KM} km of you
-          </p>
-        ) : null}
-        <StoriesRow
-          rings={storyRings}
-          canCreate={Boolean(businessQuery.data?.business)}
-          onOpen={(businessId) => {
-            const ring = storyRings.find((r) => r.businessId === businessId);
-            if (ring?.featured && ring.stories.length === 0 && ring.slug) {
-              void navigate({ to: "/b/$slug", params: { slug: ring.slug } });
-              return;
-            }
-            setStoryBusinessId(businessId);
-          }}
-        />
-
         <FeedActionsContext.Provider value={feedActions}>
         <div
           ref={scrollerRef}
           style={{ WebkitOverflowScrolling: "touch" }}
           className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-contain touch-pan-y [overflow-anchor:none] [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         >
+          <FeedTopBar tab={feedTab} onTab={setFeedTab} />
+          {feedTab === "nearby" && location.status === "denied" ? (
+            <button
+              type="button"
+              onClick={() => location.request()}
+              className="w-full bg-[#0A2540] px-4 py-2 text-left text-[12px] font-semibold text-white"
+            >
+              Location is off. Showing shops you follow. Tap to enable Nearby.
+            </button>
+          ) : null}
+          {feedTab === "nearby" && location.status === "granted" && location.coords ? (
+            <p className="bg-[#E8F5EE] px-4 py-1.5 text-[12px] font-semibold text-[#1F7A4D]">
+              Shops within {NEARBY_RADIUS_KM} km of you
+            </p>
+          ) : null}
+          <StoriesRow
+            rings={storyRings}
+            canCreate={Boolean(businessQuery.data?.business)}
+            onOpen={(businessId) => {
+              const ring = storyRings.find((r) => r.businessId === businessId);
+              if (ring?.featured && ring.stories.length === 0 && ring.slug) {
+                void navigate({ to: "/b/$slug", params: { slug: ring.slug } });
+                return;
+              }
+              setStoryBusinessId(businessId);
+            }}
+          />
           {feedTab === "foryou" && featured ? (
             <BusinessOfTheWeekCard
               featured={featured}
@@ -953,7 +954,7 @@ export function VideoFeedScreen({ initialVideoId }: { initialVideoId?: string })
             );
           })}
           {feedQuery.isPending ? null : showPosts.length === 0 && showListings.length === 0 && showPlaceOrders.length === 0 ? (
-            <div className="flex h-full flex-col items-center justify-center gap-3 px-8 text-center">
+            <div className="flex min-h-[60vh] flex-col items-center justify-center gap-3 px-8 text-center">
               <ShoppingBag className="size-10 text-primary/40" />
               <p className="font-extrabold text-foreground">
                 {feedTab === "following" ? "Follow a shop to see their posts" : "Nothing live yet"}
@@ -1192,7 +1193,7 @@ function FeedTopBar({ tab, onTab }: { tab: FeedTab; onTab: (t: FeedTab) => void 
     : "";
 
   return (
-    <header className="shrink-0 border-b border-border bg-white pt-[max(0.4rem,env(safe-area-inset-top))]">
+    <header className="border-b border-border bg-white pt-[max(0.4rem,env(safe-area-inset-top))]">
       <div className="flex min-h-12 items-center gap-1 px-3 py-1.5">
         <Link
           to="/shop"

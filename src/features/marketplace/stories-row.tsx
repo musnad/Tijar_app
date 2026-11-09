@@ -20,7 +20,7 @@ export function StoriesRow({
   if (!canCreate && rings.length === 0) return null;
 
   return (
-    <div className="shrink-0 border-b border-[#EEF1F5] bg-white">
+    <div className="border-b border-[#EEF1F5] bg-white">
       <div className="flex gap-3 overflow-x-auto px-3 py-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {canCreate ? (
           <Link to="/shop/create-story" className="flex w-[4.5rem] shrink-0 flex-col items-center gap-1">
