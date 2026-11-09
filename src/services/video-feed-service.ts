@@ -391,11 +391,17 @@ export async function rankAndLoadFeed(
   const fetchLimit = Math.max(limit * 2, 16);
 
   let [raw, signals] = await Promise.all([
-    fetchPublicVideoFeed({ limit: fetchLimit, before, offset }),
+    fetchPublicVideoFeed({ limit: fetchLimit, before, offset: 0 }),
     fetchFeedViewerSignals(profileId, geo),
   ]);
-  if (!before && offset > 0 && raw.videos.length === 0 && !raw.error) {
-    raw = await fetchPublicVideoFeed({ limit: fetchLimit, before: null, offset: 0 });
+  if (!before && offset > 0) {
+    const rotated = await fetchPublicVideoFeed({ limit: fetchLimit, before: null, offset });
+    if (!rotated.error && rotated.videos.length > 0) {
+      const merged = new Map<string, (typeof raw.videos)[number]>();
+      for (const video of raw.videos) merged.set(video.id, video);
+      for (const video of rotated.videos) merged.set(video.id, video);
+      raw = { videos: [...merged.values()], error: raw.error };
+    }
   }
   if (raw.error) return { videos: [], nextCursor: null, error: raw.error };
   signals = {
@@ -441,7 +447,15 @@ export async function rankAndLoadFeed(
     signals,
   );
   const byId = new Map(pool.map((v) => [v.id, v]));
-  const videos = ranked.map((row) => byId.get(row.videoId)).filter(Boolean) as PublicFeedVideo[];
+  const rankedVideos = ranked.map((row) => byId.get(row.videoId)).filter(Boolean) as PublicFeedVideo[];
+  const freshMs = 12 * 3_600_000;
+  const stamp = (v: PublicFeedVideo) => new Date(v.published_at ?? v.created_at).getTime();
+  const latest = rankedVideos
+    .filter((v) => Date.now() - stamp(v) <= freshMs)
+    .sort((a, b) => stamp(b) - stamp(a));
+  const latestIds = new Set(latest.map((v) => v.id));
+  const rest = rankedVideos.filter((v) => !latestIds.has(v.id));
+  const videos = [...latest, ...rest];
   const page = videos.slice(0, limit);
   const last = raw.videos[raw.videos.length - 1];
   const nextCursor = raw.videos.length >= fetchLimit ? (last?.published_at ?? last?.created_at ?? null) : null;

@@ -83,12 +83,17 @@ export function hashFeedKey(value: string): number {
   return h >>> 0;
 }
 
-/** Higher = should appear earlier. Unseen and older-unseen rise after each Home tap. */
+export const FRESH_POST_HOURS = 12;
+
+/** Higher = should appear earlier. Brand-new posts stay on top; refresh can lift older unseen posts. */
 export function mixFeedScore(id: string, ts: number, salt: string, seen: Set<string>): number {
-  const jitter = (hashFeedKey(`${salt}:${id}`) % 1000) / 1000;
   const ageHours = Math.max(0, (Date.now() - (ts || 0)) / 3_600_000);
+  if (ageHours <= FRESH_POST_HOURS) {
+    return 10_000 - ageHours;
+  }
+  const jitter = (hashFeedKey(`${salt}:${id}`) % 1000) / 1000;
   const recency = 1 / (1 + ageHours / 36);
   const unseen = seen.has(id) ? 0 : 1.35;
-  const olderUnseen = !seen.has(id) && ageHours > 12 ? 0.9 : 0;
+  const olderUnseen = !seen.has(id) ? 0.9 : 0;
   return unseen + olderUnseen + recency * 0.35 + jitter * 0.55;
 }

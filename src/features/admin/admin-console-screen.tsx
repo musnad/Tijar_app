@@ -1117,8 +1117,8 @@ export function AdminConsoleScreen() {
       {tab === "ticks" && (
         <ul className="mt-4 space-y-3">
           <li className="rounded-2xl border border-primary/20 bg-primary/5 px-4 py-3 text-sm">
-            Approving a shop does not add the blue tick. Grant it here, or from the Businesses table, only when you want
-            that shop marked verified in public.
+            Shops must complete NIN, shop details, 1 month on TIJAR, and more than 10 posts, then request. Grant the
+            icon here after you review that.
           </li>
           {badgeRequests.length === 0 ? (
             <EmptyState title="No tick requests" body="Shops can request the verification icon from their business account." />
@@ -1129,6 +1129,15 @@ export function AdminConsoleScreen() {
                 <div>
                   <p className="font-extrabold">{req.businesses?.business_name ?? "Shop"}</p>
                   <p className="text-xs text-muted-foreground">{formatWhen(req.created_at)}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    NIN {req.eligibility?.nin_verified || req.businesses?.verification_status === "verified" ? "verified" : "not verified"}
+                    {req.businesses?.kyc_full_name ? ` · ${req.businesses.kyc_full_name}` : ""}
+                    {req.eligibility?.account_days != null ? ` · ${req.eligibility.account_days} days` : ""}
+                    {req.eligibility?.post_count != null ? ` · ${req.eligibility.post_count} posts` : ""}
+                    {req.eligibility?.profile_complete === false && req.eligibility.missing?.length
+                      ? ` · missing ${req.eligibility.missing.join(", ")}`
+                      : ""}
+                  </p>
                 </div>
                 <StatusPill
                   label={req.status}

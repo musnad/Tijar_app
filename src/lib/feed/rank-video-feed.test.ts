@@ -96,8 +96,24 @@ describe("scoreVideo", () => {
     expect(ranked.find((x) => x.videoId === "near")?.reasons).toContain("within 5 km");
   });
 
-  it("lets an older unseen post rise above one already shown", () => {
-    const shown = video({ id: "shown", publishedAt: new Date().toISOString() });
+  it("keeps a brand-new post above an older unseen post", () => {
+    const fresh = video({ id: "fresh", publishedAt: new Date().toISOString() });
+    const older = video({
+      id: "older",
+      publishedAt: new Date(Date.now() - 5 * 86_400_000).toISOString(),
+      createdAt: new Date(Date.now() - 5 * 86_400_000).toISOString(),
+    });
+    const ranked = rankVideoFeed([older, fresh], emptyViewer);
+    expect(ranked[0]?.videoId).toBe("fresh");
+    expect(ranked.find((x) => x.videoId === "fresh")?.reasons).toContain("latest post");
+  });
+
+  it("lets an older unseen post rise above an already shown older post", () => {
+    const shown = video({
+      id: "shown",
+      publishedAt: new Date(Date.now() - 3 * 86_400_000).toISOString(),
+      createdAt: new Date(Date.now() - 3 * 86_400_000).toISOString(),
+    });
     const older = video({
       id: "older",
       publishedAt: new Date(Date.now() - 5 * 86_400_000).toISOString(),

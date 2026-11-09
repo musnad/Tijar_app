@@ -274,7 +274,14 @@ export type VerifiedBadgeRequest = {
   status: "pending" | "approved" | "rejected";
   note: string | null;
   created_at: string;
-  businesses?: { business_name: string } | null;
+  eligibility?: {
+    nin_verified?: boolean;
+    account_days?: number;
+    post_count?: number;
+    profile_complete?: boolean;
+    missing?: string[];
+  } | null;
+  businesses?: { business_name: string; verification_status?: string | null; kyc_full_name?: string | null } | null;
 };
 
 export async function fetchVerifiedBadgeRequests(): Promise<{
@@ -284,7 +291,7 @@ export async function fetchVerifiedBadgeRequests(): Promise<{
   const supabase = getSupabaseBrowserClient();
   const joined = await supabase
     .from("verified_badge_requests")
-    .select("*, businesses(business_name)")
+    .select("*, businesses(business_name, verification_status, kyc_full_name)")
     .order("created_at", { ascending: false })
     .limit(200);
   if (!joined.error) return { requests: (joined.data ?? []) as VerifiedBadgeRequest[], error: null };

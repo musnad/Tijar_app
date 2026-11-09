@@ -511,6 +511,47 @@ export async function submitKycForReview(
   return { error: error?.message ?? null };
 }
 
+export type BadgeEligibility = {
+  ok: boolean;
+  nin_verified: boolean;
+  account_days: number;
+  min_account_days: number;
+  post_count: number;
+  min_posts: number;
+  profile_complete: boolean;
+  missing: string[];
+  already_badged: boolean;
+  pending: boolean;
+  error?: string;
+};
+
+export async function fetchBadgeEligibility(businessId: string): Promise<{
+  eligibility: BadgeEligibility | null;
+  error: string | null;
+}> {
+  const supabase = getSupabaseBrowserClient();
+  const { data, error } = await supabase.rpc("verified_badge_eligibility", { p_business_id: businessId });
+  if (error) return { eligibility: null, error: error.message };
+  const row = (data ?? {}) as Record<string, unknown>;
+  const missing = Array.isArray(row.missing) ? row.missing.filter((x): x is string => typeof x === "string") : [];
+  return {
+    eligibility: {
+      ok: Boolean(row.ok),
+      nin_verified: Boolean(row.nin_verified),
+      account_days: Number(row.account_days) || 0,
+      min_account_days: Number(row.min_account_days) || 30,
+      post_count: Number(row.post_count) || 0,
+      min_posts: Number(row.min_posts) || 11,
+      profile_complete: Boolean(row.profile_complete),
+      missing,
+      already_badged: Boolean(row.already_badged),
+      pending: Boolean(row.pending),
+      error: typeof row.error === "string" ? row.error : undefined,
+    },
+    error: null,
+  };
+}
+
 export async function requestVerifiedBadge(businessId: string): Promise<{ error: string | null }> {
   const supabase = getSupabaseBrowserClient();
   const { error } = await supabase.rpc("request_verified_badge", { p_business_id: businessId });

@@ -153,14 +153,20 @@ export function scoreVideo(video: RankableVideo, viewer: ViewerSignals): RankBre
   }
 
   const published = video.publishedAt ?? video.createdAt;
+  const hoursOld = daysSince(published) * 24;
   const fresh = freshnessScore(published);
   score += fresh;
-  if (fresh >= FRESHNESS * 0.7) reasons.push("recent post");
+  if (hoursOld <= 12) {
+    score += 90 - Math.min(hoursOld, 12);
+    reasons.push("latest post");
+  } else if (fresh >= FRESHNESS * 0.7) {
+    reasons.push("recent post");
+  }
 
-  if (viewer.seenVideoIds?.includes(video.id)) {
+  if (hoursOld > 12 && viewer.seenVideoIds?.includes(video.id)) {
     score -= SEEN_PENALTY;
     reasons.push("already shown this session");
-  } else if (daysSince(published) > 1) {
+  } else if (hoursOld > 12 && !viewer.seenVideoIds?.includes(video.id)) {
     score += OLDER_UNSEEN;
     reasons.push("older post you have not seen");
   }
