@@ -57,10 +57,11 @@ export const enMessages = {
       ogDescription: "How TIJAR plans to respect and protect your information.",
     },
     terms: {
-      title: "Terms — TIJAR",
-      description: "Read the terms for using the TIJAR website preview.",
-      ogTitle: "TIJAR Terms",
-      ogDescription: "Terms for the TIJAR website preview.",
+      title: "Terms of Service — TIJAR",
+      description:
+        "TIJAR marketplace terms of service, dispute resolution and refund policy for buyers and merchants.",
+      ogTitle: "TIJAR Terms of Service",
+      ogDescription: "Marketplace terms, dispute resolution and refund policy for TIJAR Limited.",
     },
   },
 
