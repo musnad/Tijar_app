@@ -16,6 +16,7 @@ import {
   RegisterWaveFooter,
   authIcons,
 } from "@/features/auth/auth-ui";
+import { PasswordStrengthHints } from "@/features/auth/password-strength-hints";
 import { signInWithEmail, signInWithGoogle, signUpWithEmail } from "@/features/auth/auth-service";
 import { enterAppAfterAuth } from "@/features/auth/route-guards";
 import { NigeriaAreaFields } from "@/features/location/nigeria-area-fields";
@@ -164,6 +165,7 @@ export function RegisterForm() {
               <PasswordToggle visible={passwordVisible} onToggle={() => setPasswordVisible((v) => !v)} />
             }
           />
+          <PasswordStrengthHints password={password} />
           <NigeriaAreaFields
             variant="app"
             state={stateName}

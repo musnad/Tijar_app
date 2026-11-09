@@ -13,7 +13,7 @@ describe("onboardingAnswersSchema", () => {
       fullName: "Aisha",
       phone: "+2348000000000",
       email: "a@example.com",
-      password: "secret1",
+      password: "ShopSafe!9",
       state: "Kano",
       lga: "Nassarawa",
       location: "Nassarawa, Kano",

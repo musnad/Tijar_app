@@ -676,7 +676,7 @@ export const enMessages = {
     emailPlaceholder: "Enter your email address",
     password: "Password",
     passwordPlaceholder: "Password",
-    passwordCreatePlaceholder: "Create a strong password",
+    passwordCreatePlaceholder: "8+ characters, mix letters, number and symbol",
     fullNamePlaceholder: "Enter your full name",
     phone: "Phone Number",
     phonePlaceholder: "Enter your phone number",

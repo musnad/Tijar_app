@@ -4,6 +4,7 @@ import { Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { PasswordStrengthHints } from "@/features/auth/password-strength-hints";
 import { AuthOrDivider, GoogleAuthButton, PasswordToggle, authIcons } from "@/features/auth/auth-ui";
 import { signInWithEmail, signInWithGoogle, signUpWithEmail } from "@/features/auth/auth-service";
 import { enterAppAfterAuth } from "@/features/auth/route-guards";
@@ -227,6 +228,7 @@ export function WebRegisterForm() {
             <PasswordToggle visible={passwordVisible} onToggle={() => setPasswordVisible((v) => !v)} />
           }
         />
+        <PasswordStrengthHints password={password} />
         <NigeriaAreaFields
           variant="web"
           state={stateName}

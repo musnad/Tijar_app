@@ -5,7 +5,9 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import { authIcons, PasswordToggle } from "@/features/auth/auth-ui";
+import { PasswordStrengthHints } from "@/features/auth/password-strength-hints";
 import { updateAccountPassword } from "@/features/auth/auth-service";
+import { passwordRequirementIssue } from "@/lib/auth/password-strength";
 import { resolveAppEntry } from "@/features/auth/route-guards";
 import { WebAuthField, WebPrimaryButton } from "@/features/auth/web-auth-fields";
 import { WebAuthLayout } from "@/features/auth/web-auth-layout";
@@ -25,8 +27,9 @@ export function ResetPasswordScreen() {
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (password.length < 6) {
-      toast.error("Password must be at least 6 characters");
+    const strengthIssue = passwordRequirementIssue(password);
+    if (strengthIssue) {
+      toast.error(strengthIssue);
       return;
     }
     if (password !== confirm) {
@@ -76,6 +79,7 @@ export function ResetPasswordScreen() {
             autoComplete="new-password"
             trailing={<PasswordToggle visible={visible} onToggle={() => setVisible((v) => !v)} />}
           />
+          <PasswordStrengthHints password={password} />
           <WebAuthField
             id="reset-confirm"
             label={t("auth.resetConfirmLabel")}

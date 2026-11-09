@@ -5,6 +5,7 @@ import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PasswordStrengthHints } from "@/features/auth/password-strength-hints";
 import { changePasswordWithVerification } from "@/features/auth/auth-service";
 import { changePasswordSchema } from "@/features/profile/schemas";
 import { useTranslation } from "@/lib/i18n/context";
@@ -64,6 +65,7 @@ export function ChangePasswordForm({ email }: { email: string }) {
         onChange={(e) => setNewPassword(e.target.value)}
         placeholder={t("app.profile.settings.newPassword")}
       />
+      <PasswordStrengthHints password={newPassword} />
       <Input
         type="password"
         autoComplete="new-password"
