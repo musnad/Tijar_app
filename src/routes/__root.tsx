@@ -7,11 +7,11 @@ import {
   Scripts,
   type ErrorComponentProps,
 } from "@tanstack/react-router";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 import { SpeedInsights } from "@vercel/speed-insights/react";
 import { Toaster } from "@/components/ui/sonner";
-import { MobileApp } from "@/features/mobile/MobileApp";
-import { WebApp } from "@/features/mobile/WebApp";
+import { AppShell } from "@/features/mobile/AppShell";
+import { TijarLogo } from "@/components/brand-logo";
 import { isTijarNativeApp } from "@/lib/tijar-native-app";
 
 import appCss from "../styles.css?url";
@@ -32,8 +32,8 @@ function NotFoundContent() {
         <p className="mt-2 text-sm text-muted-foreground">{t("errors.notFoundDesc")}</p>
         <div className="mt-6">
           <Link
-            to="/"
-            className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+            to="/shop"
+            className="inline-flex min-h-12 items-center justify-center rounded-full bg-primary px-4 text-sm font-extrabold text-primary-foreground"
           >
             {t("errors.goHome")}
           </Link>
@@ -55,29 +55,34 @@ function ErrorContent({ error, reset }: ErrorComponentProps) {
   console.error(error);
   const router = useRouter();
   const copy = enMessages.errors;
+  const home = isTijarNativeApp() ? "/shop" : "/";
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4">
-      <div className="max-w-md text-center">
-        <h1 className="text-xl font-semibold tracking-tight text-foreground">
-          {copy.errorTitle}
-        </h1>
-        <p className="mt-2 text-sm text-muted-foreground">{copy.errorDesc}</p>
-        <div className="mt-6 flex flex-wrap justify-center gap-2">
+    <div className="flex min-h-dvh flex-col items-center justify-center bg-[#F4F7FB] px-6">
+      <TijarLogo compact className="mb-8 max-w-[140px]" />
+      <div className="max-w-sm text-center">
+        <h1 className="text-xl font-extrabold tracking-tight text-[#001B3A]">{copy.errorTitle}</h1>
+        <p className="mt-2 text-sm leading-6 text-[#5a6578]">{copy.errorDesc}</p>
+        <div className="mt-7 flex flex-wrap justify-center gap-2">
           <button
+            type="button"
             onClick={() => {
+              if (isTijarNativeApp()) {
+                window.location.replace("/shop");
+                return;
+              }
               router.invalidate();
               reset();
             }}
-            className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+            className="inline-flex min-h-12 items-center justify-center rounded-full bg-primary px-5 text-sm font-extrabold text-primary-foreground"
           >
             {copy.tryAgain}
           </button>
           <a
-            href="/"
-            className="inline-flex items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
+            href={home}
+            className="inline-flex min-h-12 items-center justify-center rounded-full border border-border bg-white px-5 text-sm font-extrabold text-[#001B3A]"
           >
-            {copy.goHome}
+            {isTijarNativeApp() ? "Open shop" : copy.goHome}
           </a>
         </div>
       </div>
@@ -147,12 +152,7 @@ function RootShell({ children }: { children: ReactNode }) {
 }
 
 function RootLayout() {
-  const [native, setNative] = useState(false);
-  useEffect(() => {
-    setNative(isTijarNativeApp());
-  }, []);
-  if (native) return <MobileApp />;
-  return <WebApp />;
+  return <AppShell />;
 }
 
 function RootComponent() {

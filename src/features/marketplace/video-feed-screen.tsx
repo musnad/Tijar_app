@@ -234,7 +234,12 @@ function fmtCountdown(secs: number): string {
 }
 
 function CaptionText({ text, light }: { text: string; light?: boolean }) {
-  const parts = text.split(/(#[\p{L}\p{N}_]+)/gu);
+  let parts = [text];
+  try {
+    parts = text.split(/(#[\p{L}\p{N}_]+)/gu);
+  } catch {
+    parts = text.split(/(#\w+)/g);
+  }
   return (
     <span className={cn("mt-1 text-[14px] leading-snug", light ? "text-white/95" : "text-zinc-800")}>
       {parts.map((part, i) =>
@@ -272,13 +277,20 @@ export function VideoFeedScreen({ initialVideoId }: { initialVideoId?: string })
   const scrollerRef = useRef<HTMLDivElement>(null);
   const [activeId, setActiveId] = useState<string | null>(initialVideoId ?? null);
   const [dataSaver] = useState(() => {
-    if (typeof window === "undefined") return false;
-    return window.localStorage.getItem(DATA_SAVER_KEY) === "1";
+    try {
+      return typeof window !== "undefined" && window.localStorage.getItem(DATA_SAVER_KEY) === "1";
+    } catch {
+      return false;
+    }
   });
   const [paused, setPaused] = useState(false);
   const [feedMuted, setFeedMuted] = useState(() => {
-    if (typeof window === "undefined") return true;
-    return window.localStorage.getItem(FEED_MUTE_KEY) !== "0";
+    try {
+      if (typeof window === "undefined") return true;
+      return window.localStorage.getItem(FEED_MUTE_KEY) !== "0";
+    } catch {
+      return true;
+    }
   });
   const [productsOpen, setProductsOpen] = useState(false);
   const [commentsOpen, setCommentsOpen] = useState(false);
@@ -605,7 +617,11 @@ export function VideoFeedScreen({ initialVideoId }: { initialVideoId?: string })
   const toggleFeedMute = useCallback(() => {
     setFeedMuted((prev) => {
       const next = !prev;
-      window.localStorage.setItem(FEED_MUTE_KEY, next ? "1" : "0");
+      try {
+        window.localStorage.setItem(FEED_MUTE_KEY, next ? "1" : "0");
+      } catch {
+        // Ignore.
+      }
       haptic();
       return next;
     });
@@ -1154,10 +1170,13 @@ function FeedTopBar({ tab, onTab }: { tab: FeedTab; onTab: (t: FeedTab) => void 
     enabled: Boolean(profile?.id),
     queryFn: async () => {
       const { fetchActivityNotifications } = await import("@/services/social-service");
-      const r = await fetchActivityNotifications(profile!.id);
-      if (r.error && /does not exist|schema cache/i.test(r.error)) return { items: [], unread: 0 };
-      if (r.error) throw new Error(r.error);
-      return r;
+      try {
+        const r = await fetchActivityNotifications(profile!.id);
+        if (r.error) return { items: [], unread: 0 };
+        return r;
+      } catch {
+        return { items: [], unread: 0 };
+      }
     },
   });
   const unread = unreadQuery.data?.unread ?? 0;

@@ -28,17 +28,29 @@ export function rememberSeenFeedIds(ids: string[]): void {
   for (const id of ids) seen.add(id);
   const next = [...seen];
   const trimmed = next.length > MAX_SEEN ? next.slice(next.length - MAX_SEEN) : next;
-  window.sessionStorage.setItem(SEEN_KEY, JSON.stringify(trimmed));
+  try {
+    window.sessionStorage.setItem(SEEN_KEY, JSON.stringify(trimmed));
+  } catch {
+    // Ignore.
+  }
 }
 
 export function currentFeedRound(): number {
   if (typeof window === "undefined") return 0;
-  return Number(window.sessionStorage.getItem(ROUND_KEY) || "0") || 0;
+  try {
+    return Number(window.sessionStorage.getItem(ROUND_KEY) || "0") || 0;
+  } catch {
+    return 0;
+  }
 }
 
 export function bumpFeedRound(): number {
   const next = currentFeedRound() + 1;
-  if (typeof window !== "undefined") window.sessionStorage.setItem(ROUND_KEY, String(next));
+  try {
+    if (typeof window !== "undefined") window.sessionStorage.setItem(ROUND_KEY, String(next));
+  } catch {
+    // Ignore.
+  }
   return next;
 }
 
@@ -48,12 +60,20 @@ export function feedOffsetForRound(round: number, pageSize: number, windows = 10
 
 export function currentFeedSalt(): string {
   if (typeof window === "undefined") return "0";
-  return window.sessionStorage.getItem(SALT_KEY) || "0";
+  try {
+    return window.sessionStorage.getItem(SALT_KEY) || "0";
+  } catch {
+    return "0";
+  }
 }
 
 export function rotateFeedSalt(): string {
   const salt = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
-  if (typeof window !== "undefined") window.sessionStorage.setItem(SALT_KEY, salt);
+  try {
+    if (typeof window !== "undefined") window.sessionStorage.setItem(SALT_KEY, salt);
+  } catch {
+    // Ignore.
+  }
   return salt;
 }
 

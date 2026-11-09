@@ -129,15 +129,24 @@ export function NotificationPopup() {
         await syncWebPushSubscription();
         return;
       }
-      if (window.localStorage.getItem(PERMISSION_KEY)) return;
-      window.localStorage.setItem(PERMISSION_KEY, "1");
+      try {
+        if (window.localStorage.getItem(PERMISSION_KEY)) return;
+        window.localStorage.setItem(PERMISSION_KEY, "1");
+      } catch {
+        return;
+      }
       await enableWebPush();
     })();
   }, [profile?.id]);
 
   useEffect(() => {
     if (!profile?.id || !isNativeApp()) return;
-    const client = getSupabaseBrowserClient();
+    let client;
+    try {
+      client = getSupabaseBrowserClient();
+    } catch {
+      return;
+    }
     const channel = client
       .channel(`tijar-inbox-${profile.id}`)
       .on(
@@ -155,15 +164,28 @@ export function NotificationPopup() {
 
   useEffect(() => {
     if (!items || items.length === 0 || typeof window === "undefined") return;
-    const stored = window.localStorage.getItem(SEEN_KEY);
+    let stored: string | null = null;
+    try {
+      stored = window.localStorage.getItem(SEEN_KEY);
+    } catch {
+      return;
+    }
     if (!stored) {
-      window.localStorage.setItem(SEEN_KEY, items[0]!.id);
+      try {
+        window.localStorage.setItem(SEEN_KEY, items[0]!.id);
+      } catch {
+        // Ignore.
+      }
       return;
     }
     const idx = items.findIndex((n) => n.id === stored);
     const fresh = idx === -1 ? items.slice(0, 1) : items.slice(0, idx);
     if (fresh.length === 0) return;
-    window.localStorage.setItem(SEEN_KEY, items[0]!.id);
+    try {
+      window.localStorage.setItem(SEEN_KEY, items[0]!.id);
+    } catch {
+      // Ignore.
+    }
     announce(fresh[0]!);
   }, [items]);
 

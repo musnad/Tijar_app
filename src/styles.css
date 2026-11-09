@@ -1110,6 +1110,20 @@ html.tijar-android-webview .group:hover {
   transform: none;
 }
 
+html.tijar-android-webview #main-content {
+  background: #ffffff;
+}
+
+html.tijar-android-webview nav[aria-label] {
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 -8px 24px -18px rgba(11, 31, 77, 0.35);
+}
+
+html.tijar-android-webview button,
+html.tijar-android-webview a {
+  -webkit-tap-highlight-color: transparent;
+}
+
 /* Leaflet map — mobile touch + avoid iOS text zoom conflicts */
 .leaflet-container {
   font: inherit;
