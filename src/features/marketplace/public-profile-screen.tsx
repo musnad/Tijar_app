@@ -257,7 +257,7 @@ export function PublicProfileScreen({ profileId }: { profileId: string; postId?:
                 posts.length === 0 ? (
                   <Empty text={needle ? "No posts match that search." : "No posts yet."} />
                 ) : (
-                  <ul className="grid grid-cols-3 gap-px bg-border">
+                  <ul className="grid grid-cols-3 gap-px bg-border md:grid-cols-4 lg:grid-cols-5">
                     {posts.map((post) => {
                       const cover = post.image_urls?.[0] || resolveCoverSrc(post.cover_path) || post.business_logo_url;
                       return (
@@ -281,7 +281,7 @@ export function PublicProfileScreen({ profileId }: { profileId: string; postId?:
                 products.length === 0 ? (
                   <Empty text={needle ? "No products match that search." : "No products listed yet."} />
                 ) : (
-                  <ul className="grid grid-cols-2 gap-2.5 px-4 py-4">
+                  <ul className="grid grid-cols-2 gap-2.5 px-4 py-4 sm:grid-cols-3 lg:grid-cols-4">
                     {products.map((product) => (
                       <li key={product.id}>
                         <ProductCard product={product} compact />

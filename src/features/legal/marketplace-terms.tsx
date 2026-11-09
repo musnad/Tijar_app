@@ -576,7 +576,7 @@ const SECTIONS: Section[] = [
 
 export function MarketplaceTermsDocument() {
   return (
-    <article className="mx-auto max-w-3xl px-5 py-16 sm:py-24">
+    <article className="mx-auto w-full min-w-0 max-w-3xl px-4 py-12 sm:px-5 sm:py-24">
       <p className="text-xs font-extrabold uppercase tracking-[0.16em] text-muted-foreground">Legal</p>
       <h1 className="mt-4 text-3xl font-extrabold leading-tight sm:text-5xl">
         TIJAR marketplace terms of service, dispute resolution and refund policy

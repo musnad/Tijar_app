@@ -23,14 +23,14 @@ export function WebAuthLayout({
   const { t } = useTranslation();
 
   return (
-    <div className="web-auth-root relative min-h-[100dvh] overflow-hidden bg-[#F4F7FB] text-[#0B1F4D]">
-      <div className="pointer-events-none absolute -left-24 top-[-6rem] size-[22rem] rounded-full bg-[#1F7A4D]/12 blur-3xl" />
-      <div className="pointer-events-none absolute -right-16 bottom-[-4rem] size-[20rem] rounded-full bg-[#0B1F4D]/10 blur-3xl" />
-      <div className="relative mx-auto flex min-h-[100dvh] max-w-md flex-col justify-center px-5 py-10">
+    <div className="web-auth-root relative min-h-[100dvh] overflow-x-clip overflow-y-auto bg-[#F4F7FB] text-[#0B1F4D]">
+      <div className="pointer-events-none absolute -left-24 top-[-6rem] size-[min(22rem,80vw)] rounded-full bg-[#1F7A4D]/12 blur-3xl" />
+      <div className="pointer-events-none absolute -right-16 bottom-[-4rem] size-[min(20rem,70vw)] rounded-full bg-[#0B1F4D]/10 blur-3xl" />
+      <div className="relative mx-auto flex min-h-[100dvh] w-full max-w-md flex-col justify-center px-4 py-8 sm:px-5 sm:py-10">
         <Link to="/" className="mx-auto mb-6 block w-[9.5rem]" aria-label="TIJAR home">
           <TijarLogo compact />
         </Link>
-        <div className="rounded-[1.75rem] border border-white/80 bg-white/90 p-6 shadow-[0_18px_50px_rgba(11,31,77,0.08)] backdrop-blur-sm sm:p-8">
+        <div className="rounded-[1.5rem] border border-white/80 bg-white/90 p-4 shadow-[0_18px_50px_rgba(11,31,77,0.08)] backdrop-blur-sm sm:rounded-[1.75rem] sm:p-8">
           <p className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-[#1F7A4D]">
             {mode === "register" ? t("auth.signUp") : t("auth.webFormLabel")}
           </p>

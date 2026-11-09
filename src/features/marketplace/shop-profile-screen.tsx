@@ -486,7 +486,7 @@ export function ShopProfileScreen() {
           posts.length === 0 ? (
             <p className="px-5 py-10 text-center text-sm text-muted-foreground">{t("shop.profile.emptyPosts")}</p>
           ) : (
-            <ul className="grid grid-cols-3 gap-px bg-border">
+            <ul className="grid grid-cols-3 gap-px bg-border md:grid-cols-4 lg:grid-cols-5">
               {posts.map((post) => {
                 const cover = post.image_urls?.[0] || resolveCoverSrc(post.cover_path) || post.business_logo_url;
                 return (
@@ -518,7 +518,7 @@ export function ShopProfileScreen() {
         ) : products.length === 0 ? (
           <p className="px-5 py-10 text-center text-sm text-muted-foreground">{t("shop.profile.emptyProducts")}</p>
         ) : (
-          <ul className="grid grid-cols-2 gap-2.5 px-4 py-4">
+          <ul className="grid grid-cols-2 gap-2.5 px-4 py-4 sm:grid-cols-3 lg:grid-cols-4">
             {products.map((product) => (
               <li key={product.id} className="relative overflow-hidden rounded-xl border border-border bg-card">
                 <Link to="/shop/p/$productId" params={{ productId: product.id }} className="block">

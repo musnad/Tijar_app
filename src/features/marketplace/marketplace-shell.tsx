@@ -120,22 +120,25 @@ export function MarketplaceShell({
       ];
 
   const pageScroll = !feed && !hideNav && !mapLayout;
+  const canvasWidth = nativeApp
+    ? "max-w-lg"
+    : "max-w-lg md:max-w-3xl lg:max-w-6xl xl:max-w-7xl";
 
   return (
     <div
       className={cn(
-        "flex h-full min-h-0 max-h-dvh flex-col overflow-hidden",
+        "flex h-full min-h-0 max-h-dvh w-full min-w-0 flex-col overflow-hidden",
         feed || hideNav ? "bg-white text-foreground" : "bg-background text-foreground",
       )}
     >
       <main
         className={cn(
-          "mx-auto w-full min-h-0 flex-1",
+          "mx-auto w-full min-h-0 min-w-0 flex-1",
+          canvasWidth,
           feed || hideNav
-            ? "flex max-w-lg flex-col p-0"
+            ? "flex flex-col p-0"
             : cn(
-                "flex max-w-lg flex-col",
-                !nativeApp && "lg:max-w-6xl xl:max-w-7xl",
+                "flex flex-col",
                 mapLayout
                   ? "overflow-hidden px-2 pb-2"
                   : "overflow-y-auto overflow-x-hidden overscroll-y-contain touch-pan-y pt-[max(0.75rem,env(safe-area-inset-top))] px-4 pb-4 sm:px-5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
@@ -156,7 +159,7 @@ export function MarketplaceShell({
         )}
         aria-label={t("shop.nav.shop")}
       >
-        <div className="mx-auto grid max-w-lg grid-cols-5 gap-0 px-1">
+        <div className={cn("mx-auto grid w-full grid-cols-5 gap-0 px-1", canvasWidth)}>
           {tabs.map((tab) => {
             const active =
               "forceActive" in tab && tab.forceActive

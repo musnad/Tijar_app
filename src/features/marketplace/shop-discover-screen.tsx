@@ -283,25 +283,25 @@ export function ShopDiscoverScreen() {
     <MarketplaceShell cartCount={cartCount} hideTopBar variant="feed">
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-white">
         <header className="shrink-0 border-b border-border pt-[max(0.35rem,env(safe-area-inset-top))]">
-          <div className="flex items-center justify-between gap-3 px-4 pb-2 pt-2">
-            <div className="flex min-w-0 items-center gap-2.5">
+          <div className="flex flex-wrap items-center justify-between gap-2 px-4 pb-2 pt-2">
+            <div className="flex min-w-0 flex-1 items-center gap-2.5">
               <TijarLogo variant="mark" className="h-8 w-auto shrink-0" />
               <div className="min-w-0">
-                <h1 className="text-[22px] font-extrabold leading-none tracking-tight text-foreground">{t("shop.explore.title")}</h1>
+                <h1 className="truncate text-[20px] font-extrabold leading-none tracking-tight text-foreground sm:text-[22px]">{t("shop.explore.title")}</h1>
                 <p className="mt-1 truncate text-[11px] font-medium text-muted-foreground">
                   {areaLabel ? `Nearby first · ${areaLabel}` : t("shop.explore.find")}
                 </p>
               </div>
             </div>
-            <div className="flex items-center gap-1.5">
+            <div className="flex shrink-0 items-center gap-1 sm:gap-1.5">
               <AppLanguageButton />
-              <Button type="button" variant="outline" size="sm" className="min-h-11 rounded-full px-3" asChild>
+              <Button type="button" variant="outline" size="sm" className="min-h-10 rounded-full px-2.5 text-xs sm:min-h-11 sm:px-3" asChild>
                 <Link to="/shop/order-now">Order</Link>
               </Button>
-              <Button type="button" variant="outline" size="sm" className="min-h-11 rounded-full px-3" asChild>
+              <Button type="button" variant="outline" size="sm" className="min-h-10 rounded-full px-2.5 text-xs sm:min-h-11 sm:px-3" asChild>
                 <Link to="/shop/nearby">
-                  <MapPin className="mr-1 size-4" />
-                  {t("shop.explore.map")}
+                  <MapPin className="size-4 sm:mr-1" />
+                  <span className="hidden sm:inline">{t("shop.explore.map")}</span>
                 </Link>
               </Button>
             </div>
@@ -409,7 +409,7 @@ export function ShopDiscoverScreen() {
                     setTab(item.id);
                   }}
                   className={cn(
-                    "relative flex min-h-11 items-center justify-center px-1 text-[13px]",
+                    "relative flex min-h-11 items-center justify-center px-0.5 text-[11px] min-[380px]:px-1 min-[380px]:text-[13px]",
                     active ? "font-extrabold text-primary" : "font-semibold text-muted-foreground",
                   )}
                 >
@@ -662,7 +662,7 @@ export function ShopDiscoverScreen() {
           </p>
 
           {tab === "categories" && (
-            <ul className="grid grid-cols-2 gap-2.5 px-4 pb-6">
+            <ul className="grid grid-cols-2 gap-2.5 px-4 pb-6 sm:grid-cols-3 lg:grid-cols-4">
               {categoryNames.map((c) => (
                 <li key={c}>
                   <button
@@ -697,7 +697,7 @@ export function ShopDiscoverScreen() {
                 />
               ) : (
                 <>
-                  <ul className="grid grid-cols-2 gap-2.5 px-4 pb-6">
+                  <ul className="grid grid-cols-2 gap-2.5 px-4 pb-6 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
                     {loading
                       ? Array.from({ length: 6 }, (_, i) => (
                           <li key={`sk-${i}`} className="aspect-square animate-pulse rounded-xl bg-zinc-100" />

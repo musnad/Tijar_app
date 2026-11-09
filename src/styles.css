@@ -139,6 +139,15 @@
 @layer base {
   * {
     border-color: var(--color-border);
+    box-sizing: border-box;
+  }
+
+  html {
+    scroll-behavior: smooth;
+    overflow-x: clip;
+    max-width: 100%;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
   }
 
   body {
@@ -147,11 +156,26 @@
     font-family: var(--font-sans);
     text-rendering: optimizeLegibility;
     letter-spacing: 0;
+    overflow-x: clip;
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  img,
+  video {
+    max-width: 100%;
   }
 
   h1, h2, h3 { letter-spacing: -0.025em; }
 
-  html { scroll-behavior: smooth; }
+  @media (max-width: 639px) {
+    input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+    select,
+    textarea {
+      font-size: 16px;
+    }
+  }
+}
 
   ::selection {
     background: var(--color-secondary);

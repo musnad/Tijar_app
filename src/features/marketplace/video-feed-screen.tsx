@@ -860,7 +860,7 @@ export function VideoFeedScreen({ initialVideoId }: { initialVideoId?: string })
 
   return (
     <MarketplaceShell cartCount={cartCount} hideTopBar variant="feed">
-      <div className="relative mx-auto flex min-h-0 w-full max-w-lg flex-1 flex-col overflow-hidden bg-white text-foreground">
+      <div className="relative mx-auto flex min-h-0 w-full min-w-0 max-w-lg flex-1 flex-col overflow-hidden bg-white text-foreground md:max-w-xl">
         <FeedActionsContext.Provider value={feedActions}>
         <div
           ref={scrollerRef}

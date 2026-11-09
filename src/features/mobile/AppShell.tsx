@@ -96,8 +96,8 @@ export function AppShell() {
     <div
       className={
         shopFeed
-          ? "h-dvh overflow-hidden bg-background text-foreground"
-          : "min-h-screen bg-background text-foreground"
+          ? "h-dvh min-w-0 overflow-hidden bg-background text-foreground"
+          : "min-h-screen min-w-0 overflow-x-clip bg-background text-foreground"
       }
     >
       <NativeRuntime />

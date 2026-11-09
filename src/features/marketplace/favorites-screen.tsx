@@ -43,7 +43,7 @@ export function FavoritesScreen() {
               </Button>
             </div>
           )}
-          <div className="mt-4 grid grid-cols-2 gap-3">
+          <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
             {(favQuery.data ?? []).map((p) => (
               <ProductCard key={p.id} product={p} />
             ))}
