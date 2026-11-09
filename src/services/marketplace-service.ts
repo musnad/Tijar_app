@@ -1895,9 +1895,9 @@ export async function requestSellerPayout(
     accountName: string;
     bankCode: string;
     bankName: string;
+    pin: string;
   },
-  pin?: string,
-): Promise<{ error: string | null; message?: string; code?: string }> {
+): Promise<{ error: string | null; message?: string }> {
   const supabase = getSupabaseBrowserClient();
   const {
     data: { session },
@@ -1909,14 +1909,14 @@ export async function requestSellerPayout(
       Authorization: `Bearer ${session.access_token}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ businessId, amount, pin, ...destination }),
+    body: JSON.stringify({ businessId, amount, ...destination }),
   });
-  let json: { error?: string; message?: string; code?: string } = {};
+  let json: { error?: string; message?: string } = {};
   try {
-    json = (await res.json()) as { error?: string; message?: string; code?: string };
+    json = (await res.json()) as { error?: string; message?: string };
   } catch {
     json = { error: res.ok ? undefined : "Withdrawal did not complete. Try again." };
   }
-  if (!res.ok) return { error: json.error ?? "Payout failed.", code: json.code };
+  if (!res.ok) return { error: json.error ?? "Payout failed." };
   return { error: null, message: json.message ?? "Transfer sent." };
 }

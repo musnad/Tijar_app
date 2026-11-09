@@ -84,11 +84,14 @@ export function PayoutWalletScreen({
   const [accountNumber, setAccountNumber] = useState(selected.payout_account_number ?? "");
   const [bankCode, setBankCode] = useState(selected.payout_bank_code ?? "058");
   const [resolving, setResolving] = useState(false);
-  const [pinStep, setPinStep] = useState<"withdraw" | "set" | "create" | "change" | null>(null);
+  const [pinOpen, setPinOpen] = useState(false);
+  const [pinMode, setPinMode] = useState<"create" | "withdraw" | "change">("create");
+  const [pinThenWithdraw, setPinThenWithdraw] = useState(false);
   const [pin, setPin] = useState("");
   const [confirmPin, setConfirmPin] = useState("");
   const [currentPin, setCurrentPin] = useState("");
-  const [pinBusy, setPinBusy] = useState(false);
+
+  const hasTransferPin = Boolean(walletQuery.data?.hasTransferPin);
 
   const shopName = displayShopName(selected.business_name);
   const account = walletQuery.data?.account;
@@ -101,7 +104,6 @@ export function PayoutWalletScreen({
   const requests = walletQuery.data?.requests ?? [];
   const activity = walletQuery.data?.activity ?? [];
   const bank = NG_BANKS.find((row) => row.code === bankCode);
-  const hasTransferPin = Boolean(walletQuery.data?.hasTransferPin);
 
   const feed = useMemo(() => {
     const rows: Array<{
@@ -171,7 +173,14 @@ export function PayoutWalletScreen({
     setCurrentPin("");
   }
 
-  function readyToWithdraw(): boolean {
+  function openPin(mode: "create" | "withdraw" | "change", thenWithdraw = false) {
+    resetPinFields();
+    setPinMode(mode);
+    setPinThenWithdraw(thenWithdraw);
+    setPinOpen(true);
+  }
+
+  function withdrawReady(): boolean {
     const amount = Number(withdrawAmount.replace(/[₦,\s]/g, ""));
     if (!Number.isFinite(amount) || amount < 100) {
       toast.error("Enter at least ₦100.");
@@ -188,79 +197,60 @@ export function PayoutWalletScreen({
     return true;
   }
 
-  function startWithdraw() {
-    if (!readyToWithdraw()) return;
+  async function sendPayout(transferPin: string) {
+    const amount = Number(withdrawAmount.replace(/[₦,\s]/g, ""));
+    const result = await requestSellerPayout(selected.id, amount, {
+      accountNumber,
+      accountName: accountName || shopName,
+      bankCode,
+      bankName: bank?.name ?? "Bank",
+      pin: transferPin,
+    });
+    if (result.error) {
+      toast.error(result.error);
+      return false;
+    }
+    toast.success(result.message ?? "Transfer sent.");
+    setWithdrawAmount("");
+    setPinOpen(false);
     resetPinFields();
-    setPinStep(hasTransferPin ? "withdraw" : "set");
+    await queryClient.invalidateQueries({ queryKey: ["shop-wallet", selected.id] });
+    return true;
   }
 
-  async function withdrawWithPin(transferPin: string) {
-    const amount = Number(withdrawAmount.replace(/[₦,\s]/g, ""));
+  async function startWithdraw() {
+    if (!withdrawReady()) return;
+    openPin(hasTransferPin ? "withdraw" : "create", true);
+  }
+
+  async function submitPin() {
     setWithdrawing(true);
     try {
-      const result = await requestSellerPayout(
-        selected.id,
-        amount,
-        {
-          accountNumber,
-          accountName: accountName || shopName,
-          bankCode,
-          bankName: bank?.name ?? "Bank",
-        },
-        transferPin,
-      );
-      if (result.error) {
-        toast.error(result.error);
-        return false;
+      if (pinMode === "change" || pinMode === "create") {
+        const saved = await saveSellerTransferPin(selected.id, {
+          pin,
+          confirmPin,
+          currentPin: pinMode === "change" ? currentPin : undefined,
+        });
+        if (saved.error) {
+          toast.error(saved.error);
+          return;
+        }
+        toast.success(saved.message ?? "Transfer PIN saved.");
+        await queryClient.invalidateQueries({ queryKey: ["shop-wallet", selected.id] });
+        if (pinThenWithdraw) {
+          await sendPayout(pin);
+          return;
+        }
+        setPinOpen(false);
+        resetPinFields();
+        return;
       }
-      toast.success(result.message ?? "Transfer sent.");
-      setWithdrawAmount("");
-      setPinStep(null);
-      resetPinFields();
-      await queryClient.invalidateQueries({ queryKey: ["shop-wallet", selected.id] });
-      return true;
+      await sendPayout(pin);
     } catch {
-      toast.error("Withdrawal did not complete. Try again.");
-      return false;
+      toast.error(pinMode === "withdraw" ? "Withdrawal did not complete. Try again." : "Could not save the PIN.");
     } finally {
       setWithdrawing(false);
-    }
-  }
-
-  async function savePinAndMaybeWithdraw() {
-    if (pin.length !== 4 || confirmPin.length !== 4) {
-      toast.error("Enter a 4-digit PIN twice.");
-      return;
-    }
-    if (pin !== confirmPin) {
-      toast.error("Those PINs do not match.");
-      return;
-    }
-    if (pinStep === "change" && currentPin.length !== 4) {
-      toast.error("Enter your current PIN.");
-      return;
-    }
-    setPinBusy(true);
-    try {
-      const result = await saveSellerTransferPin(selected.id, {
-        pin,
-        confirmPin,
-        currentPin: pinStep === "change" ? currentPin : undefined,
-      });
-      if (result.error) {
-        toast.error(result.error);
-        return;
-      }
-      toast.success(result.message ?? "Transfer PIN saved.");
-      await queryClient.invalidateQueries({ queryKey: ["shop-wallet", selected.id] });
-      if (pinStep === "set") {
-        await withdrawWithPin(pin);
-        return;
-      }
-      setPinStep(null);
-      resetPinFields();
-    } finally {
-      setPinBusy(false);
     }
   }
 
@@ -376,27 +366,24 @@ export function PayoutWalletScreen({
             <h2 className="text-sm font-extrabold">Transfer PIN</h2>
             <p className="mt-1 text-xs text-muted-foreground">
               {hasTransferPin
-                ? "Required to send money out of this wallet."
-                : "Set a 4-digit PIN before you can withdraw."}
+                ? "Withdrawals from this wallet need your 4-digit PIN."
+                : "Set a 4-digit PIN before you can send money to a bank."}
             </p>
           </div>
-          <Button
-            type="button"
-            variant="outline"
-            className="min-h-10 shrink-0 rounded-xl font-bold"
-            onClick={() => {
-              resetPinFields();
-              setPinStep(hasTransferPin ? "change" : "create");
-            }}
-          >
-            {hasTransferPin ? "Change" : "Set PIN"}
-          </Button>
         </div>
+        <Button
+          type="button"
+          variant="outline"
+          className="mt-3 min-h-11 w-full rounded-xl font-extrabold"
+          onClick={() => openPin(hasTransferPin ? "change" : "create")}
+        >
+          {hasTransferPin ? "Change PIN" : "Set transfer PIN"}
+        </Button>
       </section>
 
       <section id="tijar-withdraw" className="mt-4 rounded-2xl border border-border bg-card p-4">
         <h2 className="text-sm font-extrabold">Withdraw to any bank</h2>
-        <p className="mt-1 text-xs text-muted-foreground">Send money from this wallet to a Nigerian bank account. You will enter your transfer PIN to confirm.</p>
+        <p className="mt-1 text-xs text-muted-foreground">Send money from this wallet to a Nigerian bank account. You will confirm with your transfer PIN.</p>
         <label className="mt-3 block text-xs font-bold">Amount</label>
         <Input
           className="mt-1 min-h-11 rounded-xl"
@@ -442,11 +429,62 @@ export function PayoutWalletScreen({
           type="button"
           className="mt-3 min-h-11 w-full rounded-xl bg-[#1F7A4D] font-extrabold text-white hover:bg-[#1F7A4D]/90"
           disabled={withdrawing}
-          onClick={() => startWithdraw()}
+          onClick={() => void startWithdraw()}
         >
-          {withdrawing ? "Sending…" : hasTransferPin ? "Send to bank" : "Set PIN and send"}
+          {withdrawing ? "Sending…" : "Send to bank"}
         </Button>
       </section>
+
+      <Dialog
+        open={pinOpen}
+        onOpenChange={(open) => {
+          setPinOpen(open);
+          if (!open) resetPinFields();
+        }}
+      >
+        <DialogContent className="max-w-sm rounded-[1.25rem]">
+          <DialogHeader>
+            <DialogTitle>
+              {pinMode === "change" ? "Change transfer PIN" : pinMode === "create" ? "Set transfer PIN" : "Enter transfer PIN"}
+            </DialogTitle>
+            <DialogDescription>
+              {pinMode === "withdraw"
+                ? "Enter your 4-digit PIN to send this withdrawal."
+                : "This PIN is required every time money leaves this wallet. Do not use 1234 or the same digit four times."}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            {pinMode === "change" ? (
+              <PinBoxes label="Current PIN" value={currentPin} onChange={setCurrentPin} autoFocus />
+            ) : null}
+            <PinBoxes
+              label={pinMode === "withdraw" ? "Transfer PIN" : "New PIN"}
+              value={pin}
+              onChange={setPin}
+              autoFocus={pinMode !== "change"}
+            />
+            {pinMode !== "withdraw" ? (
+              <PinBoxes label="Confirm PIN" value={confirmPin} onChange={setConfirmPin} />
+            ) : null}
+            <Button
+              type="button"
+              className="min-h-11 w-full rounded-xl bg-[#1F7A4D] font-extrabold text-white hover:bg-[#1F7A4D]/90"
+              disabled={withdrawing || pin.length !== 4 || (pinMode !== "withdraw" && confirmPin.length !== 4)}
+              onClick={() => void submitPin()}
+            >
+              {withdrawing
+                ? pinMode === "withdraw"
+                  ? "Sending…"
+                  : "Saving…"
+                : pinMode === "withdraw"
+                  ? "Confirm withdrawal"
+                  : pinMode === "create" && pinThenWithdraw
+                    ? "Save PIN and continue"
+                    : "Save PIN"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <section className="mt-4">
         <h2 className="text-sm font-extrabold">Transactions</h2>
@@ -481,85 +519,30 @@ export function PayoutWalletScreen({
           </ul>
         )}
       </section>
-
-      <Dialog
-        open={pinStep !== null}
-        onOpenChange={(open) => {
-          if (!open && !withdrawing && !pinBusy) {
-            setPinStep(null);
-            resetPinFields();
-          }
-        }}
-      >
-        <DialogContent className="max-w-sm rounded-[1.4rem]">
-          <DialogHeader>
-            <DialogTitle>
-              {pinStep === "withdraw"
-                ? "Enter transfer PIN"
-                : pinStep === "change"
-                  ? "Change transfer PIN"
-                  : "Set transfer PIN"}
-            </DialogTitle>
-            <DialogDescription>
-              {pinStep === "withdraw"
-                ? "This PIN confirms the withdrawal. TIJAR never shows it again."
-                : "Use 4 digits. Do not use 1234 or the same number four times."}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-3">
-            {pinStep === "change" ? (
-              <PinField label="Current PIN" value={currentPin} onChange={setCurrentPin} />
-            ) : null}
-            {pinStep === "withdraw" ? (
-              <PinField label="Transfer PIN" value={pin} onChange={setPin} />
-            ) : (
-              <>
-                <PinField label={pinStep === "change" ? "New PIN" : "Create PIN"} value={pin} onChange={setPin} />
-                <PinField label="Confirm PIN" value={confirmPin} onChange={setConfirmPin} />
-              </>
-            )}
-            <Button
-              type="button"
-              className="min-h-11 w-full rounded-xl bg-[#1F7A4D] font-extrabold text-white hover:bg-[#1F7A4D]/90"
-              disabled={withdrawing || pinBusy}
-              onClick={() => {
-                if (pinStep === "withdraw") void withdrawWithPin(pin);
-                else void savePinAndMaybeWithdraw();
-              }}
-            >
-              {withdrawing || pinBusy
-                ? "Please wait…"
-                : pinStep === "withdraw"
-                  ? "Confirm withdrawal"
-                  : pinStep === "set"
-                    ? "Save PIN and send"
-                    : "Save PIN"}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
 
-function PinField({
+function PinBoxes({
   label,
   value,
   onChange,
+  autoFocus,
 }: {
   label: string;
   value: string;
-  onChange: (next: string) => void;
+  onChange: (value: string) => void;
+  autoFocus?: boolean;
 }) {
   return (
     <label className="block">
       <span className="text-xs font-bold">{label}</span>
       <Input
-        className="mt-1 min-h-12 rounded-xl text-center text-2xl font-extrabold tracking-[0.5em]"
+        className="mt-1 min-h-12 rounded-xl text-center text-2xl font-extrabold tracking-[0.55em]"
         inputMode="numeric"
         autoComplete="one-time-code"
         maxLength={4}
-        type="password"
+        autoFocus={autoFocus}
         value={value}
         onChange={(e) => onChange(e.target.value.replace(/\D/g, "").slice(0, 4))}
       />

@@ -3,7 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { corvConfigured, corvResolveAccount, corvTransfer } from "@/lib/payments/corv";
 import { flutterwaveConfigured, flutterwaveTransfer } from "@/lib/payments/flutterwave";
 import { shopAdminClient, syncCorvWallet } from "@/lib/payments/shop-server";
-import { consumeTransferPin, setShopTransferPin, shopHasTransferPin } from "@/lib/payments/transfer-pin";
+import { consumeTransferPin, setShopTransferPin } from "@/lib/payments/transfer-pin";
 
 export const Route = createFileRoute("/api/payments/payout")({
   server: {
@@ -18,12 +18,7 @@ export const Route = createFileRoute("/api/payments/payout")({
         if ("error" in ctx) return ctx.error;
         if (accountNumber.length < 8 || !bankCode) return Response.json({ accountName: null });
         const accountName = corvConfigured() ? await corvResolveAccount({ bankCode, accountNumber }) : null;
-        const pinStatus = await shopHasTransferPin(ctx.admin, businessId);
-        return Response.json({
-          accountName,
-          hasTransferPin: pinStatus.hasPin,
-          pinLockedUntil: pinStatus.lockedUntil,
-        });
+        return Response.json({ accountName });
       },
       PUT: async ({ request }) => {
         const body = (await request.json()) as {
