@@ -1,18 +1,21 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Heart, MessageCircle, Package, ShoppingCart, ThumbsUp, UserPlus } from "lucide-react";
 import { useEffect } from "react";
 import { toast } from "sonner";
 
 import { useAuth } from "@/features/auth/auth-context";
+import { isNativeApp } from "@/utils/isMobile";
+import { initNativePush, isSaleNotification, showNativeNotification } from "@/lib/native-push";
+import { playNotificationChime, playSaleSound } from "@/lib/sale-sound";
 import { enableWebPush, notificationsGranted, syncWebPushSubscription, vapidPublicKey } from "@/lib/web-push";
+import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { activityNotificationPath, fetchActivityNotifications, type ActivityNotification } from "@/services/social-service";
 
 const SEEN_KEY = "tijar-notif-last-seen";
 const PERMISSION_KEY = "tijar-notif-permission-asked";
 
-/** Mirror an activity item to a real browser (desktop) notification. */
 function showBrowserNotification(item: ActivityNotification) {
   if (typeof window === "undefined" || !("Notification" in window)) return;
   if (window.Notification.permission !== "granted") return;
@@ -43,41 +46,6 @@ function target(n: ActivityNotification): string {
   return activityNotificationPath(n);
 }
 
-let soundCtx: AudioContext | null = null;
-
-/** TIJAR's own short two-note chime (no audio file needed). */
-function playNotificationSound() {
-  if (typeof window === "undefined") return;
-  try {
-    const Ctx =
-      window.AudioContext ??
-      (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-    if (!Ctx) return;
-    soundCtx = soundCtx ?? new Ctx();
-    const ctx = soundCtx;
-    if (ctx.state === "suspended") void ctx.resume();
-    const now = ctx.currentTime;
-    const notes = [
-      { freq: 880, start: 0 },
-      { freq: 1318.5, start: 0.12 },
-    ];
-    for (const n of notes) {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = "sine";
-      osc.frequency.value = n.freq;
-      gain.gain.setValueAtTime(0.0001, now + n.start);
-      gain.gain.exponentialRampToValueAtTime(0.22, now + n.start + 0.02);
-      gain.gain.exponentialRampToValueAtTime(0.0001, now + n.start + 0.22);
-      osc.connect(gain).connect(ctx.destination);
-      osc.start(now + n.start);
-      osc.stop(now + n.start + 0.24);
-    }
-  } catch {
-    // Autoplay policies may block audio until the user interacts — ignore.
-  }
-}
-
 function PopupCard({ item, onClose }: { item: ActivityNotification; onClose: () => void }) {
   return (
     <a
@@ -104,16 +72,39 @@ function PopupCard({ item, onClose }: { item: ActivityNotification; onClose: () 
   );
 }
 
+function announce(item: ActivityNotification) {
+  const sale = isSaleNotification(item.kind);
+  if (sale) playSaleSound();
+  else playNotificationChime();
+  if (isNativeApp()) {
+    void showNativeNotification({
+      title: sale ? "You made a sale" : item.title,
+      body: item.body,
+      url: target(item),
+      id: item.id,
+      sale,
+    });
+  } else if (!vapidPublicKey() && document.visibilityState !== "visible") {
+    showBrowserNotification(item);
+  }
+  if (document.visibilityState === "visible") {
+    toast.custom((id) => <PopupCard item={item} onClose={() => toast.dismiss(id)} />, {
+      duration: sale ? 7_000 : 5_000,
+      position: "top-center",
+    });
+  }
+}
+
 /**
- * Social-style on-screen notification pop-up (TikTok/Instagram style).
- * Polls for new activity and surfaces the newest unseen item as a toast card.
+ * In-app pop-up + OS notification. Native app also plays a sale chime for businesses.
  */
 export function NotificationPopup() {
   const { profile } = useAuth();
+  const queryClient = useQueryClient();
   const query = useQuery({
     queryKey: ["activity-popup", profile?.id],
     enabled: Boolean(profile?.id),
-    refetchInterval: 20_000,
+    refetchInterval: isNativeApp() ? 8_000 : 20_000,
     refetchOnWindowFocus: true,
     queryFn: async () => {
       try {
@@ -130,8 +121,11 @@ export function NotificationPopup() {
   useEffect(() => {
     if (!profile?.id) return;
     void (async () => {
+      if (isNativeApp()) {
+        await initNativePush();
+        return;
+      }
       if (notificationsGranted()) {
-        // Same device, new login — make sure the subscription is stored for this profile.
         await syncWebPushSubscription();
         return;
       }
@@ -140,6 +134,24 @@ export function NotificationPopup() {
       await enableWebPush();
     })();
   }, [profile?.id]);
+
+  useEffect(() => {
+    if (!profile?.id || !isNativeApp()) return;
+    const client = getSupabaseBrowserClient();
+    const channel = client
+      .channel(`tijar-inbox-${profile.id}`)
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "activity_notifications", filter: `recipient_id=eq.${profile.id}` },
+        () => {
+          void queryClient.invalidateQueries({ queryKey: ["activity-popup", profile.id] });
+        },
+      )
+      .subscribe();
+    return () => {
+      void client.removeChannel(channel);
+    };
+  }, [profile?.id, queryClient]);
 
   useEffect(() => {
     if (!items || items.length === 0 || typeof window === "undefined") return;
@@ -152,17 +164,7 @@ export function NotificationPopup() {
     const fresh = idx === -1 ? items.slice(0, 1) : items.slice(0, idx);
     if (fresh.length === 0) return;
     window.localStorage.setItem(SEEN_KEY, items[0]!.id);
-    playNotificationSound();
-    // When Web Push is configured the service worker shows the OS notification,
-    // so only fall back to an in-page browser notification here.
-    if (!vapidPublicKey() && document.visibilityState !== "visible") {
-      for (const item of fresh) showBrowserNotification(item);
-    }
-    const top = fresh[0]!;
-    toast.custom((id) => <PopupCard item={top} onClose={() => toast.dismiss(id)} />, {
-      duration: 5_000,
-      position: "top-center",
-    });
+    announce(fresh[0]!);
   }, [items]);
 
   return null;

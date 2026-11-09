@@ -1098,6 +1098,18 @@ html.tijar-android-webview footer[data-site-footer] {
   display: none !important;
 }
 
+html.tijar-android-webview [data-marketing-landing] {
+  display: none !important;
+}
+
+html.tijar-android-webview {
+  scroll-behavior: auto;
+}
+
+html.tijar-android-webview .group:hover {
+  transform: none;
+}
+
 /* Leaflet map — mobile touch + avoid iOS text zoom conflicts */
 .leaflet-container {
   font: inherit;

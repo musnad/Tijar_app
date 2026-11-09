@@ -2,7 +2,7 @@
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { BadgeCheck, ChevronRight, Heart, ShoppingBag, Star, Store, Zap } from "lucide-react";
+import { BadgeCheck, Bookmark, ChevronRight, Heart, ShoppingBag, Star, Store, Zap } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
@@ -19,13 +19,17 @@ import { haptic } from "@/lib/haptics";
 import { useTranslation } from "@/lib/i18n/context";
 import { displayShopName, shopLinkSlug } from "@/lib/shop-names";
 import { cn } from "@/lib/utils";
-import { isProductLiked, likeProduct, isProductSaved } from "@/lib/shop-social";
+import { ProductSocialBar } from "@/features/marketplace/product-social";
+import { isProductLiked, likeProduct, toggleProductLike, isProductSaved } from "@/lib/shop-social";
 import { useDoubleTap } from "@/lib/use-double-tap";
 import {
   addToCart,
   fetchCart,
   fetchMarketplaceProduct,
+  fetchMyLikedProductIds,
+  likeMarketplaceProduct,
   toggleFavoriteProduct,
+  unlikeMarketplaceProduct,
 } from "@/services/marketplace-service";
 import { enrollInService } from "@/services/customer-service";
 import { formatNgn, percentOff } from "@/utils/money";
@@ -75,6 +79,12 @@ export function ProductDetailScreen({ productId }: { productId: string }) {
     queryFn: async () => (await fetchCart(profile!.id)).items,
   });
 
+  const likesQuery = useQuery({
+    queryKey: ["product-likes", profile?.id],
+    enabled: Boolean(profile?.id),
+    queryFn: () => fetchMyLikedProductIds(profile!.id),
+  });
+
   const product = productQuery.data;
   const variants = parseVariantList(product?.variants);
   const colours = useMemo(() => {
@@ -110,9 +120,13 @@ export function ProductDetailScreen({ productId }: { productId: string }) {
   const actorId = profile?.id ?? "guest";
 
   useEffect(() => {
-    setLiked(isProductLiked(actorId, productId));
     setSaved(isProductSaved(actorId, productId));
-  }, [actorId, productId]);
+    if (profile?.id && likesQuery.data) {
+      setLiked(likesQuery.data.has(productId) || isProductLiked(actorId, productId));
+      return;
+    }
+    setLiked(isProductLiked(actorId, productId));
+  }, [actorId, productId, profile?.id, likesQuery.data]);
 
   function onGalleryScroll() {
     const el = scroller.current;
@@ -130,11 +144,47 @@ export function ProductDetailScreen({ productId }: { productId: string }) {
 
   function burstLike() {
     haptic("success");
-    likeProduct(actorId, productId);
-    setLiked(true);
     setHeartBurst(true);
     window.setTimeout(() => setHeartBurst(false), 700);
-    toast.success("Liked");
+    if (liked) return;
+    likeProduct(actorId, productId);
+    setLiked(true);
+    if (profile?.id) {
+      void likeMarketplaceProduct(profile.id, productId).then(({ error }) => {
+        if (error) {
+          toast.error(error);
+          return;
+        }
+        queryClient.setQueryData(["product-likes", profile.id], (prev: Set<string> | undefined) => {
+          const copy = new Set(prev ?? []);
+          copy.add(productId);
+          return copy;
+        });
+        void queryClient.invalidateQueries({ queryKey: ["product-engagement", productId] });
+      });
+    }
+  }
+
+  async function unlikeProduct(e?: { stopPropagation: () => void }) {
+    e?.stopPropagation();
+    if (!liked) return;
+    haptic("light");
+    toggleProductLike(actorId, productId);
+    setLiked(false);
+    if (profile?.id) {
+      const { error } = await unlikeMarketplaceProduct(profile.id, productId);
+      if (error) {
+        toast.error(error);
+        setLiked(true);
+        return;
+      }
+      queryClient.setQueryData(["product-likes", profile.id], (prev: Set<string> | undefined) => {
+        const copy = new Set(prev ?? []);
+        copy.delete(productId);
+        return copy;
+      });
+      void queryClient.invalidateQueries({ queryKey: ["product-engagement", productId] });
+    }
   }
 
   const onImageTap = useDoubleTap(burstLike);
@@ -217,7 +267,7 @@ export function ProductDetailScreen({ productId }: { productId: string }) {
               aria-pressed={saved}
               onClick={() => void favorite()}
             >
-              <Heart className={cn("size-6", saved ? "fill-red-500 text-red-500" : "text-[color:var(--brand-navy,#001B3A)]")} />
+              <Bookmark className={cn("size-6", saved ? "fill-[color:var(--brand-navy,#001B3A)] text-[color:var(--brand-navy,#001B3A)]" : "text-[color:var(--brand-navy,#001B3A)]")} />
             </button>
             <Link
               to="/shop/cart"
@@ -279,14 +329,21 @@ export function ProductDetailScreen({ productId }: { productId: string }) {
                     </div>
                   ))}
                 </div>
-                {heartBurst || liked ? (
+                {heartBurst ? (
                   <Heart
-                    className={cn(
-                      "pointer-events-none absolute left-1/2 top-1/2 size-16 -translate-x-1/2 -translate-y-1/2 text-red-500 transition-all",
-                      heartBurst ? "scale-110 fill-red-500 opacity-100" : "scale-75 fill-red-500/0 opacity-0",
-                    )}
+                    className="pointer-events-none absolute left-1/2 top-1/2 z-[2] size-20 -translate-x-1/2 -translate-y-1/2 fill-red-500 text-red-500 [animation:feed-heart_450ms_ease-out]"
                     aria-hidden
                   />
+                ) : null}
+                {liked ? (
+                  <button
+                    type="button"
+                    className="absolute right-3 top-3 z-[3] flex size-11 items-center justify-center rounded-full bg-white/90 shadow-sm"
+                    aria-label="Unlike"
+                    onClick={(e) => void unlikeProduct(e)}
+                  >
+                    <Heart className="size-6 fill-red-500 text-red-500" />
+                  </button>
                 ) : null}
                 {gallery.length > 1 && (
                   <div className="flex justify-center gap-1 pb-2">
@@ -323,6 +380,7 @@ export function ProductDetailScreen({ productId }: { productId: string }) {
                 </ul>
               )}
 
+              <ProductSocialBar product={product} className="mt-3 gap-1" />
               <p className="mt-4 text-[13px] font-bold text-muted-foreground">{product.name}</p>
               {serviceLabel(product) && (
                 <p className="mt-1 text-xs font-bold uppercase tracking-wide text-primary">

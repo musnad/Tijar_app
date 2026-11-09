@@ -70,18 +70,50 @@ export const Route = createFileRoute("/api/push/notify")({
         const webPush = (await import("web-push")).default;
         webPush.setVapidDetails(readEnvString("PUSH_VAPID_SUBJECT") ?? "mailto:hello@tijar.ng", publicKey, privateKey);
 
+        const title = row.title ?? "Tijar";
+        const bodyText = row.body ?? "";
+        const url = absoluteAppUrl(targetFor(row));
+        const sale = row.kind === "purchase" || row.kind === "place_order" || row.kind === "place_order_paid";
         const payload = JSON.stringify({
-          title: row.title ?? "TIJAR",
-          body: row.body ?? "",
-          url: absoluteAppUrl(targetFor(row)),
+          title: sale ? "You made a sale" : title,
+          body: bodyText,
+          url,
           tag: row.id ? `tijar-${row.id}` : undefined,
+          sound: sale ? "sale" : "default",
         });
+        const fcmKey = readEnvString("FCM_SERVER_KEY");
 
         const stale: string[] = [];
         let sent = 0;
         await Promise.all(
           subscriptions.map(async (sub) => {
             try {
+              if (sub.endpoint.startsWith("fcm:")) {
+                if (!fcmKey) return;
+                const token = sub.endpoint.slice(4);
+                const res = await fetch("https://fcm.googleapis.com/fcm/send", {
+                  method: "POST",
+                  headers: {
+                    authorization: `key=${fcmKey}`,
+                    "content-type": "application/json",
+                  },
+                  body: JSON.stringify({
+                    to: token,
+                    priority: "high",
+                    notification: {
+                      title: sale ? "You made a sale" : title,
+                      body: bodyText,
+                      sound: sale ? "sale" : "default",
+                      android_channel_id: sale ? "tijar-sales" : "tijar-general",
+                      icon: "ic_launcher",
+                    },
+                    data: { url, kind: row.kind ?? "" },
+                  }),
+                });
+                if (res.status === 404 || res.status === 410) stale.push(sub.id);
+                else if (res.ok) sent += 1;
+                return;
+              }
               await webPush.sendNotification(
                 { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
                 payload,

@@ -1,14 +1,17 @@
 "use client";
 
 import { Link, useNavigate } from "@tanstack/react-router";
-import { Plus, Store } from "lucide-react";
+import { Heart, Plus, Store } from "lucide-react";
+import { useState } from "react";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 
 import { useAuth } from "@/features/auth/auth-context";
 import { isMockFeedId } from "@/features/marketplace/feed-mock";
-import { ensureSavedProduct } from "@/lib/shop-social";
-import { addToCart } from "@/services/marketplace-service";
+import { haptic } from "@/lib/haptics";
+import { ensureSavedProduct, isProductLiked, likeProduct } from "@/lib/shop-social";
+import { useDoubleTap } from "@/lib/use-double-tap";
+import { addToCart, likeMarketplaceProduct } from "@/services/marketplace-service";
 import { formatNgn } from "@/utils/money";
 import type { PublicProduct } from "@/types/database";
 import { formatPricePerUnit } from "@/lib/catalogue/units";
@@ -29,6 +32,33 @@ export function ProductCard({
   const { t } = useTranslation();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const actorId = profile?.id ?? "guest";
+  const [burst, setBurst] = useState(false);
+
+  function burstLike() {
+    if (isMockFeedId(product.id)) return;
+    haptic("success");
+    setBurst(true);
+    window.setTimeout(() => setBurst(false), 650);
+    if (isProductLiked(actorId, product.id)) return;
+    likeProduct(actorId, product.id);
+    if (profile?.id) {
+      void likeMarketplaceProduct(profile.id, product.id).then(({ error }) => {
+        if (error) toast.error(error);
+        else {
+          queryClient.setQueryData(["product-likes", profile.id], (prev: Set<string> | undefined) => {
+            const copy = new Set(prev ?? []);
+            copy.add(product.id);
+            return copy;
+          });
+        }
+      });
+    }
+  }
+
+  const onPhotoTap = useDoubleTap(burstLike, () => {
+    void navigate({ to: "/shop/p/$productId", params: { productId: product.id } });
+  });
 
   async function quickAdd(e: React.MouseEvent) {
     e.preventDefault();
@@ -71,7 +101,14 @@ export function ProductCard({
         compact && "rounded-xl",
       )}
     >
-      <div className={cn("relative overflow-hidden bg-muted", compact ? "aspect-[4/3]" : "aspect-square")}>
+      <div
+        className={cn("relative overflow-hidden bg-muted", compact ? "aspect-[4/3]" : "aspect-square")}
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          onPhotoTap();
+        }}
+      >
         {product.image_url ? (
           <FeedImage
             src={product.image_url}
@@ -92,6 +129,11 @@ export function ProductCard({
               : product.attributes?.badge?.trim() || product.category_name}
           </span>
         )}
+        {burst ? (
+          <span className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
+            <Heart className="size-16 fill-white text-white drop-shadow-lg" />
+          </span>
+        ) : null}
         <button
           type="button"
           aria-label={`Add ${product.name} to cart`}

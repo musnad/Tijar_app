@@ -4,6 +4,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { readEnvString, readSupabasePublicEnv } from "@/lib/supabase/runtime-env";
 
 type PushBody = {
+  fcmToken?: string;
   subscription?: {
     endpoint?: string;
     keys?: { p256dh?: string; auth?: string };
@@ -25,9 +26,10 @@ export const Route = createFileRoute("/api/push/subscribe")({
         }
 
         const body = (await request.json().catch(() => ({}))) as PushBody;
-        const endpoint = body.subscription?.endpoint?.trim();
-        const p256dh = body.subscription?.keys?.p256dh?.trim();
-        const keyAuth = body.subscription?.keys?.auth?.trim();
+        const fcmToken = body.fcmToken?.trim();
+        const endpoint = fcmToken ? `fcm:${fcmToken}` : body.subscription?.endpoint?.trim();
+        const p256dh = fcmToken ? "fcm" : body.subscription?.keys?.p256dh?.trim();
+        const keyAuth = fcmToken ? "fcm" : body.subscription?.keys?.auth?.trim();
         if (!endpoint || !p256dh || !keyAuth) {
           return Response.json({ error: "Invalid subscription." }, { status: 400 });
         }

@@ -7,6 +7,7 @@ function scriptUrl(registration: ServiceWorkerRegistration): string {
 /** Leftover PWA workers on localhost intercept Vite. Keep the push worker. */
 export async function clearServiceWorkers() {
   if (typeof window === "undefined" || !("serviceWorker" in navigator)) return;
+  if (document.documentElement.classList.contains("tijar-android-webview")) return;
   const registrations = await navigator.serviceWorker.getRegistrations();
   const stale = registrations.filter((registration) => !scriptUrl(registration).includes("push-sw.js"));
   if (stale.length === 0) return;

@@ -526,6 +526,13 @@ export async function likeMarketplaceProduct(profileId: string, productId: strin
   return { error: null };
 }
 
+export async function unlikeMarketplaceProduct(profileId: string, productId: string): Promise<{ error: string | null }> {
+  const supabase = getSupabaseBrowserClient();
+  const { error } = await supabase.from("product_likes").delete().eq("profile_id", profileId).eq("product_id", productId);
+  if (error && productSocialMissing(error.message)) return { error: "Likes are not set up yet. Apply migration 000048." };
+  return { error: error?.message ?? null };
+}
+
 export async function fetchProductComments(
   productId: string,
 ): Promise<{ comments: ProductComment[]; error: string | null }> {

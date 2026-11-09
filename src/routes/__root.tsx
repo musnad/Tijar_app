@@ -1,24 +1,22 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
-  Outlet,
   Link,
   createRootRouteWithContext,
   useRouter,
-  useNavigate,
   HeadContent,
   Scripts,
   type ErrorComponentProps,
 } from "@tanstack/react-router";
-import { useEffect, type ReactNode } from "react";
-import { useRouterState } from "@tanstack/react-router";
+import { useEffect, useState, type ReactNode } from "react";
 import { SpeedInsights } from "@vercel/speed-insights/react";
 import { Toaster } from "@/components/ui/sonner";
+import { MobileApp } from "@/features/mobile/MobileApp";
+import { WebApp } from "@/features/mobile/WebApp";
 import { isTijarNativeApp } from "@/lib/tijar-native-app";
 
 import appCss from "../styles.css?url";
-import { SiteFooter, SiteHeader } from "../components/site-shell";
 import { AccountGateProvider } from "@/features/auth/account-gate";
-import { AuthProvider, useAuth } from "@/features/auth/auth-context";
+import { AuthProvider } from "@/features/auth/auth-context";
 import { SitePreferencesProvider, useTranslation } from "../lib/i18n/context";
 import { enMessages } from "../lib/i18n/messages/en";
 import { clearServiceWorkers } from "../lib/clear-service-workers";
@@ -131,7 +129,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   errorComponent: ErrorComponent,
 });
 
-const NATIVE_APP_BOOT = `if(/TijarApp\\//i.test(navigator.userAgent))document.documentElement.classList.add('tijar-android-webview');`;
+const NATIVE_APP_BOOT = `(function(){if(!/TijarApp\\//i.test(navigator.userAgent))return;document.documentElement.classList.add('tijar-android-webview');var p=location.pathname;if(p==='/'||p===''||p==='/index.html')location.replace('/shop');})();`;
 
 function RootShell({ children }: { children: ReactNode }) {
   return (
@@ -148,81 +146,13 @@ function RootShell({ children }: { children: ReactNode }) {
   );
 }
 
-/** Paths that use their own chrome (dashboard / shop / auth) — never show marketing header/footer. */
-function isAppChromePath(pathname: string): boolean {
-  return (
-    pathname.startsWith("/app") ||
-    pathname.startsWith("/shop") ||
-    pathname.startsWith("/b/") ||
-    pathname.startsWith("/learn") ||
-    pathname.startsWith("/translate") ||
-    pathname.startsWith("/discover") ||
-    pathname === "/login" ||
-    pathname === "/register" ||
-    pathname === "/forgot-password" ||
-    pathname === "/reset-password" ||
-    pathname === "/privacy" ||
-    pathname === "/terms" ||
-    pathname.startsWith("/login/") ||
-    pathname.startsWith("/register/") ||
-    pathname.startsWith("/auth/")
-  );
-}
-
 function RootLayout() {
-  const pathname = useRouterState({ select: (s) => s.location.pathname });
-  const navigate = useNavigate();
-  const nativeApp = isTijarNativeApp();
-  const { session } = useAuth();
-
+  const [native, setNative] = useState(false);
   useEffect(() => {
-    if (!nativeApp) return;
-    if (isAppChromePath(pathname)) return;
-    void navigate({ to: "/shop" });
-  }, [nativeApp, pathname, navigate]);
-
-  // Logged-in users on product surfaces only see app/shop UI — no marketing nav/footer.
-  const isLoggedInProductSurface =
-    Boolean(session) &&
-    (pathname.startsWith("/discover") ||
-      pathname.startsWith("/translate") ||
-      pathname.startsWith("/b/"));
-
-  const showMarketingShell = !nativeApp && !isAppChromePath(pathname) && !isLoggedInProductSurface;
-
-  const shopFeed =
-    pathname === "/shop" ||
-    pathname === "/shop/" ||
-    pathname === "/shop/discover" ||
-    pathname === "/shop/create" ||
-    pathname === "/shop/business-apply" ||
-    pathname === "/shop/enquiries" ||
-    pathname.startsWith("/shop/enquiries/") ||
-    pathname === "/shop/profile" ||
-    pathname === "/shop/settings" ||
-    pathname === "/shop/help" ||
-    pathname === "/shop/edit-profile" ||
-    pathname.startsWith("/shop/p/") ||
-    pathname.startsWith("/b/") ||
-    pathname === "/shop/buy" ||
-    pathname === "/shop/orders" ||
-    pathname.startsWith("/shop/orders/") ||
-    pathname === "/shop/favorites" ||
-    pathname === "/shop/follows" ||
-    pathname === "/shop/followers" ||
-    pathname === "/shop/cart" ||
-    pathname === "/shop/checkout" ||
-    pathname === "/shop/studio";
-
-  return (
-    <div className={shopFeed ? "h-dvh overflow-hidden bg-background text-foreground" : "min-h-screen bg-background text-foreground"}>
-      {showMarketingShell && <SiteHeader />}
-      <main id="main-content" className={shopFeed ? "h-full overflow-hidden" : undefined}>
-        <Outlet />
-      </main>
-      {showMarketingShell && <SiteFooter />}
-    </div>
-  );
+    setNative(isTijarNativeApp());
+  }, []);
+  if (native) return <MobileApp />;
+  return <WebApp />;
 }
 
 function RootComponent() {

@@ -1,9 +1,15 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 
 import { SocialLanding } from "@/features/marketing/social-landing";
+import { isTijarNativeApp } from "@/lib/tijar-native-app";
 import { enMessages } from "@/lib/i18n/messages/en";
 
 export const Route = createFileRoute("/")({
+  beforeLoad: () => {
+    if (typeof window !== "undefined" && isTijarNativeApp()) {
+      throw redirect({ to: "/shop" });
+    }
+  },
   head: () => ({
     meta: [
       { title: enMessages.meta.home.title },

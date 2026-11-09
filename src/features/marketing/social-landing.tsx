@@ -45,7 +45,7 @@ export function SocialLanding() {
   }
 
   return (
-    <div className="bg-white text-[#0B1F4D]">
+    <div data-marketing-landing className="bg-white text-[#0B1F4D]">
       <section className="overflow-hidden border-b border-[#EEF1F5] bg-[radial-gradient(ellipse_80%_50%_at_0%_0%,rgba(31,122,77,0.12),transparent_55%),radial-gradient(ellipse_50%_40%_at_100%_0%,rgba(11,31,77,0.08),transparent_50%)]">
         <div className="mx-auto grid max-w-6xl items-center gap-10 px-5 py-12 sm:py-16 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.9fr)] lg:gap-12 lg:px-6 lg:py-20">
           <div className="min-w-0">
