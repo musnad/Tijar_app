@@ -23,9 +23,9 @@ type NearbyMapProps = {
   className?: string;
 };
 
-const TILE_URL = "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png";
+const TILE_URL = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
 const TILE_ATTR =
-  '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>';
+  '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>';
 
 /** Client-only Leaflet map — Bolt-style live user dot + shop pins. */
 export function NearbyMap({
@@ -65,8 +65,8 @@ export function NearbyMap({
 
       L.tileLayer(TILE_URL, {
         attribution: TILE_ATTR,
-        maxZoom: 20,
-        subdomains: "abcd",
+        maxZoom: 19,
+        subdomains: "abc",
       }).addTo(map);
 
       L.control.zoom({ position: "bottomright" }).addTo(map);
