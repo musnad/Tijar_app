@@ -255,7 +255,7 @@ export function PayoutWalletScreen({
   }
 
   return (
-    <div className="pb-10">
+    <div className="min-h-0 pb-10">
       <div className="mt-2 flex items-center justify-between">
         <div>
           <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-muted-foreground">TIJAR Wallet</p>

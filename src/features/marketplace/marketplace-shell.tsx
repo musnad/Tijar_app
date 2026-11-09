@@ -119,19 +119,29 @@ export function MarketplaceShell({
         { to: "/shop/profile" as const, label: t("shop.nav.profile"), icon: UserRound },
       ];
 
+  const pageScroll = !feed && !hideNav && !mapLayout;
+
   return (
-    <div className={cn("flex min-h-dvh flex-col", (feed || hideNav) && "h-full max-h-dvh overflow-hidden", feed || hideNav ? "bg-white text-foreground" : "bg-background text-foreground")}>
+    <div
+      className={cn(
+        "flex h-full min-h-0 max-h-dvh flex-col overflow-hidden",
+        feed || hideNav ? "bg-white text-foreground" : "bg-background text-foreground",
+      )}
+    >
       <main
         className={cn(
-          "mx-auto w-full flex-1",
+          "mx-auto w-full min-h-0 flex-1",
           feed || hideNav
-            ? "flex max-w-lg min-h-0 flex-col p-0"
+            ? "flex max-w-lg flex-col p-0"
             : cn(
-                "max-w-lg pt-[max(0.75rem,env(safe-area-inset-top))] sm:px-5",
+                "flex max-w-lg flex-col",
                 !nativeApp && "lg:max-w-6xl xl:max-w-7xl",
-                mapLayout ? "px-2 pb-2" : "px-4 pb-4",
+                mapLayout
+                  ? "overflow-hidden px-2 pb-2"
+                  : "overflow-y-auto overflow-x-hidden overscroll-y-contain touch-pan-y pt-[max(0.75rem,env(safe-area-inset-top))] px-4 pb-4 sm:px-5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
               ),
         )}
+        style={pageScroll ? { WebkitOverflowScrolling: "touch" } : undefined}
       >
         {!hideTopBar && !feed && <MarketplaceTopBar leftSlot={leftSlot} />}
         {children}
@@ -139,10 +149,10 @@ export function MarketplaceShell({
 
       {!hideNav && <nav
         className={cn(
-          "z-40 shrink-0 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-1",
+          "z-40 shrink-0 border-t border-border pt-1 pb-[max(0.5rem,env(safe-area-inset-bottom))]",
           feed
-            ? "relative border-t border-border bg-white pb-[max(0.55rem,env(safe-area-inset-bottom))]"
-            : "sticky bottom-0 app-bottom-nav border-t border-border bg-background/95 backdrop-blur-sm",
+            ? "relative bg-white pb-[max(0.55rem,env(safe-area-inset-bottom))]"
+            : "relative app-bottom-nav bg-background/95 backdrop-blur-sm",
         )}
         aria-label={t("shop.nav.shop")}
       >
