@@ -119,6 +119,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [session, refreshProfile]);
 
   useEffect(() => {
+    if (!profile?.id) return;
+    const key = `tijar-follow-official:${profile.id}`;
+    if (typeof window !== "undefined" && window.sessionStorage.getItem(key) === "1") return;
+    const supabase = getSupabaseBrowserClient();
+    void supabase.rpc("ensure_follows_tijar").then(() => {
+      if (typeof window !== "undefined") window.sessionStorage.setItem(key, "1");
+    });
+  }, [profile?.id]);
+
+  useEffect(() => {
     if (!profile?.email) return;
     void import("@/lib/admin").then(({ isTijarSuperAdminEmail }) => {
       if (!isTijarSuperAdminEmail(profile.email)) return;
