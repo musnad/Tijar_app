@@ -234,12 +234,7 @@ function fmtCountdown(secs: number): string {
 }
 
 function CaptionText({ text, light }: { text: string; light?: boolean }) {
-  let parts = [text];
-  try {
-    parts = text.split(/(#[\p{L}\p{N}_]+)/gu);
-  } catch {
-    parts = text.split(/(#\w+)/g);
-  }
+  const parts = text.split(/(#[A-Za-z0-9_]+)/g);
   return (
     <span className={cn("mt-1 text-[14px] leading-snug", light ? "text-white/95" : "text-zinc-800")}>
       {parts.map((part, i) =>

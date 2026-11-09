@@ -134,14 +134,14 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   errorComponent: ErrorComponent,
 });
 
-const NATIVE_APP_BOOT = `(function(){if(!/TijarApp\\//i.test(navigator.userAgent))return;document.documentElement.classList.add('tijar-android-webview');var p=location.pathname;if(p==='/'||p===''||p==='/index.html')location.replace('/shop');})();`;
+const NATIVE_APP_BOOT = `(function(){if(!/TijarApp\\//i.test(navigator.userAgent))return;document.documentElement.classList.add('tijar-android-webview');var p=location.pathname;if(p==='/'||p===''||p==='/index.html'){location.replace('/shop');return;}document.querySelectorAll('link[rel=modulepreload]').forEach(function(el){var h=el.getAttribute('href')||'';if(/charts|pdf-|jspdf|leaflet|maps-/.test(h))el.remove();});})();`
 
 function RootShell({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
       <head>
-        <script dangerouslySetInnerHTML={{ __html: NATIVE_APP_BOOT }} />
         <HeadContent />
+        <script dangerouslySetInnerHTML={{ __html: NATIVE_APP_BOOT }} />
       </head>
       <body>
         {children}
