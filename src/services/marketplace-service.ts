@@ -1781,6 +1781,7 @@ export async function fetchVirtualAccountWallet(businessId: string): Promise<{
     bankName: string | null;
     bankCode: string | null;
   } | null;
+  hasTransferPin: boolean;
   error: string | null;
 }> {
   const emptyWallet = { available_ngn: 0, pending_ngn: 0 };
@@ -1797,6 +1798,7 @@ export async function fetchVirtualAccountWallet(businessId: string): Promise<{
       credits: [],
       activity: [],
       payout: null,
+      hasTransferPin: false,
       error: "Sign in first.",
     };
   }
@@ -1829,10 +1831,21 @@ export async function fetchVirtualAccountWallet(businessId: string): Promise<{
       bankName: string | null;
       bankCode: string | null;
     } | null;
+    hasTransferPin?: boolean;
     error?: string;
   };
   if (!res.ok) {
-    return { configured: false, account: null, accounts: [], wallet: emptyWallet, credits: [], activity: [], payout: null, error: json.error ?? "Could not load wallet." };
+    return {
+      configured: false,
+      account: null,
+      accounts: [],
+      wallet: emptyWallet,
+      credits: [],
+      activity: [],
+      payout: null,
+      hasTransferPin: false,
+      error: json.error ?? "Could not load wallet.",
+    };
   }
   return {
     configured: Boolean(json.configured),
@@ -1842,8 +1855,36 @@ export async function fetchVirtualAccountWallet(businessId: string): Promise<{
     credits: json.credits ?? [],
     activity: json.activity ?? [],
     payout: json.payout ?? null,
+    hasTransferPin: Boolean(json.hasTransferPin),
     error: null,
   };
+}
+
+export async function saveSellerTransferPin(
+  businessId: string,
+  input: { pin: string; confirmPin: string; currentPin?: string },
+): Promise<{ error: string | null; message?: string }> {
+  const supabase = getSupabaseBrowserClient();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  if (!session?.access_token) return { error: "Sign in first." };
+  const res = await fetch("/api/payments/payout", {
+    method: "PUT",
+    headers: {
+      Authorization: `Bearer ${session.access_token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ businessId, ...input }),
+  });
+  let json: { error?: string; message?: string } = {};
+  try {
+    json = (await res.json()) as { error?: string; message?: string };
+  } catch {
+    json = { error: res.ok ? undefined : "Could not save the PIN." };
+  }
+  if (!res.ok) return { error: json.error ?? "Could not save the PIN." };
+  return { error: null, message: json.message ?? "Transfer PIN saved." };
 }
 
 export async function requestSellerPayout(
@@ -1855,7 +1896,8 @@ export async function requestSellerPayout(
     bankCode: string;
     bankName: string;
   },
-): Promise<{ error: string | null; message?: string }> {
+  pin?: string,
+): Promise<{ error: string | null; message?: string; code?: string }> {
   const supabase = getSupabaseBrowserClient();
   const {
     data: { session },
@@ -1867,14 +1909,14 @@ export async function requestSellerPayout(
       Authorization: `Bearer ${session.access_token}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ businessId, amount, ...destination }),
+    body: JSON.stringify({ businessId, amount, pin, ...destination }),
   });
-  let json: { error?: string; message?: string } = {};
+  let json: { error?: string; message?: string; code?: string } = {};
   try {
-    json = (await res.json()) as { error?: string; message?: string };
+    json = (await res.json()) as { error?: string; message?: string; code?: string };
   } catch {
     json = { error: res.ok ? undefined : "Withdrawal did not complete. Try again." };
   }
-  if (!res.ok) return { error: json.error ?? "Payout failed." };
+  if (!res.ok) return { error: json.error ?? "Payout failed.", code: json.code };
   return { error: null, message: json.message ?? "Transfer sent." };
 }

@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 
 import { corvConfigured, corvCreateVirtualAccount } from "@/lib/payments/corv";
 import { shopAdminClient, syncCorvWallet } from "@/lib/payments/shop-server";
+import { shopHasTransferPin } from "@/lib/payments/transfer-pin";
 
 export const Route = createFileRoute("/api/payments/virtual-account")({
   server: {
@@ -103,9 +104,12 @@ export const Route = createFileRoute("/api/payments/virtual-account")({
           return owned.size > 0 && owned.has(nuban);
         }).slice(0, 40);
         const available = synced.available;
+        const pinStatus = await shopHasTransferPin(ctx.admin, businessId);
         return Response.json(
           {
             configured: corvConfigured(),
+            hasTransferPin: pinStatus.hasPin,
+            pinLockedUntil: pinStatus.lockedUntil,
             banks: [],
             account,
             accounts,
