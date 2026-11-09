@@ -130,7 +130,11 @@ export function EditProductForm({ businessId, productId }: { businessId: string;
     }
     await invalidateBusinessQueries(queryClient, businessId);
     toast.success(publish ? "Published to the marketplace" : "Saved");
-    void navigate({ to: "/app/products" });
+    const fromProfile =
+      (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("from") === "profile") ||
+      (typeof window !== "undefined" && sessionStorage.getItem("tijar-edit-return") === "profile");
+    if (fromProfile) sessionStorage.removeItem("tijar-edit-return");
+    void navigate({ to: fromProfile ? "/shop/profile" : "/app/products" });
   }
 
   if (query.isLoading) return <p className="mt-8 text-muted-foreground">…</p>;
@@ -264,7 +268,12 @@ export function EditProductForm({ businessId, productId }: { businessId: string;
               else {
                 toast.success("Archived");
                 await invalidateBusinessQueries(queryClient, businessId);
-                void navigate({ to: "/app/products" });
+                const fromProfile =
+                  (typeof window !== "undefined" &&
+                    new URLSearchParams(window.location.search).get("from") === "profile") ||
+                  (typeof window !== "undefined" && sessionStorage.getItem("tijar-edit-return") === "profile");
+                if (fromProfile) sessionStorage.removeItem("tijar-edit-return");
+                void navigate({ to: fromProfile ? "/shop/profile" : "/app/products" });
               }
             }}
           >

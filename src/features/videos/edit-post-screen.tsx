@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { useAuth } from "@/features/auth/auth-context";
 import { usePrimaryBusiness } from "@/hooks/use-primary-business";
 import { haptic } from "@/lib/haptics";
+import { invalidateBusinessQueries } from "@/lib/invalidate-business-queries";
 import { deleteVideoPost, fetchVideoPostById, updateVideoPost } from "@/services/bid-service";
 import { formatNgn } from "@/utils/money";
 
@@ -65,10 +66,20 @@ export function EditPostScreen({ postId }: { postId: string }) {
 
   const isOwner = Boolean(profile?.id && post && businessQuery.data?.business?.id === post.business_id);
 
+  const fromProfile =
+    (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("from") === "profile") ||
+    (typeof window !== "undefined" && sessionStorage.getItem("tijar-edit-return") === "profile");
+  const afterEdit = fromProfile ? "/shop/profile" : "/shop";
+
   async function refresh() {
     await queryClient.invalidateQueries({ queryKey: ["bid-post", postId] });
-    await queryClient.invalidateQueries({ queryKey: ["video-feed"] });
-    await queryClient.invalidateQueries({ queryKey: ["seller-videos"] });
+    const shopId = businessQuery.data?.business?.id;
+    if (shopId) await invalidateBusinessQueries(queryClient, shopId);
+    else {
+      await queryClient.invalidateQueries({ queryKey: ["video-feed"] });
+      await queryClient.invalidateQueries({ queryKey: ["seller-videos"] });
+      await queryClient.invalidateQueries({ queryKey: ["own-profile-posts"] });
+    }
   }
 
   async function save() {
@@ -104,7 +115,8 @@ export function EditPostScreen({ postId }: { postId: string }) {
     haptic("success");
     toast.success("Post updated.");
     await refresh();
-    void navigate({ to: "/shop" });
+    if (fromProfile && typeof window !== "undefined") sessionStorage.removeItem("tijar-edit-return");
+    void navigate({ to: afterEdit });
   }
 
   async function remove() {
@@ -117,7 +129,8 @@ export function EditPostScreen({ postId }: { postId: string }) {
     }
     toast.success("Post deleted.");
     await refresh();
-    void navigate({ to: "/shop" });
+    if (fromProfile && typeof window !== "undefined") sessionStorage.removeItem("tijar-edit-return");
+    void navigate({ to: afterEdit });
   }
 
   const shareUrl = isBid && post ? `${window.location.origin}/shop/bid/${post.id}` : `${window.location.origin}/shop?v=${postId}`;
@@ -137,7 +150,7 @@ export function EditPostScreen({ postId }: { postId: string }) {
       <div className="flex items-center gap-2">
         <button
           type="button"
-          onClick={() => void navigate({ to: "/shop" })}
+          onClick={() => void navigate({ to: afterEdit })}
           className="flex size-9 items-center justify-center rounded-full border border-border"
           aria-label="Back"
         >

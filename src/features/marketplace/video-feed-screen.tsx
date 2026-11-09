@@ -1063,6 +1063,8 @@ export function VideoFeedScreen({ initialVideoId }: { initialVideoId?: string })
                       setMoreOpen(false);
                       void queryClient.invalidateQueries({ queryKey: ["video-feed"] });
                       void queryClient.invalidateQueries({ queryKey: ["seller-videos"] });
+                      void queryClient.invalidateQueries({ queryKey: ["own-profile-posts"] });
+                      void queryClient.invalidateQueries({ queryKey: ["products-dashboard"] });
                     }}
                   >
                     <Trash2 className="mr-2 size-4" /> {deleting ? "Deleting…" : "Delete post"}

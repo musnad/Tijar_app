@@ -23,6 +23,7 @@ import {
   Phone,
   Settings,
   Share2,
+  Trash2,
   Sparkles,
   Store,
   UserRound,
@@ -38,7 +39,6 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Switch } from "@/components/ui/switch";
 import { MarketplaceShell } from "@/features/marketplace/marketplace-shell";
-import { ProductCard } from "@/features/marketplace/product-card";
 import { useAuth } from "@/features/auth/auth-context";
 import { useAccountGate } from "@/features/auth/account-gate";
 import { signOut } from "@/features/auth/auth-service";
@@ -46,6 +46,7 @@ import { usePrimaryBusiness } from "@/hooks/use-primary-business";
 import { canUseBusinessMode } from "@/lib/account-mode";
 import { displayShopName, shopLinkSlug, shopUsername, usernameMatchesName } from "@/lib/shop-names";
 import { haptic } from "@/lib/haptics";
+import { invalidateBusinessQueries } from "@/lib/invalidate-business-queries";
 import { useTranslation } from "@/lib/i18n/context";
 import { cn } from "@/lib/utils";
 import {
@@ -55,8 +56,11 @@ import {
   saveNotificationPreferences,
 } from "@/services/marketplace-service";
 import { fetchProfilePosts, fetchProfileProducts } from "@/services/public-profile-service";
+import { deactivateProduct } from "@/services/product-service";
+import { deleteVideoPost } from "@/services/bid-service";
 import { fetchActivityNotifications, fetchFollowersForMe, fetchPeopleIFollow } from "@/services/social-service";
 import { resolveCoverSrc } from "@/services/video-feed-service";
+import { formatNgn } from "@/utils/money";
 import type { NotificationPreferences } from "@/types/database";
 
 function joinedLabel(iso: string | undefined): string {
@@ -81,6 +85,7 @@ export function ShopProfileScreen() {
   const shopQuery = usePrimaryBusiness(profile?.id);
   const [menuOpen, setMenuOpen] = useState(false);
   const [tab, setTab] = useState<"posts" | "products">("posts");
+  const [busyId, setBusyId] = useState<string | null>(null);
 
   useEffect(() => {
     if (loading || session) return;
@@ -251,6 +256,44 @@ export function ShopProfileScreen() {
 
   function patchPrefs(next: NotificationPreferences) {
     savePrefs.mutate(next);
+  }
+
+  function markEditFromProfile() {
+    if (typeof window !== "undefined") sessionStorage.setItem("tijar-edit-return", "profile");
+  }
+
+  async function refreshCatalogue() {
+    if (shop?.id) await invalidateBusinessQueries(queryClient, shop.id);
+    await queryClient.invalidateQueries({ queryKey: ["own-profile-posts"] });
+    await queryClient.invalidateQueries({ queryKey: ["own-profile-products"] });
+  }
+
+  async function removePost(postId: string) {
+    if (!window.confirm("Delete this post? It will leave your profile and the feed.")) return;
+    setBusyId(postId);
+    const r = await deleteVideoPost(postId);
+    setBusyId(null);
+    if (r.error) {
+      toast.error(r.error);
+      return;
+    }
+    haptic("success");
+    toast.success("Post deleted.");
+    await refreshCatalogue();
+  }
+
+  async function removeProduct(productId: string) {
+    if (!window.confirm("Delete this product? It will leave your profile and your business catalogue.")) return;
+    setBusyId(productId);
+    const r = await deactivateProduct(productId);
+    setBusyId(null);
+    if (r.error) {
+      toast.error(r.error);
+      return;
+    }
+    haptic("success");
+    toast.success("Product deleted.");
+    await refreshCatalogue();
   }
 
   return (
@@ -447,7 +490,7 @@ export function ShopProfileScreen() {
               {posts.map((post) => {
                 const cover = post.image_urls?.[0] || resolveCoverSrc(post.cover_path) || post.business_logo_url;
                 return (
-                  <li key={post.id}>
+                  <li key={post.id} className="relative">
                     <Link to="/shop" search={{ v: post.id }} className="block aspect-square bg-muted">
                       {cover ? (
                         // eslint-disable-next-line @next/next/no-img-element
@@ -458,6 +501,15 @@ export function ShopProfileScreen() {
                         </span>
                       )}
                     </Link>
+                    {!demo ? (
+                      <OwnerActions
+                        busy={busyId === post.id}
+                        editTo="/shop/post/$postId/edit"
+                        editParams={{ postId: post.id }}
+                        onEdit={markEditFromProfile}
+                        onDelete={() => void removePost(post.id)}
+                      />
+                    ) : null}
                   </li>
                 );
               })}
@@ -468,8 +520,35 @@ export function ShopProfileScreen() {
         ) : (
           <ul className="grid grid-cols-2 gap-2.5 px-4 py-4">
             {products.map((product) => (
-              <li key={product.id}>
-                <ProductCard product={product} compact />
+              <li key={product.id} className="relative overflow-hidden rounded-xl border border-border bg-card">
+                <Link to="/shop/p/$productId" params={{ productId: product.id }} className="block">
+                  <span className="block aspect-[4/3] bg-muted">
+                    {product.image_url ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={product.image_url} alt="" className="size-full object-cover" />
+                    ) : (
+                      <span className="flex size-full items-center justify-center text-[10px] font-bold text-muted-foreground">
+                        {t("shop.profile.products")}
+                      </span>
+                    )}
+                  </span>
+                  <span className="block p-2">
+                    <span className="line-clamp-2 text-[13px] font-bold leading-snug">{product.name}</span>
+                    <span className="mt-1 block text-[14px] font-extrabold text-primary">
+                      {product.sale_price != null ? formatNgn(Number(product.sale_price)) : "Ask seller"}
+                    </span>
+                  </span>
+                </Link>
+                {!demo ? (
+                  <OwnerActions
+                    busy={busyId === product.id}
+                    editTo="/app/products/$productId"
+                    editParams={{ productId: product.id }}
+                    onEdit={markEditFromProfile}
+                    onDelete={() => void removeProduct(product.id)}
+                    className="right-1.5 top-1.5"
+                  />
+                ) : null}
               </li>
             ))}
           </ul>
@@ -620,6 +699,49 @@ export function ShopProfileScreen() {
         </SheetContent>
       </Sheet>
     </Frame>
+  );
+}
+
+function OwnerActions({
+  busy,
+  editTo,
+  editParams,
+  onEdit,
+  onDelete,
+  className,
+}: {
+  busy: boolean;
+  editTo: "/shop/post/$postId/edit" | "/app/products/$productId";
+  editParams: { postId: string } | { productId: string };
+  onEdit: () => void;
+  onDelete: () => void;
+  className?: string;
+}) {
+  return (
+    <div className={cn("absolute right-1 top-1 z-[2] flex gap-1", className)}>
+      <Link
+        to={editTo}
+        params={editParams as never}
+        onClick={onEdit}
+        aria-label="Edit"
+        className="flex size-8 items-center justify-center rounded-full bg-black/60 text-white shadow-sm"
+      >
+        <Pencil className="size-3.5" />
+      </Link>
+      <button
+        type="button"
+        disabled={busy}
+        aria-label="Delete"
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          onDelete();
+        }}
+        className="flex size-8 items-center justify-center rounded-full bg-black/60 text-white shadow-sm disabled:opacity-50"
+      >
+        <Trash2 className="size-3.5" />
+      </button>
+    </div>
   );
 }
 
