@@ -1,24 +1,42 @@
 "use client";
 
 import { useQueryClient } from "@tanstack/react-query";
-import { BadgeCheck, Camera } from "lucide-react";
-import { useRef, useState } from "react";
+import { BadgeCheck, ScanFace } from "lucide-react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { verifyShopCac, verifyShopIdentity } from "@/services/business-service";
+import { absoluteAuthUrl } from "@/lib/site-url";
+import { kycRequest, verifyShopCac } from "@/services/business-service";
 import type { Business } from "@/types/database";
+
+type NinPerson = {
+  full_name?: string | null;
+  first_name?: string | null;
+  last_name?: string | null;
+  middle_name?: string | null;
+  date_of_birth?: string | null;
+  gender?: string | null;
+  phone_number?: string | null;
+  state_of_origin?: string | null;
+  nationality?: string | null;
+  masked_id?: string | null;
+  last4?: string | null;
+};
+
+function ninStorageKey(businessId: string) {
+  return `tijar-kyc-nin-${businessId}`;
+}
 
 export function KycSubmitCard({ business }: { business: Business }) {
   const queryClient = useQueryClient();
-  const fileRef = useRef<HTMLInputElement>(null);
   const already = business.verification_status === "verified" || Boolean(business.kyc_verified_at);
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
+  const savedPerson = (business.kyc_details ?? null) as NinPerson | null;
   const [idNumber, setIdNumber] = useState("");
-  const [dob, setDob] = useState("");
-  const [selfie, setSelfie] = useState("");
+  const [person, setPerson] = useState<NinPerson | null>(
+    business.verification_status === "in_progress" ? savedPerson : null,
+  );
   const [cacNumber, setCacNumber] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -27,47 +45,85 @@ export function KycSubmitCard({ business }: { business: Business }) {
     await queryClient.invalidateQueries({ queryKey: ["owned-businesses"] });
   }
 
-  async function onSelfie(file: File | undefined) {
-    if (!file) return;
-    try {
-      const dataUrl = await compressSelfie(file);
-      setSelfie(dataUrl);
-    } catch {
-      toast.error("Could not read that photo. Try another selfie.");
+  useEffect(() => {
+    if (already) return;
+    const params = new URLSearchParams(window.location.search);
+    const sessionId = params.get("liveness_session_id")?.trim();
+    const liveStatus = params.get("status")?.trim();
+    if (!sessionId) return;
+    const storedNin = sessionStorage.getItem(ninStorageKey(business.id)) ?? "";
+    if (digitsOnly(storedNin).length !== 11) {
+      toast.error("Enter your NIN again to finish live face verification.");
+      return;
     }
-  }
+    if (liveStatus && liveStatus !== "passed") {
+      toast.error("Live face check did not pass. Try again.");
+      return;
+    }
+    void finishLive(sessionId, storedNin);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [business.id]);
 
-  async function verify() {
-    if (firstName.trim().length < 2 || lastName.trim().length < 2) {
-      toast.error("Enter the first and last name on your NIN.");
-      return;
-    }
-    if (idNumber.replace(/\D/g, "").length !== 11) {
-      toast.error("Enter an 11-digit NIN.");
-      return;
-    }
-    if (!selfie) {
-      toast.error("Take a selfie so we can match your face to the NIN.");
+  async function lookupNin() {
+    const nin = digitsOnly(idNumber);
+    if (nin.length !== 11) {
+      toast.error("Enter your 11-digit NIN.");
       return;
     }
     setSaving(true);
-    const result = await verifyShopIdentity({
+    const result = await kycRequest({ action: "nin-lookup", businessId: business.id, idNumber: nin });
+    setSaving(false);
+    if (result.error) {
+      toast.error(result.error);
+      return;
+    }
+    sessionStorage.setItem(ninStorageKey(business.id), nin);
+    setPerson((result.person as NinPerson | undefined) ?? null);
+    toast.success("NIN found. Check that the name is yours, then start live face verification.");
+    await refresh();
+  }
+
+  async function startLive() {
+    const nin = sessionStorage.getItem(ninStorageKey(business.id)) ?? digitsOnly(idNumber);
+    if (digitsOnly(nin).length !== 11) {
+      toast.error("Enter your NIN first.");
+      return;
+    }
+    sessionStorage.setItem(ninStorageKey(business.id), digitsOnly(nin));
+    setSaving(true);
+    const result = await kycRequest({
+      action: "liveness-start",
       businessId: business.id,
-      idNumber,
-      firstName,
-      lastName,
-      dob: dob || undefined,
-      selfieImage: selfie,
-      cacNumber: cacNumber.trim() || undefined,
+      redirectUrl: absoluteAuthUrl("/app/business"),
+    });
+    setSaving(false);
+    if (result.error || !result.url) {
+      toast.error(result.error ?? "Could not start live face check.");
+      return;
+    }
+    window.location.assign(result.url);
+  }
+
+  async function finishLive(sessionId: string, nin: string) {
+    setSaving(true);
+    const result = await kycRequest({
+      action: "nin-liveness",
+      businessId: business.id,
+      idNumber: nin,
+      livenessSessionId: sessionId,
     });
     setSaving(false);
     if (result.error) {
       toast.error(result.error);
       return;
     }
+    sessionStorage.removeItem(ninStorageKey(business.id));
     toast.success(result.message ?? "Shop verified.");
-    setIdNumber("");
-    setSelfie("");
+    const clean = new URL(window.location.href);
+    clean.searchParams.delete("liveness_session_id");
+    clean.searchParams.delete("status");
+    clean.searchParams.delete("reference");
+    window.history.replaceState({}, "", clean.pathname + clean.search);
     await refresh();
   }
 
@@ -91,18 +147,18 @@ export function KycSubmitCard({ business }: { business: Business }) {
     <section className="mt-5 rounded-2xl border border-border bg-card p-4">
       <h2 className="flex items-center gap-1.5 text-sm font-extrabold">
         <BadgeCheck className="size-4 text-[#1F7A4D]" />
-        Verify with NIN + face
+        Verify with NIN + live face
       </h2>
       <p className="mt-1 text-xs text-muted-foreground">
-        Enter your NIN and take a selfie. If the name and face match, the shop is verified immediately. CAC is optional
-        for registered companies.
+        Enter your NIN. We fetch the official name from Bytid. If it is you, complete a live camera check. CAC is
+        optional.
       </p>
       {already ? (
         <div className="mt-3 space-y-2">
           <p className="rounded-xl bg-[#1F7A4D]/10 px-3 py-2 text-sm font-bold text-[#1F7A4D]">
             Auto-verified{business.kyc_full_name ? ` · ${business.kyc_full_name}` : ""}
             {business.kyc_id_last4 ? ` · NIN ****${business.kyc_id_last4}` : ""}
-            {business.kyc_face_matched ? " · face matched" : ""}
+            {business.kyc_face_matched ? " · live face matched" : ""}
           </p>
           {business.cac_legal_name || business.cac_number ? (
             <p className="text-xs font-semibold text-muted-foreground">
@@ -111,11 +167,7 @@ export function KycSubmitCard({ business }: { business: Business }) {
             </p>
           ) : (
             <div className="space-y-2">
-              <Input
-                value={cacNumber}
-                onChange={(e) => setCacNumber(e.target.value.toUpperCase())}
-                placeholder="Optional CAC (RC123456)"
-              />
+              <Input value={cacNumber} onChange={(e) => setCacNumber(e.target.value.toUpperCase())} placeholder="Optional CAC (RC123456)" />
               <Button type="button" variant="outline" className="min-h-11 w-full rounded-xl" disabled={saving} onClick={() => void saveCac()}>
                 {saving ? "Saving…" : "Save CAC (optional)"}
               </Button>
@@ -123,11 +175,7 @@ export function KycSubmitCard({ business }: { business: Business }) {
           )}
         </div>
       ) : (
-        <div className="mt-3 space-y-2">
-          <div className="grid grid-cols-2 gap-2">
-            <Input value={firstName} onChange={(e) => setFirstName(e.target.value)} placeholder="First name" autoComplete="given-name" />
-            <Input value={lastName} onChange={(e) => setLastName(e.target.value)} placeholder="Last name" autoComplete="family-name" />
-          </div>
+        <div className="mt-3 space-y-3">
           <Input
             inputMode="numeric"
             maxLength={11}
@@ -136,64 +184,48 @@ export function KycSubmitCard({ business }: { business: Business }) {
             placeholder="11-digit NIN"
             autoComplete="off"
           />
-          <label className="block text-xs font-bold text-muted-foreground">
-            Date of birth (optional)
-            <Input className="mt-1" type="date" value={dob} onChange={(e) => setDob(e.target.value)} />
-          </label>
-          <input
-            ref={fileRef}
-            type="file"
-            accept="image/*"
-            capture="user"
-            className="hidden"
-            onChange={(e) => void onSelfie(e.target.files?.[0])}
-          />
-          <button
+          <Button
             type="button"
-            className="flex min-h-24 w-full flex-col items-center justify-center gap-1 rounded-2xl border border-dashed border-border bg-muted/40"
-            onClick={() => fileRef.current?.click()}
+            className="min-h-11 w-full rounded-xl bg-[#0B1F4D] font-extrabold text-white hover:bg-[#0B1F4D]/90"
+            disabled={saving}
+            onClick={() => void lookupNin()}
           >
-            {selfie ? (
-              <img src={selfie} alt="Selfie preview" className="size-20 rounded-full object-cover" />
-            ) : (
-              <>
-                <Camera className="size-6 text-[#0B1F4D]" />
-                <span className="text-sm font-bold">Take a selfie</span>
-                <span className="text-[11px] text-muted-foreground">Face the camera in good light</span>
-              </>
-            )}
-          </button>
+            {saving && !person ? "Looking up NIN…" : "Fetch NIN details"}
+          </Button>
+          {person?.full_name ? (
+            <div className="rounded-2xl border border-border bg-muted/40 p-3 text-sm">
+              <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Name on NIN</p>
+              <p className="mt-1 text-base font-extrabold text-[#0B1F4D]">{person.full_name}</p>
+              <ul className="mt-2 space-y-0.5 text-xs text-muted-foreground">
+                {person.date_of_birth ? <li>DOB · {person.date_of_birth}</li> : null}
+                {person.gender ? <li>Gender · {person.gender}</li> : null}
+                {person.phone_number ? <li>Phone · {person.phone_number}</li> : null}
+                {person.state_of_origin ? <li>State · {person.state_of_origin}</li> : null}
+                {person.masked_id ? <li>NIN · {person.masked_id}</li> : null}
+              </ul>
+              <p className="mt-2 text-xs">If this is you, continue to the live face check. Printed photos will not pass.</p>
+              <Button
+                type="button"
+                className="mt-3 min-h-11 w-full rounded-xl bg-[#1F7A4D] font-extrabold text-white hover:bg-[#1F7A4D]/90"
+                disabled={saving}
+                onClick={() => void startLive()}
+              >
+                <ScanFace className="size-4" />
+                {saving ? "Opening camera…" : "Start live face verification"}
+              </Button>
+            </div>
+          ) : null}
           <Input
             value={cacNumber}
             onChange={(e) => setCacNumber(e.target.value.toUpperCase())}
             placeholder="CAC number (optional, e.g. RC123456)"
           />
-          <Button
-            type="button"
-            className="min-h-11 w-full rounded-xl bg-[#1F7A4D] font-extrabold text-white hover:bg-[#1F7A4D]/90"
-            disabled={saving}
-            onClick={() => void verify()}
-          >
-            {saving ? "Verifying…" : "Verify and auto-approve"}
-          </Button>
         </div>
       )}
     </section>
   );
 }
 
-async function compressSelfie(file: File): Promise<string> {
-  const bitmap = await createImageBitmap(file);
-  const max = 720;
-  const scale = Math.min(1, max / Math.max(bitmap.width, bitmap.height));
-  const width = Math.max(1, Math.round(bitmap.width * scale));
-  const height = Math.max(1, Math.round(bitmap.height * scale));
-  const canvas = document.createElement("canvas");
-  canvas.width = width;
-  canvas.height = height;
-  const ctx = canvas.getContext("2d");
-  if (!ctx) throw new Error("canvas");
-  ctx.drawImage(bitmap, 0, 0, width, height);
-  bitmap.close();
-  return canvas.toDataURL("image/jpeg", 0.72);
+function digitsOnly(value: string): string {
+  return value.replace(/\D/g, "").slice(0, 11);
 }

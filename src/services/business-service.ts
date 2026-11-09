@@ -417,15 +417,13 @@ export async function fetchBusinessMembers(businessId: string): Promise<{
   };
 }
 
-export async function verifyShopIdentity(input: {
-  businessId: string;
-  idNumber: string;
-  firstName: string;
-  lastName: string;
-  dob?: string;
-  selfieImage: string;
-  cacNumber?: string;
-}): Promise<{ error: string | null; message?: string }> {
+export async function kycRequest(body: Record<string, unknown>): Promise<{
+  error: string | null;
+  message?: string;
+  url?: string;
+  sessionId?: string;
+  person?: Record<string, unknown>;
+}> {
   const supabase = getSupabaseBrowserClient();
   const {
     data: { session },
@@ -437,16 +435,22 @@ export async function verifyShopIdentity(input: {
       Authorization: `Bearer ${session.access_token}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify(input),
+    body: JSON.stringify(body),
   });
-  let json: { error?: string; message?: string } = {};
+  let json: { error?: string; message?: string; url?: string; sessionId?: string; person?: Record<string, unknown> } = {};
   try {
-    json = (await res.json()) as { error?: string; message?: string };
+    json = (await res.json()) as typeof json;
   } catch {
     json = { error: res.ok ? undefined : "Verification did not complete." };
   }
   if (!res.ok) return { error: json.error ?? "Verification failed." };
-  return { error: null, message: json.message ?? "Verified." };
+  return {
+    error: null,
+    message: json.message,
+    url: json.url,
+    sessionId: json.sessionId,
+    person: json.person,
+  };
 }
 
 export async function verifyShopCac(
