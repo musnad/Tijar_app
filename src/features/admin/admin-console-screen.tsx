@@ -605,11 +605,25 @@ export function AdminConsoleScreen() {
   const q = query.trim();
   const kycRows = businesses.filter((b) =>
     matchesQuery(
-      [b.business_name, b.public_phone, b.public_whatsapp, b.owner?.phone, b.owner?.full_name, b.location, b.verification_status, b.moderation_status].join(" "),
+      [
+        b.business_name,
+        b.public_phone,
+        b.public_whatsapp,
+        b.owner?.phone,
+        b.owner?.full_name,
+        b.kyc_full_name,
+        b.kyc_id_last4,
+        b.kyc_masked_id,
+        b.kyc_phone,
+        b.cac_number,
+        b.cac_legal_name,
+        b.location,
+        b.verification_status,
+        b.moderation_status,
+      ].join(" "),
       q,
     ),
   );
-  const kycQueue = kycRows.filter((b) => KYC_QUEUE.includes(b.verification_status as KycStatus));
   const userRows = userLedger.filter(({ user, kind, phones }) => {
     if (userKind !== "all" && kind !== userKind) return false;
     return matchesQuery(
@@ -884,7 +898,7 @@ export function AdminConsoleScreen() {
         <section className="mt-4 space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="text-sm text-muted-foreground">
-              Approve shops one by one, or clear the whole queue.
+              NIN + face auto-verifies the shop. ID details from Bytid appear here. CAC is optional.
             </p>
             <Button
               className="rounded-xl font-bold"
@@ -894,10 +908,10 @@ export function AdminConsoleScreen() {
               {approvingAll ? "Approving…" : `Approve all (${stats.pendingKyc + stats.pendingApps})`}
             </Button>
           </div>
-          {kycQueue.length === 0 && q === "" && (
-            <EmptyState title="No KYC waiting" body="Submitted and in-review businesses will appear here." />
+          {kycRows.length === 0 && (
+            <EmptyState title="No shops yet" body="When a shop verifies with NIN and a selfie, the ID record lands here." />
           )}
-          {(q ? kycRows : kycQueue.length ? kycQueue : kycRows).map((biz) => (
+          {kycRows.map((biz) => (
             <KycCard
               key={biz.id}
               biz={biz}
@@ -1384,6 +1398,57 @@ function KycCard({
             Owner <PhoneLink phone={recordedPhone(biz.owner?.phone, biz.public_phone)} />
           </p>
           {biz.description ? <p className="mt-2 line-clamp-2 text-sm">{biz.description}</p> : null}
+          {biz.kyc_verified_at ? (
+            <dl className="mt-3 grid gap-1 text-xs">
+              <div>
+                <dt className="font-bold text-muted-foreground">ID used</dt>
+                <dd className="font-semibold">
+                  {(biz.kyc_id_type || "NIN").toUpperCase()} {biz.kyc_masked_id || (biz.kyc_id_last4 ? `****${biz.kyc_id_last4}` : "—")}
+                  {biz.kyc_face_matched ? " · face matched" : ""}
+                </dd>
+              </div>
+              {biz.kyc_full_name ? (
+                <div>
+                  <dt className="font-bold text-muted-foreground">Name on ID</dt>
+                  <dd>{biz.kyc_full_name}</dd>
+                </div>
+              ) : null}
+              {biz.kyc_dob ? (
+                <div>
+                  <dt className="font-bold text-muted-foreground">Date of birth</dt>
+                  <dd>{biz.kyc_dob}</dd>
+                </div>
+              ) : null}
+              {biz.kyc_phone ? (
+                <div>
+                  <dt className="font-bold text-muted-foreground">Phone on ID</dt>
+                  <dd>
+                    <PhoneLink phone={biz.kyc_phone} />
+                  </dd>
+                </div>
+              ) : null}
+              {biz.kyc_gender || biz.kyc_state ? (
+                <div>
+                  <dt className="font-bold text-muted-foreground">Profile</dt>
+                  <dd>{[biz.kyc_gender, biz.kyc_state].filter(Boolean).join(" · ")}</dd>
+                </div>
+              ) : null}
+              {biz.cac_number ? (
+                <div>
+                  <dt className="font-bold text-muted-foreground">CAC (optional)</dt>
+                  <dd>
+                    {biz.cac_number}
+                    {biz.cac_legal_name ? ` · ${biz.cac_legal_name}` : ""}
+                    {biz.cac_status ? ` · ${biz.cac_status}` : ""}
+                  </dd>
+                </div>
+              ) : (
+                <p className="text-muted-foreground">No CAC on file</p>
+              )}
+            </dl>
+          ) : (
+            <p className="mt-2 text-xs text-muted-foreground">Not verified yet. Owner must complete NIN + selfie.</p>
+          )}
           {biz.moderation_notes ? (
             <p className="mt-2 text-xs text-muted-foreground">Notes: {biz.moderation_notes}</p>
           ) : null}

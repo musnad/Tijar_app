@@ -419,11 +419,12 @@ export async function fetchBusinessMembers(businessId: string): Promise<{
 
 export async function verifyShopIdentity(input: {
   businessId: string;
-  idType: "bvn" | "nin";
   idNumber: string;
   firstName: string;
   lastName: string;
   dob?: string;
+  selfieImage: string;
+  cacNumber?: string;
 }): Promise<{ error: string | null; message?: string }> {
   const supabase = getSupabaseBrowserClient();
   const {
@@ -446,6 +447,33 @@ export async function verifyShopIdentity(input: {
   }
   if (!res.ok) return { error: json.error ?? "Verification failed." };
   return { error: null, message: json.message ?? "Verified." };
+}
+
+export async function verifyShopCac(
+  businessId: string,
+  cacNumber: string,
+): Promise<{ error: string | null; message?: string }> {
+  const supabase = getSupabaseBrowserClient();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  if (!session?.access_token) return { error: "Sign in first." };
+  const res = await fetch("/api/kyc/verify", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${session.access_token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ action: "cac", businessId, cacNumber }),
+  });
+  let json: { error?: string; message?: string } = {};
+  try {
+    json = (await res.json()) as { error?: string; message?: string };
+  } catch {
+    json = { error: res.ok ? undefined : "CAC lookup did not complete." };
+  }
+  if (!res.ok) return { error: json.error ?? "CAC lookup failed." };
+  return { error: null, message: json.message ?? "CAC saved." };
 }
 
 export async function submitKycForReview(

@@ -121,6 +121,18 @@ export type Business = {
   kyc_full_name?: string | null;
   kyc_verified_at?: string | null;
   kyc_reference?: string | null;
+  kyc_details?: Record<string, unknown> | null;
+  kyc_face_matched?: boolean;
+  kyc_dob?: string | null;
+  kyc_phone?: string | null;
+  kyc_gender?: string | null;
+  kyc_state?: string | null;
+  kyc_masked_id?: string | null;
+  cac_number?: string | null;
+  cac_legal_name?: string | null;
+  cac_status?: string | null;
+  cac_verified_at?: string | null;
+  cac_details?: Record<string, unknown> | null;
   /** Blue tick on the public shop name. Independent of KYC approval. */
   verified_badge?: boolean;
   public_slug: string | null;
