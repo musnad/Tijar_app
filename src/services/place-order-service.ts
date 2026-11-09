@@ -1,3 +1,4 @@
+import { requireVerifiedShop } from "@/lib/kyc/require-shop-verified";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { displayShopName, shopLinkSlug } from "@/lib/shop-names";
 import { uploadProductImage } from "@/services/product-image-service";
@@ -287,6 +288,8 @@ export async function publishPlaceOrderListing(input: {
   readyUntil?: string;
   qtyNote?: string;
 }): Promise<{ listing: PlaceOrderListing | null; error: string | null }> {
+  const blocked = await requireVerifiedShop(input.businessId);
+  if (blocked) return { listing: null, error: blocked };
   const id = crypto.randomUUID();
   const uploaded: string[] = [...(input.existingUrls ?? [])];
   for (let i = 0; i < input.photos.length; i += 1) {

@@ -5,9 +5,11 @@ import { AppShell } from "@/features/app/app-shell";
 import { AppPageHeader } from "@/features/app-layout/app-page-header";
 import { BackLinkButton } from "@/features/app-layout/back-link-button";
 import { RequireAuth } from "@/features/app/require-auth";
+import { VerifyToPostCard } from "@/features/business/verify-to-post";
 import { NewProductForm } from "@/features/products/new-product-form";
 import { useAuth } from "@/features/auth/auth-context";
 import { usePrimaryBusiness } from "@/hooks/use-primary-business";
+import { isShopIdentityVerified } from "@/lib/kyc/bytid";
 import { useTranslation } from "@/lib/i18n/context";
 
 export const Route = createFileRoute("/app/products/new")({
@@ -61,7 +63,8 @@ function NewProductPageContent() {
           </Button>
         </div>
       )}
-      {business && profile?.id && (
+      {business && profile?.id && !isShopIdentityVerified(business) && <VerifyToPostCard />}
+      {business && profile?.id && isShopIdentityVerified(business) && (
         <NewProductForm businessId={business.id} profileId={profile.id} />
       )}
     </AppShell>

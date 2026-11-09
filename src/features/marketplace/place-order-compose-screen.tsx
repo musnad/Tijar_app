@@ -8,12 +8,14 @@ import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { VerifyToPostCard } from "@/features/business/verify-to-post";
 import { MarketplaceShell } from "@/features/marketplace/marketplace-shell";
 import { PlaceOrderShareButton } from "@/features/marketplace/place-order-social";
 import { ProductPhotosField, type ProductPhotoItem } from "@/features/products/product-photos-field";
 import { useAuth } from "@/features/auth/auth-context";
 import { usePrimaryBusiness } from "@/hooks/use-primary-business";
 import { canUseBusinessMode } from "@/lib/account-mode";
+import { isShopIdentityVerified } from "@/lib/kyc/bytid";
 import { cn } from "@/lib/utils";
 import {
   PLACE_ORDER_CATEGORIES,
@@ -141,6 +143,14 @@ export function PlaceOrderComposeScreen() {
     await queryClient.invalidateQueries({ queryKey: ["for-you-place-orders"] });
     await queryClient.invalidateQueries({ queryKey: ["for-you-listings"] });
     void navigate({ to: "/shop/order-now" });
+  }
+
+  if (canSell && business && !isShopIdentityVerified(business)) {
+    return (
+      <MarketplaceShell hideTopBar variant="feed">
+        <VerifyToPostCard />
+      </MarketplaceShell>
+    );
   }
 
   if (!canSell) {

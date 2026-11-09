@@ -1433,6 +1433,18 @@ function KycCard({
                   <dd>{[biz.kyc_gender, biz.kyc_state].filter(Boolean).join(" · ")}</dd>
                 </div>
               ) : null}
+              {typeof biz.kyc_details?.address === "string" && biz.kyc_details.address ? (
+                <div>
+                  <dt className="font-bold text-muted-foreground">Address</dt>
+                  <dd>{biz.kyc_details.address}</dd>
+                </div>
+              ) : null}
+              {typeof biz.kyc_details?.state_of_residence === "string" && biz.kyc_details.state_of_residence ? (
+                <div>
+                  <dt className="font-bold text-muted-foreground">State of residence</dt>
+                  <dd>{biz.kyc_details.state_of_residence}</dd>
+                </div>
+              ) : null}
               {biz.cac_number ? (
                 <div>
                   <dt className="font-bold text-muted-foreground">CAC (optional)</dt>
@@ -1447,7 +1459,7 @@ function KycCard({
               )}
             </dl>
           ) : (
-            <p className="mt-2 text-xs text-muted-foreground">Not verified yet. Owner must complete NIN + selfie.</p>
+            <p className="mt-2 text-xs text-muted-foreground">Not verified yet. Owner must complete NIN + live face.</p>
           )}
           {biz.moderation_notes ? (
             <p className="mt-2 text-xs text-muted-foreground">Notes: {biz.moderation_notes}</p>

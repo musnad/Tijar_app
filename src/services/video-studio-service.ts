@@ -1,3 +1,4 @@
+import { requireVerifiedShop } from "@/lib/kyc/require-shop-verified";
 import type { VideoAttribution } from "@/lib/feed/rank-video-feed";
 import { assertProductsBelongToBusiness, requireShoppingTags } from "@/lib/feed/video-tag-guard";
 import { captureVideoThumbnail, inspectShoppingMedia } from "@/lib/video/file-guard";
@@ -33,6 +34,8 @@ const IMAGE_EXT: Record<string, { ext: string; type: string }> = {
 };
 
 export async function submitStudioVideo(input: StudioSubmitInput): Promise<{ error: string | null; videoId?: string }> {
+  const blocked = await requireVerifiedShop(input.businessId);
+  if (blocked) return { error: blocked };
   const report = (pct: number, label: string) => input.onProgress?.(pct, label);
   report(8, "Checking product and media…");
 

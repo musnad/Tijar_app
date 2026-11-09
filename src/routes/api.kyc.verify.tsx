@@ -8,7 +8,10 @@ import {
   bytidNinLiveFaceMatch,
   bytidNinLookup,
   digitsId,
+  extractNinRecord,
   faceMatched,
+  maskNin,
+  ninDetailsForStorage,
   normalizeCacNumber,
 } from "@/lib/kyc/bytid";
 import { shopAdminClient } from "@/lib/payments/shop-server";
@@ -95,6 +98,7 @@ export const Route = createFileRoute("/api/kyc/verify")({
           const last4 = idNumber.slice(-4);
           const reference = `tijar-nin-${businessId.replace(/-/g, "").slice(0, 10)}-${Date.now().toString(36)}`;
           const lookup = await bytidNinLookup({ idNumber, reference });
+          const record = extractNinRecord(lookup.person, idNumber);
           await ctx.admin.from("business_kyc_checks").insert({
             business_id: businessId,
             profile_id: ctx.profile.id,
@@ -104,26 +108,40 @@ export const Route = createFileRoute("/api/kyc/verify")({
             provider: "bytid",
             provider_reference: lookup.reference ?? reference,
             message: lookup.error ?? lookup.message ?? null,
-            details: lookup.person,
+            details: { ...lookup.person, typed_last4: last4 },
           });
           if (!lookup.ok) {
             return Response.json({ error: lookup.error ?? "NIN lookup failed.", code: lookup.status }, { status: lookup.httpStatus && lookup.httpStatus >= 400 ? lookup.httpStatus : 400 });
           }
-          const details = {
-            id_type: "nin",
-            masked_id: lookup.maskedId ?? `*****${last4}`,
-            last4,
-            full_name: lookup.fullName,
-            first_name: lookup.firstName,
-            last_name: lookup.lastName,
-            middle_name: lookup.middleName,
-            date_of_birth: lookup.dateOfBirth,
-            gender: lookup.gender,
-            phone_number: lookup.phone,
-            state_of_origin: lookup.stateOfOrigin,
-            nationality: lookup.nationality,
+          return Response.json({
+            ok: true,
             step: "nin_found",
-          };
+            message: "NIN found. Save this record on your shop, then complete live face verification.",
+            record,
+            person: record,
+          });
+        }
+
+        if (body.action === "save-nin") {
+          const idNumber = digitsId(body.idNumber);
+          const { data: last } = await ctx.admin
+            .from("business_kyc_checks")
+            .select("details, provider_reference")
+            .eq("business_id", businessId)
+            .eq("id_type", "nin")
+            .eq("status", "nin_found")
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          if (!last?.details) {
+            return Response.json({ error: "Look up your NIN first." }, { status: 400 });
+          }
+          const record = extractNinRecord(last.details as Record<string, unknown>, idNumber);
+          if (!record.first_name && !record.full_name) {
+            return Response.json({ error: "NIN record is incomplete. Look it up again." }, { status: 400 });
+          }
+          const details = ninDetailsForStorage(record, "nin_saved");
+          const last4 = digitsId(record.id_number).slice(-4) || owned.kyc_id_last4;
           await ctx.admin
             .from("businesses")
             .update({
@@ -131,29 +149,33 @@ export const Route = createFileRoute("/api/kyc/verify")({
               kyc_provider: "bytid",
               kyc_id_type: "nin",
               kyc_id_last4: last4,
-              kyc_full_name: lookup.fullName,
-              kyc_dob: lookup.dateOfBirth,
-              kyc_phone: lookup.phone,
-              kyc_gender: lookup.gender,
-              kyc_state: lookup.stateOfOrigin,
-              kyc_masked_id: details.masked_id,
+              kyc_full_name: record.full_name,
+              kyc_dob: record.date_of_birth,
+              kyc_phone: record.phone,
+              kyc_gender: record.gender,
+              kyc_state: record.state_of_residence || record.state_of_origin,
+              kyc_masked_id: maskNin(record.id_number) || `*****${last4}`,
               kyc_details: details,
               kyc_face_matched: false,
               kyc_verified_at: null,
-              kyc_reference: lookup.reference ?? reference,
-              moderation_notes: "NIN found. Waiting for live face check.",
+              kyc_reference: typeof last.provider_reference === "string" ? last.provider_reference : null,
+              moderation_notes: "NIN saved on shop. Waiting for live face check.",
               updated_at: new Date().toISOString(),
             })
             .eq("id", businessId);
           return Response.json({
             ok: true,
-            step: "nin_found",
-            message: "NIN found. Confirm the name, then complete live face verification.",
+            step: "nin_saved",
+            message: "Saved on your business account. Continue to live face verification.",
+            record: { ...record, id_number: idNumber.length === 11 ? idNumber : record.id_number },
             person: details,
           });
         }
 
         if (body.action === "liveness-start") {
+          if (owned.verification_status !== "in_progress" && owned.verification_status !== "verified") {
+            return Response.json({ error: "Save the NIN record on your shop first." }, { status: 400 });
+          }
           const redirectUrl = String(body.redirectUrl ?? "").trim();
           if (!/^https:\/\//i.test(redirectUrl)) {
             return Response.json({ error: "Live face needs a secure return URL." }, { status: 400 });
@@ -214,22 +236,13 @@ export const Route = createFileRoute("/api/kyc/verify")({
               { status: 400 },
             );
           }
-          const fullName = lookup.fullName || owned.kyc_full_name || "Verified owner";
+          const mergedPerson = { ...saved, ...(lookup.person ?? {}) };
+          const record = extractNinRecord(mergedPerson, idNumber);
+          const fullName = lookup.fullName || record.full_name || owned.kyc_full_name || "Verified owner";
           const details = {
-            id_type: "nin",
-            masked_id: lookup.maskedId ?? owned.kyc_id_last4,
-            last4: last4 || owned.kyc_id_last4,
-            full_name: fullName,
-            first_name: lookup.firstName,
-            last_name: lookup.lastName,
-            middle_name: lookup.middleName,
-            date_of_birth: lookup.dateOfBirth,
-            gender: lookup.gender,
-            phone_number: lookup.phone,
-            state_of_origin: lookup.stateOfOrigin,
-            nationality: lookup.nationality,
+            ...ninDetailsForStorage({ ...record, full_name: fullName }, "verified"),
             face: lookup.face,
-            step: "verified",
+            masked_id: lookup.maskedId ?? maskNin(idNumber),
           };
           await ctx.admin
             .from("businesses")
@@ -243,10 +256,10 @@ export const Route = createFileRoute("/api/kyc/verify")({
               kyc_reference: lookup.reference ?? reference,
               kyc_details: details,
               kyc_face_matched: true,
-              kyc_dob: lookup.dateOfBirth,
-              kyc_phone: lookup.phone,
-              kyc_gender: lookup.gender,
-              kyc_state: lookup.stateOfOrigin,
+              kyc_dob: record.date_of_birth || lookup.dateOfBirth,
+              kyc_phone: record.phone || lookup.phone,
+              kyc_gender: record.gender || lookup.gender,
+              kyc_state: record.state_of_residence || record.state_of_origin || lookup.stateOfOrigin,
               kyc_masked_id: details.masked_id,
               moderation_notes: `NIN + live face auto-verified via Bytid (${details.masked_id}).`,
               updated_at: new Date().toISOString(),
@@ -257,6 +270,7 @@ export const Route = createFileRoute("/api/kyc/verify")({
             autoVerified: true,
             message: `Verified as ${fullName}.`,
             person: details,
+            record,
           });
         }
 

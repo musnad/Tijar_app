@@ -1,5 +1,6 @@
 import type { ProductFormInput, StockAdjustInput } from "@/features/products/schemas";
 import { parseAttributes, variantsFromSizeColour } from "@/lib/catalogue/variants";
+import { requireVerifiedShop } from "@/lib/kyc/require-shop-verified";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { ensureOwnerMembership } from "@/services/business-service";
 import type { Product, ProductKind, StockMovementReason } from "@/types/database";
@@ -103,6 +104,8 @@ export async function createProduct(
   profileId: string,
   input: ProductFormInput,
 ): Promise<{ product: Product | null; error: string | null }> {
+  const blocked = await requireVerifiedShop(businessId);
+  if (blocked) return { product: null, error: blocked };
   const supabase = getSupabaseBrowserClient();
   const kind = (input.kind ?? "goods") as ProductKind;
   const name = input.name.trim();

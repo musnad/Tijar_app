@@ -423,6 +423,7 @@ export async function kycRequest(body: Record<string, unknown>): Promise<{
   url?: string;
   sessionId?: string;
   person?: Record<string, unknown>;
+  record?: Record<string, unknown>;
 }> {
   const supabase = getSupabaseBrowserClient();
   const {
@@ -437,7 +438,14 @@ export async function kycRequest(body: Record<string, unknown>): Promise<{
     },
     body: JSON.stringify(body),
   });
-  let json: { error?: string; message?: string; url?: string; sessionId?: string; person?: Record<string, unknown> } = {};
+  let json: {
+    error?: string;
+    message?: string;
+    url?: string;
+    sessionId?: string;
+    person?: Record<string, unknown>;
+    record?: Record<string, unknown>;
+  } = {};
   try {
     json = (await res.json()) as typeof json;
   } catch {
@@ -450,6 +458,7 @@ export async function kycRequest(body: Record<string, unknown>): Promise<{
     url: json.url,
     sessionId: json.sessionId,
     person: json.person,
+    record: json.record,
   };
 }
 

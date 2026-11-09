@@ -1,3 +1,4 @@
+import { requireVerifiedShop } from "@/lib/kyc/require-shop-verified";
 import { displayShopName, shopLinkSlug } from "@/lib/shop-names";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { publishPlaceOrderListing } from "@/services/place-order-service";
@@ -207,6 +208,8 @@ export async function publishBusinessStory(input: {
   offerKind?: "product" | "place_order";
   durationMs?: number | null;
 }): Promise<{ error: string | null; id?: string }> {
+  const blocked = await requireVerifiedShop(input.businessId);
+  if (blocked) return { error: blocked };
   const supabase = getSupabaseBrowserClient();
   const isVideo = input.file.type.startsWith("video/");
   const ext = isVideo ? (input.file.type.includes("webm") ? "webm" : "mp4") : input.file.type.includes("png") ? "png" : "jpg";

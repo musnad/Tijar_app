@@ -2,40 +2,69 @@
 
 import { useQueryClient } from "@tanstack/react-query";
 import { BadgeCheck, ScanFace } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import type { NinRecord } from "@/lib/kyc/bytid";
 import { absoluteAuthUrl } from "@/lib/site-url";
 import { kycRequest, verifyShopCac } from "@/services/business-service";
 import type { Business } from "@/types/database";
 
-type NinPerson = {
-  full_name?: string | null;
-  first_name?: string | null;
-  last_name?: string | null;
-  middle_name?: string | null;
-  date_of_birth?: string | null;
-  gender?: string | null;
-  phone_number?: string | null;
-  state_of_origin?: string | null;
-  nationality?: string | null;
-  masked_id?: string | null;
-  last4?: string | null;
-};
+const RECORD_ROWS: { key: keyof NinRecord; label: string }[] = [
+  { key: "id_number", label: "ID number" },
+  { key: "id_type", label: "ID type" },
+  { key: "first_name", label: "First name" },
+  { key: "middle_name", label: "Middle name" },
+  { key: "last_name", label: "Last name" },
+  { key: "date_of_birth", label: "Date of birth" },
+  { key: "gender", label: "Gender" },
+  { key: "phone", label: "Phone" },
+  { key: "address", label: "Address" },
+  { key: "state_of_residence", label: "State of residence" },
+];
 
 function ninStorageKey(businessId: string) {
   return `tijar-kyc-nin-${businessId}`;
 }
 
+function recordFromDetails(details: Record<string, unknown> | null | undefined, typedNin?: string): NinRecord | null {
+  if (!details) return null;
+  const str = (key: string) => (typeof details[key] === "string" ? details[key] : null);
+  const first = str("first_name");
+  const middle = str("middle_name");
+  const last = str("last_name");
+  const phone = str("phone") ?? str("phone_number");
+  const full = str("full_name") || [first, middle, last].filter(Boolean).join(" ") || null;
+  if (!first && !full && !str("id_number")) return null;
+  return {
+    id_number: typedNin && typedNin.length === 11 ? typedNin : str("id_number") ?? "",
+    id_type: str("id_type") ?? "NIN",
+    first_name: first,
+    middle_name: middle,
+    last_name: last,
+    date_of_birth: str("date_of_birth"),
+    gender: str("gender"),
+    phone,
+    address: str("address"),
+    state_of_residence: str("state_of_residence") ?? str("state"),
+    state_of_origin: str("state_of_origin"),
+    nationality: str("nationality"),
+    full_name: full,
+  };
+}
+
 export function KycSubmitCard({ business }: { business: Business }) {
   const queryClient = useQueryClient();
   const already = business.verification_status === "verified" || Boolean(business.kyc_verified_at);
-  const savedPerson = (business.kyc_details ?? null) as NinPerson | null;
+  const savedStep = String((business.kyc_details as Record<string, unknown> | null)?.step ?? "");
   const [idNumber, setIdNumber] = useState("");
-  const [person, setPerson] = useState<NinPerson | null>(
-    business.verification_status === "in_progress" ? savedPerson : null,
+  const [record, setRecord] = useState<NinRecord | null>(
+    recordFromDetails(business.kyc_details as Record<string, unknown> | null),
+  );
+  const [savedOnAccount, setSavedOnAccount] = useState(
+    savedStep === "nin_saved" || savedStep === "verified" || business.verification_status === "in_progress",
   );
   const [cacNumber, setCacNumber] = useState("");
   const [saving, setSaving] = useState(false);
@@ -64,6 +93,13 @@ export function KycSubmitCard({ business }: { business: Business }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [business.id]);
 
+  const displayRecord = useMemo(() => {
+    if (!record) return null;
+    const typed = digitsOnly(idNumber) || sessionStorage.getItem(ninStorageKey(business.id)) || "";
+    if (typed.length === 11) return { ...record, id_number: typed, id_type: "NIN" };
+    return record;
+  }, [record, idNumber, business.id]);
+
   async function lookupNin() {
     const nin = digitsOnly(idNumber);
     if (nin.length !== 11) {
@@ -78,8 +114,28 @@ export function KycSubmitCard({ business }: { business: Business }) {
       return;
     }
     sessionStorage.setItem(ninStorageKey(business.id), nin);
-    setPerson((result.person as NinPerson | undefined) ?? null);
-    toast.success("NIN found. Check that the name is yours, then start live face verification.");
+    const next = (result.record as NinRecord | undefined) ?? recordFromDetails(result.person, nin);
+    setRecord(next);
+    setSavedOnAccount(false);
+    toast.success("NIN found. Check the record, then save it on your business account.");
+  }
+
+  async function saveRecord() {
+    const nin = sessionStorage.getItem(ninStorageKey(business.id)) ?? digitsOnly(idNumber);
+    if (digitsOnly(nin).length !== 11) {
+      toast.error("Look up your NIN first.");
+      return;
+    }
+    setSaving(true);
+    const result = await kycRequest({ action: "save-nin", businessId: business.id, idNumber: nin });
+    setSaving(false);
+    if (result.error) {
+      toast.error(result.error);
+      return;
+    }
+    setSavedOnAccount(true);
+    if (result.record) setRecord(result.record as NinRecord);
+    toast.success(result.message ?? "Saved on your business account.");
     await refresh();
   }
 
@@ -87,6 +143,10 @@ export function KycSubmitCard({ business }: { business: Business }) {
     const nin = sessionStorage.getItem(ninStorageKey(business.id)) ?? digitsOnly(idNumber);
     if (digitsOnly(nin).length !== 11) {
       toast.error("Enter your NIN first.");
+      return;
+    }
+    if (!savedOnAccount) {
+      toast.error("Save the NIN record on your business account first.");
       return;
     }
     sessionStorage.setItem(ninStorageKey(business.id), digitsOnly(nin));
@@ -150,8 +210,8 @@ export function KycSubmitCard({ business }: { business: Business }) {
         Verify with NIN + live face
       </h2>
       <p className="mt-1 text-xs text-muted-foreground">
-        Enter your NIN. We fetch the official name from Bytid. If it is you, complete a live camera check. CAC is
-        optional.
+        Enter your NIN to load the official registry record. Save it on this shop, then complete a live camera check.
+        You cannot post until this is done. CAC is optional.
       </p>
       {already ? (
         <div className="mt-3 space-y-2">
@@ -160,6 +220,7 @@ export function KycSubmitCard({ business }: { business: Business }) {
             {business.kyc_id_last4 ? ` · NIN ****${business.kyc_id_last4}` : ""}
             {business.kyc_face_matched ? " · live face matched" : ""}
           </p>
+          {record ? <NinRecordCard record={record} /> : null}
           {business.cac_legal_name || business.cac_number ? (
             <p className="text-xs font-semibold text-muted-foreground">
               CAC {business.cac_number}
@@ -190,24 +251,32 @@ export function KycSubmitCard({ business }: { business: Business }) {
             disabled={saving}
             onClick={() => void lookupNin()}
           >
-            {saving && !person ? "Looking up NIN…" : "Fetch NIN details"}
+            {saving && !record ? "Looking up NIN…" : "Fetch NIN record"}
           </Button>
-          {person?.full_name ? (
-            <div className="rounded-2xl border border-border bg-muted/40 p-3 text-sm">
-              <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Name on NIN</p>
-              <p className="mt-1 text-base font-extrabold text-[#0B1F4D]">{person.full_name}</p>
-              <ul className="mt-2 space-y-0.5 text-xs text-muted-foreground">
-                {person.date_of_birth ? <li>DOB · {person.date_of_birth}</li> : null}
-                {person.gender ? <li>Gender · {person.gender}</li> : null}
-                {person.phone_number ? <li>Phone · {person.phone_number}</li> : null}
-                {person.state_of_origin ? <li>State · {person.state_of_origin}</li> : null}
-                {person.masked_id ? <li>NIN · {person.masked_id}</li> : null}
-              </ul>
-              <p className="mt-2 text-xs">If this is you, continue to the live face check. Printed photos will not pass.</p>
+          {displayRecord ? (
+            <div className="space-y-3">
+              <NinRecordCard record={displayRecord} />
+              {savedOnAccount ? (
+                <p className="rounded-xl bg-[#1F7A4D]/10 px-3 py-2 text-xs font-bold text-[#1F7A4D]">
+                  Saved on this business account. Continue to live face verification.
+                </p>
+              ) : (
+                <Button
+                  type="button"
+                  className="min-h-11 w-full rounded-xl bg-[#0B1F4D] font-extrabold text-white hover:bg-[#0B1F4D]/90"
+                  disabled={saving}
+                  onClick={() => void saveRecord()}
+                >
+                  {saving ? "Saving…" : "Save on my business account"}
+                </Button>
+              )}
+              <p className="text-xs text-muted-foreground">
+                Next is NIN + face verification. This is a live liveness check — printed photos will not pass.
+              </p>
               <Button
                 type="button"
-                className="mt-3 min-h-11 w-full rounded-xl bg-[#1F7A4D] font-extrabold text-white hover:bg-[#1F7A4D]/90"
-                disabled={saving}
+                className="min-h-11 w-full rounded-xl bg-[#1F7A4D] font-extrabold text-white hover:bg-[#1F7A4D]/90"
+                disabled={saving || !savedOnAccount}
                 onClick={() => void startLive()}
               >
                 <ScanFace className="size-4" />
@@ -223,6 +292,27 @@ export function KycSubmitCard({ business }: { business: Business }) {
         </div>
       )}
     </section>
+  );
+}
+
+function NinRecordCard({ record }: { record: NinRecord }) {
+  return (
+    <div className="rounded-2xl border border-border bg-muted/40 p-3">
+      <p className="text-[11px] font-extrabold uppercase tracking-wide text-muted-foreground">Record</p>
+      <p className="mt-0.5 text-[10px] text-muted-foreground">Returned by the registry. Stored encrypted.</p>
+      <dl className="mt-3 space-y-2">
+        {RECORD_ROWS.map((row) => {
+          const value = record[row.key];
+          if (!value) return null;
+          return (
+            <div key={row.key} className="grid grid-cols-[7.5rem_1fr] gap-2 text-sm">
+              <dt className="text-xs font-semibold text-muted-foreground">{row.label}</dt>
+              <dd className="font-bold text-[#0B1F4D]">{value}</dd>
+            </div>
+          );
+        })}
+      </dl>
+    </div>
   );
 }
 

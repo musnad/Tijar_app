@@ -118,8 +118,18 @@ function unconfigured(): BytidLookupResult {
   };
 }
 
+function flattenCheckPerson(data: Record<string, unknown> | null): Record<string, unknown> | null {
+  if (!data) return null;
+  const nested = asRecord(data.data);
+  const rest = { ...data };
+  delete rest.data;
+  delete rest.face_match;
+  delete rest.field_matches;
+  return { ...rest, ...(nested ?? {}) };
+}
+
 function personFromCheck(data: Record<string, unknown> | null, root: Record<string, unknown> | null, fallbackRef: string): BytidLookupResult {
-  const person = asRecord(data?.data);
+  const person = flattenCheckPerson(data);
   const face = asRecord(data?.face_match);
   const status = String(data?.status ?? "failed");
   return {
@@ -332,4 +342,103 @@ export async function bytidCacLookup(input: { cacNumber: string; reference: stri
 
 export function faceMatched(result: BytidLookupResult): boolean {
   return result.face?.status === "matched";
+}
+
+export type NinRecord = {
+  id_number: string;
+  id_type: string;
+  first_name: string | null;
+  middle_name: string | null;
+  last_name: string | null;
+  date_of_birth: string | null;
+  gender: string | null;
+  phone: string | null;
+  address: string | null;
+  state_of_residence: string | null;
+  state_of_origin: string | null;
+  nationality: string | null;
+  full_name: string | null;
+};
+
+function pickString(person: Record<string, unknown>, keys: string[]): string | null {
+  for (const key of keys) {
+    const value = person[key];
+    if (typeof value === "string" && value.trim()) return value.trim();
+  }
+  return null;
+}
+
+function formatAddress(person: Record<string, unknown>): string | null {
+  const nested = asRecord(person.address) ?? asRecord(person.residential_address);
+  if (nested) {
+    const joined = ["house_number", "street", "address_line", "city", "town", "lga", "state", "state_of_residence"]
+      .map((key) => (typeof nested[key] === "string" ? nested[key].trim() : ""))
+      .filter(Boolean)
+      .join(", ");
+    if (joined) return joined;
+  }
+  return pickString(person, ["address", "residential_address", "residence_address", "house_address"]);
+}
+
+export function extractNinRecord(person: Record<string, unknown> | null | undefined, typedNin: string): NinRecord {
+  const p = person ?? {};
+  const first = pickString(p, ["first_name"]);
+  const middle = pickString(p, ["middle_name"]);
+  const last = pickString(p, ["last_name"]);
+  const full =
+    pickString(p, ["full_name"]) ||
+    [first, middle, last].filter(Boolean).join(" ") ||
+    null;
+  const id = digitsId(typedNin);
+  return {
+    id_number: id.length === 11 ? id : pickString(p, ["id_number"]) ?? "",
+    id_type: "NIN",
+    first_name: first,
+    middle_name: middle,
+    last_name: last,
+    date_of_birth: pickString(p, ["date_of_birth", "dob"]),
+    gender: pickString(p, ["gender"]),
+    phone: pickString(p, ["phone_number", "phone", "mobile"]),
+    address: formatAddress(p),
+    state_of_residence: pickString(p, ["state_of_residence", "residence_state", "state"]),
+    state_of_origin: pickString(p, ["state_of_origin"]),
+    nationality: pickString(p, ["nationality"]),
+    full_name: full,
+  };
+}
+
+export function ninDetailsForStorage(record: NinRecord, step: string): Record<string, unknown> {
+  const last4 = digitsId(record.id_number).slice(-4);
+  return {
+    id_type: "NIN",
+    id_number: maskNin(record.id_number),
+    last4,
+    first_name: record.first_name,
+    middle_name: record.middle_name,
+    last_name: record.last_name,
+    full_name: record.full_name,
+    date_of_birth: record.date_of_birth,
+    gender: record.gender,
+    phone: record.phone,
+    phone_number: record.phone,
+    address: record.address,
+    state_of_residence: record.state_of_residence,
+    state_of_origin: record.state_of_origin,
+    nationality: record.nationality,
+    step,
+  };
+}
+
+export function maskNin(idNumber: string): string {
+  const digits = digitsId(idNumber);
+  if (digits.length !== 11) return "*****";
+  return `${digits.slice(0, 3)}*****${digits.slice(-3)}`;
+}
+
+export function isShopIdentityVerified(business: {
+  verification_status?: string | null;
+  kyc_verified_at?: string | null;
+  kyc_face_matched?: boolean | null;
+}): boolean {
+  return business.verification_status === "verified" && Boolean(business.kyc_verified_at);
 }

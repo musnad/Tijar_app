@@ -10,7 +10,9 @@ import { MarketplaceShell } from "@/features/marketplace/marketplace-shell";
 import { SellerVideoStudioScreen } from "@/features/videos/seller-video-studio-screen";
 import { useAuth } from "@/features/auth/auth-context";
 import { usePrimaryBusiness } from "@/hooks/use-primary-business";
+import { VerifyToPostCard } from "@/features/business/verify-to-post";
 import { canUseBusinessMode } from "@/lib/account-mode";
+import { isShopIdentityVerified } from "@/lib/kyc/bytid";
 import { fetchCart, fetchMyBusinessUpgradeRequest } from "@/services/marketplace-service";
 
 export function VideoCreateScreen({
@@ -54,8 +56,14 @@ export function VideoCreateScreen({
   }, [request?.status, refreshProfile]);
 
   return (
-    <MarketplaceShell cartCount={cartCount} hideTopBar hideNav={checkingAccess || hasBusinessAccount} variant="feed">
+    <MarketplaceShell
+      cartCount={cartCount}
+      hideTopBar
+      hideNav={checkingAccess || (hasBusinessAccount && isShopIdentityVerified(business!))}
+      variant="feed"
+    >
       {hasBusinessAccount && profile && business ? (
+        isShopIdentityVerified(business) ? (
         <div className="flex min-h-0 flex-1 flex-col">
           <div className="flex shrink-0 gap-2 px-3 pb-2 pt-[max(0.4rem,env(safe-area-inset-top))]">
             <Button className="min-h-10 flex-1 rounded-full bg-[#0B1F4D] text-xs font-extrabold" type="button">
@@ -72,6 +80,11 @@ export function VideoCreateScreen({
             initialProductId={productId}
           />
         </div>
+        ) : (
+          <div className="min-h-0 flex-1 overflow-y-auto">
+            <VerifyToPostCard />
+          </div>
+        )
       ) : (
       <div
         className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-contain px-4 pb-6 pt-[max(0.75rem,env(safe-area-inset-top))] [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"

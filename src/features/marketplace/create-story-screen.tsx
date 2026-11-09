@@ -8,9 +8,11 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { CommerceSticker } from "@/features/marketplace/commerce-sticker";
+import { VerifyToPostCard } from "@/features/business/verify-to-post";
 import { MarketplaceShell } from "@/features/marketplace/marketplace-shell";
 import { useAuth } from "@/features/auth/auth-context";
 import { usePrimaryBusiness } from "@/hooks/use-primary-business";
+import { isShopIdentityVerified } from "@/lib/kyc/bytid";
 import { cn } from "@/lib/utils";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { publishBusinessStory } from "@/services/story-service";
@@ -75,6 +77,10 @@ export function CreateStoryScreen() {
       toast.error("Create your shop first.");
       return;
     }
+    if (!isShopIdentityVerified(business)) {
+      toast.error("Verify your NIN and live face before you post.");
+      return;
+    }
     if (!file) {
       toast.error("Pick a photo or short video.");
       return;
@@ -109,6 +115,14 @@ export function CreateStoryScreen() {
         : "Story is live. Shoppers can buy it from the sticker.",
     );
     void navigate({ to: "/shop" });
+  }
+
+  if (business && !isShopIdentityVerified(business)) {
+    return (
+      <MarketplaceShell hideTopBar variant="feed">
+        <VerifyToPostCard />
+      </MarketplaceShell>
+    );
   }
 
   return (
