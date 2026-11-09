@@ -1,4 +1,4 @@
-import { Outlet, useNavigate, useRouterState } from "@tanstack/react-router";
+import { Outlet, useRouterState } from "@tanstack/react-router";
 import { useEffect } from "react";
 
 import { SiteFooter, SiteHeader } from "@/components/site-shell";
@@ -33,7 +33,6 @@ function isShopFeedPath(pathname: string): boolean {
 
 function NativeRuntime() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
-  const navigate = useNavigate();
 
   useEffect(() => {
     if (!isNativeApp()) return;
@@ -75,10 +74,10 @@ function NativeRuntime() {
 
   useEffect(() => {
     if (!isNativeApp()) return;
-    if (pathname === "/" || pathname === "" || pathname === "/index.html") {
-      void navigate({ to: "/shop" });
+    if (window.location.hostname === "localhost" || pathname === "/" || pathname === "" || pathname === "/index.html") {
+      window.location.replace("https://www.tijar.ng/shop");
     }
-  }, [pathname, navigate]);
+  }, [pathname]);
 
   return null;
 }

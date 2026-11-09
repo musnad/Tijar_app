@@ -1,10 +1,13 @@
 /** Native Capacitor shell vs mobile browser vs desktop. */
 
 export function isNativeApp(): boolean {
-  if (typeof document !== "undefined" && document.documentElement.classList.contains("tijar-android-webview")) {
+  // Never treat SSR as native — Vercel sees the TijarApp user-agent and would
+  // otherwise hydrate a different tree than the website.
+  if (typeof window === "undefined") return false;
+  if (document.documentElement.classList.contains("tijar-android-webview")) {
     return true;
   }
-  if (typeof navigator !== "undefined" && /TijarApp\//i.test(navigator.userAgent)) {
+  if (/TijarApp\//i.test(navigator.userAgent)) {
     return true;
   }
   const cap = (globalThis as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor;

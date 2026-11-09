@@ -15,7 +15,7 @@ function ShopLoadError({ reset }: ErrorComponentProps) {
         className="mt-6 inline-flex min-h-12 items-center justify-center rounded-full bg-primary px-6 text-sm font-extrabold text-white"
         onClick={() => {
           reset();
-          window.location.replace("/shop");
+          window.location.replace("https://www.tijar.ng/shop");
         }}
       >
         Try again
