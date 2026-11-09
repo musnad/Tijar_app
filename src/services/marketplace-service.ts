@@ -29,12 +29,16 @@ import type {
   PublicBusiness,
   PublicProduct,
 } from "@/types/database";
+import { resolveShopMapCoords } from "@/lib/maps/shop-coords";
 import { haversineKm } from "@/utils/discover";
 import { expandSearchTerms } from "@/utils/discover-catalog";
 
 export type NearbyMarketplaceShop = PublicBusiness & {
   distance_km: number;
   products: PublicProduct[];
+  map_lat: number;
+  map_lng: number;
+  location_estimated: boolean;
 };
 
 export type MarketplaceShop = PublicBusiness & {
@@ -280,59 +284,49 @@ export async function searchMarketplaceProducts(query: string): Promise<{
   return { data: await attachProductShopNames((data ?? []) as PublicProduct[]), error: null };
 }
 
-/** Informal shops with products near a map centre — for purchase discovery. */
+/** Published shops with a map position, ranked from the shopper’s location. */
 export async function fetchNearbyMarketplaceShops(input: {
   lat: number;
   lng: number;
   radiusKm?: number;
   limit?: number;
 }): Promise<{ shops: NearbyMarketplaceShop[]; error: string | null }> {
-  const radiusKm = input.radiusKm ?? 25;
+  const radiusKm = input.radiusKm ?? 50;
   const centre = { lat: input.lat, lng: input.lng };
+  const includeAll = !Number.isFinite(radiusKm) || radiusKm <= 0 || radiusKm >= 500;
 
-  const [productsRes, listingsRes] = await Promise.all([
-    fetchMarketplaceProducts(200),
-    (async () => {
-      const supabase = getSupabaseBrowserClient();
-      return supabase
-        .from("public_business_listings")
-        .select(
-          "id, slug, business_name, description, location_text, public_location_label, latitude, longitude, logo_url, category_id, category_name, public_phone, public_whatsapp, opening_hours, is_verified, verification_status, is_informal",
-        )
-        .limit(400);
-    })(),
+  const [listingsRes, productsRes] = await Promise.all([
+    fetchMarketplaceShops(800),
+    fetchMarketplaceProducts(400).catch(() => ({ data: [] as PublicProduct[], error: null })),
   ]);
 
-  if (productsRes.error) return { shops: [], error: productsRes.error };
-  if (listingsRes.error) return { shops: [], error: listingsRes.error.message };
+  if (listingsRes.error) return { shops: [], error: listingsRes.error };
 
   const productsByBiz = new Map<string, PublicProduct[]>();
-  for (const p of productsRes.data) {
+  for (const p of productsRes.data ?? []) {
     const list = productsByBiz.get(p.business_id) ?? [];
     list.push(p);
     productsByBiz.set(p.business_id, list);
   }
 
   const shops: NearbyMarketplaceShop[] = [];
-  for (const row of listingsRes.data ?? []) {
-    const listing = row as PublicBusiness;
-    if (listing.is_informal === false) continue;
-    if (!productsByBiz.has(listing.id)) continue;
-    if (typeof listing.latitude !== "number" || typeof listing.longitude !== "number") continue;
-    const distance_km = haversineKm(centre, {
-      lat: listing.latitude,
-      lng: listing.longitude,
-    });
-    if (distance_km > radiusKm) continue;
+  for (const listing of listingsRes.shops) {
+    const coords = resolveShopMapCoords(listing);
+    if (!coords) continue;
+    const distance_km = haversineKm(centre, coords);
+    if (!includeAll && distance_km > radiusKm) continue;
     shops.push({
       ...listing,
+      map_lat: coords.lat,
+      map_lng: coords.lng,
+      location_estimated: coords.estimated,
       distance_km,
       products: productsByBiz.get(listing.id) ?? [],
     });
   }
 
   shops.sort((a, b) => a.distance_km - b.distance_km);
-  return { shops: shops.slice(0, input.limit ?? 40), error: null };
+  return { shops: shops.slice(0, input.limit ?? 250), error: null };
 }
 
 /**

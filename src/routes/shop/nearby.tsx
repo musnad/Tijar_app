@@ -5,10 +5,10 @@ import { NearbyScreen } from "@/features/marketplace/nearby-screen";
 export const Route = createFileRoute("/shop/nearby")({
   head: () => ({
     meta: [
-      { title: "Nearby products — TIJAR Marketplace" },
+      { title: "Near me — TIJAR Marketplace" },
       {
         name: "description",
-        content: "Discover nearby informal shops on the map and buy products on TIJAR.",
+        content: "See businesses around you on the map and open shops near your location on TIJAR.",
       },
     ],
   }),
