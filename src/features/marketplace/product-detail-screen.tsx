@@ -10,6 +10,7 @@ import { TijarLogo } from "@/components/brand-logo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { MarketplaceShell } from "@/features/marketplace/marketplace-shell";
+import { ProductSocialBar } from "@/features/marketplace/product-social";
 import { isMockFeedId } from "@/features/marketplace/feed-mock";
 import { useAuth } from "@/features/auth/auth-context";
 import { formatPricePerUnit, formatUnitWord, lineTotal, normalizeQty, unitMinQty, unitStep } from "@/lib/catalogue/units";
@@ -328,10 +329,6 @@ export function ProductDetailScreen({ productId }: { productId: string }) {
                     </div>
                   ))}
                 </div>
-                {heartBurst || liked ? (
-                  <Heart
-                    className={cn(
-                      "pointer-events-none absolute left-1/2 top-1/2 size-16 -translate-x-1/2 -translate-y-1/2 text-red-500 transition-all",
                 {heartBurst ? (
                   <Heart
                     className="pointer-events-none absolute left-1/2 top-1/2 z-[2] size-20 -translate-x-1/2 -translate-y-1/2 fill-red-500 text-red-500 [animation:feed-heart_450ms_ease-out]"
@@ -383,10 +380,16 @@ export function ProductDetailScreen({ productId }: { productId: string }) {
                 </ul>
               )}
 
-              <ProductSocialBar product={product} className="mt-3 gap-1" />
+              <h2 className="mt-3 text-lg font-extrabold leading-snug text-[color:var(--brand-navy,#001B3A)]">{product.name}</h2>
+              {product.kind === "service" ? (
+                <p className="mt-1 text-[13px] font-semibold text-muted-foreground">
+                  {serviceLabel(product)}
                   {formatServiceDates(product) ? ` · ${formatServiceDates(product)}` : ""}
                 </p>
-              )}
+              ) : formatServiceDates(product) ? (
+                <p className="mt-1 text-[13px] font-semibold text-muted-foreground">{formatServiceDates(product)}</p>
+              ) : null}
+              <ProductSocialBar product={product} className="mt-3 gap-1" />
 
               <div className="mt-1 flex flex-wrap items-center gap-2">
                 <p className="text-[28px] font-black tabular-nums leading-none text-[color:var(--brand-navy,#001B3A)]">
