@@ -97,17 +97,17 @@ function matchesQuery(listing: DiscoverListing, q: string): boolean {
   if (!q) return true;
   const haystack = [
     listing.business_name,
+    listing.slug,
     listing.description ?? "",
     listing.category_name ?? "",
+    listing.slug.replace(/-/g, ""),
+    `@${listing.slug.replace(/^@/, "")}`,
     ...(listing.product_names ?? []),
   ]
     .join(" ")
     .toLowerCase();
-  return q
-    .toLowerCase()
-    .split(/\s+/)
-    .filter(Boolean)
-    .every((word) => haystack.includes(word));
+  const needle = q.trim().replace(/^@+/, "").toLowerCase();
+  return needle.split(/\s+/).filter(Boolean).every((word) => haystack.includes(word));
 }
 
 /** Search + filter + distance-sort. Pure; used for list and map pins alike. */

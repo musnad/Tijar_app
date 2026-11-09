@@ -210,7 +210,7 @@ const FLAT: Record<string, L7> = {
   "shop.buy.signIn": row("Sign in to buy.", "Shiga don siye.", "سجّل الدخول للشراء.", "Wọlé láti ra.", "Banye ka zụta.", "Ingia ili kununua.", "Seŋo ngam soodde."),
 
   "shop.explore.title": row("Explore", "Bincika", "استكشف", "Ṣàwárí", "Nyochaa", "Gundua", "Yiylito"),
-  "shop.explore.search": row("Search shops, products, area…", "Nemi shago, kaya, yanki…", "ابحث عن متاجر ومنتجات ومنطقة…", "Wá ṣọ́ọ̀bù, ọjà, agbègbè…", "Chọọ ụlọ ahịa, ngwaahịa, ebe…", "Tafuta maduka, bidhaa, eneo…", "Yiylito teeru, ngalu, nokku…"),
+  "shop.explore.search": row("Search shop name, @username, suya, tsire…", "Nemi sunan shago, @username, suya, tsire…", "ابحث باسم المتجر أو @username أو سويا…", "Wá orúkọ ṣọ́ọ̀bù, @username, suya, tsire…", "Chọọ aha ụlọ ahịa, @username, suya, tsire…", "Tafuta jina la duka, @username, suya, tsire…", "Yiylito innde teeru, @username, suya, tsire…"),
   "shop.explore.products": row("Products", "Kayayyaki", "منتجات", "Àwọn ọjà", "Ngwaahịa", "Bidhaa", "Ngaluuji"),
   "shop.explore.services": row("Services", "Ayyuka", "خدمات", "Iṣẹ́", "Ọrụ", "Huduma", "Sarwisaaji"),
   "shop.explore.sellers": row("Sellers", "Masu siyarwa", "البائعون", "Àwọn oníṣòwò", "Ndị na-ere", "Wauzaji", "Jeeyooɓe"),

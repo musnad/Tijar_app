@@ -103,7 +103,7 @@ export async function fetchPublicPerson(profileId: string): Promise<{ person: Pu
 }
 
 export async function searchPublicPeople(query: string): Promise<{ people: PublicPerson[]; error: string | null }> {
-  const needle = query.trim();
+  const needle = query.trim().replace(/^@+/, "");
   const supabase = getSupabaseBrowserClient();
   let q = supabase.from("public_profiles").select("id, full_name, avatar_url, bio, created_at").order("full_name").limit(40);
   if (needle) q = q.ilike("full_name", `%${needle}%`);

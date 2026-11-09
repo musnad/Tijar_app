@@ -30,6 +30,7 @@ import type {
   PublicProduct,
 } from "@/types/database";
 import { haversineKm } from "@/utils/discover";
+import { expandSearchTerms } from "@/utils/discover-catalog";
 
 export type NearbyMarketplaceShop = PublicBusiness & {
   distance_km: number;
@@ -191,6 +192,92 @@ export async function fetchMarketplaceShops(limit = 200): Promise<{
     }),
     error: null,
   };
+}
+
+function sanitizeSearchNeedle(query: string): string {
+  return query
+    .trim()
+    .replace(/^@+/, "")
+    .replace(/[%_,()]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 48);
+}
+
+async function attachShopProductNames(rows: PublicBusiness[]): Promise<MarketplaceShop[]> {
+  if (rows.length === 0) return [];
+  const supabase = getSupabaseBrowserClient();
+  const { data: productRows } = await supabase
+    .from("public_business_products")
+    .select("business_id, name")
+    .in(
+      "business_id",
+      rows.map((b) => b.id),
+    )
+    .limit(2000);
+  const namesByBiz = new Map<string, string[]>();
+  for (const row of productRows ?? []) {
+    const list = namesByBiz.get(row.business_id as string) ?? [];
+    list.push(row.name as string);
+    namesByBiz.set(row.business_id as string, list);
+  }
+  return rows.map((b) => {
+    const names = namesByBiz.get(b.id) ?? [];
+    return { ...b, product_names: names, product_count: names.length };
+  });
+}
+
+/** Find shops by name, @username, description, or informal words like suya even with no category. */
+export async function searchMarketplaceShops(query: string): Promise<{
+  shops: MarketplaceShop[];
+  error: string | null;
+}> {
+  const terms = [...new Set(expandSearchTerms(query).map(sanitizeSearchNeedle).filter((t) => t.length >= 2))].slice(0, 6);
+  if (terms.length === 0) return { shops: [], error: null };
+  const supabase = getSupabaseBrowserClient();
+  const or = terms
+    .flatMap((t) => [`business_name.ilike.%${t}%`, `slug.ilike.%${t}%`, `description.ilike.%${t}%`])
+    .join(",");
+  let { data, error } = await supabase.from("public_marketplace_businesses").select(MARKETPLACE_SHOP_SELECT).or(or).limit(60);
+  if (error) {
+    const fallback = await supabase.from("public_business_listings").select(MARKETPLACE_SHOP_SELECT).or(or).limit(60);
+    data = fallback.data;
+    error = fallback.error;
+  }
+  if (error) {
+    const core = await supabase.from("public_business_listings").select(MARKETPLACE_SHOP_SELECT_CORE).or(or).limit(60);
+    if (core.error) return { shops: [], error: core.error.message };
+    data = core.data;
+  }
+  return { shops: await attachShopProductNames((data ?? []) as PublicBusiness[]), error: null };
+}
+
+export async function searchMarketplaceProducts(query: string): Promise<{
+  data: PublicProduct[];
+  error: string | null;
+}> {
+  const terms = [...new Set(expandSearchTerms(query).map(sanitizeSearchNeedle).filter((t) => t.length >= 2))].slice(0, 6);
+  if (terms.length === 0) return { data: [], error: null };
+  const supabase = getSupabaseBrowserClient();
+  const or = terms
+    .flatMap((t) => [
+      `name.ilike.%${t}%`,
+      `description.ilike.%${t}%`,
+      `business_name.ilike.%${t}%`,
+      `business_slug.ilike.%${t}%`,
+    ])
+    .join(",");
+  const { data, error } = await supabase.from("public_business_products").select(MARKETPLACE_PRODUCT_SELECT).or(or).limit(60);
+  if (error) {
+    const retry = await supabase
+      .from("public_business_products")
+      .select(MARKETPLACE_PRODUCT_SELECT_LEGACY)
+      .or(terms.map((t) => `name.ilike.%${t}%`).join(","))
+      .limit(60);
+    if (retry.error) return { data: [], error: retry.error.message };
+    return { data: await attachProductShopNames((retry.data ?? []) as PublicProduct[]), error: null };
+  }
+  return { data: await attachProductShopNames((data ?? []) as PublicProduct[]), error: null };
 }
 
 /** Informal shops with products near a map centre — for purchase discovery. */

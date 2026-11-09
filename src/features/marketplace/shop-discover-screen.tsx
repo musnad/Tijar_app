@@ -28,12 +28,15 @@ import { useTranslation } from "@/lib/i18n/context";
 import { useUserArea } from "@/hooks/use-user-area";
 import { AREA_PRESETS } from "@/lib/maps/provider";
 import { areaRank } from "@/lib/nigeria-locations";
+import { shopUsername } from "@/lib/shop-names";
 import { cn } from "@/lib/utils";
 import { listBusinessCategories } from "@/services/business-service";
 import {
   fetchCart,
   fetchMarketplaceProducts,
   fetchMarketplaceShops,
+  searchMarketplaceProducts,
+  searchMarketplaceShops,
   type MarketplaceShop,
 } from "@/services/marketplace-service";
 import {
@@ -41,7 +44,7 @@ import {
   filterCatalogProducts,
   filterCatalogSellers,
 } from "@/utils/discover-catalog";
-import { filterListings, formatDistance } from "@/utils/discover";
+import { filterListings, formatDistance, haversineKm } from "@/utils/discover";
 import { searchQueryFromProductImage } from "@/lib/search-by-image";
 import { searchPublicPeople } from "@/services/public-profile-service";
 import type { PublicProduct } from "@/types/database";
@@ -100,6 +103,24 @@ export function ShopDiscoverScreen() {
       return r.shops;
     },
   });
+  const shopSearchQuery = useQuery({
+    queryKey: ["marketplace-shop-search", query],
+    enabled: query.trim().length >= 2,
+    queryFn: async () => {
+      const r = await searchMarketplaceShops(query);
+      if (r.error) throw new Error(r.error);
+      return r.shops;
+    },
+  });
+  const productSearchQuery = useQuery({
+    queryKey: ["marketplace-product-search", query],
+    enabled: query.trim().length >= 2,
+    queryFn: async () => {
+      const r = await searchMarketplaceProducts(query);
+      if (r.error) throw new Error(r.error);
+      return r.data;
+    },
+  });
   const categoriesQuery = useQuery({
     queryKey: ["business-categories"],
     queryFn: async () => (await listBusinessCategories()).data,
@@ -131,9 +152,19 @@ export function ShopDiscoverScreen() {
         out.push(product);
       }
     }
+    for (const product of productSearchQuery.data ?? []) {
+      if (seen.has(product.id)) continue;
+      seen.add(product.id);
+      out.push(product);
+    }
     return out;
-  }, [productsQuery.data]);
-  const shops = shopsQuery.data ?? [];
+  }, [productsQuery.data, productSearchQuery.data]);
+  const shops = useMemo(() => {
+    const merged = new Map<string, MarketplaceShop>();
+    for (const shop of shopsQuery.data ?? []) merged.set(shop.id, shop);
+    for (const shop of shopSearchQuery.data ?? []) merged.set(shop.id, shop);
+    return [...merged.values()];
+  }, [shopsQuery.data, shopSearchQuery.data]);
 
   const categoryNames = useMemo(() => {
     const fromApi = (categoriesQuery.data ?? []).map((c) => c.name);
@@ -185,11 +216,18 @@ export function ShopDiscoverScreen() {
   }, [products, query, tab, category, minPrice, maxPrice, availableOnly, attribute, shops, area]);
 
   const filteredSellers = useMemo(() => {
-    const categoryId = category ? shops.find((s) => s.category_name === category)?.category_id : null;
-    const byQuery = filterCatalogSellers(shops, query, categoryId).filter(
-      (s) => !category || s.category_name === category,
-    );
-    if (!centre) return byQuery.map((s) => ({ ...s, distance_km: null as number | null }));
+    const searching = query.trim().length > 0;
+    const categoryId = !searching && category ? shops.find((s) => s.category_name === category)?.category_id : null;
+    const byQuery = filterCatalogSellers(shops, query, categoryId);
+    if (searching || !centre) {
+      return byQuery.map((s) => ({
+        ...s,
+        distance_km:
+          centre && typeof s.latitude === "number" && typeof s.longitude === "number"
+            ? haversineKm(centre, { lat: s.latitude as number, lng: s.longitude as number })
+            : (null as number | null),
+      }));
+    }
     return filterListings(
       byQuery
         .filter((s) => typeof s.latitude === "number" && typeof s.longitude === "number")
@@ -280,7 +318,7 @@ export function ShopDiscoverScreen() {
                 }}
                 onFocus={() => setShowSuggestions(true)}
                 onBlur={() => window.setTimeout(() => setShowSuggestions(false), 180)}
-                placeholder="Search by product name"
+                placeholder={t("shop.explore.search")}
                 className="h-11 rounded-full border-border bg-muted/70 pl-10 pr-20"
               />
               <label className="absolute right-10 top-1/2 flex size-8 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full text-muted-foreground">
@@ -563,7 +601,8 @@ export function ShopDiscoverScreen() {
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-sm font-extrabold">{shop.business_name}</span>
                         <span className="block truncate text-[11px] text-muted-foreground">
-                          {shop.category_name ?? t("shop.explore.marketplaceShop")}
+                          @{shopUsername(shop.business_name, shop.slug)}
+                          {shop.category_name ? ` · ${shop.category_name}` : ""}
                           {shop.public_location_label || shop.location_text
                             ? ` · ${shop.public_location_label ?? shop.location_text}`
                             : ""}
@@ -755,7 +794,8 @@ export function ShopDiscoverScreen() {
                             ) : null}
                           </p>
                           <p className="truncate text-[12px] text-muted-foreground">
-                            {shop.category_name ?? t("shop.explore.marketplaceShop")}
+                            @{shopUsername(shop.business_name, shop.slug)}
+                            {shop.category_name ? ` · ${shop.category_name}` : ` · ${t("shop.explore.marketplaceShop")}`}
                             {"product_count" in shop && shop.product_count
                               ? ` · ${shop.product_count} ${shop.product_count === 1 ? t("shop.explore.listing") : t("shop.explore.listings")}`
                               : ""}

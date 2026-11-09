@@ -42,6 +42,25 @@ describe("filterCatalogProducts", () => {
     expect(filterCatalogProducts(products, { kind: "goods", availableOnly: true })).toHaveLength(1);
     expect(filterCatalogProducts(products, { minPrice: 10000, maxPrice: 20000 }).map((p) => p.id)).toEqual(["2"]);
     expect(filterCatalogProducts(products, { query: "rice aisha" }).map((p) => p.id)).toEqual(["1"]);
+    expect(
+      filterCatalogProducts(
+        [
+          ...products,
+          {
+            id: "4",
+            name: "Stick meat",
+            kind: "goods" as const,
+            sale_price: 500,
+            is_available: true,
+            category_name: null,
+            business_id: "b3",
+            business_name: "Night Suya",
+            business_slug: "night-suya",
+          },
+        ],
+        { query: "@night-suya", category: "Foodstuff" },
+      ).map((p) => p.id),
+    ).toEqual(["4"]);
     expect(filterCatalogProducts(products, { attribute: "L" }).map((p) => p.id)).toEqual(["2"]);
   });
 });
@@ -65,6 +84,25 @@ describe("filterCatalogSellers", () => {
     expect(filterCatalogSellers(sellers, "sabon gari").map((s) => s.id)).toEqual(["b1"]);
     expect(filterCatalogSellers(sellers, "foodstuff").map((s) => s.id)).toEqual(["b1"]);
     expect(filterCatalogSellers(sellers, "", "c2").map((s) => s.id)).toEqual(["b2"]);
+  });
+
+  it("finds shops by username and informal food words even with no category", () => {
+    const sellers = [
+      {
+        id: "suya-1",
+        slug: "musab-grill",
+        business_name: "Musab Grill",
+        description: "Hot tsire by the road",
+        category_id: null,
+        category_name: null,
+        product_names: [],
+      },
+      { id: "b2", slug: "tailor", business_name: "Kano Tailor", category_id: "c2", product_names: ["Agbada"] },
+    ];
+    expect(filterCatalogSellers(sellers, "@musab-grill").map((s) => s.id)).toEqual(["suya-1"]);
+    expect(filterCatalogSellers(sellers, "suya").map((s) => s.id)).toEqual(["suya-1"]);
+    expect(filterCatalogSellers(sellers, "tsire").map((s) => s.id)).toEqual(["suya-1"]);
+    expect(filterCatalogSellers(sellers, "suya", "c2").map((s) => s.id)).toEqual(["suya-1"]);
   });
 });
 
