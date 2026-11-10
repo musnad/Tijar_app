@@ -356,11 +356,7 @@ export function AdminConsoleScreen() {
   const expensesQuery = useQuery({
     queryKey: ["admin-tijar-expenses"],
     enabled: isAdmin,
-    queryFn: async () => {
-      const r = await fetchAdminTijarExpenses();
-      if (r.error) throw new Error(r.error);
-      return r.expenses;
-    },
+    queryFn: fetchAdminTijarExpenses,
   });
 
   const businesses = businessesQuery.data ?? [];
@@ -371,7 +367,8 @@ export function AdminConsoleScreen() {
   const upgrades = upgradesQuery.data ?? [];
   const badgeRequests = badgeRequestsQuery.data ?? [];
   const fees = feesQuery.data ?? [];
-  const expenses = expensesQuery.data ?? [];
+  const expenses = expensesQuery.data?.expenses ?? [];
+  const expensesError = expensesQuery.data?.error ?? (expensesQuery.error as Error | undefined)?.message ?? null;
   const collectedFees = useMemo(
     () => fees.filter((f) => !f.voided_at).reduce((n, f) => n + Number(f.fee_ngn), 0),
     [fees],
@@ -385,6 +382,27 @@ export function AdminConsoleScreen() {
     [expenses],
   );
   const profitRemaining = collectedFees - spentFromProfit;
+  const mixedFinance = useMemo(() => {
+    const feeRows = fees.map((fee) => ({
+      id: `fee-${fee.id}`,
+      at: fee.created_at,
+      label: fee.businesses?.business_name ?? "Shop",
+      source: fee.source.replaceAll("_", " "),
+      amount: Number(fee.fee_ngn),
+      note: `keep ₦${Number(fee.seller_net_ngn).toLocaleString("en-NG")}`,
+      expense: false,
+    }));
+    const expenseRows = expenses.map((row) => ({
+      id: `exp-${row.id}`,
+      at: row.created_at,
+      label: row.title,
+      source: row.from_profit ? "expense · from profit" : "expense · not from profit",
+      amount: -Number(row.amount_ngn),
+      note: row.notes || (row.from_profit ? "Minus profit" : "Minus only"),
+      expense: true,
+    }));
+    return [...feeRows, ...expenseRows].sort((a, b) => Date.parse(b.at) - Date.parse(a.at));
+  }, [fees, expenses]);
   const collectedToday = useMemo(() => {
     const today = new Date().toISOString().slice(0, 10);
     return fees.filter((f) => !f.voided_at && dayKey(f.created_at) === today).reduce((n, f) => n + Number(f.fee_ngn), 0);
@@ -888,6 +906,11 @@ export function AdminConsoleScreen() {
 
       {tab === "finance" && (
         <div className="mt-4 space-y-4">
+          {expensesError ? (
+            <p className="rounded-2xl border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
+              Expenses could not load. Run 000095 and 000096 in Supabase, then refresh. {expensesError}
+            </p>
+          ) : null}
           <div className="rounded-2xl border border-border bg-card p-4">
             <p className="text-sm font-extrabold">TIJAR platform fee</p>
             <p className="mt-1 text-xs text-muted-foreground">
@@ -954,10 +977,10 @@ export function AdminConsoleScreen() {
           </div>
           <div className="rounded-2xl border border-border bg-card p-4">
             <h2 className="font-extrabold">Expense ledger</h2>
-            {expensesQuery.isError ? (
-              <p className="mt-2 text-sm text-destructive">Run migration 000095 in Supabase so expenses can be stored.</p>
-            ) : expenses.length === 0 ? (
-              <p className="mt-2 text-sm text-muted-foreground">No custom expenses yet.</p>
+            {expenses.length === 0 ? (
+              <p className="mt-2 text-sm text-muted-foreground">
+                {expensesError ? "Expenses are not available until the SQL is run." : "No custom expenses yet. Save one above and it will show here."}
+              </p>
             ) : (
               <div className="mt-3 overflow-x-auto">
                 <table className="w-full min-w-[640px] text-left text-sm">
@@ -993,33 +1016,34 @@ export function AdminConsoleScreen() {
             )}
           </div>
           <div className="rounded-2xl border border-border bg-card p-4">
-            <h2 className="font-extrabold">Fee ledger</h2>
-            {feesQuery.isError ? (
+            <h2 className="font-extrabold">Fee and expense ledger</h2>
+            {feesQuery.isError && mixedFinance.length === 0 ? (
               <p className="mt-2 text-sm text-destructive">Run migration 000075 in Supabase so fees can be stored.</p>
-            ) : fees.length === 0 ? (
-              <p className="mt-2 text-sm text-muted-foreground">No platform fees yet. The next paid order will appear here.</p>
+            ) : mixedFinance.length === 0 ? (
+              <p className="mt-2 text-sm text-muted-foreground">No fees or expenses yet.</p>
             ) : (
               <div className="mt-3 overflow-x-auto">
                 <table className="w-full min-w-[640px] text-left text-sm">
                   <thead className="text-[11px] uppercase text-muted-foreground">
                     <tr>
                       <th className="px-3 py-2">When</th>
-                      <th className="px-3 py-2">Shop</th>
+                      <th className="px-3 py-2">Name</th>
                       <th className="px-3 py-2">Source</th>
-                      <th className="px-3 py-2">Price</th>
-                      <th className="px-3 py-2">Fee</th>
-                      <th className="px-3 py-2">Seller net</th>
+                      <th className="px-3 py-2">Amount</th>
+                      <th className="px-3 py-2">Note</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {fees.slice(0, 80).map((fee) => (
-                      <tr key={fee.id} className="border-t border-border">
-                        <td className="px-3 py-2.5 text-muted-foreground">{formatWhen(fee.created_at)}</td>
-                        <td className="px-3 py-2.5">{fee.businesses?.business_name ?? "Shop"}</td>
-                        <td className="px-3 py-2.5 capitalize">{fee.source.replace("_", " ")}</td>
-                        <td className="px-3 py-2.5 tabular-nums">{formatNgn(Number(fee.gross_ngn))}</td>
-                        <td className="px-3 py-2.5 tabular-nums font-bold text-primary">{formatNgn(Number(fee.fee_ngn))}</td>
-                        <td className="px-3 py-2.5 tabular-nums">{formatNgn(Number(fee.seller_net_ngn))}</td>
+                    {mixedFinance.slice(0, 120).map((row) => (
+                      <tr key={row.id} className="border-t border-border">
+                        <td className="px-3 py-2.5 text-muted-foreground">{formatWhen(row.at)}</td>
+                        <td className="px-3 py-2.5">{row.label}</td>
+                        <td className="px-3 py-2.5 capitalize">{row.source}</td>
+                        <td className={`px-3 py-2.5 tabular-nums font-bold ${row.expense ? "text-destructive" : "text-primary"}`}>
+                          {row.expense ? "− " : ""}
+                          {formatNgn(Math.abs(row.amount))}
+                        </td>
+                        <td className="px-3 py-2.5 text-muted-foreground">{row.note}</td>
                       </tr>
                     ))}
                   </tbody>

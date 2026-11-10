@@ -92,6 +92,7 @@ import { Route as ApiAiSaleRouteImport } from './routes/api.ai.sale'
 import { Route as ApiAiTranscribeRouteImport } from './routes/api.ai.transcribe'
 import { Route as ApiAssistantChatRouteImport } from './routes/api.assistant.chat'
 import { Route as ApiAdminVerifiedBadgeRouteImport } from './routes/api.admin.verified-badge'
+import { Route as ApiAdminExpensesRouteImport } from './routes/api.admin.expenses'
 import { Route as ApiKycVerifyRouteImport } from './routes/api.kyc.verify'
 import { Route as ApiPaymentsConfirmOrderRouteImport } from './routes/api.payments.confirm-order'
 import { Route as ApiPaymentsFlutterwaveRouteImport } from './routes/api.payments.flutterwave'
@@ -554,6 +555,11 @@ const ApiAdminVerifiedBadgeRoute = ApiAdminVerifiedBadgeRouteImport.update({
   path: '/api/admin/verified-badge',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiAdminExpensesRoute = ApiAdminExpensesRouteImport.update({
+  id: '/api/admin/expenses',
+  path: '/api/admin/expenses',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiKycVerifyRoute = ApiKycVerifyRouteImport.update({
   id: '/api/kyc/verify',
   path: '/api/kyc/verify',
@@ -871,6 +877,7 @@ export interface FileRoutesByFullPath {
   '/api/ai/transcribe': typeof ApiAiTranscribeRoute
   '/api/assistant/chat': typeof ApiAssistantChatRoute
   '/api/admin/verified-badge': typeof ApiAdminVerifiedBadgeRoute
+  '/api/admin/expenses': typeof ApiAdminExpensesRoute
   '/api/kyc/verify': typeof ApiKycVerifyRoute
   '/api/payments/confirm-order': typeof ApiPaymentsConfirmOrderRoute
   '/api/payments/flutterwave': typeof ApiPaymentsFlutterwaveRoute
@@ -995,6 +1002,7 @@ export interface FileRoutesByTo {
   '/api/ai/transcribe': typeof ApiAiTranscribeRoute
   '/api/assistant/chat': typeof ApiAssistantChatRoute
   '/api/admin/verified-badge': typeof ApiAdminVerifiedBadgeRoute
+  '/api/admin/expenses': typeof ApiAdminExpensesRoute
   '/api/kyc/verify': typeof ApiKycVerifyRoute
   '/api/payments/confirm-order': typeof ApiPaymentsConfirmOrderRoute
   '/api/payments/flutterwave': typeof ApiPaymentsFlutterwaveRoute
@@ -1127,6 +1135,7 @@ export interface FileRoutesById {
   '/api/ai/transcribe': typeof ApiAiTranscribeRoute
   '/api/assistant/chat': typeof ApiAssistantChatRoute
   '/api/admin/verified-badge': typeof ApiAdminVerifiedBadgeRoute
+  '/api/admin/expenses': typeof ApiAdminExpensesRoute
   '/api/kyc/verify': typeof ApiKycVerifyRoute
   '/api/payments/confirm-order': typeof ApiPaymentsConfirmOrderRoute
   '/api/payments/flutterwave': typeof ApiPaymentsFlutterwaveRoute
@@ -1260,6 +1269,7 @@ export interface FileRouteTypes {
     | '/api/ai/transcribe'
     | '/api/assistant/chat'
     | '/api/admin/verified-badge'
+    | '/api/admin/expenses'
     | '/api/kyc/verify'
     | '/api/payments/confirm-order'
     | '/api/payments/flutterwave'
@@ -1384,6 +1394,7 @@ export interface FileRouteTypes {
     | '/api/ai/transcribe'
     | '/api/assistant/chat'
     | '/api/admin/verified-badge'
+    | '/api/admin/expenses'
     | '/api/kyc/verify'
     | '/api/payments/confirm-order'
     | '/api/payments/flutterwave'
@@ -1515,6 +1526,7 @@ export interface FileRouteTypes {
     | '/api/ai/transcribe'
     | '/api/assistant/chat'
     | '/api/admin/verified-badge'
+    | '/api/admin/expenses'
     | '/api/kyc/verify'
     | '/api/payments/confirm-order'
     | '/api/payments/flutterwave'
@@ -1598,6 +1610,7 @@ export interface RootRouteChildren {
   ApiAiTranscribeRoute: typeof ApiAiTranscribeRoute
   ApiAssistantChatRoute: typeof ApiAssistantChatRoute
   ApiAdminVerifiedBadgeRoute: typeof ApiAdminVerifiedBadgeRoute
+  ApiAdminExpensesRoute: typeof ApiAdminExpensesRoute
   ApiKycVerifyRoute: typeof ApiKycVerifyRoute
   ApiPaymentsConfirmOrderRoute: typeof ApiPaymentsConfirmOrderRoute
   ApiPaymentsFlutterwaveRoute: typeof ApiPaymentsFlutterwaveRoute
@@ -2195,6 +2208,13 @@ declare module '@tanstack/react-router' {
       path: '/api/admin/verified-badge'
       fullPath: '/api/admin/verified-badge'
       preLoaderRoute: typeof ApiAdminVerifiedBadgeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/admin/expenses': {
+      id: '/api/admin/expenses'
+      path: '/api/admin/expenses'
+      fullPath: '/api/admin/expenses'
+      preLoaderRoute: typeof ApiAdminExpensesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/kyc/verify': {
@@ -2846,6 +2866,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiAiTranscribeRoute: ApiAiTranscribeRoute,
   ApiAssistantChatRoute: ApiAssistantChatRoute,
   ApiAdminVerifiedBadgeRoute: ApiAdminVerifiedBadgeRoute,
+  ApiAdminExpensesRoute: ApiAdminExpensesRoute,
   ApiKycVerifyRoute: ApiKycVerifyRoute,
   ApiPaymentsConfirmOrderRoute: ApiPaymentsConfirmOrderRoute,
   ApiPaymentsFlutterwaveRoute: ApiPaymentsFlutterwaveRoute,

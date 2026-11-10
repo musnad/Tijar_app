@@ -197,11 +197,37 @@ export type AdminTijarExpense = {
   created_at: string;
 };
 
+async function adminAuthHeader(): Promise<Record<string, string>> {
+  const supabase = getSupabaseBrowserClient();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  return session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {};
+}
+
 export async function fetchAdminTijarExpenses(): Promise<{
   expenses: AdminTijarExpense[];
   error: string | null;
 }> {
+  const headers = await adminAuthHeader();
+  if (headers.Authorization) {
+    try {
+      const res = await fetch("/api/admin/expenses", { headers, cache: "no-store" });
+      const json = (await res.json().catch(() => ({}))) as {
+        expenses?: AdminTijarExpense[];
+        error?: string;
+      };
+      if (Array.isArray(json.expenses)) {
+        return { expenses: json.expenses, error: json.error ?? null };
+      }
+    } catch {
+      /* fall through */
+    }
+  }
+
   const supabase = getSupabaseBrowserClient();
+  const listed = await supabase.rpc("list_tijar_expenses");
+  if (!listed.error) return { expenses: (listed.data ?? []) as AdminTijarExpense[], error: null };
   const { data, error } = await supabase
     .from("tijar_expenses")
     .select("id, title, amount_ngn, from_profit, notes, created_at")
@@ -218,6 +244,26 @@ export async function addAdminTijarExpense(input: {
   notes?: string;
 }): Promise<{ error: string | null }> {
   const supabase = getSupabaseBrowserClient();
+  const headers = await adminAuthHeader();
+  if (headers.Authorization) {
+    try {
+      const res = await fetch("/api/admin/expenses", {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: input.title.trim(),
+          amount: input.amount,
+          fromProfit: input.fromProfit,
+          notes: input.notes?.trim() || null,
+        }),
+      });
+      const json = (await res.json().catch(() => ({}))) as { error?: string };
+      if (res.ok) return { error: null };
+      if (json.error) return { error: json.error };
+    } catch {
+      /* fall through */
+    }
+  }
   const { error } = await supabase.rpc("add_tijar_expense", {
     p_title: input.title.trim(),
     p_amount: input.amount,
@@ -229,6 +275,20 @@ export async function addAdminTijarExpense(input: {
 
 export async function deleteAdminTijarExpense(id: string): Promise<{ error: string | null }> {
   const supabase = getSupabaseBrowserClient();
+  const headers = await adminAuthHeader();
+  if (headers.Authorization) {
+    try {
+      const res = await fetch(`/api/admin/expenses?id=${encodeURIComponent(id)}`, {
+        method: "DELETE",
+        headers,
+      });
+      const json = (await res.json().catch(() => ({}))) as { error?: string };
+      if (res.ok) return { error: null };
+      if (json.error) return { error: json.error };
+    } catch {
+      /* fall through */
+    }
+  }
   const { error } = await supabase.rpc("delete_tijar_expense", { p_id: id });
   return { error: error?.message ?? null };
 }
