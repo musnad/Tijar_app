@@ -1,4 +1,6 @@
+import { isVideoFile, prepareImageForUpload } from "@/lib/media/compress-upload";
 import { requireVerifiedShop } from "@/lib/kyc/require-shop-verified";
+import { MAX_IMAGE_BYTES } from "@/lib/video/file-guard";
 import { displayShopName, shopLinkSlug } from "@/lib/shop-names";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { publishPlaceOrderListing } from "@/services/place-order-service";
@@ -211,12 +213,34 @@ export async function publishBusinessStory(input: {
   const blocked = await requireVerifiedShop(input.businessId);
   if (blocked) return { error: blocked };
   const supabase = getSupabaseBrowserClient();
-  const isVideo = input.file.type.startsWith("video/");
-  const ext = isVideo ? (input.file.type.includes("webm") ? "webm" : "mp4") : input.file.type.includes("png") ? "png" : "jpg";
+  const isVideo = await isVideoFile(input.file);
+  let uploadFile = input.file;
+  if (!isVideo) {
+    const packed = await prepareImageForUpload(input.file, {
+      maxBytes: MAX_IMAGE_BYTES,
+      maxEdge: 1280,
+    });
+    if (!packed.ok) return { error: packed.error };
+    uploadFile = packed.file;
+  }
+  const ext = isVideo
+    ? input.file.type.includes("webm")
+      ? "webm"
+      : "mp4"
+    : uploadFile.type === "image/png"
+      ? "png"
+      : uploadFile.type === "image/webp"
+        ? "webp"
+        : uploadFile.type === "image/gif"
+          ? "gif"
+          : "jpg";
+  const contentType = isVideo
+    ? input.file.type || (ext === "webm" ? "video/webm" : "video/mp4")
+    : uploadFile.type || `image/${ext === "jpg" ? "jpeg" : ext}`;
   const id = crypto.randomUUID();
   const storagePath = `${input.businessId}/${id}.${ext}`;
-  const { error: upErr } = await supabase.storage.from("business-stories").upload(storagePath, input.file, {
-    contentType: input.file.type || (isVideo ? "video/mp4" : "image/jpeg"),
+  const { error: upErr } = await supabase.storage.from("business-stories").upload(storagePath, uploadFile, {
+    contentType,
     upsert: false,
   });
   if (upErr) return { error: upErr.message };

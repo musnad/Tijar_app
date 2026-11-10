@@ -1,7 +1,12 @@
 import { requireVerifiedShop } from "@/lib/kyc/require-shop-verified";
 import type { VideoAttribution } from "@/lib/feed/rank-video-feed";
 import { assertProductsBelongToBusiness, requireShoppingTags } from "@/lib/feed/video-tag-guard";
-import { captureVideoThumbnail, inspectShoppingMedia } from "@/lib/video/file-guard";
+import { extraPhotoError, preparePostImages } from "@/lib/media/compress-upload";
+import {
+  captureVideoThumbnail,
+  inspectShoppingMedia,
+  MAX_IMAGE_BYTES,
+} from "@/lib/video/file-guard";
 import { videoPublicStatus } from "@/lib/video/publish-status";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { updateProductImages } from "@/services/product-service";
@@ -33,7 +38,9 @@ const IMAGE_EXT: Record<string, { ext: string; type: string }> = {
   gif: { ext: "gif", type: "image/gif" },
 };
 
-export async function submitStudioVideo(input: StudioSubmitInput): Promise<{ error: string | null; videoId?: string }> {
+export async function submitStudioVideo(
+  input: StudioSubmitInput,
+): Promise<{ error: string | null; videoId?: string }> {
   const blocked = await requireVerifiedShop(input.businessId);
   if (blocked) return { error: blocked };
   const report = (pct: number, label: string) => input.onProgress?.(pct, label);
@@ -47,27 +54,71 @@ export async function submitStudioVideo(input: StudioSubmitInput): Promise<{ err
     if (!guard.ok) return { error: guard.error };
   }
 
-  const inspected = await inspectShoppingMedia(input.file, { durationHintMs: input.durationHintMs });
+  const inspected = await inspectShoppingMedia(input.file, {
+    durationHintMs: input.durationHintMs,
+  });
   if (!inspected.ok) return { error: inspected.error };
+
+  const isImage = inspected.media === "image";
+  let uploadFile = input.file;
+  let imageMeta = inspected;
+  const extraReady: { file: File; ext: string; type: string }[] = [];
+
+  if (isImage) {
+    report(18, "Compressing photo…");
+    const extras = input.extraImages?.slice(0, MAX_POST_IMAGES - 1) ?? [];
+    const batch = await preparePostImages(input.file, extras, {
+      maxBytes: MAX_IMAGE_BYTES,
+      maxEdge: 1280,
+    });
+    if (!batch.ok) return { error: batch.error };
+    uploadFile = batch.primary.file;
+    const again = await inspectShoppingMedia(uploadFile);
+    if (!again.ok) return { error: again.error };
+    if (again.media !== "image") return { error: "Use a photo, not a video." };
+    imageMeta = again;
+
+    for (const packedExtra of batch.extras) {
+      const extraInspect = await inspectShoppingMedia(packedExtra.file);
+      if (!extraInspect.ok || extraInspect.media !== "image") {
+        return {
+          error: extraPhotoError(
+            extraInspect.ok ? "Use a photo, not a video." : extraInspect.error,
+          ),
+        };
+      }
+      const extraMeta = IMAGE_EXT[extraInspect.kind];
+      if (!extraMeta) {
+        return { error: extraPhotoError("unsupported") };
+      }
+      extraReady.push({ file: packedExtra.file, ext: extraMeta.ext, type: extraMeta.type });
+    }
+  }
 
   const supabase = getSupabaseBrowserClient();
   const id = crypto.randomUUID();
-  const isImage = inspected.media === "image";
-  const fileMeta = isImage
-    ? IMAGE_EXT[inspected.kind]!
-    : { ext: inspected.kind === "webm" ? "webm" : "mp4", type: inspected.kind === "webm" ? "video/webm" : "video/mp4" };
+  const fileMeta =
+    isImage && imageMeta.media === "image"
+      ? IMAGE_EXT[imageMeta.kind]!
+      : {
+          ext: inspected.kind === "webm" ? "webm" : "mp4",
+          type: inspected.kind === "webm" ? "video/webm" : "video/mp4",
+        };
   const storagePath = `${input.businessId}/${id}.${fileMeta.ext}`;
   report(28, "Uploading to TIJAR…");
-  const { error: upErr } = await supabase.storage.from("business-videos").upload(storagePath, input.file, {
-    contentType: fileMeta.type,
-    upsert: false,
-  });
+  const { error: upErr } = await supabase.storage
+    .from("business-videos")
+    .upload(storagePath, uploadFile, {
+      contentType: fileMeta.type,
+      upsert: false,
+    });
   if (upErr) return { error: upErr.message };
   report(62, "Saving your post…");
 
   let coverPath: string | null = isImage ? storagePath : null;
   if (!isImage) {
-    const thumb = input.thumbnail ?? (await blobToFile(await captureVideoThumbnail(input.file), `${id}.jpg`));
+    const thumb =
+      input.thumbnail ?? (await blobToFile(await captureVideoThumbnail(input.file), `${id}.jpg`));
     if (thumb) {
       const thumbPath = `${input.businessId}/${id}.jpg`;
       const t = await supabase.storage.from("business-videos").upload(thumbPath, thumb, {
@@ -78,22 +129,23 @@ export async function submitStudioVideo(input: StudioSubmitInput): Promise<{ err
     }
   }
 
-  const playbackUrl = supabase.storage.from("business-videos").getPublicUrl(storagePath).data.publicUrl;
+  const playbackUrl = supabase.storage.from("business-videos").getPublicUrl(storagePath)
+    .data.publicUrl;
   const imageUrls: string[] = isImage ? [playbackUrl] : [];
-  if (isImage && input.extraImages?.length) {
+  if (extraReady.length) {
     report(48, "Uploading more photos…");
-    for (const extra of input.extraImages.slice(0, MAX_POST_IMAGES - 1)) {
-      const extraInspect = await inspectShoppingMedia(extra);
-      if (!extraInspect.ok || extraInspect.media !== "image") continue;
-      const extraMeta = IMAGE_EXT[extraInspect.kind];
-      if (!extraMeta) continue;
-      const extraPath = `${input.businessId}/${id}-${imageUrls.length}.${extraMeta.ext}`;
-      const extraUp = await supabase.storage.from("business-videos").upload(extraPath, extra, {
-        contentType: extraMeta.type,
+    for (const extra of extraReady) {
+      const extraPath = `${input.businessId}/${id}-${imageUrls.length}.${extra.ext}`;
+      const extraUp = await supabase.storage.from("business-videos").upload(extraPath, extra.file, {
+        contentType: extra.type,
         upsert: false,
       });
-      if (extraUp.error) continue;
-      imageUrls.push(supabase.storage.from("business-videos").getPublicUrl(extraPath).data.publicUrl);
+      if (extraUp.error) {
+        return { error: extraPhotoError("upload") };
+      }
+      imageUrls.push(
+        supabase.storage.from("business-videos").getPublicUrl(extraPath).data.publicUrl,
+      );
     }
   }
   const goLive = !input.asDraft;
@@ -106,9 +158,9 @@ export async function submitStudioVideo(input: StudioSubmitInput): Promise<{ err
     storage_path: storagePath,
     playback_url: playbackUrl,
     cover_path: coverPath,
-    duration_ms: inspected.media === "image" ? null : inspected.durationMs,
-    width: inspected.width,
-    height: inspected.height,
+    duration_ms: isImage ? null : inspected.durationMs,
+    width: imageMeta.width,
+    height: imageMeta.height,
     status,
     moderation_status: "pending",
     attribution: input.attribution ?? "business",
@@ -170,7 +222,10 @@ export async function submitStudioVideo(input: StudioSubmitInput): Promise<{ err
   return { error: null, videoId: id };
 }
 
-export async function finishPrepareJob(videoId: string, _businessId: string): Promise<{ error: string | null }> {
+export async function finishPrepareJob(
+  videoId: string,
+  _businessId: string,
+): Promise<{ error: string | null }> {
   const supabase = getSupabaseBrowserClient();
   const rpc = await supabase.rpc("finish_video_prepare_job", { p_video_id: videoId });
   if (!rpc.error) return { error: null };
@@ -190,13 +245,19 @@ export async function finishPrepareJob(videoId: string, _businessId: string): Pr
     .eq("business_id", _businessId);
 
   if (error) {
-    await supabase.from("video_posts").update({ status: "failed", processing_error: error.message }).eq("id", videoId);
+    await supabase
+      .from("video_posts")
+      .update({ status: "failed", processing_error: error.message })
+      .eq("id", videoId);
     return { error: error.message };
   }
   return { error: null };
 }
 
-export async function retryVideoJob(videoId: string, businessId: string): Promise<{ error: string | null }> {
+export async function retryVideoJob(
+  videoId: string,
+  businessId: string,
+): Promise<{ error: string | null }> {
   const supabase = getSupabaseBrowserClient();
   await supabase.from("video_processing_jobs").insert({
     video_post_id: videoId,

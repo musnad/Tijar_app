@@ -16,6 +16,7 @@ import {
 } from "@/lib/shop-social";
 import { displayShopName, lookupShopProfiles } from "@/lib/shop-names";
 import { locationMatchesArea } from "@/lib/nigeria-locations";
+import { prepareImageForUpload } from "@/lib/media/compress-upload";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { ensureOwnerMembership } from "@/services/business-service";
 import type { CheckoutQuote } from "@/lib/checkout/quote";
@@ -1398,19 +1399,22 @@ export async function uploadUpgradeShopImage(
   profileId: string,
   file: File,
 ): Promise<{ publicUrl: string | null; error: string | null }> {
-  if (!file.type.startsWith("image/")) {
-    return { publicUrl: null, error: "Use a JPG, PNG, WEBP, or GIF photo." };
-  }
-  if (file.size > 5 * 1024 * 1024) {
-    return { publicUrl: null, error: "Photo is too large. Use an image under 5 MB." };
-  }
+  const packed = await prepareImageForUpload(file, { maxBytes: 5 * 1024 * 1024, maxEdge: 1280 });
+  if (!packed.ok) return { publicUrl: null, error: packed.error };
+  file = packed.file;
   const supabase = getSupabaseBrowserClient();
   const extRaw = file.name.split(".").pop()?.toLowerCase() || "jpg";
   const ext = ["jpg", "jpeg", "png", "webp", "gif"].includes(extRaw)
     ? extRaw === "jpeg"
       ? "jpg"
       : extRaw
-    : "jpg";
+    : file.type === "image/webp"
+      ? "webp"
+      : file.type === "image/png"
+        ? "png"
+        : file.type === "image/gif"
+          ? "gif"
+          : "jpg";
   const path = `${profileId}/shop.${ext}`;
   const { error } = await supabase.storage.from("upgrade-shop-images").upload(path, file, {
     upsert: true,
