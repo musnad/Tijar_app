@@ -299,7 +299,17 @@ async function loadFeedFromPosts(
 }
 
 async function attachShopNames(videos: PublicFeedVideo[]): Promise<PublicFeedVideo[]> {
-  const businessIds = [...new Set(videos.map((v) => v.business_id).filter(Boolean))];
+  const needsLookup = videos.filter(
+    (v) => isBlankShopName(v.business_name) || !v.business_logo_url || !v.slug,
+  );
+  if (needsLookup.length === 0) {
+    return videos.map((video) => ({
+      ...video,
+      share_count: Number(video.share_count ?? 0),
+      image_urls: asUrlList(video.image_urls),
+    }));
+  }
+  const businessIds = [...new Set(needsLookup.map((v) => v.business_id).filter(Boolean))];
   const found = businessIds.length ? await lookupShopProfiles(businessIds) : new Map();
   const stillBlank = videos.filter((v) => isBlankShopName(found.get(v.business_id)?.business_name ?? v.business_name));
   const needPhoto = videos.filter((v) => !(found.get(v.business_id)?.logo_url || v.business_logo_url));
@@ -328,6 +338,14 @@ async function attachShopNames(videos: PublicFeedVideo[]): Promise<PublicFeedVid
   });
 }
 
+const SIGNALS_TTL_MS = 5 * 60_000;
+const signalsCache = new Map<string, { at: number; value: ViewerSignals }>();
+
+export function invalidateFeedViewerSignals(profileId?: string | null) {
+  if (profileId) signalsCache.delete(profileId);
+  else signalsCache.clear();
+}
+
 export async function fetchFeedViewerSignals(
   profileId: string | null,
   geo?: { lat: number; lng: number } | null,
@@ -342,7 +360,19 @@ export async function fetchFeedViewerSignals(
     viewerLat: geo?.lat ?? null,
     viewerLng: geo?.lng ?? null,
   };
-  if (!profileId) return empty;
+  const cacheKey = profileId ?? "anon";
+  const hit = signalsCache.get(cacheKey);
+  if (hit && Date.now() - hit.at < SIGNALS_TTL_MS) {
+    return {
+      ...hit.value,
+      viewerLat: geo?.lat ?? hit.value.viewerLat ?? null,
+      viewerLng: geo?.lng ?? hit.value.viewerLng ?? null,
+    };
+  }
+  if (!profileId) {
+    signalsCache.set(cacheKey, { at: Date.now(), value: empty });
+    return empty;
+  }
   const supabase = getSupabaseBrowserClient();
   const [follows, favs, blocks, mutes, completes] = await Promise.all([
     supabase.from("business_follows").select("business_id").eq("profile_id", profileId),
@@ -351,10 +381,9 @@ export async function fetchFeedViewerSignals(
     supabase.from("account_mutes").select("muted_profile_id").eq("muter_id", profileId),
     supabase.from("feed_events").select("video_post_id").eq("profile_id", profileId).eq("kind", "complete").limit(40),
   ]);
-  const categoryPref = new Set<string>();
-  return {
+  const value: ViewerSignals = {
     followedBusinessIds: (follows.data ?? []).map((r) => r.business_id as string),
-    preferredCategoryIds: [...categoryPref],
+    preferredCategoryIds: [],
     savedProductIds: (favs.data ?? []).map((r) => r.product_id as string).filter(Boolean),
     completedVideoIds: (completes.data ?? []).map((r) => r.video_post_id as string),
     blockedProfileIds: (blocks.data ?? []).map((r) => r.blocked_profile_id as string),
@@ -362,6 +391,8 @@ export async function fetchFeedViewerSignals(
     viewerLat: geo?.lat ?? null,
     viewerLng: geo?.lng ?? null,
   };
+  signalsCache.set(cacheKey, { at: Date.now(), value });
+  return value;
 }
 
 export async function rankAndLoadFeed(
@@ -390,19 +421,10 @@ export async function rankAndLoadFeed(
       : null;
   const fetchLimit = Math.max(limit * 2, 16);
 
-  let [raw, signals] = await Promise.all([
-    fetchPublicVideoFeed({ limit: fetchLimit, before, offset: 0 }),
+  const [raw, signals] = await Promise.all([
+    fetchPublicVideoFeed({ limit: fetchLimit, before, offset: before ? 0 : offset }),
     fetchFeedViewerSignals(profileId, geo),
   ]);
-  if (!before && offset > 0) {
-    const rotated = await fetchPublicVideoFeed({ limit: fetchLimit, before: null, offset });
-    if (!rotated.error && rotated.videos.length > 0) {
-      const merged = new Map<string, (typeof raw.videos)[number]>();
-      for (const video of raw.videos) merged.set(video.id, video);
-      for (const video of rotated.videos) merged.set(video.id, video);
-      raw = { videos: [...merged.values()], error: raw.error };
-    }
-  }
   if (raw.error) return { videos: [], nextCursor: null, error: raw.error };
   signals = {
     ...signals,

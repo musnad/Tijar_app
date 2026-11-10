@@ -94,6 +94,7 @@ import {
   postVideoComment,
   updateVideoComment,
   FEED_PAGE_SIZE,
+  invalidateFeedViewerSignals,
   rankAndLoadFeed,
   recordFeedSignal,
   reportVideo,
@@ -296,6 +297,12 @@ export function VideoFeedScreen({ initialVideoId }: { initialVideoId?: string })
   const businessQuery = usePrimaryBusiness(profile?.id);
   const [feedTab, setFeedTab] = useState<FeedTab>("foryou");
   const location = useViewerLocation(true);
+  const locationRef = useRef(location);
+  locationRef.current = location;
+  const nearbyGeoKey =
+    feedTab === "nearby" && location.coords
+      ? `${location.coords.lat.toFixed(2)},${location.coords.lng.toFixed(2)}`
+      : "nogeo";
   const [storyBusinessId, setStoryBusinessId] = useState<string | null>(null);
   const [feedRound, setFeedRound] = useState(() => currentFeedRound());
   const [feedSalt, setFeedSalt] = useState(() => currentFeedSalt());
@@ -316,17 +323,17 @@ export function VideoFeedScreen({ initialVideoId }: { initialVideoId?: string })
       "video-feed",
       profile?.id ?? "anon",
       feedTab,
-      location.coords?.lat ?? null,
-      location.coords?.lng ?? null,
+      nearbyGeoKey,
       feedRound,
       feedSalt,
     ],
     queryFn: async ({ pageParam }) => {
+      const here = locationRef.current.coords;
       const r = await rankAndLoadFeed(profile?.id ?? null, {
         limit: FEED_PAGE_SIZE,
         before: pageParam,
-        viewerLat: location.coords?.lat ?? null,
-        viewerLng: location.coords?.lng ?? null,
+        viewerLat: here?.lat ?? null,
+        viewerLng: here?.lng ?? null,
         nearbyOnly: feedTab === "nearby",
         offset: pageParam ? 0 : feedOffsetForRound(feedRound, FEED_PAGE_SIZE),
         shuffleSalt: feedSalt,
@@ -383,8 +390,9 @@ export function VideoFeedScreen({ initialVideoId }: { initialVideoId?: string })
   );
   const restoredRef = useRef(false);
 
+  const productCacheId = profile?.id ?? "anon";
   const productsQuery = useQuery({
-    queryKey: ["video-feed-products", productIds.join(",")],
+    queryKey: ["video-feed-products", productCacheId],
     enabled: productIds.length > 0,
     queryFn: async () => {
       const r = await fetchLiveProductsByIds(productIds);
@@ -393,6 +401,28 @@ export function VideoFeedScreen({ initialVideoId }: { initialVideoId?: string })
     },
     staleTime: 60_000,
   });
+
+  const taggedProductIdKey = productIds.join("|");
+  useEffect(() => {
+    if (productIds.length === 0) return;
+    const key = ["video-feed-products", productCacheId] as const;
+    const prev = queryClient.getQueryData<PublicProduct[]>(key) ?? [];
+    const have = new Set(prev.map((p) => p.id));
+    const missing = productIds.filter((id) => !have.has(id));
+    if (missing.length === 0) return;
+    let cancelled = false;
+    void fetchLiveProductsByIds(missing).then((r) => {
+      if (cancelled || r.error) return;
+      queryClient.setQueryData(key, (old: PublicProduct[] | undefined) => {
+        const byId = new Map((old ?? []).map((p) => [p.id, p]));
+        for (const product of r.products) byId.set(product.id, product);
+        return [...byId.values()];
+      });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [taggedProductIdKey, productCacheId, productIds, queryClient]);
 
   const likedQuery = useQuery({
     queryKey: ["video-likes", profile?.id],
@@ -422,15 +452,15 @@ export function VideoFeedScreen({ initialVideoId }: { initialVideoId?: string })
     queryKey: [
       "live-stories",
       profile?.id ?? "anon",
-      location.coords?.lat ?? null,
       [...(followQuery.data ?? new Set<string>())].join(","),
     ],
     queryFn: async () => {
+      const here = locationRef.current.coords;
       const r = await fetchLiveStoryRings({
         profileId: profile?.id ?? null,
         followedIds: followQuery.data ?? new Set<string>(),
-        viewerLat: location.coords?.lat ?? null,
-        viewerLng: location.coords?.lng ?? null,
+        viewerLat: here?.lat ?? null,
+        viewerLng: here?.lng ?? null,
       });
       if (r.error) throw new Error(r.error);
       return r.rings;
@@ -578,10 +608,10 @@ export function VideoFeedScreen({ initialVideoId }: { initialVideoId?: string })
 
   const patchFeedStat = useCallback(
     (videoId: string, field: "like_count" | "comment_count" | "share_count", delta: number) => {
-      queryClient.setQueryData(
-        ["video-feed", profile?.id ?? "anon"],
+      queryClient.setQueriesData(
+        { queryKey: ["video-feed", profile?.id ?? "anon"] },
         (old: { pages: Array<{ videos: PublicFeedVideo[]; nextCursor: string | null }>; pageParams: unknown[] } | undefined) => {
-          if (!old) return old;
+          if (!old?.pages) return old;
           return {
             ...old,
             pages: old.pages.map((page) => ({
@@ -679,6 +709,7 @@ export function VideoFeedScreen({ initialVideoId }: { initialVideoId?: string })
               return copy;
             });
             toast.success(following ? `Following ${businessName}` : "Unfollowed");
+            invalidateFeedViewerSignals(profile.id);
             void queryClient.invalidateQueries({ queryKey: ["video-follows"] });
             void queryClient.invalidateQueries({ queryKey: ["followed-ids"] });
             void queryClient.invalidateQueries({ queryKey: ["followed-shops"] });
@@ -910,8 +941,19 @@ export function VideoFeedScreen({ initialVideoId }: { initialVideoId?: string })
           {feedQuery.isPending
             ? Array.from({ length: 3 }, (_, i) => <FeedSkeleton key={`sk-${i}`} />)
             : null}
-          {feedItems.map((item) => {
+          {feedItems.map((item, index) => {
             if (item.kind === "place") {
+              const slideId = `place-order:${item.listing.id}`;
+              const next = feedItems[index + 1];
+              const nextId =
+                next?.kind === "place"
+                  ? `place-order:${next.listing.id}`
+                  : next?.kind === "listing"
+                    ? `listing:${next.product.id}`
+                    : next?.kind === "video"
+                      ? next.video.id
+                      : null;
+              const eager = activeId === slideId || activeId === nextId;
               return (
                 <PlaceOrderSlide
                   key={item.key}
@@ -920,10 +962,22 @@ export function VideoFeedScreen({ initialVideoId }: { initialVideoId?: string })
                     followQuery.data?.has(item.listing.business_id) ||
                     mockFollowing.has(item.listing.business_id)
                   }
+                  eager={eager}
                 />
               );
             }
             if (item.kind === "listing") {
+              const slideId = `listing:${item.product.id}`;
+              const next = feedItems[index + 1];
+              const nextId =
+                next?.kind === "place"
+                  ? `place-order:${next.listing.id}`
+                  : next?.kind === "listing"
+                    ? `listing:${next.product.id}`
+                    : next?.kind === "video"
+                      ? next.video.id
+                      : null;
+              const eager = activeId === slideId || activeId === nextId;
               return (
                 <ListingSlide
                   key={item.key}
@@ -932,6 +986,7 @@ export function VideoFeedScreen({ initialVideoId }: { initialVideoId?: string })
                     followQuery.data?.has(item.product.business_id) ||
                     mockFollowing.has(item.product.business_id)
                   }
+                  eager={eager}
                 />
               );
             }
@@ -1105,6 +1160,7 @@ export function VideoFeedScreen({ initialVideoId }: { initialVideoId?: string })
                   if (error) toast.error(error);
                   else toast.success("Creator muted in For You");
                   setMoreOpen(false);
+                  invalidateFeedViewerSignals(profile.id);
                   void queryClient.invalidateQueries({ queryKey: ["video-feed"] });
                 }}
               >
@@ -1119,6 +1175,7 @@ export function VideoFeedScreen({ initialVideoId }: { initialVideoId?: string })
                   if (error) toast.error(error);
                   else toast.success("Account blocked");
                   setMoreOpen(false);
+                  invalidateFeedViewerSignals(profile.id);
                   void queryClient.invalidateQueries({ queryKey: ["video-feed"] });
                 }}
               >
@@ -1947,9 +2004,11 @@ function FeedProductCard({ product, onAdd }: { product: PublicProduct; onAdd: ()
 const PlaceOrderSlide = memo(function PlaceOrderSlide({
   listing,
   following,
+  eager = false,
 }: {
   listing: PlaceOrderListing;
   following: boolean;
+  eager?: boolean;
 }) {
   const actions = useFeedActions();
   const { t } = useTranslation();
@@ -1993,7 +2052,7 @@ const PlaceOrderSlide = memo(function PlaceOrderSlide({
       <div className="relative aspect-[4/5] w-full overflow-hidden bg-zinc-100">
         <MediaCarousel
           urls={listing.image_urls}
-          eager
+          eager={eager}
           empty={
             <div className="flex h-full items-center justify-center text-muted-foreground">
               <UtensilsCrossed className="size-16" />
@@ -2044,9 +2103,11 @@ const PlaceOrderSlide = memo(function PlaceOrderSlide({
 const ListingSlide = memo(function ListingSlide({
   product,
   following,
+  eager = false,
 }: {
   product: PublicProduct;
   following: boolean;
+  eager?: boolean;
 }) {
   const actions = useFeedActions();
   const { t } = useTranslation();
@@ -2093,7 +2154,7 @@ const ListingSlide = memo(function ListingSlide({
       <div className="relative aspect-[4/5] w-full overflow-hidden bg-zinc-100">
         <MediaCarousel
           urls={gallery.length ? gallery : poster ? [poster] : []}
-          eager
+          eager={eager}
           empty={
             <div className="flex h-full items-center justify-center text-muted-foreground">
               <ShoppingBag className="size-16" />
