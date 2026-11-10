@@ -6,15 +6,30 @@ import { coordinatesForState, parseNigerianLocation } from "@/lib/nigeria-locati
 import { signedPlatformActor } from "@/lib/platform-access";
 import { isValidSlug, slugifyBusinessName } from "@/utils/discover";
 
+function requestUsername(request: Request): string {
+  const fromHeader = request.headers.get("x-tijar-username")?.trim() ?? "";
+  if (fromHeader) return fromHeader;
+  try {
+    return new URL(request.url, "https://www.tijar.ng").searchParams.get("username")?.trim() ?? "";
+  } catch {
+    return "";
+  }
+}
+
+function firstId(rows: unknown): string | null {
+  if (!Array.isArray(rows) || rows.length === 0) return null;
+  const id = (rows[0] as { id?: unknown } | undefined)?.id;
+  return typeof id === "string" && id ? id : null;
+}
+
 async function loginTaken(admin: SupabaseClient, slug: string): Promise<string | null> {
-  const email = tijarShopEmail(slug);
-  const [slugHit, emailHit, authHit] = await Promise.all([
-    admin.from("businesses").select("id").eq("public_slug", slug).maybeSingle(),
-    admin.from("profiles").select("id").ilike("email", email).maybeSingle(),
-    admin.auth.admin.getUserByEmail(email).catch(() => ({ data: { user: null } })),
+  const email = tijarShopEmail(slug).toLowerCase();
+  const [slugHit, emailHit] = await Promise.all([
+    admin.from("businesses").select("id").eq("public_slug", slug).limit(1),
+    admin.from("profiles").select("id").eq("email", email).limit(1),
   ]);
-  if (slugHit.data?.id) return "That username is already taken.";
-  if (emailHit.data?.id || authHit.data?.user) return `${email} is already taken.`;
+  if (firstId(slugHit.data)) return "That username is already taken.";
+  if (firstId(emailHit.data)) return `${email} is already taken.`;
   return null;
 }
 
@@ -35,7 +50,7 @@ export const Route = createFileRoute("/api/agent/shops")({
       GET: async ({ request }) => {
         const ctx = await signedPlatformActor(request, ["admin", "agent"]);
         if ("error" in ctx) return ctx.error;
-        const checkName = new URL(request.url).searchParams.get("username")?.trim() ?? "";
+        const checkName = requestUsername(request);
         if (checkName) {
           const slug = slugifyBusinessName(checkName);
           const email = tijarShopEmail(slug);

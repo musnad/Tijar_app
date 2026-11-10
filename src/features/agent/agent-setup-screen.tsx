@@ -157,14 +157,15 @@ export function AgentSetupScreen() {
     setUsernameMessage("Checking if this login is free…");
     const timer = window.setTimeout(() => {
       void (async () => {
-        const res = await fetch(`/api/agent/shops?username=${encodeURIComponent(username.trim())}`, {
-          headers: await authHeader(),
+        const typed = username.trim();
+        const res = await fetch(`/api/agent/shops?username=${encodeURIComponent(typed)}`, {
+          headers: { ...(await authHeader()), "x-tijar-username": typed },
           cache: "no-store",
         });
         const json = (await res.json().catch(() => ({}))) as { available?: boolean; error?: string };
-        if (!res.ok && json.error && !("available" in json)) {
+        if (typeof json.available !== "boolean") {
           setUsernameStatus("idle");
-          setUsernameMessage("");
+          setUsernameMessage("Could not check this username. Try again.");
           return;
         }
         if (json.available) {
