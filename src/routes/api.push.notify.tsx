@@ -104,6 +104,9 @@ export const Route = createFileRoute("/api/push/notify")({
               if (sub.endpoint.startsWith("fcm:")) {
                 if (!fcmKey) return;
                 const token = sub.endpoint.slice(4);
+                const headline = sale ? "You made a sale" : title;
+                const line = bodyText.trim() || "Open Tijar to see it.";
+                const channel = sale ? "tijar-sales" : "tijar-general";
                 const res = await fetch("https://fcm.googleapis.com/fcm/send", {
                   method: "POST",
                   headers: {
@@ -113,14 +116,17 @@ export const Route = createFileRoute("/api/push/notify")({
                   body: JSON.stringify({
                     to: token,
                     priority: "high",
+                    time_to_live: 86400,
                     notification: {
-                      title: sale ? "You made a sale" : title,
-                      body: bodyText,
-                      sound: sale ? "sale" : "default",
-                      android_channel_id: sale ? "tijar-sales" : "tijar-general",
-                      icon: "ic_launcher",
+                      title: headline,
+                      body: line,
+                      sound: "default",
+                      android_channel_id: channel,
+                      icon: "ic_stat_notify",
+                      color: "#1F7A4D",
+                      tag: row.id ? `tijar-${row.id}` : "tijar",
                     },
-                    data: { url, kind: row.kind ?? "" },
+                    data: { url, kind: row.kind ?? "", title: headline, body: line },
                   }),
                 });
                 if (res.status === 404 || res.status === 410) stale.push(sub.id);

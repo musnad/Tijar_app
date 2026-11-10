@@ -62,7 +62,7 @@ export async function initNativePush(): Promise<void> {
       id: "tijar-general",
       name: "Tijar",
       description: "Tijar activity",
-      importance: 4,
+      importance: 5,
       vibration: true,
       visibility: 1,
     });
