@@ -130,10 +130,13 @@ function ShopPostTile({ video, shopName }: { video: PublicFeedVideo; shopName: s
   const src = resolveVideoSrc(video);
   const image = isImagePost(video);
   const poster = cover || src;
+  const productId = video.product_ids?.[0];
   return (
     <Link
-      to="/shop"
-      search={{ v: video.id }}
+      {...(productId
+        ? { to: "/shop/p/$productId" as const, params: { productId } }
+        : { to: "/shop" as const, search: { v: video.id } })}
+      preload="intent"
       className="relative block aspect-[3/4] overflow-hidden bg-[#F3F4F6]"
       aria-label={`${image ? "Photo" : "Video"} from ${shopName}`}
     >
@@ -144,13 +147,10 @@ function ShopPostTile({ video, shopName }: { video: PublicFeedVideo; shopName: s
         <span className="flex size-full items-center justify-center text-[#9CA3AF]">{shopName.slice(0, 1)}</span>
       )}
       {!image ? (
-  const productId = video.product_ids?.[0];
-  return (
-    <Link
-      {...(productId
-        ? { to: "/shop/p/$productId" as const, params: { productId } }
-        : { to: "/shop" as const, search: { v: video.id } })}
-      preload="intent"
+        <span className="absolute right-1.5 top-1.5 flex size-6 items-center justify-center rounded-full bg-black/45 text-white">
+          <Play className="size-3 fill-white" />
+        </span>
+      ) : null}
     </Link>
   );
 }
