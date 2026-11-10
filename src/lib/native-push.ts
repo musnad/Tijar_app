@@ -1,5 +1,4 @@
 import { isNativeApp } from "@/utils/isMobile";
-import { capacitorPlugin } from "@/lib/capacitor-bridge";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 
 async function authToken(): Promise<string | null> {
@@ -41,15 +40,10 @@ export async function initNativePush(): Promise<void> {
   if (!isNativeApp()) return;
   await flushStoredFcmToken();
 
-  const local = capacitorPlugin<{
-    requestPermissions: () => Promise<unknown>;
-    createChannel: (channel: Record<string, unknown>) => Promise<void>;
-    addListener: (event: string, cb: (event: { notification: { extra?: { url?: string } } }) => void) => Promise<unknown>;
-    schedule: (opts: { notifications: Record<string, unknown>[] }) => Promise<void>;
-  }>("LocalNotifications");
   try {
-    await local?.requestPermissions();
-    await local?.createChannel({
+    const { LocalNotifications } = await import("@capacitor/local-notifications");
+    await LocalNotifications.requestPermissions();
+    await LocalNotifications.createChannel({
       id: "tijar-sales",
       name: "Sales",
       description: "You made a sale",
@@ -58,7 +52,7 @@ export async function initNativePush(): Promise<void> {
       vibration: true,
       visibility: 1,
     });
-    await local?.createChannel({
+    await LocalNotifications.createChannel({
       id: "tijar-general",
       name: "Tijar",
       description: "Tijar activity",
@@ -66,27 +60,23 @@ export async function initNativePush(): Promise<void> {
       vibration: true,
       visibility: 1,
     });
-    await local?.addListener("localNotificationActionPerformed", (event) => {
-      const url = event.notification.extra?.url;
+    await LocalNotifications.addListener("localNotificationActionPerformed", (event) => {
+      const url = (event.notification.extra as { url?: string } | undefined)?.url;
       if (typeof url === "string" && url) window.location.assign(url);
     });
   } catch {
     // Plugin missing in browser.
   }
 
-  const push = capacitorPlugin<{
-    requestPermissions: () => Promise<{ receive: string }>;
-    register: () => Promise<void>;
-    addListener: (event: string, cb: (event: { value?: string; notification?: { data?: { url?: string } } }) => void) => Promise<unknown>;
-  }>("PushNotifications");
   try {
-    const perm = await push?.requestPermissions();
-    if (!push || perm?.receive !== "granted") return;
-    await push.register();
-    await push.addListener("registration", (event) => {
+    const { PushNotifications } = await import("@capacitor/push-notifications");
+    const perm = await PushNotifications.requestPermissions();
+    if (perm.receive !== "granted") return;
+    await PushNotifications.register();
+    await PushNotifications.addListener("registration", (event) => {
       if (event.value) void saveFcmToken(event.value);
     });
-    await push.addListener("pushNotificationActionPerformed", (event) => {
+    await PushNotifications.addListener("pushNotificationActionPerformed", (event) => {
       const url = event.notification?.data?.url;
       if (typeof url === "string" && url) window.location.assign(url);
     });
@@ -103,12 +93,10 @@ export async function showNativeNotification(input: {
   sale: boolean;
 }): Promise<void> {
   if (!isNativeApp()) return;
-  const local = capacitorPlugin<{
-    schedule: (opts: { notifications: Record<string, unknown>[] }) => Promise<void>;
-  }>("LocalNotifications");
   try {
+    const { LocalNotifications } = await import("@capacitor/local-notifications");
     const numericId = Math.abs(Array.from(input.id).reduce((acc, ch) => (acc * 31 + ch.charCodeAt(0)) | 0, 7)) % 2_000_000_000;
-    await local?.schedule({
+    await LocalNotifications.schedule({
       notifications: [
         {
           id: numericId || Date.now() % 1_000_000,

@@ -20,20 +20,23 @@ const config: CapacitorConfig = {
   android: {
     appendUserAgent: " TijarApp/1.0",
     allowMixedContent: false,
-    backgroundColor: "#F4F7FB",
+    backgroundColor: "#F3F5F8",
     webContentsDebuggingEnabled: false,
   },
   plugins: {
     SplashScreen: {
       launchShowDuration: 800,
       launchAutoHide: true,
-      backgroundColor: "#F4F7FB",
+      backgroundColor: "#F3F5F8",
       androidSplashResourceName: "splash",
       showSpinner: false,
     },
     StatusBar: {
       style: "LIGHT",
-      backgroundColor: "#F4F7FB",
+      backgroundColor: "#F3F5F8",
+    },
+    PushNotifications: {
+      presentationOptions: ["badge", "sound", "alert"],
     },
   },
 };

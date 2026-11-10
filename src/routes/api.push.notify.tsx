@@ -1,6 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { createFileRoute } from "@tanstack/react-router";
 
+import { sendFcm } from "@/lib/push/fcm";
 import { absoluteAppUrl } from "@/lib/site-url";
 import { readEnvString, readSupabasePublicEnv } from "@/lib/supabase/runtime-env";
 
@@ -55,7 +56,11 @@ export const Route = createFileRoute("/api/push/notify")({
         const publicKey = readEnvString("VAPID_PUBLIC_KEY");
         const privateKey = readEnvString("VAPID_PRIVATE_KEY");
         const fcmKey = readEnvString("FCM_SERVER_KEY");
-        if (!fcmKey && (!publicKey || !privateKey)) {
+        const fcmAccount =
+          readEnvString("FCM_SERVICE_ACCOUNT_JSON") ||
+          readEnvString("FIREBASE_SERVICE_ACCOUNT") ||
+          readEnvString("FIREBASE_PRIVATE_KEY");
+        if (!fcmKey && !fcmAccount && (!publicKey || !privateKey)) {
           return Response.json({ error: "Push is not configured." }, { status: 503 });
         }
 
@@ -102,35 +107,21 @@ export const Route = createFileRoute("/api/push/notify")({
           subscriptions.map(async (sub) => {
             try {
               if (sub.endpoint.startsWith("fcm:")) {
-                if (!fcmKey) return;
                 const token = sub.endpoint.slice(4);
                 const headline = sale ? "You made a sale" : title;
                 const line = bodyText.trim() || "Open Tijar to see it.";
                 const channel = sale ? "tijar-sales" : "tijar-general";
-                const res = await fetch("https://fcm.googleapis.com/fcm/send", {
-                  method: "POST",
-                  headers: {
-                    authorization: `key=${fcmKey}`,
-                    "content-type": "application/json",
-                  },
-                  body: JSON.stringify({
-                    to: token,
-                    priority: "high",
-                    time_to_live: 86400,
-                    notification: {
-                      title: headline,
-                      body: line,
-                      sound: "default",
-                      android_channel_id: channel,
-                      icon: "ic_stat_notify",
-                      color: "#1F7A4D",
-                      tag: row.id ? `tijar-${row.id}` : "tijar",
-                    },
-                    data: { url, kind: row.kind ?? "", title: headline, body: line },
-                  }),
+                const result = await sendFcm({
+                  token,
+                  title: headline,
+                  body: line,
+                  url,
+                  kind: row.kind ?? "",
+                  channel,
+                  tag: row.id ? `tijar-${row.id}` : "tijar",
                 });
-                if (res.status === 404 || res.status === 410) stale.push(sub.id);
-                else if (res.ok) sent += 1;
+                if (result.stale) stale.push(sub.id);
+                else if (result.ok) sent += 1;
                 return;
               }
               if (!webPush) return;
