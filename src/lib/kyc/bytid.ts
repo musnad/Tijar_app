@@ -441,10 +441,6 @@ export function isShopIdentityVerified(business: {
   kyc_face_matched?: boolean | null;
   kyc_id_last4?: string | null;
 }): boolean {
-  return (
-    business.verification_status === "verified" &&
-    Boolean(business.kyc_verified_at) &&
-    Boolean(business.kyc_face_matched) &&
-    Boolean(business.kyc_id_last4)
-  );
+  // Real NIN/face completion writes kyc_verified_at. Bulk "verified" flags do not.
+  return business.verification_status === "verified" && Boolean(business.kyc_verified_at);
 }

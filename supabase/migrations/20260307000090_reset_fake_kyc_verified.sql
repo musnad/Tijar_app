@@ -9,20 +9,16 @@ alter table public.businesses
   add column if not exists kyc_full_name text,
   add column if not exists kyc_details jsonb;
 
+-- Keep anyone who already finished NIN + live face (kyc_verified_at is set).
+-- Everyone else who was bulk-marked verified must do NIN + face.
 update public.businesses
 set
   verification_status = 'not_started',
-  kyc_verified_at = null,
   kyc_face_matched = false,
-  kyc_details = null,
   moderation_notes = 'Verify with NIN and live face.',
   updated_at = now()
-where verification_status in ('verified', 'submitted', 'under_review')
-  and (
-    kyc_verified_at is null
-    or coalesce(kyc_face_matched, false) is not true
-    or coalesce(kyc_id_last4, '') = ''
-  );
+where coalesce(verification_status, 'not_started') in ('verified', 'submitted', 'under_review')
+  and kyc_verified_at is null;
 
 alter table public.verified_badge_requests
   add column if not exists eligibility jsonb;
@@ -57,9 +53,7 @@ begin
   end if;
 
   v_nin := coalesce(v_biz.verification_status, '') = 'verified'
-    and v_biz.kyc_verified_at is not null
-    and coalesce(v_biz.kyc_face_matched, false)
-    and coalesce(v_biz.kyc_id_last4, '') <> '';
+    and v_biz.kyc_verified_at is not null;
   v_days := greatest(0, floor(extract(epoch from (now() - v_biz.created_at)) / 86400)::int);
 
   select count(*)::int into v_posts
