@@ -163,6 +163,7 @@ export function AdsManagerScreen({ adminMode = false, embedded = false }: { admi
   }
 
   const body = (
+    <>
           <p className="mt-2 text-[13px] text-muted-foreground">
             Promote a post, product, or flyer. Same prices for every category. Pay into the TIJAR virtual account — we go live after the transfer, and the ad stops on the date you pick.
           </p>
@@ -340,6 +341,7 @@ export function AdsManagerScreen({ adminMode = false, embedded = false }: { admi
           <p className="mt-6 text-[11px] text-muted-foreground">
             Live ads look like normal posts with a Paid ads tag. They finish automatically at the end of the period you paid for.
           </p>
+    </>
   );
 
   if (embedded) return <div className="pb-8">{body}</div>;
