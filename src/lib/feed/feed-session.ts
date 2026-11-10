@@ -107,6 +107,17 @@ export function hashFeedKey(value: string): number {
 export const FRESH_POST_HOURS = 12;
 
 /** Higher = should appear earlier. Brand-new posts stay on top; refresh can lift older unseen posts. */
+/** Newest product or post always occupies slot 1, like TikTok / Instagram after a refresh. */
+export function pinNewestFirst<T extends { key: string; ts: number }>(items: T[]): T[] {
+  if (items.length < 2) return items;
+  let newest = items[0]!;
+  for (const item of items) {
+    if (item.ts > newest.ts) newest = item;
+  }
+  if (items[0]?.key === newest.key) return items;
+  return [newest, ...items.filter((item) => item.key !== newest.key)];
+}
+
 export function mixFeedScore(id: string, ts: number, salt: string, seen: Set<string>): number {
   const ageHours = Math.max(0, (Date.now() - (ts || 0)) / 3_600_000);
   if (ageHours <= FRESH_POST_HOURS) {

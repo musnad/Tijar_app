@@ -4,6 +4,7 @@ import {
   consumeHomeRefreshPending,
   markHomeRefreshPending,
   mixFeedScore,
+  pinNewestFirst,
 } from "@/lib/feed/feed-session";
 
 describe("mixFeedScore", () => {
@@ -28,6 +29,17 @@ describe("mixFeedScore", () => {
     const older = mixFeedScore("older", Date.now() - 4 * 86_400_000, "salt-b", seen);
     expect(freshA).toBeGreaterThan(older);
     expect(freshB).toBeGreaterThan(older);
+  });
+});
+
+describe("pinNewestFirst", () => {
+  it("moves the newest product to the first slot", () => {
+    const items = [
+      { key: "old", ts: 1 },
+      { key: "product", ts: 9 },
+      { key: "mid", ts: 4 },
+    ];
+    expect(pinNewestFirst(items)[0]?.key).toBe("product");
   });
 });
 

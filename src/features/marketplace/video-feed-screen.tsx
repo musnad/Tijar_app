@@ -64,6 +64,7 @@ import {
   currentFeedSalt,
   markHomeRefreshPending,
   mixFeedScore,
+  pinNewestFirst,
   readSeenFeedIds,
   rememberSeenFeedIds,
   rotateFeedSalt,
@@ -346,9 +347,9 @@ export function VideoFeedScreen({ initialVideoId }: { initialVideoId?: string })
     },
     initialPageParam: null as string | null,
     getNextPageParam: (last) => last.nextCursor,
-    staleTime: 90_000,
+    staleTime: 15_000,
     gcTime: 30 * 60_000,
-    refetchOnMount: false,
+    refetchOnMount: "always",
     placeholderData: (previous) => previous,
   });
 
@@ -359,13 +360,15 @@ export function VideoFeedScreen({ initialVideoId }: { initialVideoId?: string })
       if (r.error) throw new Error(r.error);
       return r.data;
     },
-    staleTime: 90_000,
+    staleTime: 15_000,
+    refetchOnMount: "always",
   });
 
   const placeOrdersQuery = useQuery({
     queryKey: ["for-you-place-orders"],
     queryFn: async () => (await fetchPlaceOrderListings({ day: "all", limit: 8 })).listings,
-    staleTime: 90_000,
+    staleTime: 15_000,
+    refetchOnMount: "always",
   });
 
   const liveVideos = useMemo(() => {
@@ -387,6 +390,8 @@ export function VideoFeedScreen({ initialVideoId }: { initialVideoId?: string })
     [liveVideos],
   );
   const restoredRef = useRef(false);
+  const stickToTopUntil = useRef(0);
+  const stickTimer = useRef<number | null>(null);
 
   const productCacheId = profile?.id ?? "anon";
   const productsQuery = useQuery({
@@ -525,18 +530,15 @@ export function VideoFeedScreen({ initialVideoId }: { initialVideoId?: string })
   }, []);
 
   useEffect(() => {
-    if (restoredRef.current || videos.length === 0) return;
+    if (restoredRef.current || videos.length === 0 || !initialVideoId) return;
+    if (!videos.some((v) => v.id === initialVideoId)) return;
     restoredRef.current = true;
-    if (initialVideoId && videos.some((v) => v.id === initialVideoId)) {
-      setActiveId(initialVideoId);
-      const root = scrollerRef.current;
-      const node = root?.querySelector(`[data-video-id="${initialVideoId}"]`) as HTMLElement | null;
-      if (root && node) {
-        root.scrollTop = node.getBoundingClientRect().top - root.getBoundingClientRect().top + root.scrollTop;
-      }
-      return;
+    setActiveId(initialVideoId);
+    const root = scrollerRef.current;
+    const node = root?.querySelector(`[data-video-id="${initialVideoId}"]`) as HTMLElement | null;
+    if (root && node) {
+      root.scrollTop = node.getBoundingClientRect().top - root.getBoundingClientRect().top + root.scrollTop;
     }
-    setActiveId(videos[0]!.id);
   }, [videos, initialVideoId]);
 
   useEffect(() => {
@@ -552,6 +554,15 @@ export function VideoFeedScreen({ initialVideoId }: { initialVideoId?: string })
   const pullStartY = useRef(0);
   const pulling = useRef(false);
 
+  const jumpFeedToFirst = useCallback((items: FeedItem[]) => {
+    const root = scrollerRef.current;
+    if (root) root.scrollTop = 0;
+    const first = items[0];
+    if (first?.kind === "video") setActiveId(first.video.id);
+    else if (first) setActiveId(null);
+    restoredRef.current = true;
+  }, []);
+
   const refreshFeed = useCallback(() => {
     consumeHomeRefreshPending();
     rememberSeenFeedIds(itemKeysRef.current);
@@ -559,7 +570,14 @@ export function VideoFeedScreen({ initialVideoId }: { initialVideoId?: string })
     setFeedSalt(rotateFeedSalt());
     setFeedRound(bumpFeedRound());
     restoredRef.current = false;
-    scrollerRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+    stickToTopUntil.current = Date.now() + 2_400;
+    if (stickTimer.current) window.clearTimeout(stickTimer.current);
+    stickTimer.current = window.setTimeout(() => {
+      stickToTopUntil.current = 0;
+    }, 2_400);
+    haptic();
+    const root = scrollerRef.current;
+    if (root) root.scrollTop = 0;
     void queryClient.invalidateQueries({ queryKey: ["video-feed"] });
     void queryClient.invalidateQueries({ queryKey: ["for-you-listings"] });
     void queryClient.invalidateQueries({ queryKey: ["live-stories"] });
@@ -874,11 +892,21 @@ export function VideoFeedScreen({ initialVideoId }: { initialVideoId?: string })
     for (const product of showListings) {
       items.push({ kind: "listing", key: `listing:${product.id}`, ts: feedTimestamp(product.created_at), product });
     }
-    return items.sort(
-      (a, b) => mixFeedScore(b.key, b.ts, feedSalt, seenIds) - mixFeedScore(a.key, a.ts, feedSalt, seenIds) || b.ts - a.ts,
+    return pinNewestFirst(
+      items.sort(
+        (a, b) => mixFeedScore(b.key, b.ts, feedSalt, seenIds) - mixFeedScore(a.key, a.ts, feedSalt, seenIds) || b.ts - a.ts,
+      ),
     );
   }, [showPlaceOrders, showPosts, showListings, feedSalt, seenIds]);
   itemKeysRef.current = feedItems.map((item) => item.key);
+
+  useEffect(() => {
+    if (feedItems.length === 0) return;
+    const refreshing = Date.now() < stickToTopUntil.current;
+    if (!refreshing && restoredRef.current) return;
+    if (initialVideoId && restoredRef.current) return;
+    jumpFeedToFirst(feedItems);
+  }, [feedItems, jumpFeedToFirst, feedQuery.isFetching, listingsQuery.isFetching, placeOrdersQuery.isFetching, initialVideoId]);
 
   useEffect(() => {
     const urls: string[] = [];
@@ -953,7 +981,7 @@ export function VideoFeedScreen({ initialVideoId }: { initialVideoId?: string })
             setPull(Math.max(0, Math.min(76, dy * 0.42)));
           }}
           onTouchEnd={() => {
-            if (pull > 52) refreshFeed();
+            if (pull > 40) refreshFeed();
             setPull(0);
             pulling.current = false;
             pullStartY.current = 0;
