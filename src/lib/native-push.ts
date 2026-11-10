@@ -7,7 +7,14 @@ async function authToken(): Promise<string | null> {
   return data.session?.access_token ?? null;
 }
 
+const FCM_TOKEN_KEY = "tijar-fcm-token";
+
 async function saveFcmToken(token: string): Promise<void> {
+  try {
+    window.localStorage.setItem(FCM_TOKEN_KEY, token);
+  } catch {
+    // Ignore.
+  }
   const access = await authToken();
   if (!access) return;
   await fetch("/api/push/subscribe", {
@@ -17,12 +24,22 @@ async function saveFcmToken(token: string): Promise<void> {
   }).catch(() => undefined);
 }
 
+async function flushStoredFcmToken(): Promise<void> {
+  try {
+    const token = window.localStorage.getItem(FCM_TOKEN_KEY);
+    if (token) await saveFcmToken(token);
+  } catch {
+    // Ignore.
+  }
+}
+
 export function isSaleNotification(kind: string | undefined): boolean {
   return kind === "purchase" || kind === "place_order" || kind === "place_order_paid";
 }
 
 export async function initNativePush(): Promise<void> {
   if (!isNativeApp()) return;
+  await flushStoredFcmToken();
 
   const local = capacitorPlugin<{
     requestPermissions: () => Promise<unknown>;

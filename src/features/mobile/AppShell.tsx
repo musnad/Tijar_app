@@ -5,6 +5,7 @@ import { SiteFooter, SiteHeader } from "@/components/site-shell";
 import { NotificationPopup } from "@/features/marketplace/notification-popup";
 import { useAuth } from "@/features/auth/auth-context";
 import { capacitorPlugin, hideNativeSplash } from "@/lib/capacitor-bridge";
+import { initNativePush } from "@/lib/native-push";
 import { isNativeApp } from "@/utils/isMobile";
 
 function isAppChromePath(pathname: string): boolean {
@@ -46,29 +47,32 @@ function NativeRuntime() {
     }>("StatusBar");
     void status?.setStyle({ style: "LIGHT" }).catch(() => undefined);
     void status?.setBackgroundColor({ color: "#F3F5F8" }).catch(() => undefined);
+    void initNativePush();
 
     const app = capacitorPlugin<{
       addListener: (
         event: string,
-        cb: (info: { canGoBack: boolean }) => void,
+        cb: (info: { canGoBack?: boolean; isActive?: boolean }) => void,
       ) => Promise<{ remove: () => Promise<void> }>;
       exitApp: () => Promise<void>;
     }>("App");
-    let remove: (() => void) | undefined;
+    const handles: Array<{ remove: () => Promise<void> }> = [];
     void app
       ?.addListener("backButton", ({ canGoBack }) => {
         if (canGoBack) window.history.back();
         else void app.exitApp();
       })
-      .then((handle) => {
-        remove = () => {
-          void handle.remove();
-        };
+      .then((handle) => handles.push(handle))
+      .catch(() => undefined);
+    void app
+      ?.addListener("appStateChange", ({ isActive }) => {
+        if (isActive) void initNativePush();
       })
+      .then((handle) => handles.push(handle))
       .catch(() => undefined);
     return () => {
       window.clearTimeout(t);
-      remove?.();
+      for (const handle of handles) void handle.remove();
     };
   }, []);
 
