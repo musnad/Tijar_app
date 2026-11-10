@@ -128,6 +128,9 @@ export function AgentSetupScreen() {
   const [customCategory, setCustomCategory] = useState("");
   const [logo, setLogo] = useState<File | null>(null);
   const [photos, setPhotos] = useState<File[]>([]);
+  const [offerName, setOfferName] = useState("");
+  const [offerPrice, setOfferPrice] = useState("");
+  const [offerKind, setOfferKind] = useState<"goods" | "service">("goods");
   const [saving, setSaving] = useState(false);
   const [created, setCreated] = useState<CreatedShop | null>(null);
   const [usernameStatus, setUsernameStatus] = useState<"idle" | "checking" | "available" | "taken" | "invalid">("idle");
@@ -200,6 +203,13 @@ export function AgentSetupScreen() {
       form.set("location", location.trim());
       form.set("categoryId", categoryId);
       form.set("customCategory", otherSelected || !categoryId ? customCategory.trim() : "");
+      const price = Number(offerPrice.replace(/,/g, ""));
+      form.set(
+        "offers",
+        JSON.stringify(
+          offerName.trim() && price > 0 ? [{ kind: offerKind, name: offerName.trim(), price }] : [],
+        ),
+      );
       const hits = location.trim() ? await getMapsProvider().geocode(`${location.trim()}, Nigeria`) : [];
       if (hits[0]) {
         form.set("lat", String(hits[0].lat));
@@ -230,6 +240,8 @@ export function AgentSetupScreen() {
       setCustomCategory("");
       setLogo(null);
       setPhotos([]);
+      setOfferName("");
+      setOfferPrice("");
       toast.success("Shop is live and searchable.");
       await shopsQuery.refetch();
     } finally {
@@ -459,6 +471,37 @@ export function AgentSetupScreen() {
             multiple
             onFiles={(files) => setPhotos(files.slice(0, 5))}
           />
+          <p className="text-[11px] text-muted-foreground">
+            These pictures appear on Create post for this shop. If there is more than one, TIJAR posts the next picture every 24 hours.
+          </p>
+
+          <div>
+            <FieldLabel>Product or service (optional)</FieldLabel>
+            <div className="grid grid-cols-2 gap-2">
+              <select
+                className="h-12 appearance-none rounded-2xl border border-[#E5E7EB] bg-[#F8FAFC] px-3 text-sm font-semibold"
+                value={offerKind}
+                onChange={(e) => setOfferKind(e.target.value === "service" ? "service" : "goods")}
+              >
+                <option value="goods">Product</option>
+                <option value="service">Service</option>
+              </select>
+              <Input
+                className="h-12 rounded-2xl border-[#E5E7EB] bg-[#F8FAFC] font-semibold"
+                placeholder="Price ₦"
+                value={offerPrice}
+                onChange={(e) => setOfferPrice(e.target.value)}
+                inputMode="decimal"
+              />
+            </div>
+            <Input
+              className="mt-2 h-12 rounded-2xl border-[#E5E7EB] bg-[#F8FAFC] font-semibold"
+              placeholder="Name, e.g. Suya pack"
+              value={offerName}
+              onChange={(e) => setOfferName(e.target.value)}
+            />
+            <p className="mt-1 text-[11px] text-muted-foreground">If you add this, it goes on their products list and as a shop post people can search.</p>
+          </div>
 
           <Button
             type="submit"
@@ -477,6 +520,11 @@ export function AgentSetupScreen() {
             <ul className="mt-3 space-y-2">
               {(shopsQuery.data?.shops ?? []).map((shop) => (
                 <li key={String(shop.id)} className="flex items-center gap-3 rounded-2xl bg-[#F8FAFC] px-3 py-2.5">
+                  <Link
+                    className="flex min-w-0 flex-1 items-center gap-3"
+                    to="/shop/agent/$shopId"
+                    params={{ shopId: String(shop.id) }}
+                  >
                   <span className="flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-[#0B1F4D] text-sm font-extrabold text-white">
                     {shop.logo_url ? (
                       // eslint-disable-next-line @next/next/no-img-element
@@ -490,7 +538,9 @@ export function AgentSetupScreen() {
                     <span className="block truncate text-[11px] text-muted-foreground">
                       @{String(shop.public_slug ?? "")} · {String(shop.public_location_label ?? "")}
                     </span>
+                    <span className="block text-[11px] font-bold text-[#1F7A4D]">View details</span>
                   </span>
+                  </Link>
                   {shop.public_phone ? (
                     <a
                       className="flex size-10 items-center justify-center rounded-full bg-[#1F7A4D] text-white"

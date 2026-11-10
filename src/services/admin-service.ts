@@ -298,6 +298,7 @@ export type AdminAgentShop = {
   businessName: string;
   username: string;
   email: string;
+  password: string;
   phone: string;
   location: string;
   category: string;
@@ -314,23 +315,68 @@ export type AdminAgent = {
   shops: AdminAgentShop[];
 };
 
-export async function fetchAdminAgents(): Promise<{ agents: AdminAgent[]; error: string | null }> {
+export type AdminAgentEdit = {
+  id: string;
+  business_id: string;
+  agent_profile_id: string;
+  payload: Record<string, string>;
+  status: string;
+  created_at: string;
+};
+
+export async function fetchAdminAgents(): Promise<{
+  agents: AdminAgent[];
+  edits: AdminAgentEdit[];
+  error: string | null;
+}> {
   const supabase = getSupabaseBrowserClient();
   const {
     data: { session },
   } = await supabase.auth.getSession();
-  if (!session?.access_token) return { agents: [], error: "Sign in first." };
+  if (!session?.access_token) return { agents: [], edits: [], error: "Sign in first." };
   try {
     const res = await fetch("/api/admin/agents", {
       headers: { Authorization: `Bearer ${session.access_token}` },
       cache: "no-store",
     });
-    const json = (await res.json().catch(() => ({}))) as { agents?: AdminAgent[]; error?: string };
-    if (!res.ok) return { agents: [], error: json.error ?? "Could not load agents." };
-    return { agents: json.agents ?? [], error: null };
+    const json = (await res.json().catch(() => ({}))) as {
+      agents?: AdminAgent[];
+      edits?: AdminAgentEdit[];
+      error?: string;
+    };
+    if (!res.ok) return { agents: [], edits: [], error: json.error ?? "Could not load agents." };
+    return { agents: json.agents ?? [], edits: json.edits ?? [], error: null };
   } catch {
-    return { agents: [], error: "Could not load agents." };
+    return { agents: [], edits: [], error: "Could not load agents." };
   }
+}
+
+async function adminAgentAction(body: Record<string, unknown>): Promise<{ error: string | null }> {
+  const supabase = getSupabaseBrowserClient();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  if (!session?.access_token) return { error: "Sign in first." };
+  const res = await fetch("/api/admin/agents", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${session.access_token}`, "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  const json = (await res.json().catch(() => ({}))) as { error?: string };
+  if (!res.ok) return { error: json.error ?? "Could not complete that." };
+  return { error: null };
+}
+
+export function adminDeleteBusiness(businessId: string) {
+  return adminAgentAction({ action: "delete-business", businessId });
+}
+
+export function adminDeletePost(postId: string) {
+  return adminAgentAction({ action: "delete-post", postId });
+}
+
+export function adminReviewAgentEdit(editId: string, approve: boolean) {
+  return adminAgentAction({ action: approve ? "approve-edit" : "reject-edit", editId });
 }
 
 export async function setAdminAgent(profileId: string, on: boolean): Promise<{ error: string | null }> {

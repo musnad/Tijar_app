@@ -17,6 +17,7 @@ export type AgentOnboardedShop = {
   businessName: string;
   username: string;
   email: string;
+  password: string;
   phone: string;
   location: string;
   category: string;
@@ -34,12 +35,25 @@ export async function shopsOnboardedByAgents(
       "id, business_name, public_slug, public_phone, public_location_label, logo_url, custom_category, created_at, created_by_agent_id, owner_id",
     )
     .not("created_by_agent_id", "is", null)
+    .is("deleted_at", null)
     .order("created_at", { ascending: false })
     .limit(500);
   if (agentProfileIds && agentProfileIds.length > 0) {
     query = query.in("created_by_agent_id", agentProfileIds);
   }
-  const { data: shops } = await query;
+  let { data: shops, error } = await query;
+  if (error && /deleted_at/i.test(error.message)) {
+    const retry = admin
+      .from("businesses")
+      .select(
+        "id, business_name, public_slug, public_phone, public_location_label, logo_url, custom_category, created_at, created_by_agent_id, owner_id",
+      )
+      .not("created_by_agent_id", "is", null)
+      .order("created_at", { ascending: false })
+      .limit(500);
+    const again = agentProfileIds && agentProfileIds.length > 0 ? await retry.in("created_by_agent_id", agentProfileIds) : await retry;
+    shops = again.data;
+  }
   const ownerIds = [...new Set((shops ?? []).map((row) => String(row.owner_id ?? "")).filter(Boolean))];
   const emails = new Map<string, string>();
   if (ownerIds.length > 0) {
@@ -48,15 +62,31 @@ export async function shopsOnboardedByAgents(
       emails.set(String(profile.id), String(profile.email ?? ""));
     }
   }
+  const secrets = new Map<string, { email: string; password: string }>();
+  const shopIds = (shops ?? []).map((row) => String(row.id));
+  if (shopIds.length > 0) {
+    const { data: secretRows } = await admin
+      .from("agent_shop_secrets")
+      .select("business_id, login_email, login_password")
+      .in("business_id", shopIds);
+    for (const row of secretRows ?? []) {
+      secrets.set(String(row.business_id), {
+        email: String(row.login_email ?? ""),
+        password: String(row.login_password ?? ""),
+      });
+    }
+  }
   const grouped = new Map<string, AgentOnboardedShop[]>();
   for (const row of shops ?? []) {
     const agentId = String(row.created_by_agent_id ?? "");
     if (!agentId) continue;
+    const secret = secrets.get(String(row.id));
     const shop: AgentOnboardedShop = {
       id: String(row.id),
       businessName: String(row.business_name ?? ""),
       username: String(row.public_slug ?? ""),
-      email: emails.get(String(row.owner_id ?? "")) || "",
+      email: secret?.email || emails.get(String(row.owner_id ?? "")) || "",
+      password: secret?.password || "",
       phone: String(row.public_phone ?? ""),
       location: String(row.public_location_label ?? ""),
       category: String(row.custom_category ?? ""),

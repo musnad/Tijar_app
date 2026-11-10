@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { tijarShopEmail } from "@/lib/agent-email";
 import { readAgentId } from "@/lib/agent-id";
+import { createAgentCatalogue, parseAgentOffers } from "@/lib/agent-visibility";
 import { coordinatesForState, parseNigerianLocation } from "@/lib/nigeria-locations";
 import { signedPlatformActor } from "@/lib/platform-access";
 import { isValidSlug, slugifyBusinessName } from "@/utils/discover";
@@ -74,11 +75,24 @@ export const Route = createFileRoute("/api/agent/shops")({
         const query = ctx.admin
           .from("businesses")
           .select("id, business_name, public_slug, public_phone, public_location_label, logo_url, created_at, custom_category")
+          .is("deleted_at", null)
           .order("created_at", { ascending: false })
           .limit(200);
-        const { data, error } = ctx.roles.includes("admin")
+        let { data, error } = ctx.roles.includes("admin")
           ? await query.not("created_by_agent_id", "is", null)
           : await query.eq("created_by_agent_id", ctx.profileId);
+        if (error && /deleted_at/i.test(error.message)) {
+          const fallback = ctx.admin
+            .from("businesses")
+            .select("id, business_name, public_slug, public_phone, public_location_label, logo_url, created_at, custom_category")
+            .order("created_at", { ascending: false })
+            .limit(200);
+          const retry = ctx.roles.includes("admin")
+            ? await fallback.not("created_by_agent_id", "is", null)
+            : await fallback.eq("created_by_agent_id", ctx.profileId);
+          data = retry.data;
+          error = retry.error;
+        }
         if (error) {
           return Response.json({
             shops: [],
@@ -241,6 +255,23 @@ export const Route = createFileRoute("/api/agent/shops")({
             gallery_urls: gallery,
           })
           .eq("id", businessId);
+
+        await ctx.admin.from("agent_shop_secrets").upsert({
+          business_id: businessId,
+          agent_profile_id: ctx.profileId,
+          login_email: loginEmail,
+          login_password: password,
+          updated_at: new Date().toISOString(),
+        });
+
+        await createAgentCatalogue(ctx.admin, {
+          businessId,
+          ownerProfileId: profile.id,
+          businessName,
+          location,
+          gallery,
+          offers: parseAgentOffers(String(form.get("offers") ?? "[]")),
+        });
 
         return Response.json({
           ok: true,

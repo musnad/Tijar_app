@@ -54,6 +54,8 @@ import {
   addAdminTijarExpense,
   approveAllBusinesses,
   deleteAdminTijarExpense,
+  adminDeleteBusiness,
+  adminReviewAgentEdit,
   fetchAdminAgents,
   fetchAdminBusinesses,
   fetchAdminOrders,
@@ -72,6 +74,7 @@ import {
   setBusinessVerifiedBadge,
   shopName,
   type AdminAgent,
+  type AdminAgentEdit,
   type AdminBusiness,
   type AdminOrder,
   type AdminTransaction,
@@ -366,10 +369,7 @@ export function AdminConsoleScreen() {
   const agentsQuery = useQuery({
     queryKey: ["admin-agents"],
     enabled: isAdmin,
-    queryFn: async () => {
-      const r = await fetchAdminAgents();
-      return r.agents;
-    },
+    queryFn: async () => fetchAdminAgents(),
   });
 
   const businesses = businessesQuery.data ?? [];
@@ -380,7 +380,7 @@ export function AdminConsoleScreen() {
   const upgrades = upgradesQuery.data ?? [];
   const badgeRequests = badgeRequestsQuery.data ?? [];
   const fees = feesQuery.data ?? [];
-  const agentIds = useMemo(() => new Set((agentsQuery.data ?? []).map((row) => row.profileId)), [agentsQuery.data]);
+  const agentIds = useMemo(() => new Set((agentsQuery.data?.agents ?? []).map((row) => row.profileId)), [agentsQuery.data]);
   const expenses = expensesQuery.data?.expenses ?? [];
   const expensesError = expensesQuery.data?.error ?? (expensesQuery.error as Error | undefined)?.message ?? null;
   const collectedFees = useMemo(
@@ -597,6 +597,25 @@ export function AdminConsoleScreen() {
     }
     toast.success(on ? "This account is now an agent." : "Agent access removed.");
     await queryClient.invalidateQueries({ queryKey: ["admin-agents"] });
+  }
+
+  async function reviewEdit(editId: string, approve: boolean) {
+    const { error } = await adminReviewAgentEdit(editId, approve);
+    if (error) toast.error(error);
+    else {
+      toast.success(approve ? "Edit applied." : "Edit rejected.");
+      await queryClient.invalidateQueries({ queryKey: ["admin-agents"] });
+    }
+  }
+
+  async function removeBusiness(businessId: string) {
+    if (!window.confirm("Delete this business from the marketplace? Posts and products go offline.")) return;
+    const { error } = await adminDeleteBusiness(businessId);
+    if (error) toast.error(error);
+    else {
+      toast.success("Business deleted.");
+      await refreshAll();
+    }
   }
 
   async function approveEverything() {
@@ -1367,6 +1386,14 @@ export function AdminConsoleScreen() {
                   >
                     {agentIds.has(biz.owner_id) ? "Remove agent" : "Make agent"}
                   </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-8 rounded-lg text-xs font-bold text-destructive"
+                    onClick={() => void removeBusiness(biz.id)}
+                  >
+                    Delete
+                  </Button>
                 </div>
               </td>
             </tr>
@@ -1511,10 +1538,39 @@ export function AdminConsoleScreen() {
           <p className="text-sm text-muted-foreground">
             Every agent has an ID. Open a card to see the shops they onboarded, with login, phone and location.
           </p>
-          {(agentsQuery.data ?? []).length === 0 ? (
+          {(agentsQuery.data?.edits ?? []).length > 0 ? (
+            <div className="rounded-2xl border border-amber-200 bg-amber-50 p-3">
+              <p className="text-sm font-extrabold text-amber-900">Edits waiting for you</p>
+              <ul className="mt-2 space-y-2">
+                {(agentsQuery.data?.edits ?? []).map((edit) => (
+                  <li key={edit.id} className="flex flex-wrap items-center justify-between gap-2 text-sm">
+                    <span>
+                      Shop {edit.business_id.slice(0, 8)} · {(edit.payload as AdminAgentEdit["payload"]).businessName ?? "update"}
+                    </span>
+                    <span className="flex gap-1">
+                      <Button size="sm" className="h-8 text-xs" onClick={() => void reviewEdit(edit.id, true)}>
+                        Approve
+                      </Button>
+                      <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => void reviewEdit(edit.id, false)}>
+                        Reject
+                      </Button>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+          {(agentsQuery.data?.agents ?? []).length === 0 ? (
             <EmptyState title="No agents yet." body="Make a user or business an agent from Users or Businesses." />
           ) : (
-            (agentsQuery.data ?? []).map((agent) => <AgentOnboardCard key={agent.profileId} agent={agent} onRemove={() => void toggleAgent(agent.profileId, false)} />)
+            (agentsQuery.data?.agents ?? []).map((agent) => (
+              <AgentOnboardCard
+                key={agent.profileId}
+                agent={agent}
+                onRemove={() => void toggleAgent(agent.profileId, false)}
+                onDeleteShop={(businessId) => void removeBusiness(businessId)}
+              />
+            ))
           )}
         </div>
       )}
@@ -1567,7 +1623,15 @@ function Kpi({
   );
 }
 
-function AgentOnboardCard({ agent, onRemove }: { agent: AdminAgent; onRemove: () => void }) {
+function AgentOnboardCard({
+  agent,
+  onRemove,
+  onDeleteShop,
+}: {
+  agent: AdminAgent;
+  onRemove: () => void;
+  onDeleteShop: (businessId: string) => void;
+}) {
   return (
     <section className="overflow-hidden rounded-2xl border border-border bg-card">
       <div className="flex flex-wrap items-start justify-between gap-3 px-4 py-3">
@@ -1595,9 +1659,11 @@ function AgentOnboardCard({ agent, onRemove }: { agent: AdminAgent; onRemove: ()
               <tr>
                 <th className="px-3 py-2">Shop</th>
                 <th className="px-3 py-2">Login</th>
+                <th className="px-3 py-2">Password</th>
                 <th className="px-3 py-2">Phone</th>
                 <th className="px-3 py-2">Location</th>
                 <th className="px-3 py-2">When</th>
+                <th className="px-3 py-2"> </th>
               </tr>
             </thead>
             <tbody>
@@ -1622,6 +1688,7 @@ function AgentOnboardCard({ agent, onRemove }: { agent: AdminAgent; onRemove: ()
                     </div>
                   </td>
                   <td className="px-3 py-2.5 font-semibold">{shop.email || `${shop.username}@tijar.ng`}</td>
+                  <td className="px-3 py-2.5 font-mono text-[12px] font-bold">{shop.password || "—"}</td>
                   <td className="px-3 py-2.5">
                     {shop.phone ? (
                       <a className="inline-flex items-center gap-1 font-bold text-[#1F7A4D]" href={`tel:${shop.phone.replace(/[^\d+]/g, "")}`}>
@@ -1634,6 +1701,11 @@ function AgentOnboardCard({ agent, onRemove }: { agent: AdminAgent; onRemove: ()
                   </td>
                   <td className="px-3 py-2.5 text-muted-foreground">{shop.location || "—"}</td>
                   <td className="px-3 py-2.5 text-muted-foreground">{formatWhen(shop.createdAt)}</td>
+                  <td className="px-3 py-2.5">
+                    <Button size="sm" variant="outline" className="h-8 text-xs text-destructive" onClick={() => onDeleteShop(shop.id)}>
+                      Delete
+                    </Button>
+                  </td>
                 </tr>
               ))}
             </tbody>

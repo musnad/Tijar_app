@@ -1,6 +1,12 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "tanstack-start",
+  "crons": [
+    {
+      "path": "/api/cron/agent-repost",
+      "schedule": "0 * * * *"
+    }
+  ],
   "headers": [
     {
       "source": "/assets/(.*)",

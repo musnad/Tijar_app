@@ -136,6 +136,8 @@ import {
   releaseBidUnpaid,
 } from "@/services/bid-service";
 import { usePrimaryBusiness } from "@/hooks/use-primary-business";
+import { isTijarSuperAdminEmail } from "@/lib/admin";
+import { fetchMyPlatformRoles } from "@/services/discover-service";
 
 type FeedTab = "foryou" | "following" | "nearby";
 
@@ -297,6 +299,13 @@ export function VideoFeedScreen({ initialVideoId }: { initialVideoId?: string })
   const [shareTarget, setShareTarget] = useState<PublicFeedVideo | null>(null);
   const [deleting, setDeleting] = useState(false);
   const businessQuery = usePrimaryBusiness(profile?.id);
+  const rolesQuery = useQuery({
+    queryKey: ["platform-roles", profile?.id],
+    enabled: Boolean(profile?.id),
+    queryFn: () => fetchMyPlatformRoles(profile!.id),
+  });
+  const canModeratePosts =
+    isTijarSuperAdminEmail(profile?.email) || (rolesQuery.data ?? []).includes("admin");
   const [feedTab, setFeedTab] = useState<FeedTab>("foryou");
   const location = useViewerLocation(true);
   const locationRef = useRef(location);
@@ -1190,12 +1199,16 @@ export function VideoFeedScreen({ initialVideoId }: { initialVideoId?: string })
       <Sheet open={moreOpen} onOpenChange={setMoreOpen}>
         <SheetContent side="bottom" className="rounded-t-3xl">
           <SheetHeader>
-            <SheetTitle>{active && businessQuery.data?.business?.id === active.business_id ? "Your post" : "Safety"}</SheetTitle>
+            <SheetTitle>
+              {active && (businessQuery.data?.business?.id === active.business_id || canModeratePosts) ? "Post" : "Safety"}
+            </SheetTitle>
           </SheetHeader>
           {active ? (
             <div className="mt-4 grid gap-2">
-              {businessQuery.data?.business?.id === active.business_id ? (
+              {businessQuery.data?.business?.id === active.business_id || canModeratePosts ? (
                 <>
+                  {businessQuery.data?.business?.id === active.business_id ? (
+                    <>
                   <Link
                     to="/shop/post/$postId/edit"
                     params={{ postId: active.id }}
@@ -1214,6 +1227,8 @@ export function VideoFeedScreen({ initialVideoId }: { initialVideoId?: string })
                   >
                     <Share2 className="mr-2 size-4" /> Share post
                   </Button>
+                    </>
+                  ) : null}
                   <Button
                     variant="outline"
                     className="justify-start rounded-xl text-destructive"

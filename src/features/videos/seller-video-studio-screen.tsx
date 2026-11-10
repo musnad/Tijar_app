@@ -40,6 +40,7 @@ import {
   videoFileFromRecording,
 } from "@/lib/video/file-guard";
 import { cn } from "@/lib/utils";
+import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { uploadProductImage } from "@/services/product-image-service";
 import { createProduct, listProducts, updateProductImageUrl } from "@/services/product-service";
 import { MAX_POST_IMAGES, submitStudioVideo } from "@/services/video-studio-service";
@@ -126,6 +127,17 @@ export function SellerVideoStudioScreen({
       const r = await listProducts(businessId);
       if (r.error) throw new Error(r.error);
       return r.data;
+    },
+  });
+  const galleryQuery = useQuery({
+    queryKey: ["shop-gallery", businessId],
+    queryFn: async () => {
+      const { data } = await getSupabaseBrowserClient()
+        .from("businesses")
+        .select("gallery_urls")
+        .eq("id", businessId)
+        .maybeSingle();
+      return ((data?.gallery_urls as string[] | null) ?? []).filter(Boolean);
     },
   });
 
@@ -225,6 +237,17 @@ export function SellerVideoStudioScreen({
       return room > 0 ? [...cur, ...accepted.slice(0, room)] : cur;
     });
     haptic("light");
+  }
+
+  async function useShopPicture(src: string) {
+    try {
+      const res = await fetch(src);
+      const blob = await res.blob();
+      const file = new File([blob], "shop-photo.jpg", { type: blob.type || "image/jpeg" });
+      await onFile(file);
+    } catch {
+      toast.error("Could not use that shop picture.");
+    }
   }
 
   async function onFiles(list: FileList | null) {
@@ -903,6 +926,24 @@ export function SellerVideoStudioScreen({
                   onChange={(e) => void onFile(e.target.files?.[0] ?? null)}
                 />
               </div>
+              {(galleryQuery.data ?? []).length > 0 ? (
+                <div className="mt-3">
+                  <p className="text-[12px] font-extrabold text-[#0B1F4D]">Shop pictures from your agent</p>
+                  <div className="mt-2 flex gap-2 overflow-x-auto pb-1">
+                    {(galleryQuery.data ?? []).map((src) => (
+                      <button
+                        key={src}
+                        type="button"
+                        className="size-16 shrink-0 overflow-hidden rounded-xl ring-1 ring-[#E5E7EB]"
+                        onClick={() => void useShopPicture(src)}
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={src} alt="" className="size-full object-cover" />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
               <p className="mt-2 flex items-center gap-1.5 text-[12px] text-[#6B7280]">
                 <span className="text-[#1F7A4D]" aria-hidden>
                   ↻
