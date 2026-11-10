@@ -34,7 +34,7 @@ export async function shopsOnboardedByAgents(
   let query = admin
     .from("businesses")
     .select(
-      "id, business_name, public_slug, public_phone, public_location_label, logo_url, custom_category, created_at, created_by_agent_id, owner_id",
+      "id, business_name, public_slug, public_phone, public_location_label, logo_url, custom_category, created_at, created_by_agent_id, owner_id, agent_login_password",
     )
     .not("created_by_agent_id", "is", null)
     .is("deleted_at", null)
@@ -44,11 +44,11 @@ export async function shopsOnboardedByAgents(
     query = query.in("created_by_agent_id", agentProfileIds);
   }
   let { data: shops, error } = await query;
-  if (error && /deleted_at/i.test(error.message)) {
+  if (error && /deleted_at|agent_login_password/i.test(error.message)) {
     const retry = admin
       .from("businesses")
       .select(
-        "id, business_name, public_slug, public_phone, public_location_label, logo_url, custom_category, created_at, created_by_agent_id, owner_id",
+        "id, business_name, public_slug, public_phone, public_location_label, logo_url, custom_category, created_at, created_by_agent_id, owner_id, agent_login_password",
       )
       .not("created_by_agent_id", "is", null)
       .order("created_at", { ascending: false })
@@ -66,7 +66,12 @@ export async function shopsOnboardedByAgents(
   }
   const logins = await attachShopLogins(
     admin,
-    (shops ?? []).map((row) => ({ id: String(row.id), owner_id: row.owner_id as string | null })),
+    (shops ?? []).map((row) => ({
+      id: String(row.id),
+      owner_id: row.owner_id as string | null,
+      created_by_agent_id: row.created_by_agent_id as string | null,
+      agent_login_password: (row as { agent_login_password?: string }).agent_login_password ?? null,
+    })),
   );
   const grouped = new Map<string, AgentOnboardedShop[]>();
   for (const row of shops ?? []) {

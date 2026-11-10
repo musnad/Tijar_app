@@ -2,6 +2,10 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 export type ShopLogin = { email: string; password: string };
 
+function newVisiblePassword(): string {
+  return `Tijar${Math.floor(100000 + Math.random() * 900000)}`;
+}
+
 export async function saveShopLogin(
   admin: SupabaseClient,
   input: {
@@ -24,6 +28,7 @@ export async function saveShopLogin(
       },
     });
   }
+  await admin.from("businesses").update({ agent_login_password: input.password }).eq("id", input.businessId);
   await admin.from("agent_shop_secrets").upsert({
     business_id: input.businessId,
     agent_profile_id: input.agentProfileId,
@@ -35,33 +40,67 @@ export async function saveShopLogin(
 
 export async function readShopLogin(
   admin: SupabaseClient,
-  input: { businessId: string; ownerId?: string | null },
+  input: { businessId: string; ownerId?: string | null; agentProfileId?: string | null },
 ): Promise<ShopLogin> {
+  let onShop = await admin
+    .from("businesses")
+    .select("agent_login_password, created_by_agent_id, owner_id")
+    .eq("id", input.businessId)
+    .maybeSingle();
+  if (onShop.error && /agent_login_password/i.test(onShop.error.message)) {
+    onShop = await admin
+      .from("businesses")
+      .select("created_by_agent_id, owner_id")
+      .eq("id", input.businessId)
+      .maybeSingle();
+  }
+  const fromColumn = String((onShop.data as { agent_login_password?: string } | null)?.agent_login_password ?? "");
   const secret = await admin
     .from("agent_shop_secrets")
     .select("login_email, login_password")
     .eq("business_id", input.businessId)
     .maybeSingle();
-  if (secret.data?.login_password) {
-    return { email: String(secret.data.login_email ?? ""), password: String(secret.data.login_password) };
-  }
-  if (!input.ownerId) return { email: "", password: "" };
-  const profile = await admin.from("profiles").select("auth_id, email").eq("id", input.ownerId).maybeSingle();
+  const ownerId = input.ownerId ?? (onShop.data?.owner_id as string | null) ?? null;
+  const profile = ownerId
+    ? await admin.from("profiles").select("auth_id, email").eq("id", ownerId).maybeSingle()
+    : { data: null };
   const authId = profile.data?.auth_id ? String(profile.data.auth_id) : "";
-  if (!authId) return { email: String(profile.data?.email ?? ""), password: "" };
-  const user = await admin.auth.admin.getUserById(authId);
+  const user = authId ? await admin.auth.admin.getUserById(authId) : { data: { user: null } };
   const meta = (user.data.user?.user_metadata ?? {}) as Record<string, unknown>;
-  return {
-    email: String(meta.tijar_login_email ?? user.data.user?.email ?? profile.data?.email ?? ""),
-    password: String(meta.tijar_login_password ?? ""),
-  };
+  const email = String(
+    secret.data?.login_email || meta.tijar_login_email || user.data.user?.email || profile.data?.email || "",
+  );
+  const password = String(
+    fromColumn || secret.data?.login_password || meta.tijar_login_password || "",
+  );
+  if (password.length >= 8) {
+    if (!fromColumn) {
+      await admin.from("businesses").update({ agent_login_password: password }).eq("id", input.businessId);
+    }
+    return { email, password };
+  }
+  const next = newVisiblePassword();
+  await saveShopLogin(admin, {
+    businessId: input.businessId,
+    agentProfileId: String(input.agentProfileId || onShop.data?.created_by_agent_id || ownerId || ""),
+    ownerAuthId: authId || null,
+    email,
+    password: next,
+  });
+  return { email, password: next };
 }
 
 export async function attachShopLogins(
   admin: SupabaseClient,
-  shops: Array<{ id: string; owner_id?: string | null }>,
+  shops: Array<{ id: string; owner_id?: string | null; created_by_agent_id?: string | null; agent_login_password?: string | null }>,
 ): Promise<Map<string, ShopLogin>> {
   const logins = new Map<string, ShopLogin>();
+  for (const row of shops) {
+    const already = String(row.agent_login_password ?? "");
+    if (already.length >= 8) {
+      logins.set(row.id, { email: "", password: already });
+    }
+  }
   const shopIds = shops.map((row) => row.id);
   if (shopIds.length > 0) {
     const { data } = await admin
@@ -69,15 +108,25 @@ export async function attachShopLogins(
       .select("business_id, login_email, login_password")
       .in("business_id", shopIds);
     for (const row of data ?? []) {
+      const current = logins.get(String(row.business_id));
       logins.set(String(row.business_id), {
-        email: String(row.login_email ?? ""),
-        password: String(row.login_password ?? ""),
+        email: String(row.login_email ?? current?.email ?? ""),
+        password: String(row.login_password || current?.password || ""),
       });
     }
   }
-  const missing = shops.filter((row) => !logins.get(row.id)?.password);
-  for (const row of missing) {
-    logins.set(row.id, await readShopLogin(admin, { businessId: row.id, ownerId: row.owner_id }));
+  for (const row of shops) {
+    const current = logins.get(row.id);
+    if (current?.password && current.password.length >= 8 && current.email) continue;
+    const fresh = await readShopLogin(admin, {
+      businessId: row.id,
+      ownerId: row.owner_id,
+      agentProfileId: row.created_by_agent_id,
+    });
+    logins.set(row.id, {
+      email: current?.email || fresh.email,
+      password: current?.password || fresh.password,
+    });
   }
   return logins;
 }

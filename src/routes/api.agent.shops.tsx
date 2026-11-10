@@ -116,14 +116,14 @@ export const Route = createFileRoute("/api/agent/shops")({
         const isAdmin = ctx.roles.includes("admin") || isTijarSuperAdminEmail(ctx.email);
         const query = ctx.admin
           .from("businesses")
-          .select("id, business_name, public_slug, public_phone, public_location_label, logo_url, created_at, custom_category, owner_id, created_by_agent_id")
+          .select("id, business_name, public_slug, public_phone, public_location_label, logo_url, created_at, custom_category, owner_id, created_by_agent_id, agent_login_password")
           .is("deleted_at", null)
           .order("created_at", { ascending: false })
           .limit(200);
         let { data, error } = isAdmin
           ? await query.not("created_by_agent_id", "is", null)
           : await query.eq("created_by_agent_id", ctx.profileId);
-        if (error && /deleted_at/i.test(error.message)) {
+        if (error && /deleted_at|agent_login_password/i.test(error.message)) {
           const fallback = ctx.admin
             .from("businesses")
             .select("id, business_name, public_slug, public_phone, public_location_label, logo_url, created_at, custom_category, owner_id, created_by_agent_id")

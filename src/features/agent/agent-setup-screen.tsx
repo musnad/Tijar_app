@@ -530,7 +530,7 @@ export function AgentSetupScreen() {
                     type="button"
                     className="flex w-full items-center gap-3 text-left"
                     onClick={() => {
-                      setShowShopPassword(false);
+                      setShowShopPassword(true);
                       setOpenShopId(open ? null : String(shop.id));
                     }}
                   >
@@ -563,7 +563,7 @@ export function AgentSetupScreen() {
                       <div className="flex items-center justify-between gap-3">
                         <dt className="text-muted-foreground">Password</dt>
                         <dd className="flex items-center gap-1 font-bold">
-                          <span>{showShopPassword ? loginPassword || "Not stored yet" : "••••••••"}</span>
+                          <span>{showShopPassword ? loginPassword || "Opening…" : "••••••••"}</span>
                           <PasswordToggle visible={showShopPassword} onToggle={() => setShowShopPassword((v) => !v)} />
                         </dd>
                       </div>
