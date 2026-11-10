@@ -1,3 +1,4 @@
+import { readActiveShopId } from "@/lib/active-business";
 import { coordinatesForState, parseNigerianLocation } from "@/lib/nigeria-locations";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import type { OnboardingAnswers } from "@/features/onboarding/schemas";
@@ -77,30 +78,18 @@ export async function fetchPrimaryBusiness(profileId: string): Promise<{
   error: string | null;
 }> {
   const supabase = getSupabaseBrowserClient();
-  const owned = await supabase
-    .from("businesses")
-    .select("*")
-    .eq("owner_id", profileId)
-    .order("created_at", { ascending: true })
-    .limit(1);
+  const { businesses, error: ownedError } = await fetchOwnedBusinesses(profileId);
+  const preferred = readActiveShopId(profileId);
+  const headquarters = businesses.filter((row) => !row.parent_business_id && row.owner_id === profileId);
+  let business =
+    businesses.find((row) => row.id === preferred) ??
+    headquarters[0] ??
+    businesses.find((row) => row.owner_id === profileId) ??
+    businesses[0] ??
+    null;
 
-  let business = (owned.data?.[0] as Business | undefined) ?? null;
-  if (!business) {
-    const { data: memberships } = await supabase
-      .from("business_members")
-      .select("business_id, role")
-      .eq("profile_id", profileId)
-      .order("created_at", { ascending: true })
-      .limit(20);
-    const first = memberships?.[0];
-    if (first?.business_id) {
-      const memberBiz = await supabase.from("businesses").select("*").eq("id", first.business_id).maybeSingle();
-      business = (memberBiz.data as Business | undefined) ?? null;
-    }
-  }
-
-  if (owned.error && !business) {
-    return { business: null, dna: null, canPost: false, error: owned.error.message };
+  if (ownedError && !business) {
+    return { business: null, dna: null, canPost: false, error: ownedError };
   }
 
   if (!business) {

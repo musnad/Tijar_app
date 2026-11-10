@@ -29,6 +29,7 @@ function initials(name: string): string {
 const menuLinks = [
   { to: "/app/customers" as const, labelKey: "app.customers.title" },
   { to: "/app/business" as const, labelKey: "app.home.navBusiness" },
+  { to: "/shop/branches" as const, label: "Branch shops" },
   { to: "/app/learn" as const, labelKey: "app.home.navLearn" },
   { to: "/app/transactions" as const, labelKey: "app.home.navTransactions" },
   { to: "/app/expenses" as const, labelKey: "app.record.expenseShort" },
@@ -64,11 +65,11 @@ export function AppTopBar() {
           <nav className="mt-6 flex flex-col gap-1">
             {menuLinks.map((item) => (
               <Link
-                key={item.to + item.labelKey}
+                key={item.to + ("label" in item ? item.label : item.labelKey)}
                 to={item.to}
                 className="rounded-lg px-3 py-3 text-sm font-semibold hover:bg-muted"
               >
-                {t(item.labelKey)}
+                {"label" in item ? item.label : t(item.labelKey)}
               </Link>
             ))}
             {isTijarSuperAdminEmail(profile?.email) && (

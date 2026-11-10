@@ -249,6 +249,7 @@ export function ShopProfileScreen() {
     ...(!demo && canUseBusinessMode(profile) && shopQuery.data?.business
       ? [
           { to: "/shop/payouts", label: "Wallet & payouts", icon: Wallet },
+          { to: "/shop/branches", label: "Branch shops", icon: Store },
           { to: "/shop/create-order", label: "Place your order posts", icon: UtensilsCrossed },
         ]
       : []),

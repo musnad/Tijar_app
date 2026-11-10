@@ -4,10 +4,9 @@ import { isTijarSuperAdminEmail } from "@/lib/admin";
 import { supabaseServiceKey } from "@/lib/payments/shop-server";
 import { readSupabasePublicEnv } from "@/lib/supabase/runtime-env";
 
-export async function signedPlatformActor(
+export async function signedShopUser(
   request: Request,
-  roles: Array<"admin" | "agent">,
-): Promise<{ admin: SupabaseClient; profileId: string; email: string | null; roles: string[] } | { error: Response }> {
+): Promise<{ admin: SupabaseClient; profileId: string; email: string | null } | { error: Response }> {
   const env = readSupabasePublicEnv();
   const service = supabaseServiceKey();
   if (!env || !service) {
@@ -28,10 +27,20 @@ export async function signedPlatformActor(
   const { data: profile } = await admin.from("profiles").select("id, email").eq("auth_id", user.id).maybeSingle();
   if (!profile?.id) return { error: Response.json({ error: "Profile not found." }, { status: 403 }) };
   const email = (profile.email as string | null) ?? user.email ?? null;
-  const { data: roleRows } = await admin.from("platform_roles").select("role").eq("profile_id", profile.id);
+  return { admin, profileId: profile.id as string, email };
+}
+
+export async function signedPlatformActor(
+  request: Request,
+  roles: Array<"admin" | "agent">,
+): Promise<{ admin: SupabaseClient; profileId: string; email: string | null; roles: string[] } | { error: Response }> {
+  const signed = await signedShopUser(request);
+  if ("error" in signed) return signed;
+  const { data: roleRows } = await signed.admin.from("platform_roles").select("role").eq("profile_id", signed.profileId);
   const held = (roleRows ?? []).map((row) => String(row.role));
   const allowed =
-    isTijarSuperAdminEmail(email) || roles.some((role) => held.includes(role) || (role === "admin" && held.includes("admin")));
+    isTijarSuperAdminEmail(signed.email) ||
+    roles.some((role) => held.includes(role) || (role === "admin" && held.includes("admin")));
   if (!allowed) return { error: Response.json({ error: "Not allowed." }, { status: 403 }) };
-  return { admin, profileId: profile.id as string, email, roles: held };
+  return { ...signed, roles: held };
 }
