@@ -230,7 +230,7 @@ export async function createAgentCatalogue(
       description: `${offer.name} · ${input.location}`,
       image_url: gallery[0] ?? null,
       extra_image_urls: gallery.slice(1),
-      is_published: true,
+      is_published: Boolean(gallery[0]),
       is_active: true,
       currency: "NGN",
     };

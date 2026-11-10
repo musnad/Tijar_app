@@ -15,9 +15,11 @@ export type ProductPhotoItem = {
 export function ProductPhotosField({
   photos,
   onChange,
+  required = false,
 }: {
   photos: ProductPhotoItem[];
   onChange: (next: ProductPhotoItem[]) => void;
+  required?: boolean;
 }) {
   const cameraRef = useRef<HTMLInputElement>(null);
   const libraryRef = useRef<HTMLInputElement>(null);
@@ -93,8 +95,10 @@ export function ProductPhotosField({
           Upload
         </button>
       </div>
-      <p className="mt-2 text-center text-xs text-muted-foreground">
-        {photos.length}/{MAX_PRODUCT_PHOTOS} photos · first photo is the shop cover
+      <p className={cn("mt-2 text-center text-xs", required && photos.length === 0 ? "font-bold text-red-600" : "text-muted-foreground")}>
+        {required && photos.length === 0
+          ? "A photo is required to post"
+          : `${photos.length}/${MAX_PRODUCT_PHOTOS} photos · first photo is the shop cover`}
       </p>
       <input
         ref={cameraRef}

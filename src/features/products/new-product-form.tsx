@@ -20,7 +20,7 @@ import { invalidateBusinessQueries } from "@/lib/invalidate-business-queries";
 import { useTranslation } from "@/lib/i18n/context";
 import { cn } from "@/lib/utils";
 import { uploadProductImage } from "@/services/product-image-service";
-import { createProduct, updateProductImages } from "@/services/product-service";
+import { createProduct, setProductPublished, updateProductImages } from "@/services/product-service";
 import type { ProductKind } from "@/types/database";
 import { saleLineTotals } from "@/utils/product-profit";
 import { formatNgn } from "@/utils/money";
@@ -194,15 +194,18 @@ export function NewProductForm({
     }
 
     let publishNow = isPublished;
+    if (publishNow && photos.length === 0) {
+      toast.error("Add at least one photo. You cannot post without an image.");
+      return;
+    }
     if (publishNow && !canPublishProduct({
       name: trimmedName,
       sale_price: cleanedSale != null ? Number(cleanedSale) : null,
       image_url: photos[0] ? "pending" : null,
       is_active: true,
     })) {
-      toast.error(publishErrors[0] ?? "Fix catalogue errors before publishing.");
-      publishNow = false;
-      setIsPublished(false);
+      toast.error(publishErrors[0] ?? "Add a photo and a price before posting.");
+      return;
     }
 
     const parsed = productFormSchema.safeParse({
@@ -250,7 +253,10 @@ export function NewProductForm({
 
     setSaving(true);
     try {
-      const { product, error } = await createProduct(businessId, profileId, parsed.data);
+      const { product, error } = await createProduct(businessId, profileId, {
+        ...parsed.data,
+        isPublished: false,
+      });
       if (error && !product) {
         setFormError(error);
         toast.error(error);
@@ -260,9 +266,16 @@ export function NewProductForm({
         toast.message(error);
       }
 
-      if (product && photos.length > 0) {
+      if (!product) {
+        const msg = error || t("app.errors.saveFailed");
+        setFormError(msg);
+        toast.error(msg);
+        return;
+      }
+
+      const urls: string[] = [];
+      if (photos.length > 0) {
         try {
-          const urls: string[] = [];
           for (const [i, photo] of photos.entries()) {
             if (!photo.file) continue;
             const uploaded = await uploadProductImage(businessId, product.id, photo.file, i);
@@ -275,14 +288,19 @@ export function NewProductForm({
         }
       }
 
-      if (!product) {
-        const msg = error || t("app.errors.saveFailed");
-        setFormError(msg);
-        toast.error(msg);
-        return;
+      if (publishNow) {
+        if (urls.length === 0) {
+          toast.error("Add at least one photo. You cannot post without an image.");
+          return;
+        }
+        const live = await setProductPublished(product.id, true);
+        if (live.error) {
+          toast.error(live.error);
+          return;
+        }
       }
 
-      toast.success(parsed.data.isPublished ? "Saved. Customers can see this in your shop." : t("app.products.saved"), {
+      toast.success(publishNow ? "Saved. Customers can see this in your shop." : t("app.products.saved"), {
         description: product.name,
         icon: <CheckCircle2 className="size-4" />,
       });
@@ -519,7 +537,7 @@ export function NewProductForm({
 
       <FormSection title={t("app.products.photoSection")} hint={t("app.products.photoHint")}>
         <div className="rounded-2xl bg-muted/40 p-4">
-          <ProductPhotosField photos={photos} onChange={setPhotos} />
+          <ProductPhotosField photos={photos} onChange={setPhotos} required />
         </div>
       </FormSection>
 

@@ -5,7 +5,7 @@ import { displayShopName, shopLinkSlug } from "@/lib/shop-names";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { publishPlaceOrderListing } from "@/services/place-order-service";
 import { uploadProductImage } from "@/services/product-image-service";
-import { createProduct, updateProductImageUrl } from "@/services/product-service";
+import { createProduct, setProductPublished, updateProductImageUrl } from "@/services/product-service";
 import { haversineKm } from "@/utils/discover";
 
 export type LiveStory = {
@@ -216,10 +216,7 @@ export async function publishBusinessStory(input: {
   const isVideo = await isVideoFile(input.file);
   let uploadFile = input.file;
   if (!isVideo) {
-    const packed = await prepareImageForUpload(input.file, {
-      maxBytes: MAX_IMAGE_BYTES,
-      maxEdge: 1280,
-    });
+    const packed = await prepareImageForUpload(input.file, { maxBytes: MAX_IMAGE_BYTES, maxEdge: 1280 });
     if (!packed.ok) return { error: packed.error };
     uploadFile = packed.file;
   }
@@ -257,7 +254,7 @@ export async function publishBusinessStory(input: {
       kind: "goods",
       unit: "piece",
       salePrice: price,
-      isPublished: true,
+      isPublished: false,
       initialStock: 10,
       notes: "Created from story",
       ...(isVideo ? { videoUrl: mediaUrl } : {}),
@@ -265,24 +262,24 @@ export async function publishBusinessStory(input: {
     if (created.error || !created.product) return { error: created.error ?? "Could not create the product for this story." };
     productId = created.product.id;
     if (!isVideo) {
-      const uploaded = await uploadProductImage(input.businessId, productId, input.file);
+      const uploaded = await uploadProductImage(input.businessId, productId, uploadFile);
       if (uploaded.publicUrl) await updateProductImageUrl(productId, uploaded.publicUrl);
       else await updateProductImageUrl(productId, mediaUrl);
+      await setProductPublished(productId, true);
     }
   }
 
   let listingId: string | null = null;
-  if (input.offerKind === "place_order") {
+  if (input.offerKind === "place_order" && !isVideo) {
     if (price == null) return { error: "Add a price so shoppers can place an order." };
-    const photos = isVideo ? [] : [input.file];
     const listing = await publishPlaceOrderListing({
       businessId: input.businessId,
       title: name || "Place your order",
       details: "",
       category: "other",
       price,
-      photos,
-      existingUrls: isVideo ? [mediaUrl] : [],
+      photos: [uploadFile],
+      existingUrls: [],
       locationLabel: "",
       availableOn: "today",
       pickupEnabled: true,

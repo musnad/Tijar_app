@@ -19,7 +19,7 @@ import {
   parseNigerianLocation,
 } from "@/lib/nigeria-locations";
 import { uploadProductImage } from "@/services/product-image-service";
-import { createProduct, updateProductImageUrl } from "@/services/product-service";
+import { createProduct, setProductPublished, updateProductImageUrl } from "@/services/product-service";
 import { ensurePersonalShop } from "@/services/marketplace-service";
 import { listBusinessCategories } from "@/services/business-service";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
@@ -81,6 +81,7 @@ export function SellItemScreen() {
       toast.error("Sign in first to post your item.");
       return;
     }
+    if (!file) return toast.error("Add a photo. You cannot post without an image.");
     if (!name.trim()) return toast.error("Give your item a name");
     if (!isFree && !normalizeMoneyRaw(price)) return toast.error("Enter a price, or mark it as Free");
     if (!phone.trim()) return toast.error("Add a phone number so buyers can call you");
@@ -114,7 +115,7 @@ export function SellItemScreen() {
       kind: "goods",
       unit: "piece",
       salePrice: priceValue,
-      isPublished: true,
+      isPublished: false,
       ...(description.trim() ? { description: description.trim(), notes: description.trim() } : {}),
     });
     if (created.error || !created.product) {
@@ -123,13 +124,18 @@ export function SellItemScreen() {
       return;
     }
 
-    if (file) {
-      const uploaded = await uploadProductImage(businessId, created.product.id, file, 0);
-      if (uploaded.error || !uploaded.publicUrl) {
-        toast.message(uploaded.error ?? "Item posted without a photo.");
-      } else {
-        await updateProductImageUrl(created.product.id, uploaded.publicUrl);
-      }
+    const uploaded = await uploadProductImage(businessId, created.product.id, file, 0);
+    if (uploaded.error || !uploaded.publicUrl) {
+      setBusy(false);
+      toast.error(uploaded.error ?? "Add a photo. You cannot post without an image.");
+      return;
+    }
+    await updateProductImageUrl(created.product.id, uploaded.publicUrl);
+    const live = await setProductPublished(created.product.id, true);
+    if (live.error) {
+      setBusy(false);
+      toast.error(live.error);
+      return;
     }
 
     // Make sure the shop profile is public and carries a callable number.
@@ -197,7 +203,7 @@ export function SellItemScreen() {
         }}
       >
         <section className="rounded-2xl border border-border bg-card p-4 shadow-sm">
-          <h2 className="text-sm font-extrabold">Item photo</h2>
+          <h2 className="text-sm font-extrabold">Item photo (required)</h2>
           <div className="relative mt-3 flex aspect-square w-full items-center justify-center overflow-hidden rounded-2xl border-2 border-dashed border-border bg-muted/40">
             {preview ? (
               // eslint-disable-next-line @next/next/no-img-element

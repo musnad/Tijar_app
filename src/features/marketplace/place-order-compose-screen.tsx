@@ -100,6 +100,10 @@ export function PlaceOrderComposeScreen() {
       toast.error("Add a price.");
       return;
     }
+    if (photos.length === 0) {
+      toast.error("Add at least one photo. You cannot post without an image.");
+      return;
+    }
     if (!pickup && !delivery) {
       toast.error("Turn on pickup, delivery, or both.");
       return;
@@ -190,9 +194,9 @@ export function PlaceOrderComposeScreen() {
           {tab === "post" ? (
             <>
               <p className="text-[13px] text-muted-foreground">Post food or snacks you make from time to time. Shoppers pick pickup or delivery, a time, and pay you.</p>
-              <label className="mt-4 block text-sm font-extrabold">Photos</label>
+              <label className="mt-4 block text-sm font-extrabold">Photos (required)</label>
               <div className="mt-2">
-                <ProductPhotosField photos={photos} onChange={setPhotos} />
+                <ProductPhotosField photos={photos} onChange={setPhotos} required />
               </div>
               <label className="mt-4 block text-sm font-extrabold">What are you making?</label>
               <Input className="mt-1 min-h-11 rounded-xl" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Jollof + chicken, small chops…" />

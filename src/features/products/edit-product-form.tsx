@@ -235,7 +235,7 @@ export function EditProductForm({ businessId, productId }: { businessId: string;
         )}
         <Input value={sizes} onChange={(e) => setSizes(e.target.value)} placeholder="Sizes (S, M, L)" className="min-h-11 rounded-xl" />
         <Input value={colours} onChange={(e) => setColours(e.target.value)} placeholder="Colours" className="min-h-11 rounded-xl" />
-        <ProductPhotosField photos={photos} onChange={setPhotos} />
+        <ProductPhotosField photos={photos} onChange={setPhotos} required />
       </div>
       {publishErrors.length > 0 && (
         <ul className="mt-3 list-disc space-y-1 pl-5 text-xs text-primary">

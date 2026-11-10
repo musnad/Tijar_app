@@ -78,7 +78,7 @@ export function CreateStoryScreen() {
       return;
     }
     if (!file) {
-      toast.error("Pick a photo or short video.");
+      toast.error("Add a photo. You cannot post without an image.");
       return;
     }
     const name = overlay.trim() || (product?.name as string | undefined) || "";

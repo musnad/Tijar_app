@@ -42,7 +42,7 @@ import {
 import { cn } from "@/lib/utils";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { uploadProductImage } from "@/services/product-image-service";
-import { createProduct, listProducts, updateProductImageUrl } from "@/services/product-service";
+import { createProduct, listProducts, setProductPublished, updateProductImageUrl } from "@/services/product-service";
 import { MAX_POST_IMAGES, submitStudioVideo } from "@/services/video-studio-service";
 import type { StudioBidInput } from "@/services/video-studio-service";
 import type { Product } from "@/types/database";
@@ -271,7 +271,7 @@ export function SellerVideoStudioScreen({
     const next: typeof errors = {};
     const hasNew = newName.trim().length > 0 && Number(newPrice.replace(/,/g, "")) > 0;
     if (!productId && !hasNew) next.product = "Pick a product, or type a name and price.";
-    if (!file) next.media = "Add a photo or a short video.";
+    if (!file) next.media = "Add a photo. You cannot post without an image.";
     if (caption.length > CAPTION_MAX)
       next.caption = `Caption must be ${CAPTION_MAX} characters or less.`;
     if (postMode === "bid") {
@@ -418,7 +418,7 @@ export function SellerVideoStudioScreen({
         kind: "goods",
         unit: "piece",
         salePrice: sale,
-        isPublished: true,
+        isPublished: false,
         initialStock: 1,
       });
       if (created.error && !created.product) {
@@ -430,7 +430,10 @@ export function SellerVideoStudioScreen({
       tagId = created.product?.id ?? null;
       if (tagId && kind === "image") {
         const uploaded = await uploadProductImage(businessId, tagId, file);
-        if (uploaded.publicUrl) await updateProductImageUrl(tagId, uploaded.publicUrl);
+        if (uploaded.publicUrl) {
+          await updateProductImageUrl(tagId, uploaded.publicUrl);
+          await setProductPublished(tagId, true);
+        }
       }
     }
     const hashtags = tags.map((t) => `#${t.replace(/\s+/g, "")}`).join(" ");

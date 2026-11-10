@@ -142,7 +142,7 @@ export async function createProduct(
     variants: variantsFromSizeColour(input.sizes ?? "", input.colours ?? ""),
     video_url: input.videoUrl?.trim() || null,
     catalogue_category: input.catalogueCategory?.trim() || null,
-    is_published: input.isPublished ?? input.salePrice != null,
+    is_published: false,
     currency: "NGN",
     service_type: kind === "service" ? (input.serviceType ?? "general") : "general",
     starts_on: kind === "service" && input.startsOn ? input.startsOn : null,
@@ -298,6 +298,12 @@ export async function setProductPublished(
   published: boolean,
 ): Promise<{ error: string | null }> {
   const supabase = getSupabaseBrowserClient();
+  if (published) {
+    const { data } = await supabase.from("products").select("image_url").eq("id", productId).maybeSingle();
+    if (!String(data?.image_url ?? "").trim()) {
+      return { error: "Add at least one photo. You cannot post without an image." };
+    }
+  }
   const { error } = await supabase.from("products").update({ is_published: published }).eq("id", productId);
   return { error: error?.message ?? null };
 }

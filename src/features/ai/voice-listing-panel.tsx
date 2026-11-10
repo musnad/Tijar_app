@@ -42,14 +42,14 @@ export function VoiceListingPanel({
         salePrice: listing.priceNaira ?? undefined,
         description: locale === "ha" ? listing.descriptionHa : `${listing.descriptionEn}\n\n${listing.descriptionHa}`,
         notes: listing.notes ?? undefined,
-        isPublished: listing.priceNaira != null && listing.priceNaira > 0,
+        isPublished: false,
       });
       if (saveError && !product) throw new Error(saveError);
       if (listing.location) {
         const loc = await updateShopLocation(businessId, listing.location);
         if (loc.error) toast.message(loc.error);
       }
-      toast.success(t("app.ai.listingSaved"));
+      toast.success("Saved. Add a photo before it can go live.");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : t("app.ai.saveFailed"));
     } finally {

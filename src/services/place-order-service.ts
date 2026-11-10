@@ -295,12 +295,18 @@ export async function publishPlaceOrderListing(input: {
   const blocked = await requireVerifiedShop(input.businessId);
   if (blocked) return { listing: null, error: blocked };
   const id = crypto.randomUUID();
-  const uploaded: string[] = [...(input.existingUrls ?? [])];
+  const uploaded: string[] = [...(input.existingUrls ?? [])].filter(Boolean);
+  if (uploaded.length === 0 && input.photos.length === 0) {
+    return { listing: null, error: "Add at least one photo. You cannot post without an image." };
+  }
   for (let i = 0; i < input.photos.length; i += 1) {
     const file = input.photos[i]!;
     const result = await uploadProductImage(input.businessId, `place-order-${id}`, file, i);
     if (result.error || !result.publicUrl) return { listing: null, error: result.error ?? "Could not upload photo." };
     uploaded.push(result.publicUrl);
+  }
+  if (uploaded.length === 0) {
+    return { listing: null, error: "Add at least one photo. You cannot post without an image." };
   }
   const supabase = getSupabaseBrowserClient();
   const { data, error } = await supabase

@@ -132,6 +132,9 @@ export async function submitStudioVideo(
       if (!t.error) coverPath = thumbPath;
     }
   }
+  if (!coverPath) {
+    return { error: "Add a photo. You cannot post without an image." };
+  }
 
   const playbackUrl = supabase.storage.from("business-videos").getPublicUrl(storagePath)
     .data.publicUrl;
