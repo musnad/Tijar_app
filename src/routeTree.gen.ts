@@ -26,6 +26,7 @@ import { Route as ShopRouteImport } from './routes/shop'
 import { Route as TermsRouteImport } from './routes/terms'
 import { Route as TranslateRouteImport } from './routes/translate'
 import { Route as ApiPublicConfigRouteImport } from './routes/api.public-config'
+import { Route as ApiSearchImageRouteImport } from './routes/api.search-image'
 import { Route as ApiSpeakRouteImport } from './routes/api.speak'
 import { Route as ApiSupabaseHealthRouteImport } from './routes/api.supabase-health'
 import { Route as ApiTranslateRouteImport } from './routes/api.translate'
@@ -90,6 +91,7 @@ import { Route as ApiAiReportRouteImport } from './routes/api.ai.report'
 import { Route as ApiAiSaleRouteImport } from './routes/api.ai.sale'
 import { Route as ApiAiTranscribeRouteImport } from './routes/api.ai.transcribe'
 import { Route as ApiAssistantChatRouteImport } from './routes/api.assistant.chat'
+import { Route as ApiAdminVerifiedBadgeRouteImport } from './routes/api.admin.verified-badge'
 import { Route as ApiKycVerifyRouteImport } from './routes/api.kyc.verify'
 import { Route as ApiPaymentsConfirmOrderRouteImport } from './routes/api.payments.confirm-order'
 import { Route as ApiPaymentsFlutterwaveRouteImport } from './routes/api.payments.flutterwave'
@@ -220,6 +222,11 @@ const TranslateRoute = TranslateRouteImport.update({
 const ApiPublicConfigRoute = ApiPublicConfigRouteImport.update({
   id: '/api/public-config',
   path: '/api/public-config',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiSearchImageRoute = ApiSearchImageRouteImport.update({
+  id: '/api/search-image',
+  path: '/api/search-image',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiSpeakRoute = ApiSpeakRouteImport.update({
@@ -542,6 +549,11 @@ const ApiAssistantChatRoute = ApiAssistantChatRouteImport.update({
   path: '/api/assistant/chat',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiAdminVerifiedBadgeRoute = ApiAdminVerifiedBadgeRouteImport.update({
+  id: '/api/admin/verified-badge',
+  path: '/api/admin/verified-badge',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiKycVerifyRoute = ApiKycVerifyRouteImport.update({
   id: '/api/kyc/verify',
   path: '/api/kyc/verify',
@@ -795,6 +807,7 @@ export interface FileRoutesByFullPath {
   '/app/customers': typeof AppCustomersRouteRouteWithChildren
   '/app/learn': typeof AppLearnRouteRouteWithChildren
   '/api/public-config': typeof ApiPublicConfigRoute
+  '/api/search-image': typeof ApiSearchImageRoute
   '/api/speak': typeof ApiSpeakRoute
   '/api/supabase-health': typeof ApiSupabaseHealthRoute
   '/api/translate': typeof ApiTranslateRoute
@@ -857,6 +870,7 @@ export interface FileRoutesByFullPath {
   '/api/ai/sale': typeof ApiAiSaleRoute
   '/api/ai/transcribe': typeof ApiAiTranscribeRoute
   '/api/assistant/chat': typeof ApiAssistantChatRoute
+  '/api/admin/verified-badge': typeof ApiAdminVerifiedBadgeRoute
   '/api/kyc/verify': typeof ApiKycVerifyRoute
   '/api/payments/confirm-order': typeof ApiPaymentsConfirmOrderRoute
   '/api/payments/flutterwave': typeof ApiPaymentsFlutterwaveRoute
@@ -920,6 +934,7 @@ export interface FileRoutesByTo {
   '/terms': typeof TermsRoute
   '/translate': typeof TranslateRoute
   '/api/public-config': typeof ApiPublicConfigRoute
+  '/api/search-image': typeof ApiSearchImageRoute
   '/api/speak': typeof ApiSpeakRoute
   '/api/supabase-health': typeof ApiSupabaseHealthRoute
   '/api/translate': typeof ApiTranslateRoute
@@ -979,6 +994,7 @@ export interface FileRoutesByTo {
   '/api/ai/sale': typeof ApiAiSaleRoute
   '/api/ai/transcribe': typeof ApiAiTranscribeRoute
   '/api/assistant/chat': typeof ApiAssistantChatRoute
+  '/api/admin/verified-badge': typeof ApiAdminVerifiedBadgeRoute
   '/api/kyc/verify': typeof ApiKycVerifyRoute
   '/api/payments/confirm-order': typeof ApiPaymentsConfirmOrderRoute
   '/api/payments/flutterwave': typeof ApiPaymentsFlutterwaveRoute
@@ -1047,6 +1063,7 @@ export interface FileRoutesById {
   '/app/customers': typeof AppCustomersRouteRouteWithChildren
   '/app/learn': typeof AppLearnRouteRouteWithChildren
   '/api/public-config': typeof ApiPublicConfigRoute
+  '/api/search-image': typeof ApiSearchImageRoute
   '/api/speak': typeof ApiSpeakRoute
   '/api/supabase-health': typeof ApiSupabaseHealthRoute
   '/api/translate': typeof ApiTranslateRoute
@@ -1109,6 +1126,7 @@ export interface FileRoutesById {
   '/api/ai/sale': typeof ApiAiSaleRoute
   '/api/ai/transcribe': typeof ApiAiTranscribeRoute
   '/api/assistant/chat': typeof ApiAssistantChatRoute
+  '/api/admin/verified-badge': typeof ApiAdminVerifiedBadgeRoute
   '/api/kyc/verify': typeof ApiKycVerifyRoute
   '/api/payments/confirm-order': typeof ApiPaymentsConfirmOrderRoute
   '/api/payments/flutterwave': typeof ApiPaymentsFlutterwaveRoute
@@ -1178,6 +1196,7 @@ export interface FileRouteTypes {
     | '/app/customers'
     | '/app/learn'
     | '/api/public-config'
+    | '/api/search-image'
     | '/api/speak'
     | '/api/supabase-health'
     | '/api/translate'
@@ -1240,6 +1259,7 @@ export interface FileRouteTypes {
     | '/api/ai/sale'
     | '/api/ai/transcribe'
     | '/api/assistant/chat'
+    | '/api/admin/verified-badge'
     | '/api/kyc/verify'
     | '/api/payments/confirm-order'
     | '/api/payments/flutterwave'
@@ -1303,6 +1323,7 @@ export interface FileRouteTypes {
     | '/terms'
     | '/translate'
     | '/api/public-config'
+    | '/api/search-image'
     | '/api/speak'
     | '/api/supabase-health'
     | '/api/translate'
@@ -1362,6 +1383,7 @@ export interface FileRouteTypes {
     | '/api/ai/sale'
     | '/api/ai/transcribe'
     | '/api/assistant/chat'
+    | '/api/admin/verified-badge'
     | '/api/kyc/verify'
     | '/api/payments/confirm-order'
     | '/api/payments/flutterwave'
@@ -1429,6 +1451,7 @@ export interface FileRouteTypes {
     | '/app/customers'
     | '/app/learn'
     | '/api/public-config'
+    | '/api/search-image'
     | '/api/speak'
     | '/api/supabase-health'
     | '/api/translate'
@@ -1491,6 +1514,7 @@ export interface FileRouteTypes {
     | '/api/ai/sale'
     | '/api/ai/transcribe'
     | '/api/assistant/chat'
+    | '/api/admin/verified-badge'
     | '/api/kyc/verify'
     | '/api/payments/confirm-order'
     | '/api/payments/flutterwave'
@@ -1557,6 +1581,7 @@ export interface RootRouteChildren {
   TermsRoute: typeof TermsRoute
   TranslateRoute: typeof TranslateRoute
   ApiPublicConfigRoute: typeof ApiPublicConfigRoute
+  ApiSearchImageRoute: typeof ApiSearchImageRoute
   ApiSpeakRoute: typeof ApiSpeakRoute
   ApiSupabaseHealthRoute: typeof ApiSupabaseHealthRoute
   ApiTranslateRoute: typeof ApiTranslateRoute
@@ -1572,6 +1597,7 @@ export interface RootRouteChildren {
   ApiAiSaleRoute: typeof ApiAiSaleRoute
   ApiAiTranscribeRoute: typeof ApiAiTranscribeRoute
   ApiAssistantChatRoute: typeof ApiAssistantChatRoute
+  ApiAdminVerifiedBadgeRoute: typeof ApiAdminVerifiedBadgeRoute
   ApiKycVerifyRoute: typeof ApiKycVerifyRoute
   ApiPaymentsConfirmOrderRoute: typeof ApiPaymentsConfirmOrderRoute
   ApiPaymentsFlutterwaveRoute: typeof ApiPaymentsFlutterwaveRoute
@@ -1707,6 +1733,13 @@ declare module '@tanstack/react-router' {
       path: '/api/public-config'
       fullPath: '/api/public-config'
       preLoaderRoute: typeof ApiPublicConfigRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/search-image': {
+      id: '/api/search-image'
+      path: '/api/search-image'
+      fullPath: '/api/search-image'
+      preLoaderRoute: typeof ApiSearchImageRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/speak': {
@@ -2155,6 +2188,13 @@ declare module '@tanstack/react-router' {
       path: '/api/assistant/chat'
       fullPath: '/api/assistant/chat'
       preLoaderRoute: typeof ApiAssistantChatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/admin/verified-badge': {
+      id: '/api/admin/verified-badge'
+      path: '/api/admin/verified-badge'
+      fullPath: '/api/admin/verified-badge'
+      preLoaderRoute: typeof ApiAdminVerifiedBadgeRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/kyc/verify': {
@@ -2789,6 +2829,7 @@ const rootRouteChildren: RootRouteChildren = {
   TermsRoute: TermsRoute,
   TranslateRoute: TranslateRoute,
   ApiPublicConfigRoute: ApiPublicConfigRoute,
+  ApiSearchImageRoute: ApiSearchImageRoute,
   ApiSpeakRoute: ApiSpeakRoute,
   ApiSupabaseHealthRoute: ApiSupabaseHealthRoute,
   ApiTranslateRoute: ApiTranslateRoute,
@@ -2804,6 +2845,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiAiSaleRoute: ApiAiSaleRoute,
   ApiAiTranscribeRoute: ApiAiTranscribeRoute,
   ApiAssistantChatRoute: ApiAssistantChatRoute,
+  ApiAdminVerifiedBadgeRoute: ApiAdminVerifiedBadgeRoute,
   ApiKycVerifyRoute: ApiKycVerifyRoute,
   ApiPaymentsConfirmOrderRoute: ApiPaymentsConfirmOrderRoute,
   ApiPaymentsFlutterwaveRoute: ApiPaymentsFlutterwaveRoute,

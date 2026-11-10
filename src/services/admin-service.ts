@@ -260,7 +260,29 @@ export async function setBusinessVerifiedBadge(
     p_on: on,
   });
   if (!error) return { error: null };
-  if (!/schema cache|could not find the function|does not exist/i.test(error.message)) {
+
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  if (session?.access_token) {
+    try {
+      const res = await fetch("/api/admin/verified-badge", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ businessId, on }),
+      });
+      const json = (await res.json().catch(() => ({}))) as { error?: string };
+      if (res.ok) return { error: null };
+      if (json.error) return { error: json.error };
+    } catch {
+      /* fall through */
+    }
+  }
+
+  if (!/schema cache|could not find the function|does not exist|admins only/i.test(error.message)) {
     return { error: error.message };
   }
   const fallback = await supabase.from("businesses").update({ verified_badge: on }).eq("id", businessId);

@@ -1115,13 +1115,46 @@ export function AdminConsoleScreen() {
       )}
 
       {tab === "ticks" && (
-        <ul className="mt-4 space-y-3">
-          <li className="rounded-2xl border border-primary/20 bg-primary/5 px-4 py-3 text-sm">
-            Shops must complete NIN, shop details, 1 month on TIJAR, and more than 10 posts, then request. Grant the
-            icon here after you review that.
-          </li>
+        <div className="mt-4 space-y-4">
+          <p className="rounded-2xl border border-primary/20 bg-primary/5 px-4 py-3 text-sm">
+            Assign the blue tick to any shop from here. They do not need to request it.
+          </p>
+          <AdminTable empty="No shops match." headers={["Shop", "Owner", "Tick", "Actions"]}>
+            {bizFinanceRows.map(({ biz }) => (
+              <tr key={biz.id} className="border-t border-border align-top">
+                <td className="px-3 py-3">
+                  <p className="font-semibold">{biz.business_name}</p>
+                  <p className="text-[11px] text-muted-foreground">{biz.public_slug ? `@${biz.public_slug}` : biz.id.slice(0, 8)}</p>
+                </td>
+                <td className="px-3 py-3 text-sm">{biz.owner?.full_name ?? "—"}</td>
+                <td className="px-3 py-3">
+                  <StatusPill label={biz.verified_badge ? "tick" : "none"} tone={biz.verified_badge ? "ok" : "muted"} />
+                </td>
+                <td className="px-3 py-3">
+                  <Button
+                    size="sm"
+                    className="h-8 rounded-lg text-xs font-bold"
+                    variant={biz.verified_badge ? "outline" : "default"}
+                    onClick={async () => {
+                      const next = !biz.verified_badge;
+                      const { error } = await setBusinessVerifiedBadge(biz.id, next);
+                      if (error) toast.error(error);
+                      else {
+                        toast.success(next ? "Blue tick assigned" : "Blue tick removed");
+                        void refreshAll();
+                      }
+                    }}
+                  >
+                    {biz.verified_badge ? "Remove tick" : "Give tick"}
+                  </Button>
+                </td>
+              </tr>
+            ))}
+          </AdminTable>
+          <p className="pt-2 text-xs font-extrabold uppercase tracking-wide text-muted-foreground">Requests</p>
+          <ul className="space-y-3">
           {badgeRequests.length === 0 ? (
-            <EmptyState title="No tick requests" body="Shops can request the verification icon from their business account." />
+            <EmptyState title="No tick requests" body="You can still give the tick on any shop above." />
           ) : null}
           {badgeRequests.map((req) => (
             <li key={req.id} className="rounded-2xl border border-border bg-card p-4 shadow-sm">
@@ -1178,6 +1211,7 @@ export function AdminConsoleScreen() {
             </li>
           ))}
         </ul>
+        </div>
       )}
 
       {tab === "week" && <BusinessOfTheWeekAdmin businesses={businesses} />}
