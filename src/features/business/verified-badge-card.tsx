@@ -36,7 +36,6 @@ export function VerifiedBadgeCard({ business }: { business: Business }) {
     enabled: !hasTick,
     queryFn: async () => {
       const r = await fetchBadgeEligibility(business.id);
-      if (r.error) throw new Error(r.error);
       return r.eligibility;
     },
   });
@@ -112,10 +111,8 @@ export function VerifiedBadgeCard({ business }: { business: Business }) {
           >
             {pending ? "Request pending" : ask.isPending ? "Sending…" : "Request verification icon"}
           </Button>
-          {eligQuery.isError ? (
-            <p className="mt-2 text-[11px] font-semibold text-destructive">Could not sync eligibility. Run the latest SQL, then refresh.</p>
-          ) : !elig?.nin_verified && eligQuery.isSuccess ? (
-            <p className="mt-2 text-[11px] font-semibold text-muted-foreground">Finish NIN verification before you can apply.</p>
+          {!elig?.nin_verified && eligQuery.isSuccess ? (
+            <p className="mt-2 text-[11px] font-semibold text-muted-foreground">Finish NIN + live face verification before you can apply.</p>
           ) : null}
         </>
       )}

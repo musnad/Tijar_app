@@ -439,6 +439,12 @@ export function isShopIdentityVerified(business: {
   verification_status?: string | null;
   kyc_verified_at?: string | null;
   kyc_face_matched?: boolean | null;
+  kyc_id_last4?: string | null;
 }): boolean {
-  return business.verification_status === "verified" && Boolean(business.kyc_verified_at);
+  return (
+    business.verification_status === "verified" &&
+    Boolean(business.kyc_verified_at) &&
+    Boolean(business.kyc_face_matched) &&
+    Boolean(business.kyc_id_last4)
+  );
 }

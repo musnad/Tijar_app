@@ -10,6 +10,7 @@ import {
   digitsId,
   extractNinRecord,
   faceMatched,
+  isShopIdentityVerified,
   maskNin,
   ninDetailsForStorage,
   normalizeCacNumber,
@@ -71,7 +72,7 @@ export const Route = createFileRoute("/api/kyc/verify")({
 
         const { data: owned } = await ctx.admin
           .from("businesses")
-          .select("id, owner_id, verification_status, kyc_verified_at, kyc_full_name, kyc_id_last4, kyc_details")
+          .select("id, owner_id, verification_status, kyc_verified_at, kyc_full_name, kyc_id_last4, kyc_face_matched, kyc_details")
           .eq("id", businessId)
           .eq("owner_id", ctx.profile.id)
           .maybeSingle();
@@ -83,7 +84,7 @@ export const Route = createFileRoute("/api/kyc/verify")({
           return saveOptionalCac(ctx.admin, businessId, ctx.profile.id, body.cacNumber);
         }
 
-        if (owned.verification_status === "verified" && owned.kyc_verified_at) {
+        if (isShopIdentityVerified(owned)) {
           return Response.json({
             ok: true,
             alreadyVerified: true,

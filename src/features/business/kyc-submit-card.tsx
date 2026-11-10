@@ -7,7 +7,7 @@ import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import type { NinRecord } from "@/lib/kyc/bytid";
+import { isShopIdentityVerified, type NinRecord } from "@/lib/kyc/bytid";
 import { absoluteAuthUrl } from "@/lib/site-url";
 import { kycRequest, verifyShopCac } from "@/services/business-service";
 import type { Business } from "@/types/database";
@@ -57,7 +57,7 @@ function recordFromDetails(details: Record<string, unknown> | null | undefined, 
 
 export function KycSubmitCard({ business }: { business: Business }) {
   const queryClient = useQueryClient();
-  const already = business.verification_status === "verified" || Boolean(business.kyc_verified_at);
+  const already = isShopIdentityVerified(business);
   const savedStep = String((business.kyc_details as Record<string, unknown> | null)?.step ?? "");
   const [idNumber, setIdNumber] = useState("");
   const [record, setRecord] = useState<NinRecord | null>(
@@ -216,9 +216,9 @@ export function KycSubmitCard({ business }: { business: Business }) {
       {already ? (
         <div className="mt-3 space-y-2">
           <p className="rounded-xl bg-[#1F7A4D]/10 px-3 py-2 text-sm font-bold text-[#1F7A4D]">
-            Auto-verified{business.kyc_full_name ? ` · ${business.kyc_full_name}` : ""}
+            Verified with NIN + live face
+            {business.kyc_full_name ? ` · ${business.kyc_full_name}` : ""}
             {business.kyc_id_last4 ? ` · NIN ****${business.kyc_id_last4}` : ""}
-            {business.kyc_face_matched ? " · live face matched" : ""}
           </p>
           {record ? <NinRecordCard record={record} /> : null}
           {business.cac_legal_name || business.cac_number ? (

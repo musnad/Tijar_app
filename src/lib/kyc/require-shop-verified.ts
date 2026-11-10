@@ -8,7 +8,7 @@ export async function requireVerifiedShop(businessId: string): Promise<string | 
   const supabase = getSupabaseBrowserClient();
   const { data, error } = await supabase
     .from("businesses")
-    .select("verification_status, kyc_verified_at")
+    .select("verification_status, kyc_verified_at, kyc_face_matched, kyc_id_last4")
     .eq("id", businessId)
     .maybeSingle();
   if (error || !data) return "Could not check shop verification.";

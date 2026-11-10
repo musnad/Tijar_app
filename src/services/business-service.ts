@@ -2,6 +2,7 @@ import { coordinatesForState, parseNigerianLocation } from "@/lib/nigeria-locati
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import type { OnboardingAnswers } from "@/features/onboarding/schemas";
 import type { MemberRole } from "@/lib/business/capabilities";
+import { isShopIdentityVerified } from "@/lib/kyc/bytid";
 import { isSlugAvailable } from "@/services/discover-service";
 import type { Business, BusinessCategory, BusinessDna } from "@/types/database";
 import { INFORMAL_BUSINESS_CATEGORIES } from "@/lib/informal-categories";
@@ -525,31 +526,79 @@ export type BadgeEligibility = {
   error?: string;
 };
 
+function parseEligibility(row: Record<string, unknown>): BadgeEligibility {
+  const missing = Array.isArray(row.missing) ? row.missing.filter((x): x is string => typeof x === "string") : [];
+  return {
+    ok: Boolean(row.ok),
+    nin_verified: Boolean(row.nin_verified),
+    account_days: Number(row.account_days) || 0,
+    min_account_days: Number(row.min_account_days) || 30,
+    post_count: Number(row.post_count) || 0,
+    min_posts: Number(row.min_posts) || 11,
+    profile_complete: Boolean(row.profile_complete),
+    missing,
+    already_badged: Boolean(row.already_badged),
+    pending: Boolean(row.pending),
+    error: typeof row.error === "string" ? row.error : undefined,
+  };
+}
+
+async function computeBadgeEligibility(businessId: string): Promise<BadgeEligibility | null> {
+  const supabase = getSupabaseBrowserClient();
+  const biz = await supabase.from("businesses").select("*").eq("id", businessId).maybeSingle();
+  const business = biz.data as Business | null;
+  if (!business) return null;
+  const missing: string[] = [];
+  const name = (business.business_name ?? "").trim();
+  if (!name || ["tijar", "tijar shop"].includes(name.toLowerCase())) missing.push("shop name");
+  if (!business.description?.trim()) missing.push("description");
+  if (!business.public_slug?.trim()) missing.push("username");
+  if (business.latitude == null || business.longitude == null) missing.push("map location");
+  if (!business.public_phone?.trim() && !business.public_whatsapp?.trim()) missing.push("phone or WhatsApp");
+  if (!business.logo_url?.trim()) missing.push("logo");
+  const posts = await supabase
+    .from("video_posts")
+    .select("id", { count: "exact", head: true })
+    .eq("business_id", businessId)
+    .eq("status", "ready");
+  const postCount = posts.count ?? 0;
+  const created = business.created_at ? new Date(business.created_at).getTime() : Date.now();
+  const accountDays = Math.max(0, Math.floor((Date.now() - created) / 86_400_000));
+  const pendingReq = await supabase
+    .from("verified_badge_requests")
+    .select("id")
+    .eq("business_id", businessId)
+    .eq("status", "pending")
+    .maybeSingle();
+  const nin = isShopIdentityVerified(business);
+  const complete = missing.length === 0;
+  const pending = Boolean(pendingReq.data?.id);
+  return {
+    ok: nin && complete && accountDays >= 30 && postCount > 10 && !business.verified_badge && !pending,
+    nin_verified: nin,
+    account_days: accountDays,
+    min_account_days: 30,
+    post_count: postCount,
+    min_posts: 11,
+    profile_complete: complete,
+    missing,
+    already_badged: Boolean(business.verified_badge),
+    pending,
+  };
+}
+
 export async function fetchBadgeEligibility(businessId: string): Promise<{
   eligibility: BadgeEligibility | null;
   error: string | null;
 }> {
   const supabase = getSupabaseBrowserClient();
   const { data, error } = await supabase.rpc("verified_badge_eligibility", { p_business_id: businessId });
-  if (error) return { eligibility: null, error: error.message };
-  const row = (data ?? {}) as Record<string, unknown>;
-  const missing = Array.isArray(row.missing) ? row.missing.filter((x): x is string => typeof x === "string") : [];
-  return {
-    eligibility: {
-      ok: Boolean(row.ok),
-      nin_verified: Boolean(row.nin_verified),
-      account_days: Number(row.account_days) || 0,
-      min_account_days: Number(row.min_account_days) || 30,
-      post_count: Number(row.post_count) || 0,
-      min_posts: Number(row.min_posts) || 11,
-      profile_complete: Boolean(row.profile_complete),
-      missing,
-      already_badged: Boolean(row.already_badged),
-      pending: Boolean(row.pending),
-      error: typeof row.error === "string" ? row.error : undefined,
-    },
-    error: null,
-  };
+  if (!error && data && typeof data === "object") {
+    return { eligibility: parseEligibility(data as Record<string, unknown>), error: null };
+  }
+  const fallback = await computeBadgeEligibility(businessId);
+  if (fallback) return { eligibility: fallback, error: null };
+  return { eligibility: null, error: error?.message ?? "Could not load eligibility." };
 }
 
 export async function requestVerifiedBadge(businessId: string): Promise<{ error: string | null }> {
