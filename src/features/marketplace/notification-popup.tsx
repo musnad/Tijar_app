@@ -9,7 +9,7 @@ import { useAuth } from "@/features/auth/auth-context";
 import { isNativeApp } from "@/utils/isMobile";
 import { initNativePush, isSaleNotification, showNativeNotification } from "@/lib/native-push";
 import { playNotificationChime, playSaleSound } from "@/lib/sale-sound";
-import { enableWebPush, notificationsGranted, syncWebPushSubscription, vapidPublicKey } from "@/lib/web-push";
+import { enableWebPush, notificationsGranted, syncWebPushSubscription } from "@/lib/web-push";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { activityNotificationPath, fetchActivityNotifications, type ActivityNotification } from "@/services/social-service";
 
@@ -84,7 +84,7 @@ function announce(item: ActivityNotification) {
       id: item.id,
       sale,
     });
-  } else if (!vapidPublicKey() && document.visibilityState !== "visible") {
+  } else if (document.visibilityState !== "visible") {
     showBrowserNotification(item);
   }
   if (document.visibilityState === "visible") {
@@ -140,7 +140,7 @@ export function NotificationPopup() {
   }, [profile?.id]);
 
   useEffect(() => {
-    if (!profile?.id || !isNativeApp()) return;
+    if (!profile?.id) return;
     let client;
     try {
       client = getSupabaseBrowserClient();
