@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils";
 import { OrderTrackTimeline } from "@/features/marketplace/order-track-timeline";
 import { ShopPayPanel } from "@/features/marketplace/shop-pay-panel";
 import { useAuth } from "@/features/auth/auth-context";
+import { canBuyerMarkReceived } from "@/lib/checkout/delivery-fee";
 import {
   fetchOrderDetail,
   transitionOrder,
@@ -129,7 +130,7 @@ export function OrderDetailScreen({ orderId }: { orderId: string }) {
                 <span>{formatNgn(Number(order.subtotal))}</span>
               </div>
               <div className="flex justify-between text-muted-foreground">
-                <span>Delivery</span>
+                <span>Dispatch rider</span>
                 <span>{formatNgn(Number(order.delivery_fee))}</span>
               </div>
               <div className="flex justify-between text-muted-foreground">
@@ -163,6 +164,23 @@ export function OrderDetailScreen({ orderId }: { orderId: string }) {
             )
           ) : null}
 
+          {canBuyerMarkReceived(order.status) ? (
+            <Button
+              type="button"
+              className="min-h-12 w-full rounded-xl bg-[#1F7A4D] font-extrabold text-white"
+              onClick={async () => {
+                const r = await transitionOrder(order.id, "delivered");
+                if (r.error) toast.error(r.error);
+                else {
+                  toast.success("Marked as received. Order complete.");
+                  await queryClient.invalidateQueries({ queryKey: ["marketplace-order", orderId] });
+                  await queryClient.invalidateQueries({ queryKey: ["marketplace-orders"] });
+                }
+              }}
+            >
+              I received this
+            </Button>
+          ) : null}
           {order.status === "pending_payment" && (
             <Button
               type="button"

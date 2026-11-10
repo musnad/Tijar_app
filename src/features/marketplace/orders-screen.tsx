@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { ChevronRight, Package, Search } from "lucide-react";
 import { useMemo, useState } from "react";
@@ -10,7 +10,15 @@ import { MarketplaceShell } from "@/features/marketplace/marketplace-shell";
 import { NativePageHeader, nativeCanvasClass } from "@/features/marketplace/native-page-header";
 import { OrderTrackTimeline } from "@/features/marketplace/order-track-timeline";
 import { useAuth } from "@/features/auth/auth-context";
-import { fetchMyOrders } from "@/services/marketplace-service";
+import { Button } from "@/components/ui/button";
+import { canBuyerMarkPlaceOrderReceived, canBuyerMarkReceived } from "@/lib/checkout/delivery-fee";
+import { fetchMyOrders, transitionOrder } from "@/services/marketplace-service";
+import {
+  fetchMyPlaceOrders,
+  markPlaceOrderReceived,
+  placeOrderStatusLabel,
+} from "@/services/place-order-service";
+import { toast } from "sonner";
 import { formatNgn } from "@/utils/money";
 import {
   formatOrderWhen,
@@ -33,6 +41,7 @@ function statusBadgeClass(status: string): string {
 
 export function OrdersScreen() {
   const { profile } = useAuth();
+  const queryClient = useQueryClient();
   const [tab, setTab] = useState<Tab>("active");
   const [query, setQuery] = useState("");
 
@@ -43,6 +52,12 @@ export function OrdersScreen() {
       if (res.error) throw new Error(res.error);
       return res.orders;
     },
+  });
+
+  const placeQuery = useQuery({
+    queryKey: ["place-order-mine", profile?.id],
+    enabled: Boolean(profile?.id),
+    queryFn: async () => (await fetchMyPlaceOrders(profile!.id)).orders,
   });
 
   const filtered = useMemo(() => {
@@ -111,13 +126,51 @@ export function OrdersScreen() {
         </div>
       )}
 
+      {(placeQuery.data ?? [])
+        .filter((order) => {
+          if (tab === "active") return !["completed", "cancelled"].includes(order.status);
+          if (tab === "completed") return order.status === "completed";
+          return true;
+        })
+        .map((order) => (
+          <li key={`place-${order.id}`} className="rounded-2xl border border-border bg-card p-4 shadow-sm">
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <p className="font-bold">{order.listing_title ?? "Place your order"}</p>
+                <p className="text-xs text-muted-foreground">{order.shop_name}</p>
+              </div>
+              <span className={cn("shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold", statusBadgeClass(order.status === "completed" ? "delivered" : "processing"))}>
+                {placeOrderStatusLabel(order.status)}
+              </span>
+            </div>
+            <p className="mt-2 text-sm font-extrabold text-primary">{formatNgn(Number(order.total))}</p>
+            {canBuyerMarkPlaceOrderReceived(order.status) ? (
+              <Button
+                type="button"
+                className="mt-3 min-h-10 w-full rounded-xl bg-[#1F7A4D] text-xs font-extrabold text-white"
+                onClick={async (e) => {
+                  e.preventDefault();
+                  const r = await markPlaceOrderReceived(order.id);
+                  if (r.error) toast.error(r.error);
+                  else {
+                    toast.success("Marked as received.");
+                    await queryClient.invalidateQueries({ queryKey: ["place-order-mine"] });
+                  }
+                }}
+              >
+                I received this
+              </Button>
+            ) : null}
+          </li>
+        ))}
+
       <ul className="mt-4 space-y-3">
         {filtered.map((o) => (
-          <li key={o.id}>
+          <li key={o.id} className="rounded-2xl border border-border bg-card p-4 shadow-sm transition hover:border-primary/30">
             <Link
               to="/shop/orders/$orderId"
               params={{ orderId: o.id }}
-              className="block rounded-2xl border border-border bg-card p-4 shadow-sm transition hover:border-primary/30"
+              className="block"
             >
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
@@ -144,6 +197,22 @@ export function OrdersScreen() {
                 </span>
               </div>
             </Link>
+              {canBuyerMarkReceived(o.status) ? (
+                <Button
+                  type="button"
+                  className="mt-3 min-h-10 w-full rounded-xl bg-[#1F7A4D] text-xs font-extrabold text-white"
+                  onClick={async () => {
+                    const r = await transitionOrder(o.id, "delivered");
+                    if (r.error) toast.error(r.error);
+                    else {
+                      toast.success("Marked as received.");
+                      await queryClient.invalidateQueries({ queryKey: ["marketplace-orders"] });
+                    }
+                  }}
+                >
+                  I received this
+                </Button>
+              ) : null}
           </li>
         ))}
       </ul>

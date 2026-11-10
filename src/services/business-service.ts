@@ -146,6 +146,7 @@ export type UpdateBusinessProfileInput = {
   publicPhone?: string | null;
   publicWhatsapp?: string | null;
   publicSlug?: string | null;
+  deliveryFee?: number | null;
 };
 
 export async function updateBusinessProfile(
@@ -189,13 +190,13 @@ export async function updateBusinessProfile(
     p_public_whatsapp: input.publicWhatsapp?.trim() ?? "",
   });
   if (!rpc.error && rpc.data) {
-    if (nextSlug) {
-      const extra = await supabase
-        .from("businesses")
-        .update({ public_slug: nextSlug })
-        .eq("id", businessId)
-        .select("*")
-        .maybeSingle();
+    const extras: Record<string, unknown> = {};
+    if (nextSlug) extras.public_slug = nextSlug;
+    if (input.deliveryFee != null && Number.isFinite(input.deliveryFee)) {
+      extras.delivery_fee = Math.max(0, input.deliveryFee);
+    }
+    if (Object.keys(extras).length > 0) {
+      const extra = await supabase.from("businesses").update(extras).eq("id", businessId).select("*").maybeSingle();
       if (!extra.error && extra.data) return { business: extra.data as Business, error: null };
     }
     return { business: rpc.data as Business, error: null };
@@ -212,6 +213,9 @@ export async function updateBusinessProfile(
   if (input.categoryId?.trim()) patch.category_id = input.categoryId;
   if (input.logoUrl !== undefined) patch.logo_url = input.logoUrl;
   if (nextSlug) patch.public_slug = nextSlug;
+  if (input.deliveryFee != null && Number.isFinite(input.deliveryFee)) {
+    patch.delivery_fee = Math.max(0, input.deliveryFee);
+  }
 
   const { data, error } = await supabase
     .from("businesses")

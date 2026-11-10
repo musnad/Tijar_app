@@ -96,10 +96,12 @@ export function SellerOrdersInboxScreen({ businessId }: { businessId: string }) 
           const next =
             o.status === "pending_payment"
               ? "confirmed"
-              : o.status === "confirmed"
+              : o.status === "confirmed" || o.status === "paid"
                 ? "processing"
                 : o.status === "processing"
-                  ? "ready_for_pickup"
+                  ? o.fulfilment === "pickup"
+                    ? "ready_for_pickup"
+                    : "shipped"
                   : null;
           return (
             <li key={o.id} className="rounded-2xl border border-border bg-card p-4">

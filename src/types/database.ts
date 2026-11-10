@@ -153,6 +153,7 @@ export type Business = {
   custom_category?: string | null;
   created_by_agent_id?: string | null;
   parent_business_id?: string | null;
+  delivery_fee?: number | null;
   payout_account_name?: string | null;
   payout_account_number?: string | null;
   payout_bank_name?: string | null;

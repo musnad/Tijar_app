@@ -52,6 +52,7 @@ export function PlaceOrderComposeScreen() {
   const [availableOn, setAvailableOn] = useState<PlaceOrderDay>("today");
   const [pickup, setPickup] = useState(true);
   const [delivery, setDelivery] = useState(true);
+  const [deliveryFee, setDeliveryFee] = useState("");
   const [sameDay, setSameDay] = useState<PlaceOrderSlot>({ date: localYmd(0), from: "10:00", until: "18:00" });
   const [nextDay, setNextDay] = useState<PlaceOrderSlot>({ date: localYmd(1), from: "10:00", until: "18:00" });
   const [qtyNote, setQtyNote] = useState("");
@@ -126,6 +127,7 @@ export function PlaceOrderComposeScreen() {
       availableOn,
       pickupEnabled: pickup,
       deliveryEnabled: delivery,
+      deliveryFee: delivery ? Number(deliveryFee.replace(/,/g, "")) || 0 : 0,
       sameDay: availableOn === "tomorrow" ? null : sameDay,
       nextDay: availableOn === "today" ? null : nextDay,
       readyFrom: availableOn === "tomorrow" ? nextDay.from : sameDay.from,
@@ -258,9 +260,16 @@ export function PlaceOrderComposeScreen() {
                   Pickup
                 </button>
                 <button type="button" onClick={() => setDelivery((v) => !v)} className={cn("min-h-11 rounded-xl border text-[13px] font-extrabold", delivery ? "border-[#1F7A4D] bg-[#1F7A4D] text-white" : "border-border")}>
-                  Delivery
+                  Dispatch rider
                 </button>
               </div>
+              {delivery ? (
+                <>
+                  <label className="mt-3 block text-sm font-extrabold">Dispatch rider fee (₦)</label>
+                  <Input className="mt-1 min-h-11 rounded-xl" inputMode="numeric" value={deliveryFee} onChange={(e) => setDeliveryFee(e.target.value)} placeholder="0" />
+                  <p className="mt-1 text-[11px] text-muted-foreground">This amount is added when the customer pays. Leave 0 if they pay the rider themselves.</p>
+                </>
+              ) : null}
               <label className="mt-3 block text-sm font-extrabold">Location</label>
               <Input className="mt-1 min-h-11 rounded-xl" value={location} onChange={(e) => setLocation(e.target.value)} placeholder="Area, street, landmark" />
               <Button type="button" variant="outline" className="mt-2 min-h-11 w-full rounded-xl font-bold" onClick={useMyLocation}>
@@ -338,7 +347,7 @@ export function PlaceOrderComposeScreen() {
                   {order.buyer_note ? <p className="mt-1 text-[12px] text-muted-foreground">Note: {order.buyer_note}</p> : null}
                   <p className="mt-1 text-[11px] font-bold uppercase text-muted-foreground">{placeOrderStatusLabel(order.status)}</p>
                   <div className="mt-2 flex flex-wrap gap-2">
-                    {["paid", "preparing", "ready", "completed"].map((status) => (
+                    {["paid", "preparing", "ready"].map((status) => (
                       <Button
                         key={status}
                         size="sm"

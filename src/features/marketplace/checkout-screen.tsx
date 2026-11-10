@@ -14,6 +14,7 @@ import { useAuth } from "@/features/auth/auth-context";
 import { isMockFeedId } from "@/features/marketplace/feed-mock";
 import { haptic } from "@/lib/haptics";
 import { clearLocalCart, listLocalCart } from "@/lib/local-cart";
+import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import {
   fetchCart,
   listAddresses,
@@ -109,10 +110,19 @@ export function CheckoutScreen() {
   const shopAccounts = accountsQuery.data ?? [];
   const missingAccount = shopAccounts.some((r) => !r.account?.accountNumber);
   const goods = useMemo(() => items.reduce((s, i) => s + Number(i.quantity) * Number(i.unit_price), 0), [items]);
-  const shipping = 2_500;
-  const tax = goods >= 50_000 ? 4_000 : Math.round(goods * 0.075);
-  const subtotal = Math.max(0, goods - shipping - tax);
-  const total = goods;
+  const feesQuery = useQuery({
+    queryKey: ["checkout-delivery-fees", shopIds.join(",")],
+    enabled: shopIds.length > 0,
+    queryFn: async () => {
+      const { data } = await getSupabaseBrowserClient().from("businesses").select("id, delivery_fee").in("id", shopIds);
+      return (data ?? []).reduce<Record<string, number>>((map, row) => {
+        map[String(row.id)] = Number(row.delivery_fee ?? 0);
+        return map;
+      }, {});
+    },
+  });
+  const shipping = shopIds.reduce((sum, id) => sum + Math.max(0, Number(feesQuery.data?.[id] ?? 0)), 0);
+  const total = goods + shipping;
 
   async function placeOrder() {
     setError(null);
@@ -330,15 +340,11 @@ export function CheckoutScreen() {
                 <dl className="mt-2 space-y-2.5 rounded-2xl border border-[#EEF1F5] p-4 text-[14px]">
                   <div className="flex justify-between">
                     <dt className="text-[#6B7280]">Subtotal</dt>
-                    <dd className="font-semibold text-[#0B1F4D]">{money(subtotal)}</dd>
+                    <dd className="font-semibold text-[#0B1F4D]">{money(goods)}</dd>
                   </div>
                   <div className="flex justify-between">
-                    <dt className="text-[#6B7280]">Shipping</dt>
-                    <dd className="font-semibold text-[#0B1F4D]">{money(shipping)}</dd>
-                  </div>
-                  <div className="flex justify-between">
-                    <dt className="text-[#6B7280]">Tax</dt>
-                    <dd className="font-semibold text-[#0B1F4D]">{money(tax)}</dd>
+                    <dt className="text-[#6B7280]">Dispatch rider</dt>
+                    <dd className="font-semibold text-[#0B1F4D]">{shipping > 0 ? money(shipping) : "Shop fee"}</dd>
                   </div>
                   <div className="flex justify-between border-t border-[#EEF1F5] pt-2.5">
                     <dt className="font-extrabold text-[#0B1F4D]">Total</dt>

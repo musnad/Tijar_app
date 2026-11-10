@@ -23,6 +23,7 @@ export type PlaceOrderListing = {
   available_on: PlaceOrderDay;
   pickup_enabled: boolean;
   delivery_enabled: boolean;
+  delivery_fee: number;
   ready_from: string | null;
   ready_until: string | null;
   same_day: PlaceOrderSlot | null;
@@ -56,6 +57,7 @@ export type PlaceOrderRequest = {
   buyer_note: string | null;
   unit_price: number;
   total: number;
+  delivery_fee?: number | null;
   platform_fee_ngn?: number | null;
   seller_net_ngn?: number | null;
   status: string;
@@ -173,6 +175,7 @@ function asListing(
     available_on: (row.available_on as PlaceOrderDay) || "today",
     pickup_enabled: row.pickup_enabled !== false,
     delivery_enabled: row.delivery_enabled !== false,
+    delivery_fee: Math.max(0, Number(row.delivery_fee ?? 0)),
     ready_from: (row.ready_from as string | null) ?? null,
     ready_until: (row.ready_until as string | null) ?? null,
     same_day: schedule.same,
@@ -282,6 +285,7 @@ export async function publishPlaceOrderListing(input: {
   availableOn: PlaceOrderDay;
   pickupEnabled: boolean;
   deliveryEnabled: boolean;
+  deliveryFee?: number;
   sameDay?: PlaceOrderSlot | null;
   nextDay?: PlaceOrderSlot | null;
   readyFrom?: string;
@@ -315,6 +319,7 @@ export async function publishPlaceOrderListing(input: {
       available_on: input.availableOn,
       pickup_enabled: input.pickupEnabled,
       delivery_enabled: input.deliveryEnabled,
+      delivery_fee: Math.max(0, Number(input.deliveryFee ?? 0)),
       ready_from: encodePlaceOrderSchedule({
         availableOn: input.availableOn,
         same: input.sameDay ?? (input.readyFrom ? { date: localYmd(0), from: input.readyFrom, until: input.readyUntil || "18:00" } : null),
@@ -326,6 +331,40 @@ export async function publishPlaceOrderListing(input: {
     })
     .select("*")
     .single();
+  if (error && /delivery_fee/i.test(error.message)) {
+    const retry = await supabase
+      .from("place_order_listings")
+      .insert({
+        id,
+        business_id: input.businessId,
+        title: input.title.trim(),
+        details: input.details.trim() || null,
+        category: input.category,
+        price: input.price,
+        image_urls: uploaded,
+        location_label: input.locationLabel.trim() || null,
+        latitude: input.latitude ?? null,
+        longitude: input.longitude ?? null,
+        available_on: input.availableOn,
+        pickup_enabled: input.pickupEnabled,
+        delivery_enabled: input.deliveryEnabled,
+        ready_from: encodePlaceOrderSchedule({
+          availableOn: input.availableOn,
+          same: input.sameDay ?? (input.readyFrom ? { date: localYmd(0), from: input.readyFrom, until: input.readyUntil || "18:00" } : null),
+          next: input.nextDay ?? (input.readyFrom ? { date: localYmd(1), from: input.readyFrom, until: input.readyUntil || "18:00" } : null),
+        }),
+        ready_until: (input.sameDay?.until || input.nextDay?.until || input.readyUntil)?.trim() || null,
+        qty_note: input.qtyNote?.trim() || null,
+        is_open: true,
+      })
+      .select("*")
+      .single();
+    if (!retry.error && retry.data) {
+      const [listing] = await attachShops([retry.data as Record<string, unknown>]);
+      return { listing: listing ?? null, error: null };
+    }
+    return { listing: null, error: retry.error?.message ?? error.message };
+  }
   if (error) {
     if (missingTable(error.message)) {
       return { listing: null, error: "Place your order is not set up yet. Apply migration 000040 in Supabase." };
@@ -357,9 +396,12 @@ export async function placeYourOrder(input: {
   buyerNote?: string;
   unitPrice: number;
   listingTitle?: string;
+  deliveryFee?: number;
 }): Promise<{ order: PlaceOrderRequest | null; error: string | null }> {
   const supabase = getSupabaseBrowserClient();
-  const total = Number(input.quantity) * Number(input.unitPrice) + (input.fulfilment === "delivery" ? 500 : 0);
+  const listingFee = Math.max(0, Number(input.deliveryFee ?? 0));
+  const deliveryFee = input.fulfilment === "delivery" ? listingFee : 0;
+  const total = Number(input.quantity) * Number(input.unitPrice) + deliveryFee;
   const pickup = input.pickupAddress?.trim() || null;
   const dropoff = input.dropoffAddress?.trim() || input.deliveryAddress?.trim() || null;
   const combined =
@@ -381,12 +423,14 @@ export async function placeYourOrder(input: {
     buyer_note: input.buyerNote?.trim() || null,
     unit_price: input.unitPrice,
     total,
+    delivery_fee: deliveryFee,
     status: "placed",
   };
   let { data, error } = await supabase.from("place_order_requests").insert(row).select("*").single();
-  if (error && /pickup_address|dropoff_address|schema cache|column/i.test(error.message)) {
+  if (error && /pickup_address|dropoff_address|delivery_fee|schema cache|column/i.test(error.message)) {
     delete row.pickup_address;
     delete row.dropoff_address;
+    if (/delivery_fee/i.test(error.message)) delete row.delivery_fee;
     const retry = await supabase.from("place_order_requests").insert(row).select("*").single();
     data = retry.data;
     error = retry.error;
@@ -531,6 +575,20 @@ export async function updatePlaceOrderStatus(orderId: string, status: string): P
   return { error: error?.message ?? null };
 }
 
+export async function markPlaceOrderReceived(orderId: string): Promise<{ error: string | null }> {
+  const supabase = getSupabaseBrowserClient();
+  const { data, error } = await supabase
+    .from("place_order_requests")
+    .update({ status: "completed" })
+    .eq("id", orderId)
+    .in("status", ["paid", "preparing", "ready"])
+    .select("id")
+    .maybeSingle();
+  if (error) return { error: error.message };
+  if (!data?.id) return { error: "Tap Received after the shop has this order." };
+  return { error: null };
+}
+
 async function decorateRequests(rows: Record<string, unknown>[]): Promise<PlaceOrderRequest[]> {
   const listingIds = [...new Set(rows.map((r) => r.listing_id as string))];
   const shopIds = [...new Set(rows.map((r) => r.business_id as string))];
@@ -572,6 +630,7 @@ async function decorateRequests(rows: Record<string, unknown>[]): Promise<PlaceO
       buyer_note: (row.buyer_note as string | null) ?? null,
       unit_price: Number(row.unit_price),
       total: Number(row.total),
+      delivery_fee: row.delivery_fee != null ? Number(row.delivery_fee) : null,
       platform_fee_ngn: row.platform_fee_ngn != null ? Number(row.platform_fee_ngn) : null,
       seller_net_ngn: row.seller_net_ngn != null ? Number(row.seller_net_ngn) : null,
       status: row.status as string,

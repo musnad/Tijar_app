@@ -37,7 +37,7 @@ export function PlaceOrderForm({ listing }: { listing: PlaceOrderListing }) {
   const [orderId, setOrderId] = useState<string | null>(null);
   const [paid, setPaid] = useState(false);
 
-  const deliveryFee = fulfilment === "delivery" ? 500 : 0;
+  const deliveryFee = fulfilment === "delivery" ? Math.max(0, Number(listing.delivery_fee ?? 0)) : 0;
   const total = listing.price * qty + deliveryFee;
   const dayOptions = useMemo(() => {
     const options: Array<"today" | "tomorrow"> = [];
@@ -107,6 +107,7 @@ export function PlaceOrderForm({ listing }: { listing: PlaceOrderListing }) {
       buyerNote: note,
       unitPrice: listing.price,
       listingTitle: listing.title,
+      deliveryFee: listing.delivery_fee,
     });
     setBusy(false);
     if (placed.error || !placed.order) {
@@ -168,12 +169,12 @@ export function PlaceOrderForm({ listing }: { listing: PlaceOrderListing }) {
             <p className="text-sm font-extrabold text-[#0B1F4D]">Pickup or delivery</p>
             <div className="mt-2 grid grid-cols-2 gap-2">
               <Choice active={fulfilment === "pickup"} onClick={() => setFulfilment("pickup")} label="Pickup" />
-              <Choice active={fulfilment === "delivery"} onClick={() => setFulfilment("delivery")} label="Delivery · ₦500" />
+              <Choice active={fulfilment === "delivery"} onClick={() => setFulfilment("delivery")} label="Dispatch rider" />
             </div>
           </div>
         ) : (
           <p className="text-[13px] font-semibold text-muted-foreground">
-            {fulfilment === "delivery" ? "Delivery · ₦500" : listing.location_label ? `Pickup at ${listing.location_label}` : "Pickup"}
+            {fulfilment === "delivery" ? "Dispatch rider" : listing.location_label ? `Pickup at ${listing.location_label}` : "Pickup"}
           </p>
         )}
 
@@ -237,6 +238,12 @@ export function PlaceOrderForm({ listing }: { listing: PlaceOrderListing }) {
           <Input className="mt-1 min-h-12 rounded-xl bg-white" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Spice, extra pack…" />
         </div>
 
+        {deliveryFee > 0 ? (
+          <div className="flex items-center justify-between pt-1 text-sm">
+            <span className="text-muted-foreground">Dispatch rider</span>
+            <span className="font-bold">{formatNgn(deliveryFee)}</span>
+          </div>
+        ) : null}
         <div className="flex items-center justify-between pt-1">
           <span className="text-sm text-muted-foreground">Total</span>
           <span className="text-xl font-extrabold text-[#0B1F4D]">{formatNgn(total)}</span>

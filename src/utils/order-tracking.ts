@@ -11,7 +11,7 @@ const PICKUP_STEPS: OrderTrackStep[] = [
   { key: "confirmed", label: "Confirmed" },
   { key: "processing", label: "Preparing" },
   { key: "ready_for_pickup", label: "Ready" },
-  { key: "delivered", label: "Collected" },
+  { key: "delivered", label: "Received" },
 ];
 
 const DELIVERY_STEPS: OrderTrackStep[] = [
@@ -20,7 +20,7 @@ const DELIVERY_STEPS: OrderTrackStep[] = [
   { key: "confirmed", label: "Confirmed" },
   { key: "processing", label: "Preparing" },
   { key: "shipped", label: "On the way" },
-  { key: "delivered", label: "Delivered" },
+  { key: "delivered", label: "Received" },
 ];
 
 const STATUS_LABELS: Record<string, string> = {
@@ -30,7 +30,7 @@ const STATUS_LABELS: Record<string, string> = {
   processing: "Being prepared",
   shipped: "On the way",
   ready_for_pickup: "Ready for pickup",
-  delivered: "Completed",
+  delivered: "Received",
   cancelled: "Cancelled",
   refunded: "Refunded",
 };

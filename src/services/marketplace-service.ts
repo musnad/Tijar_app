@@ -1051,8 +1051,9 @@ async function placeOrdersWithoutVariants(input: {
   }
 
   const orders: MarketplaceOrder[] = [];
-  const delivery = input.fulfilment === "pickup" ? 0 : 500;
   for (const [businessId, lines] of byShop) {
+    const shopFee = await supabase.from("businesses").select("delivery_fee").eq("id", businessId).maybeSingle();
+    const delivery = input.fulfilment === "pickup" ? 0 : Math.max(0, Number(shopFee.data?.delivery_fee ?? 0));
     const subtotal = lines.reduce((sum, line) => sum + Number(line.quantity) * Number(line.unit_price), 0);
     const stamp = new Date().toISOString().slice(2, 10).replace(/-/g, "");
     const suffix = crypto.randomUUID().replace(/-/g, "").slice(0, 6).toUpperCase();

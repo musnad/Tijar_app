@@ -255,7 +255,7 @@ export function placeLocalOrder(input: {
   const qty = Math.max(1, input.quantity);
   const unit = Number(input.product.sale_price ?? 0);
   const subtotal = unit * qty;
-  const delivery = input.fulfilment === "seller_delivery" ? 1500 : 0;
+  const delivery = 0;
   const id = `mock-order-${crypto.randomUUID()}`;
   const order: MarketplaceOrder = {
     id,

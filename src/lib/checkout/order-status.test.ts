@@ -8,16 +8,18 @@ import {
 } from "./order-status";
 
 describe("order transitions", () => {
-  it("lets a buyer cancel a request only", () => {
+  it("lets a buyer cancel a request or mark received", () => {
     expect(canBuyerTransition("pending_payment", "cancelled")).toBe(true);
     expect(canBuyerTransition("pending_payment", "paid")).toBe(false);
     expect(canBuyerTransition("confirmed", "cancelled")).toBe(false);
+    expect(canBuyerTransition("shipped", "delivered")).toBe(true);
   });
 
   it("lets a seller move a request forward without marking paid", () => {
     expect(canSellerTransition("pending_payment", "confirmed")).toBe(true);
     expect(canSellerTransition("pending_payment", "paid")).toBe(false);
     expect(canSellerTransition("processing", "shipped")).toBe(true);
+    expect(canSellerTransition("shipped", "delivered")).toBe(false);
   });
 });
 

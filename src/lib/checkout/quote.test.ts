@@ -21,9 +21,9 @@ describe("previewQuote", () => {
       ],
     });
     expect(q.sellers).toHaveLength(2);
-    expect(q.delivery_fee).toBe(1000);
+    expect(q.delivery_fee).toBe(0);
     expect(q.payment_fee).toBe(0);
-    expect(q.total).toBe(2000 + 500 + 1000);
+    expect(q.total).toBe(2500);
     expect(q.is_order_request).toBe(true);
     expect(q.payment_ready).toBe(false);
   });

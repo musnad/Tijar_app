@@ -1,3 +1,7 @@
+import { shopDeliveryFee } from "@/lib/checkout/delivery-fee";
+
+export { shopDeliveryFee as deliveryFeeFor } from "@/lib/checkout/delivery-fee";
+
 export type QuotedLine = {
   product_id: string;
   product_name: string;
@@ -30,18 +34,13 @@ export type CheckoutQuote = {
   payment_ready: boolean;
 };
 
-export const SELLER_DELIVERY_FEE_NGN = 500;
-
-export function deliveryFeeFor(fulfilment: string): number {
-  return fulfilment === "pickup" ? 0 : SELLER_DELIVERY_FEE_NGN;
-}
-
 /** Client-side preview only. Checkout RPC recalculates from live catalogue prices. */
 export function previewQuote(input: {
   fulfilment: "pickup" | "seller_delivery" | "third_party";
   sellers: Array<{
     business_id: string;
     business_name: string;
+    delivery_fee?: number | null;
     lines: Array<{
       product_id: string;
       product_name: string;
@@ -53,9 +52,9 @@ export function previewQuote(input: {
   }>;
   paymentReady: boolean;
 }): CheckoutQuote {
-  const delivery = deliveryFeeFor(input.fulfilment);
   const payment_fee = 0;
   const sellers: QuotedSeller[] = input.sellers.map((s) => {
+    const delivery = shopDeliveryFee(input.fulfilment, s.delivery_fee);
     const lines: QuotedLine[] = s.lines.map((l) => {
       const unit_price = l.live_unit_price ?? 0;
       return {

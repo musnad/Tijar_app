@@ -13,6 +13,8 @@ import { MarketplaceShell } from "@/features/marketplace/marketplace-shell";
 import { ShopPayPanel } from "@/features/marketplace/shop-pay-panel";
 import { isMockFeedId } from "@/features/marketplace/feed-mock";
 import { useAuth } from "@/features/auth/auth-context";
+import { shopDeliveryFee } from "@/lib/checkout/delivery-fee";
+import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import {
   addToCart,
   fetchMarketplaceProduct,
@@ -49,9 +51,22 @@ export function BuyScreen({ productId, initialQty }: { productId?: string; initi
   });
 
   const product = productQuery.data;
+  const feeQuery = useQuery({
+    queryKey: ["shop-delivery-fee", product?.business_id],
+    enabled: Boolean(product?.business_id),
+    queryFn: async () => {
+      const { data } = await getSupabaseBrowserClient()
+        .from("businesses")
+        .select("delivery_fee")
+        .eq("id", product!.business_id)
+        .maybeSingle();
+      return Number(data?.delivery_fee ?? 0);
+    },
+  });
   const unitPrice = product?.sale_price != null ? Number(product.sale_price) : 0;
   const goodsTotal = product?.sale_price != null ? lineTotal(unitPrice, qty) : 0;
-  const total = product?.sale_price != null ? goodsTotal + (fulfilment === "seller_delivery" ? 1500 : 0) : 0;
+  const deliveryFee = shopDeliveryFee(fulfilment, feeQuery.data);
+  const total = product?.sale_price != null ? goodsTotal + deliveryFee : 0;
   const unitWord = formatUnitWord(product?.unit, qty);
 
   function requireSignIn() {
@@ -214,7 +229,7 @@ export function BuyScreen({ productId, initialQty }: { productId?: string; initi
                   {t("shop.buy.pickup")}
                 </Button>
                 <Button type="button" variant={fulfilment === "seller_delivery" ? "default" : "outline"} className="rounded-xl" onClick={() => setFulfilment("seller_delivery")}>
-                  {t("shop.buy.delivery")}
+                  Dispatch rider
                 </Button>
               </div>
 
@@ -232,7 +247,13 @@ export function BuyScreen({ productId, initialQty }: { productId?: string; initi
               <label className="mt-3 block text-sm font-bold">{t("shop.buy.note")}</label>
               <Input className="mt-1 min-h-11 rounded-xl" value={note} onChange={(e) => setNote(e.target.value)} placeholder={t("shop.buy.notePlaceholder")} />
 
-              <div className="mt-5 flex justify-between text-sm">
+              {deliveryFee > 0 ? (
+                <div className="mt-5 flex justify-between text-sm">
+                  <span className="text-muted-foreground">Dispatch rider</span>
+                  <span className="font-bold">{formatNgn(deliveryFee)}</span>
+                </div>
+              ) : null}
+              <div className="mt-2 flex justify-between text-sm">
                 <span className="text-muted-foreground">{t("shop.buy.total")}</span>
                 <span className="text-lg font-extrabold text-[#0B1F4D]">{formatNgn(total)}</span>
               </div>

@@ -13,14 +13,17 @@ export const ORDER_STATUSES = [
 export type OrderStatus = (typeof ORDER_STATUSES)[number];
 
 export function canBuyerTransition(from: string, to: string): boolean {
-  return from === "pending_payment" && to === "cancelled";
+  if (from === "pending_payment" && to === "cancelled") return true;
+  if (to === "delivered" && ["paid", "confirmed", "processing", "shipped", "ready_for_pickup"].includes(from)) {
+    return true;
+  }
+  return false;
 }
 
 export function canSellerTransition(from: string, to: string): boolean {
   if (from === "pending_payment" && (to === "confirmed" || to === "cancelled")) return true;
-  if (from === "confirmed" && to === "processing") return true;
-  if (from === "processing" && (to === "shipped" || to === "ready_for_pickup" || to === "delivered")) return true;
-  if ((from === "shipped" || from === "ready_for_pickup") && to === "delivered") return true;
+  if ((from === "paid" || from === "confirmed") && to === "processing") return true;
+  if (from === "processing" && (to === "shipped" || to === "ready_for_pickup")) return true;
   return false;
 }
 

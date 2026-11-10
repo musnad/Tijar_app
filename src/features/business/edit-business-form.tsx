@@ -39,6 +39,9 @@ export function EditBusinessForm({ business }: { business: Business }) {
   const [lga, setLga] = useState(initialLocation.lga);
   const [phone, setPhone] = useState(business.public_phone ?? "");
   const [whatsapp, setWhatsapp] = useState(business.public_whatsapp ?? "");
+  const [deliveryFee, setDeliveryFee] = useState(
+    business.delivery_fee != null && Number(business.delivery_fee) > 0 ? String(business.delivery_fee) : "",
+  );
   const [description, setDescription] = useState(business.description ?? "");
   const [categoryId, setCategoryId] = useState(business.category_id ?? "");
   const [islamicMode, setIslamicMode] = useState(Boolean(business.islamic_mode_enabled));
@@ -110,6 +113,7 @@ export function EditBusinessForm({ business }: { business: Business }) {
         publicPhone: phone.trim() || null,
         publicWhatsapp: whatsapp.trim() || null,
         publicSlug: slugifyBusinessName(username) || slugifyBusinessName(parsed.data.businessName),
+        deliveryFee: Number(deliveryFee.replace(/,/g, "")) || 0,
       },
       profile?.id,
     );
@@ -212,6 +216,15 @@ export function EditBusinessForm({ business }: { business: Business }) {
           placeholder="23480…"
           inputMode="tel"
         />
+        <label className="mt-3 block text-xs font-bold text-white/80">Dispatch rider fee (₦)</label>
+        <Input
+          className="mt-1 min-h-12 border-0 bg-white/10 text-sm text-white placeholder:text-white/40"
+          value={deliveryFee}
+          onChange={(e) => setDeliveryFee(e.target.value)}
+          placeholder="0"
+          inputMode="numeric"
+        />
+        <p className="mt-1 text-[11px] text-white/70">Added to the order when a customer chooses dispatch rider. Leave 0 if they pay the rider themselves.</p>
       </div>
 
       <FormSection title={t("app.business.aboutSection")} hint={t("app.business.aboutHint")}>
