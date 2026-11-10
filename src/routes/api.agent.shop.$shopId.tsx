@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-import { applyAgentShopEdit } from "@/lib/agent-visibility";
+import { isTijarSuperAdminEmail } from "@/lib/admin";
+import { applyAgentShopEdit, readShopLogin } from "@/lib/agent-visibility";
 import { signedPlatformActor } from "@/lib/platform-access";
 
 export const Route = createFileRoute("/api/agent/shop/$shopId")({
@@ -13,24 +14,20 @@ export const Route = createFileRoute("/api/agent/shop/$shopId")({
         const { data: shop, error } = await ctx.admin
           .from("businesses")
           .select(
-            "id, business_name, public_slug, public_phone, public_location_label, logo_url, gallery_urls, custom_category, created_at, created_by_agent_id, owner_id, description, deleted_at",
+            "id, business_name, public_slug, public_phone, public_location_label, logo_url, custom_category, created_at, created_by_agent_id, owner_id, description",
           )
           .eq("id", shopId)
           .maybeSingle();
-        if (error || !shop) return Response.json({ error: "Shop not found." }, { status: 404 });
-        const isAdmin = ctx.roles.includes("admin");
+        if (error || !shop) return Response.json({ error: error?.message ?? "Shop not found." }, { status: 404 });
+        const isAdmin = ctx.roles.includes("admin") || isTijarSuperAdminEmail(ctx.email);
         if (!isAdmin && shop.created_by_agent_id !== ctx.profileId) {
           return Response.json({ error: "Not your shop." }, { status: 403 });
         }
-        const secret = await ctx.admin
-          .from("agent_shop_secrets")
-          .select("login_email, login_password")
-          .eq("business_id", shopId)
-          .maybeSingle();
-        const owner = await ctx.admin.from("profiles").select("email, phone").eq("id", shop.owner_id).maybeSingle();
+        const login = await readShopLogin(ctx.admin, { businessId: shopId, ownerId: shop.owner_id as string });
+        const extra = await ctx.admin.from("businesses").select("gallery_urls").eq("id", shopId).maybeSingle();
         const products = await ctx.admin
           .from("products")
-          .select("id, name, kind, sale_price, image_url, extra_image_urls, is_published")
+          .select("id, name, kind, sale_price, image_url, is_published")
           .eq("business_id", shopId)
           .order("created_at", { ascending: false });
         const edits = await ctx.admin
@@ -44,16 +41,15 @@ export const Route = createFileRoute("/api/agent/shop/$shopId")({
             id: shop.id,
             businessName: shop.business_name,
             username: shop.public_slug,
-            email: secret.data?.login_email || owner.data?.email || "",
-            password: secret.data?.login_password || "",
+            email: login.email,
+            password: login.password,
             phone: shop.public_phone,
             location: shop.public_location_label,
             category: shop.custom_category,
             description: shop.description,
             logoUrl: shop.logo_url,
-            gallery: shop.gallery_urls ?? [],
+            gallery: extra.data?.gallery_urls ?? [],
             createdAt: shop.created_at,
-            deleted: Boolean(shop.deleted_at),
           },
           products: products.data ?? [],
           edits: edits.data ?? [],

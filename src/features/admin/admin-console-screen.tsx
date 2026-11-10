@@ -1688,7 +1688,7 @@ function AgentOnboardCard({
                     </div>
                   </td>
                   <td className="px-3 py-2.5 font-semibold">{shop.email || `${shop.username}@tijar.ng`}</td>
-                  <td className="px-3 py-2.5 font-mono text-[12px] font-bold">{shop.password || "—"}</td>
+                  <td className="px-3 py-2.5 font-mono text-[12px] font-bold">{shop.password || "Not stored"}</td>
                   <td className="px-3 py-2.5">
                     {shop.phone ? (
                       <a className="inline-flex items-center gap-1 font-bold text-[#1F7A4D]" href={`tel:${shop.phone.replace(/[^\d+]/g, "")}`}>

@@ -135,6 +135,8 @@ export function AgentSetupScreen() {
   const [created, setCreated] = useState<CreatedShop | null>(null);
   const [usernameStatus, setUsernameStatus] = useState<"idle" | "checking" | "available" | "taken" | "invalid">("idle");
   const [usernameMessage, setUsernameMessage] = useState("");
+  const [openShopId, setOpenShopId] = useState<string | null>(null);
+  const [showShopPassword, setShowShopPassword] = useState(false);
 
   const slug = slugifyBusinessName(username);
   const email = slug ? tijarShopEmail(slug) : "";
@@ -518,12 +520,19 @@ export function AgentSetupScreen() {
             <p className="mt-2 text-sm text-muted-foreground">None yet. The first shop you create will appear here.</p>
           ) : (
             <ul className="mt-3 space-y-2">
-              {(shopsQuery.data?.shops ?? []).map((shop) => (
-                <li key={String(shop.id)} className="flex items-center gap-3 rounded-2xl bg-[#F8FAFC] px-3 py-2.5">
-                  <Link
-                    className="flex min-w-0 flex-1 items-center gap-3"
-                    to="/shop/agent/$shopId"
-                    params={{ shopId: String(shop.id) }}
+              {(shopsQuery.data?.shops ?? []).map((shop) => {
+                const open = openShopId === String(shop.id);
+                const loginEmail = String(shop.login_email || `${shop.public_slug}@tijar.ng`);
+                const loginPassword = String(shop.login_password ?? "");
+                return (
+                <li key={String(shop.id)} className="rounded-2xl bg-[#F8FAFC] px-3 py-2.5">
+                  <button
+                    type="button"
+                    className="flex w-full items-center gap-3 text-left"
+                    onClick={() => {
+                      setShowShopPassword(false);
+                      setOpenShopId(open ? null : String(shop.id));
+                    }}
                   >
                   <span className="flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-[#0B1F4D] text-sm font-extrabold text-white">
                     {shop.logo_url ? (
@@ -538,20 +547,56 @@ export function AgentSetupScreen() {
                     <span className="block truncate text-[11px] text-muted-foreground">
                       @{String(shop.public_slug ?? "")} · {String(shop.public_location_label ?? "")}
                     </span>
-                    <span className="block text-[11px] font-bold text-[#1F7A4D]">View details</span>
+                    <span className="block text-[11px] font-bold text-[#1F7A4D]">{open ? "Hide details" : "View details"}</span>
                   </span>
-                  </Link>
-                  {shop.public_phone ? (
-                    <a
-                      className="flex size-10 items-center justify-center rounded-full bg-[#1F7A4D] text-white"
-                      href={`tel:${String(shop.public_phone).replace(/[^\d+]/g, "")}`}
-                      aria-label="Call shop"
-                    >
-                      <Phone className="size-4" />
-                    </a>
+                  </button>
+                  {open ? (
+                    <dl className="mt-3 space-y-1.5 border-t border-border pt-3 text-sm">
+                      <div className="flex justify-between gap-3">
+                        <dt className="text-muted-foreground">Email</dt>
+                        <dd className="font-bold">{loginEmail}</dd>
+                      </div>
+                      <div className="flex justify-between gap-3">
+                        <dt className="text-muted-foreground">Username</dt>
+                        <dd className="font-bold">@{String(shop.public_slug ?? "")}</dd>
+                      </div>
+                      <div className="flex items-center justify-between gap-3">
+                        <dt className="text-muted-foreground">Password</dt>
+                        <dd className="flex items-center gap-1 font-bold">
+                          <span>{showShopPassword ? loginPassword || "Not stored yet" : "••••••••"}</span>
+                          <PasswordToggle visible={showShopPassword} onToggle={() => setShowShopPassword((v) => !v)} />
+                        </dd>
+                      </div>
+                      <div className="flex justify-between gap-3">
+                        <dt className="text-muted-foreground">Phone</dt>
+                        <dd className="font-bold">{String(shop.public_phone ?? "—")}</dd>
+                      </div>
+                      <div className="flex justify-between gap-3">
+                        <dt className="text-muted-foreground">Location</dt>
+                        <dd className="font-bold">{String(shop.public_location_label ?? "—")}</dd>
+                      </div>
+                      <div className="flex gap-2 pt-2">
+                        <Link
+                          className="inline-flex min-h-10 items-center rounded-2xl bg-[#1F7A4D] px-4 text-xs font-extrabold text-white"
+                          to="/b/$slug"
+                          params={{ slug: String(shop.public_slug || shop.id) }}
+                        >
+                          Open shop
+                        </Link>
+                        {shop.public_phone ? (
+                          <a
+                            className="inline-flex min-h-10 items-center rounded-2xl border px-4 text-xs font-extrabold"
+                            href={`tel:${String(shop.public_phone).replace(/[^\d+]/g, "")}`}
+                          >
+                            Call
+                          </a>
+                        ) : null}
+                      </div>
+                    </dl>
                   ) : null}
                 </li>
-              ))}
+                );
+              })}
             </ul>
           )}
         </section>

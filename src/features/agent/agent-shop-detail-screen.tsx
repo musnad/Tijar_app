@@ -30,7 +30,10 @@ export function AgentShopDetailScreen({ shopId }: { shopId: string }) {
     queryKey: ["agent-shop", shopId],
     enabled: Boolean(profile?.id && shopId),
     queryFn: async () => {
-      const res = await fetch(`/api/agent/shop/${shopId}`, { headers: await authHeader(), cache: "no-store" });
+      const res = await fetch(`/api/agent/shops?shopId=${encodeURIComponent(shopId)}`, {
+        headers: { ...(await authHeader()), "x-tijar-shopId": shopId },
+        cache: "no-store",
+      });
       const json = (await res.json()) as {
         error?: string;
         shop?: {

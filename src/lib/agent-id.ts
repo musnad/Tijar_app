@@ -1,5 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import { attachShopLogins } from "@/lib/agent-visibility";
+
 export function fallbackAgentId(profileId: string): string {
   return `TJ-AG-${profileId.replace(/-/g, "").slice(-8).toUpperCase()}`;
 }
@@ -62,25 +64,15 @@ export async function shopsOnboardedByAgents(
       emails.set(String(profile.id), String(profile.email ?? ""));
     }
   }
-  const secrets = new Map<string, { email: string; password: string }>();
-  const shopIds = (shops ?? []).map((row) => String(row.id));
-  if (shopIds.length > 0) {
-    const { data: secretRows } = await admin
-      .from("agent_shop_secrets")
-      .select("business_id, login_email, login_password")
-      .in("business_id", shopIds);
-    for (const row of secretRows ?? []) {
-      secrets.set(String(row.business_id), {
-        email: String(row.login_email ?? ""),
-        password: String(row.login_password ?? ""),
-      });
-    }
-  }
+  const logins = await attachShopLogins(
+    admin,
+    (shops ?? []).map((row) => ({ id: String(row.id), owner_id: row.owner_id as string | null })),
+  );
   const grouped = new Map<string, AgentOnboardedShop[]>();
   for (const row of shops ?? []) {
     const agentId = String(row.created_by_agent_id ?? "");
     if (!agentId) continue;
-    const secret = secrets.get(String(row.id));
+    const secret = logins.get(String(row.id));
     const shop: AgentOnboardedShop = {
       id: String(row.id),
       businessName: String(row.business_name ?? ""),

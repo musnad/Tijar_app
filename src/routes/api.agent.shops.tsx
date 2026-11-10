@@ -3,16 +3,17 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { tijarShopEmail } from "@/lib/agent-email";
 import { readAgentId } from "@/lib/agent-id";
-import { createAgentCatalogue, parseAgentOffers } from "@/lib/agent-visibility";
+import { attachShopLogins, createAgentCatalogue, parseAgentOffers, readShopLogin, saveShopLogin } from "@/lib/agent-visibility";
+import { isTijarSuperAdminEmail } from "@/lib/admin";
 import { coordinatesForState, parseNigerianLocation } from "@/lib/nigeria-locations";
 import { signedPlatformActor } from "@/lib/platform-access";
 import { isValidSlug, slugifyBusinessName } from "@/utils/discover";
 
-function requestUsername(request: Request): string {
-  const fromHeader = request.headers.get("x-tijar-username")?.trim() ?? "";
-  if (fromHeader) return fromHeader;
+function requestQuery(request: Request, key: string): string {
+  const header = request.headers.get(`x-tijar-${key}`)?.trim() ?? "";
+  if (header) return header;
   try {
-    return new URL(request.url, "https://www.tijar.ng").searchParams.get("username")?.trim() ?? "";
+    return new URL(request.url, "https://www.tijar.ng").searchParams.get(key)?.trim() ?? "";
   } catch {
     return "";
   }
@@ -52,7 +53,47 @@ export const Route = createFileRoute("/api/agent/shops")({
       GET: async ({ request }) => {
         const ctx = await signedPlatformActor(request, ["admin", "agent"]);
         if ("error" in ctx) return ctx.error;
-        const checkName = requestUsername(request);
+        const shopId = requestQuery(request, "shopId");
+        if (shopId) {
+          const isAdmin = ctx.roles.includes("admin") || isTijarSuperAdminEmail(ctx.email);
+          const shopRes = await ctx.admin
+            .from("businesses")
+            .select(
+              "id, business_name, public_slug, public_phone, public_location_label, logo_url, custom_category, created_at, created_by_agent_id, owner_id, description",
+            )
+            .eq("id", shopId)
+            .maybeSingle();
+          const shop = shopRes.data;
+          if (shopRes.error || !shop) return Response.json({ error: shopRes.error?.message ?? "Shop not found." }, { status: 404 });
+          const extra = await ctx.admin.from("businesses").select("gallery_urls").eq("id", shopId).maybeSingle();
+          if (!isAdmin && shop.created_by_agent_id !== ctx.profileId) {
+            return Response.json({ error: "Not your shop." }, { status: 403 });
+          }
+          const login = await readShopLogin(ctx.admin, { businessId: shopId, ownerId: shop.owner_id as string });
+          const products = await ctx.admin
+            .from("products")
+            .select("id, name, kind, sale_price, image_url, is_published")
+            .eq("business_id", shopId)
+            .limit(40);
+          return Response.json({
+            shop: {
+              id: shop.id,
+              businessName: shop.business_name,
+              username: shop.public_slug,
+              email: login.email,
+              password: login.password,
+              phone: shop.public_phone,
+              location: shop.public_location_label,
+              category: shop.custom_category,
+              description: shop.description,
+              logoUrl: shop.logo_url,
+              gallery: (extra.data?.gallery_urls as string[] | undefined) ?? [],
+              createdAt: shop.created_at,
+            },
+            products: products.data ?? [],
+          });
+        }
+        const checkName = requestQuery(request, "username");
         if (checkName) {
           const slug = slugifyBusinessName(checkName);
           const email = tijarShopEmail(slug);
@@ -72,22 +113,23 @@ export const Route = createFileRoute("/api/agent/shops")({
             error: taken,
           });
         }
+        const isAdmin = ctx.roles.includes("admin") || isTijarSuperAdminEmail(ctx.email);
         const query = ctx.admin
           .from("businesses")
-          .select("id, business_name, public_slug, public_phone, public_location_label, logo_url, created_at, custom_category")
+          .select("id, business_name, public_slug, public_phone, public_location_label, logo_url, created_at, custom_category, owner_id, created_by_agent_id")
           .is("deleted_at", null)
           .order("created_at", { ascending: false })
           .limit(200);
-        let { data, error } = ctx.roles.includes("admin")
+        let { data, error } = isAdmin
           ? await query.not("created_by_agent_id", "is", null)
           : await query.eq("created_by_agent_id", ctx.profileId);
         if (error && /deleted_at/i.test(error.message)) {
           const fallback = ctx.admin
             .from("businesses")
-            .select("id, business_name, public_slug, public_phone, public_location_label, logo_url, created_at, custom_category")
+            .select("id, business_name, public_slug, public_phone, public_location_label, logo_url, created_at, custom_category, owner_id, created_by_agent_id")
             .order("created_at", { ascending: false })
             .limit(200);
-          const retry = ctx.roles.includes("admin")
+          const retry = isAdmin
             ? await fallback.not("created_by_agent_id", "is", null)
             : await fallback.eq("created_by_agent_id", ctx.profileId);
           data = retry.data;
@@ -100,8 +142,20 @@ export const Route = createFileRoute("/api/agent/shops")({
             detail: error.message,
           });
         }
+        const rows = (data ?? []) as Array<Record<string, unknown>>;
+        const logins = await attachShopLogins(
+          ctx.admin,
+          rows.map((row) => ({ id: String(row.id), owner_id: (row.owner_id as string | null) ?? null })),
+        );
         return Response.json({
-          shops: data ?? [],
+          shops: rows.map((row) => {
+            const login = logins.get(String(row.id));
+            return {
+              ...row,
+              login_email: login?.email ?? "",
+              login_password: login?.password ?? "",
+            };
+          }),
           agentId: await readAgentId(ctx.admin, ctx.profileId),
         });
       },
@@ -140,6 +194,8 @@ export const Route = createFileRoute("/api/agent/shops")({
             phone,
             account_mode: "business",
             signup_location: location,
+            tijar_login_email: loginEmail,
+            tijar_login_password: password,
           },
         });
         if (created.error || !created.data.user) {
@@ -256,12 +312,12 @@ export const Route = createFileRoute("/api/agent/shops")({
           })
           .eq("id", businessId);
 
-        await ctx.admin.from("agent_shop_secrets").upsert({
-          business_id: businessId,
-          agent_profile_id: ctx.profileId,
-          login_email: loginEmail,
-          login_password: password,
-          updated_at: new Date().toISOString(),
+        await saveShopLogin(ctx.admin, {
+          businessId,
+          agentProfileId: ctx.profileId,
+          ownerAuthId: created.data.user.id,
+          email: loginEmail,
+          password,
         });
 
         await createAgentCatalogue(ctx.admin, {
