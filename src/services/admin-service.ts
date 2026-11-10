@@ -293,7 +293,28 @@ export async function deleteAdminTijarExpense(id: string): Promise<{ error: stri
   return { error: error?.message ?? null };
 }
 
-export async function fetchAdminAgents(): Promise<{ agents: Array<{ profileId: string }>; error: string | null }> {
+export type AdminAgentShop = {
+  id: string;
+  businessName: string;
+  username: string;
+  email: string;
+  phone: string;
+  location: string;
+  category: string;
+  logoUrl: string;
+  createdAt: string;
+};
+
+export type AdminAgent = {
+  profileId: string;
+  agentId: string;
+  fullName: string;
+  email: string;
+  phone: string;
+  shops: AdminAgentShop[];
+};
+
+export async function fetchAdminAgents(): Promise<{ agents: AdminAgent[]; error: string | null }> {
   const supabase = getSupabaseBrowserClient();
   const {
     data: { session },
@@ -304,7 +325,7 @@ export async function fetchAdminAgents(): Promise<{ agents: Array<{ profileId: s
       headers: { Authorization: `Bearer ${session.access_token}` },
       cache: "no-store",
     });
-    const json = (await res.json().catch(() => ({}))) as { agents?: Array<{ profileId: string }>; error?: string };
+    const json = (await res.json().catch(() => ({}))) as { agents?: AdminAgent[]; error?: string };
     if (!res.ok) return { agents: [], error: json.error ?? "Could not load agents." };
     return { agents: json.agents ?? [], error: null };
   } catch {

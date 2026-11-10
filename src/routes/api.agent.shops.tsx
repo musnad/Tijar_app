@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { tijarShopEmail } from "@/lib/agent-email";
+import { readAgentId } from "@/lib/agent-id";
 import { coordinatesForState, parseNigerianLocation } from "@/lib/nigeria-locations";
 import { signedPlatformActor } from "@/lib/platform-access";
 import { isValidSlug, slugifyBusinessName } from "@/utils/discover";
@@ -85,7 +86,10 @@ export const Route = createFileRoute("/api/agent/shops")({
             detail: error.message,
           });
         }
-        return Response.json({ shops: data ?? [] });
+        return Response.json({
+          shops: data ?? [],
+          agentId: await readAgentId(ctx.admin, ctx.profileId),
+        });
       },
       POST: async ({ request }) => {
         const ctx = await signedPlatformActor(request, ["admin", "agent"]);

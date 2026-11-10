@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 
+import { readAgentId, shopsOnboardedByAgents } from "@/lib/agent-id";
 import { signedPlatformActor } from "@/lib/platform-access";
 
 export const Route = createFileRoute("/api/admin/agents")({
@@ -12,19 +13,27 @@ export const Route = createFileRoute("/api/admin/agents")({
           .from("platform_roles")
           .select("profile_id, profiles(id, full_name, email, phone)")
           .eq("role", "agent");
-        if (error) {
-          const fallback = await ctx.admin.from("platform_roles").select("profile_id").eq("role", "agent");
-          return Response.json({ agents: (fallback.data ?? []).map((row) => ({ profileId: row.profile_id })) });
-        }
-        const agents = (data ?? []).map((row) => {
-          const profile = Array.isArray(row.profiles) ? row.profiles[0] : row.profiles;
-          return {
-            profileId: row.profile_id as string,
-            fullName: (profile as { full_name?: string } | null)?.full_name ?? "",
-            email: (profile as { email?: string } | null)?.email ?? "",
-            phone: (profile as { phone?: string } | null)?.phone ?? "",
-          };
-        });
+        const roleRows =
+          error
+            ? ((await ctx.admin.from("platform_roles").select("profile_id").eq("role", "agent")).data ?? [])
+            : (data ?? []);
+        const profileIds = roleRows.map((row) => String(row.profile_id)).filter(Boolean);
+        const shopsByAgent = await shopsOnboardedByAgents(ctx.admin, profileIds);
+        const agents = await Promise.all(
+          roleRows.map(async (row) => {
+            const profile = "profiles" in row ? (Array.isArray(row.profiles) ? row.profiles[0] : row.profiles) : null;
+            const profileId = String(row.profile_id);
+            return {
+              profileId,
+              agentId: await readAgentId(ctx.admin, profileId),
+              fullName: (profile as { full_name?: string } | null)?.full_name ?? "",
+              email: (profile as { email?: string } | null)?.email ?? "",
+              phone: (profile as { phone?: string } | null)?.phone ?? "",
+              shops: shopsByAgent.get(profileId) ?? [],
+            };
+          }),
+        );
+        agents.sort((a, b) => a.agentId.localeCompare(b.agentId));
         return Response.json({ agents });
       },
       POST: async ({ request }) => {
@@ -39,13 +48,14 @@ export const Route = createFileRoute("/api/admin/agents")({
           if (on) {
             const { error } = await ctx.admin.from("platform_roles").insert({ profile_id: profileId, role: "agent" });
             if (error && !/duplicate|unique/i.test(error.message)) {
-              return Response.json({ error: "Run 000097 and 000098 in Supabase first.", detail: error.message }, { status: 400 });
+              return Response.json({ error: "Run 000097, 000098 and 000099 in Supabase first.", detail: error.message }, { status: 400 });
             }
+            await readAgentId(ctx.admin, profileId);
           } else {
             await ctx.admin.from("platform_roles").delete().eq("profile_id", profileId).eq("role", "agent");
           }
         }
-        return Response.json({ ok: true, on });
+        return Response.json({ ok: true, on, agentId: on ? await readAgentId(ctx.admin, profileId) : null });
       },
     },
   },

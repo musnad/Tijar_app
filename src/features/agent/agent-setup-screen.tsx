@@ -111,9 +111,9 @@ export function AgentSetupScreen() {
     enabled: isAgent,
     queryFn: async () => {
       const res = await fetch("/api/agent/shops", { headers: await authHeader(), cache: "no-store" });
-      const json = (await res.json()) as { shops?: Array<Record<string, unknown>>; error?: string };
+      const json = (await res.json()) as { shops?: Array<Record<string, unknown>>; agentId?: string; error?: string };
       if (!res.ok) throw new Error(json.error ?? "Could not load shops.");
-      return json.shops ?? [];
+      return { shops: json.shops ?? [], agentId: json.agentId ?? "" };
     },
   });
 
@@ -279,7 +279,12 @@ export function AgentSetupScreen() {
       <div className="space-y-4 px-4 pb-10">
         <section className="overflow-hidden rounded-[28px] bg-[linear-gradient(145deg,#0B1F4D_0%,#14532d_58%,#1F7A4D_100%)] p-5 text-white shadow-[0_18px_40px_rgba(11,31,77,0.22)]">
           <p className="text-[11px] font-extrabold uppercase tracking-[0.18em] text-white/70">TIJAR agent</p>
-          <h2 className="mt-1 text-[22px] font-extrabold leading-tight">Create a shop they can log in to</h2>
+          {shopsQuery.data?.agentId ? (
+            <p className="mt-2 inline-flex rounded-full bg-white/15 px-3 py-1 text-[12px] font-extrabold tracking-wide">
+              Agent ID {shopsQuery.data.agentId}
+            </p>
+          ) : null}
+          <h2 className="mt-2 text-[22px] font-extrabold leading-tight">Create a shop they can log in to</h2>
           <p className="mt-2 text-[13px] leading-relaxed text-white/85">
             Add a login, photos, phone and location so customers can search this business and call them for service.
           </p>
@@ -466,11 +471,11 @@ export function AgentSetupScreen() {
 
         <section className="rounded-[24px] border border-border bg-white p-4 shadow-sm">
           <h2 className="text-[15px] font-extrabold text-[#0B1F4D]">Shops you set up</h2>
-          {(shopsQuery.data ?? []).length === 0 ? (
+          {(shopsQuery.data?.shops ?? []).length === 0 ? (
             <p className="mt-2 text-sm text-muted-foreground">None yet. The first shop you create will appear here.</p>
           ) : (
             <ul className="mt-3 space-y-2">
-              {(shopsQuery.data ?? []).map((shop) => (
+              {(shopsQuery.data?.shops ?? []).map((shop) => (
                 <li key={String(shop.id)} className="flex items-center gap-3 rounded-2xl bg-[#F8FAFC] px-3 py-2.5">
                   <span className="flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-[#0B1F4D] text-sm font-extrabold text-white">
                     {shop.logo_url ? (

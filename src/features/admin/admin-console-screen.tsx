@@ -71,6 +71,7 @@ import {
   setAdminAgent,
   setBusinessVerifiedBadge,
   shopName,
+  type AdminAgent,
   type AdminBusiness,
   type AdminOrder,
   type AdminTransaction,
@@ -591,7 +592,7 @@ export function AdminConsoleScreen() {
   async function toggleAgent(profileId: string, on: boolean) {
     const { error } = await setAdminAgent(profileId, on);
     if (error) {
-      toast.error(error.includes("agent") || error.includes("schema") ? "Run 000097 and 000098 in Supabase first." : error);
+      toast.error(error.includes("agent") || error.includes("schema") ? "Run 000097, 000098 and 000099 in Supabase first." : error);
       return;
     }
     toast.success(on ? "This account is now an agent." : "Agent access removed.");
@@ -1508,24 +1509,13 @@ export function AdminConsoleScreen() {
       {tab === "agents" && (
         <div className="mt-4 space-y-3">
           <p className="text-sm text-muted-foreground">
-            Agents can open /shop/agent and create shops with a {`{name}@tijar.ng`} login, photos, phone and location.
+            Every agent has an ID. Open a card to see the shops they onboarded, with login, phone and location.
           </p>
-          <AdminTable empty="No agents yet. Make a user or business an agent from Users or Businesses." headers={["Name", "Email", "Phone", "Actions"]}>
-            {users
-              .filter((user) => agentIds.has(user.id))
-              .map((user) => (
-                <tr key={user.id} className="border-t border-border">
-                  <td className="px-3 py-2.5 font-semibold">{user.full_name || "—"}</td>
-                  <td className="px-3 py-2.5 text-muted-foreground">{user.email ?? "—"}</td>
-                  <td className="px-3 py-2.5">{user.phone ?? "—"}</td>
-                  <td className="px-3 py-2.5">
-                    <Button size="sm" variant="outline" className="h-8 rounded-lg text-xs font-bold" onClick={() => void toggleAgent(user.id, false)}>
-                      Remove agent
-                    </Button>
-                  </td>
-                </tr>
-              ))}
-          </AdminTable>
+          {(agentsQuery.data ?? []).length === 0 ? (
+            <EmptyState title="No agents yet." body="Make a user or business an agent from Users or Businesses." />
+          ) : (
+            (agentsQuery.data ?? []).map((agent) => <AgentOnboardCard key={agent.profileId} agent={agent} onRemove={() => void toggleAgent(agent.profileId, false)} />)
+          )}
         </div>
       )}
 
@@ -1574,6 +1564,83 @@ function Kpi({
       <p className="mt-1 text-lg font-extrabold tabular-nums">{value}</p>
       <p className="text-[10px] font-medium text-white/70">{hint}</p>
     </div>
+  );
+}
+
+function AgentOnboardCard({ agent, onRemove }: { agent: AdminAgent; onRemove: () => void }) {
+  return (
+    <section className="overflow-hidden rounded-2xl border border-border bg-card">
+      <div className="flex flex-wrap items-start justify-between gap-3 px-4 py-3">
+        <div>
+          <p className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-[#1F7A4D]">{agent.agentId}</p>
+          <p className="mt-0.5 text-base font-extrabold text-[#0B1F4D]">{agent.fullName || "Agent"}</p>
+          <p className="text-sm text-muted-foreground">
+            {agent.email || "—"}
+            {agent.phone ? ` · ${agent.phone}` : ""}
+          </p>
+          <p className="mt-1 text-[12px] font-bold text-muted-foreground">
+            {agent.shops.length} shop{agent.shops.length === 1 ? "" : "s"} onboarded
+          </p>
+        </div>
+        <Button size="sm" variant="outline" className="h-8 rounded-lg text-xs font-bold" onClick={onRemove}>
+          Remove agent
+        </Button>
+      </div>
+      {agent.shops.length === 0 ? (
+        <p className="border-t border-border px-4 py-3 text-sm text-muted-foreground">No shops onboarded yet.</p>
+      ) : (
+        <div className="overflow-x-auto border-t border-border">
+          <table className="w-full min-w-[720px] text-left text-sm">
+            <thead className="bg-muted/60 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+              <tr>
+                <th className="px-3 py-2">Shop</th>
+                <th className="px-3 py-2">Login</th>
+                <th className="px-3 py-2">Phone</th>
+                <th className="px-3 py-2">Location</th>
+                <th className="px-3 py-2">When</th>
+              </tr>
+            </thead>
+            <tbody>
+              {agent.shops.map((shop) => (
+                <tr key={shop.id} className="border-t border-border align-top">
+                  <td className="px-3 py-2.5">
+                    <div className="flex items-center gap-2">
+                      <span className="flex size-9 shrink-0 overflow-hidden rounded-xl bg-[#0B1F4D] text-xs font-extrabold text-white">
+                        {shop.logoUrl ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={shop.logoUrl} alt="" className="size-full object-cover" />
+                        ) : (
+                          <span className="m-auto">{shop.businessName.slice(0, 1).toUpperCase() || "S"}</span>
+                        )}
+                      </span>
+                      <span>
+                        <Link className="font-extrabold text-[#0B1F4D] hover:underline" to="/b/$slug" params={{ slug: shop.username || shop.id }}>
+                          {shop.businessName || "Shop"}
+                        </Link>
+                        <span className="block text-[11px] text-muted-foreground">@{shop.username || "—"}</span>
+                      </span>
+                    </div>
+                  </td>
+                  <td className="px-3 py-2.5 font-semibold">{shop.email || `${shop.username}@tijar.ng`}</td>
+                  <td className="px-3 py-2.5">
+                    {shop.phone ? (
+                      <a className="inline-flex items-center gap-1 font-bold text-[#1F7A4D]" href={`tel:${shop.phone.replace(/[^\d+]/g, "")}`}>
+                        <Phone className="size-3.5" />
+                        {shop.phone}
+                      </a>
+                    ) : (
+                      "—"
+                    )}
+                  </td>
+                  <td className="px-3 py-2.5 text-muted-foreground">{shop.location || "—"}</td>
+                  <td className="px-3 py-2.5 text-muted-foreground">{formatWhen(shop.createdAt)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
   );
 }
 
