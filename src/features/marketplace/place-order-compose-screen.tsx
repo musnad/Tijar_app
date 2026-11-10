@@ -15,7 +15,7 @@ import { ProductPhotosField, type ProductPhotoItem } from "@/features/products/p
 import { useAuth } from "@/features/auth/auth-context";
 import { usePrimaryBusiness } from "@/hooks/use-primary-business";
 import { canUseBusinessMode } from "@/lib/account-mode";
-import { isShopIdentityVerified } from "@/lib/kyc/bytid";
+import { shopQueryAllowsPost } from "@/lib/kyc/kyc-runtime";
 import { cn } from "@/lib/utils";
 import {
   PLACE_ORDER_CATEGORIES,
@@ -145,7 +145,7 @@ export function PlaceOrderComposeScreen() {
     void navigate({ to: "/shop/order-now" });
   }
 
-  if (canSell && business && !isShopIdentityVerified(business)) {
+  if (canSell && business && !shopQueryAllowsPost(shopQuery.data)) {
     return (
       <MarketplaceShell hideTopBar variant="feed">
         <VerifyToPostCard />

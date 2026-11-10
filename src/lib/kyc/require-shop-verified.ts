@@ -1,4 +1,4 @@
-import { isShopIdentityVerified } from "@/lib/kyc/bytid";
+import { shopMayPostWithClient } from "@/lib/kyc/kyc-runtime";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 
 export const VERIFY_BEFORE_POST = "Verify your NIN on this shop before you post.";
@@ -11,6 +11,6 @@ export async function requireVerifiedShop(businessId: string): Promise<string | 
     .eq("id", businessId)
     .maybeSingle();
   if (error || !data) return "Could not check shop verification.";
-  if (isShopIdentityVerified(data)) return null;
+  if (await shopMayPostWithClient(supabase, businessId, data)) return null;
   return VERIFY_BEFORE_POST;
 }

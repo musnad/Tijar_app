@@ -9,7 +9,7 @@ import { VerifyToPostCard } from "@/features/business/verify-to-post";
 import { NewProductForm } from "@/features/products/new-product-form";
 import { useAuth } from "@/features/auth/auth-context";
 import { usePrimaryBusiness } from "@/hooks/use-primary-business";
-import { isShopIdentityVerified } from "@/lib/kyc/bytid";
+import { shopQueryAllowsPost } from "@/lib/kyc/kyc-runtime";
 import { useTranslation } from "@/lib/i18n/context";
 
 export const Route = createFileRoute("/app/products/new")({
@@ -63,8 +63,8 @@ function NewProductPageContent() {
           </Button>
         </div>
       )}
-      {business && profile?.id && !isShopIdentityVerified(business) && <VerifyToPostCard />}
-      {business && profile?.id && isShopIdentityVerified(business) && (
+      {business && profile?.id && !shopQueryAllowsPost(data) && <VerifyToPostCard />}
+      {business && profile?.id && shopQueryAllowsPost(data) && (
         <NewProductForm businessId={business.id} profileId={profile.id} />
       )}
     </AppShell>

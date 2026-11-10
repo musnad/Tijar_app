@@ -7,6 +7,7 @@ import {
   bytidGetLiveness,
   bytidNinLiveFaceMatch,
   bytidNinLookup,
+  bytidPublicError,
   digitsId,
   extractNinRecord,
   faceMatched,
@@ -15,6 +16,7 @@ import {
   ninDetailsForStorage,
   normalizeCacNumber,
 } from "@/lib/kyc/bytid";
+import { persistIdentityOpen } from "@/lib/kyc/kyc-runtime";
 import { shopAdminClient } from "@/lib/payments/shop-server";
 
 export const Route = createFileRoute("/api/kyc/verify")({
@@ -99,6 +101,7 @@ export const Route = createFileRoute("/api/kyc/verify")({
           const last4 = idNumber.slice(-4);
           const reference = `tijar-nin-${businessId.replace(/-/g, "").slice(0, 10)}-${Date.now().toString(36)}`;
           const lookup = await bytidNinLookup({ idNumber, reference });
+          await persistIdentityOpen(ctx.admin, lookup);
           const record = extractNinRecord(lookup.person, idNumber);
           await ctx.admin.from("business_kyc_checks").insert({
             business_id: businessId,
@@ -112,7 +115,7 @@ export const Route = createFileRoute("/api/kyc/verify")({
             details: { ...lookup.person, typed_last4: last4 },
           });
           if (!lookup.ok) {
-            return Response.json({ error: lookup.error ?? "NIN lookup failed.", code: lookup.status }, { status: lookup.httpStatus && lookup.httpStatus >= 400 ? lookup.httpStatus : 400 });
+            return Response.json({ error: bytidPublicError(lookup, "NIN lookup failed."), code: lookup.status }, { status: lookup.httpStatus && lookup.httpStatus >= 400 ? lookup.httpStatus : 400 });
           }
           return Response.json({
             ok: true,
@@ -183,8 +186,9 @@ export const Route = createFileRoute("/api/kyc/verify")({
           }
           const reference = `tijar-live-${businessId.replace(/-/g, "").slice(0, 10)}-${Date.now().toString(36)}`;
           const session = await bytidCreateLiveness({ reference, redirectUrl });
+          await persistIdentityOpen(ctx.admin, session, { successCloses: false });
           if (!session.ok || !session.url || !session.id) {
-            return Response.json({ error: session.error ?? "Could not start live face check." }, { status: session.httpStatus ?? 502 });
+            return Response.json({ error: bytidPublicError(session, "Could not start live face check.") }, { status: session.httpStatus ?? 502 });
           }
           return Response.json({ ok: true, sessionId: session.id, url: session.url });
         }
@@ -196,8 +200,9 @@ export const Route = createFileRoute("/api/kyc/verify")({
             return Response.json({ error: "Finish the live camera check first." }, { status: 400 });
           }
           const live = await bytidGetLiveness(sessionId);
+          await persistIdentityOpen(ctx.admin, live, { successCloses: false });
           if (!live.ok) {
-            return Response.json({ error: live.error ?? "Could not read the live face session." }, { status: live.httpStatus ?? 502 });
+            return Response.json({ error: bytidPublicError(live, "Could not read the live face session.") }, { status: live.httpStatus ?? 502 });
           }
           if (live.status !== "passed" || !live.usableForFaceMatch) {
             return Response.json(
@@ -215,6 +220,7 @@ export const Route = createFileRoute("/api/kyc/verify")({
             reference,
           });
           const last4 = idNumber.slice(-4);
+          await persistIdentityOpen(ctx.admin, lookup);
           await ctx.admin.from("business_kyc_checks").insert({
             business_id: businessId,
             profile_id: ctx.profile.id,
@@ -229,7 +235,7 @@ export const Route = createFileRoute("/api/kyc/verify")({
             face_score: lookup.face?.score ?? null,
           });
           if (!lookup.ok) {
-            return Response.json({ error: lookup.error ?? "Face match failed.", code: lookup.status }, { status: lookup.httpStatus && lookup.httpStatus >= 400 ? lookup.httpStatus : 400 });
+            return Response.json({ error: bytidPublicError(lookup, "Face match failed."), code: lookup.status }, { status: lookup.httpStatus && lookup.httpStatus >= 400 ? lookup.httpStatus : 400 });
           }
           if (!faceMatched(lookup)) {
             return Response.json(
@@ -293,6 +299,7 @@ async function saveOptionalCac(
   }
   const reference = `tijar-cac-${businessId.replace(/-/g, "").slice(0, 10)}-${Date.now().toString(36)}`;
   const lookup = await bytidCacLookup({ cacNumber, reference });
+  await persistIdentityOpen(admin, lookup);
   await admin.from("business_kyc_checks").insert({
     business_id: businessId,
     profile_id: profileId,
@@ -311,7 +318,7 @@ async function saveOptionalCac(
     },
   });
   if (!lookup.ok) {
-    return Response.json({ error: lookup.error ?? "CAC lookup failed.", code: lookup.status }, { status: lookup.httpStatus ?? 502 });
+    return Response.json({ error: bytidPublicError(lookup, "CAC lookup failed."), code: lookup.status }, { status: lookup.httpStatus ?? 502 });
   }
   const cacDetails = {
     number: lookup.registrationNumber ?? cacNumber,

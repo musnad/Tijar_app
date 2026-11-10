@@ -12,7 +12,7 @@ import { VerifyToPostCard } from "@/features/business/verify-to-post";
 import { MarketplaceShell } from "@/features/marketplace/marketplace-shell";
 import { useAuth } from "@/features/auth/auth-context";
 import { usePrimaryBusiness } from "@/hooks/use-primary-business";
-import { isShopIdentityVerified } from "@/lib/kyc/bytid";
+import { shopQueryAllowsPost } from "@/lib/kyc/kyc-runtime";
 import { cn } from "@/lib/utils";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { publishBusinessStory } from "@/services/story-service";
@@ -77,10 +77,6 @@ export function CreateStoryScreen() {
       toast.error("Create your shop first.");
       return;
     }
-    if (!isShopIdentityVerified(business)) {
-      toast.error("Verify your NIN on this shop before you post.");
-      return;
-    }
     if (!file) {
       toast.error("Pick a photo or short video.");
       return;
@@ -117,7 +113,7 @@ export function CreateStoryScreen() {
     void navigate({ to: "/shop" });
   }
 
-  if (business && !isShopIdentityVerified(business)) {
+  if (business && !shopQueryAllowsPost(shop.data)) {
     return (
       <MarketplaceShell hideTopBar variant="feed">
         <VerifyToPostCard />

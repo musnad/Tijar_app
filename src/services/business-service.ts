@@ -3,6 +3,7 @@ import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import type { OnboardingAnswers } from "@/features/onboarding/schemas";
 import type { MemberRole } from "@/lib/business/capabilities";
 import { isShopIdentityVerified } from "@/lib/kyc/bytid";
+import { shopMayPostWithClient } from "@/lib/kyc/kyc-runtime";
 import { isSlugAvailable } from "@/services/discover-service";
 import type { Business, BusinessCategory, BusinessDna } from "@/types/database";
 import { INFORMAL_BUSINESS_CATEGORIES } from "@/lib/informal-categories";
@@ -72,6 +73,7 @@ export async function ensureOwnerMembership(
 export async function fetchPrimaryBusiness(profileId: string): Promise<{
   business: Business | null;
   dna: BusinessDna | null;
+  canPost: boolean;
   error: string | null;
 }> {
   const supabase = getSupabaseBrowserClient();
@@ -98,11 +100,11 @@ export async function fetchPrimaryBusiness(profileId: string): Promise<{
   }
 
   if (owned.error && !business) {
-    return { business: null, dna: null, error: owned.error.message };
+    return { business: null, dna: null, canPost: false, error: owned.error.message };
   }
 
   if (!business) {
-    return { business: null, dna: null, error: null };
+    return { business: null, dna: null, canPost: false, error: null };
   }
 
   // Best-effort heal so product/stock policies work for owners.
@@ -114,11 +116,12 @@ export async function fetchPrimaryBusiness(profileId: string): Promise<{
     .eq("business_id", business.id)
     .maybeSingle();
 
+  const canPost = await shopMayPostWithClient(supabase, business.id, business);
   if (dnaError) {
-    return { business, dna: null, error: dnaError.message };
+    return { business, dna: null, canPost, error: dnaError.message };
   }
 
-  return { business, dna: dna as BusinessDna | null, error: null };
+  return { business, dna: dna as BusinessDna | null, canPost, error: null };
 }
 
 export async function fetchOwnedBusinesses(profileId: string): Promise<{

@@ -435,6 +435,23 @@ export function maskNin(idNumber: string): string {
   return `${digits.slice(0, 3)}*****${digits.slice(-3)}`;
 }
 
+export function isBytidCreditsExhausted(result: {
+  httpStatus?: number;
+  error?: string;
+  status?: string;
+}): boolean {
+  if (result.httpStatus === 402) return true;
+  const blob = `${result.status ?? ""} ${result.error ?? ""}`.toLowerCase();
+  return /insufficient[_\s-]?credits?|credits?\s+(finished|exhausted|depleted|ended)|out of credits?|no credits? left|quota[_\s-]?(exceeded|exhausted)|payment required|insufficient[_\s-]?funds|wallet.*(empty|insufficient)|not enough credits?|balance.*(insufficient|too low|is zero)|prepaid.*(exhausted|empty)/.test(
+    blob,
+  );
+}
+
+export function bytidPublicError(result: { error?: string; status?: string; httpStatus?: number }, fallback: string): string {
+  if (isBytidCreditsExhausted(result)) return "Identity check is temporarily unavailable. Try again later.";
+  return result.error?.trim() || fallback;
+}
+
 export function isShopFaceVerified(business: {
   verification_status?: string | null;
   kyc_verified_at?: string | null;

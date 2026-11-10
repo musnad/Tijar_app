@@ -12,7 +12,7 @@ import { useAuth } from "@/features/auth/auth-context";
 import { usePrimaryBusiness } from "@/hooks/use-primary-business";
 import { VerifyToPostCard } from "@/features/business/verify-to-post";
 import { canUseBusinessMode } from "@/lib/account-mode";
-import { isShopIdentityVerified } from "@/lib/kyc/bytid";
+import { shopQueryAllowsPost } from "@/lib/kyc/kyc-runtime";
 import { fetchCart, fetchMyBusinessUpgradeRequest } from "@/services/marketplace-service";
 
 export function VideoCreateScreen({
@@ -59,11 +59,11 @@ export function VideoCreateScreen({
     <MarketplaceShell
       cartCount={cartCount}
       hideTopBar
-      hideNav={checkingAccess || (hasBusinessAccount && isShopIdentityVerified(business!))}
+      hideNav={checkingAccess || (hasBusinessAccount && shopQueryAllowsPost(businessQuery.data))}
       variant="feed"
     >
       {hasBusinessAccount && profile && business ? (
-        isShopIdentityVerified(business) ? (
+        shopQueryAllowsPost(businessQuery.data) ? (
         <div className="flex min-h-0 flex-1 flex-col">
           <div className="flex shrink-0 gap-2 px-3 pb-2 pt-[max(0.4rem,env(safe-area-inset-top))]">
             <Button className="min-h-10 flex-1 rounded-full bg-[#0B1F4D] text-xs font-extrabold" type="button">

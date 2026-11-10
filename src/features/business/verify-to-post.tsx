@@ -5,7 +5,7 @@ import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/features/auth/auth-context";
 import { usePrimaryBusiness } from "@/hooks/use-primary-business";
-import { isShopIdentityVerified } from "@/lib/kyc/bytid";
+import { shopQueryAllowsPost } from "@/lib/kyc/kyc-runtime";
 
 export function VerifyToPostCard() {
   return (
@@ -26,11 +26,10 @@ export function VerifyToPostCard() {
 export function RequireShopKyc({ children }: { children: ReactNode }) {
   const { profile } = useAuth();
   const shop = usePrimaryBusiness(profile?.id);
-  const business = shop.data?.business;
   if (shop.isLoading) {
     return <p className="px-4 py-10 text-center text-sm text-muted-foreground">Checking verification…</p>;
   }
-  if (business && !isShopIdentityVerified(business)) {
+  if (shop.data?.business && !shopQueryAllowsPost(shop.data)) {
     return <VerifyToPostCard />;
   }
   return children;

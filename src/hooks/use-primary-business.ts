@@ -9,10 +9,10 @@ export function usePrimaryBusiness(profileId: string | undefined) {
     queryKey: ["primary-business", profileId],
     enabled: Boolean(profileId),
     queryFn: async () => {
-      if (!profileId) return { business: null, dna: null };
+      if (!profileId) return { business: null, dna: null, canPost: false };
       const result = await fetchPrimaryBusiness(profileId);
-      if (result.error) return { business: null, dna: null };
-      return { business: result.business, dna: result.dna };
+      if (result.error && !result.business) return { business: null, dna: null, canPost: false };
+      return { business: result.business, dna: result.dna, canPost: result.canPost };
     },
   });
 }
