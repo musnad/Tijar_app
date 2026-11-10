@@ -30,7 +30,7 @@ import { toast } from "sonner";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { downloadAdminCsv } from "@/features/admin/admin-export";
+import { downloadAdminCsv, downloadExpenseLedgerExcel, downloadExpenseLedgerPdf } from "@/features/admin/admin-export";
 import { BusinessOfTheWeekAdmin } from "@/features/admin/business-of-the-week-admin";
 import {
   accountCategory,
@@ -556,6 +556,24 @@ export function AdminConsoleScreen() {
     await queryClient.invalidateQueries({ queryKey: ["admin-tijar-expenses"] });
   }
 
+  async function exportExpensesPdf() {
+    if (expenses.length === 0) {
+      toast.error("No expenses to download yet.");
+      return;
+    }
+    await downloadExpenseLedgerPdf(expenses, `tijar-expense-ledger-${stamp()}.pdf`);
+    toast.success("Expense ledger PDF downloaded");
+  }
+
+  function exportExpensesExcel() {
+    if (expenses.length === 0) {
+      toast.error("No expenses to download yet.");
+      return;
+    }
+    downloadExpenseLedgerExcel(expenses, `tijar-expense-ledger-${stamp()}.xls`);
+    toast.success("Expense ledger Excel downloaded");
+  }
+
   async function approveEverything() {
     if (approvingAll) return;
     if (!window.confirm("Approve every pending application and live every shop that is not suspended?")) return;
@@ -976,7 +994,19 @@ export function AdminConsoleScreen() {
             </Button>
           </div>
           <div className="rounded-2xl border border-border bg-card p-4">
-            <h2 className="font-extrabold">Expense ledger</h2>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h2 className="font-extrabold">Expense ledger</h2>
+              <div className="flex flex-wrap gap-2">
+                <Button variant="outline" className="h-10 rounded-xl font-bold" onClick={() => void exportExpensesPdf()}>
+                  <Download className="mr-1.5 size-4" />
+                  PDF
+                </Button>
+                <Button variant="outline" className="h-10 rounded-xl font-bold" onClick={() => exportExpensesExcel()}>
+                  <Download className="mr-1.5 size-4" />
+                  Excel
+                </Button>
+              </div>
+            </div>
             {expenses.length === 0 ? (
               <p className="mt-2 text-sm text-muted-foreground">
                 {expensesError ? "Expenses are not available until the SQL is run." : "No custom expenses yet. Save one above and it will show here."}
