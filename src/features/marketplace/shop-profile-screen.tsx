@@ -17,6 +17,7 @@ import {
   LogOut,
   Mail,
   MapPin,
+  Megaphone,
   Menu,
   Package,
   Pencil,
@@ -244,6 +245,7 @@ export function ShopProfileScreen() {
           { to: "/app/business", label: "Business account", icon: Store },
           { to: "/app/ai", label: t("shop.profile.aiTools"), icon: Sparkles },
           { to: "/shop/studio", label: t("shop.profile.studio"), icon: Sparkles },
+          { to: "/shop/ads", label: "Ads manager", icon: Megaphone },
         ]
       : []),
     ...(!demo && canUseBusinessMode(profile) && shopQuery.data?.business

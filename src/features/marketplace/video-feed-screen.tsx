@@ -112,6 +112,8 @@ import {
   type PublicFeedVideo,
   type VideoComment,
 } from "@/services/video-feed-service";
+import { adCtaLabel } from "@/lib/ads/packages";
+import { trackAdEvent } from "@/services/ads-service";
 import type { PublicProduct } from "@/types/database";
 import { ensureSavedProduct, listFollowedShopIds, loadUserSocial } from "@/lib/shop-social";
 import { useDoubleTap } from "@/lib/use-double-tap";
@@ -725,6 +727,7 @@ export function VideoFeedScreen({ initialVideoId }: { initialVideoId?: string })
               });
               // One like per shopper: only move the counter when the state flips.
               if (liked !== wasLiked) patchFeedLike(video.id, liked);
+              if (liked && video.sponsored_ad_id) void trackAdEvent(video.sponsored_ad_id, "like");
             }
           } finally {
             likeBusyRef.current = false;
@@ -1705,6 +1708,13 @@ const VideoSlide = memo(function VideoSlide({
   const src = resolveVideoSrc(video);
   const poster = resolveCoverSrc(video.cover_path) ?? undefined;
   const image = isImagePost(video);
+  const paidAd = Boolean(video.is_paid_ad || video.sponsored_ad_id || video.attribution === "sponsored");
+
+  useEffect(() => {
+    if (!active || !video.sponsored_ad_id) return;
+    void trackAdEvent(video.sponsored_ad_id, "impression");
+    void trackAdEvent(video.sponsored_ad_id, "view");
+  }, [active, video.sponsored_ad_id]);
 
   useEffect(() => {
     const el = ref.current;
@@ -1777,11 +1787,14 @@ const VideoSlide = memo(function VideoSlide({
           params={{ slug: shopLinkSlug(video.slug, video.business_id) }}
           className="min-w-0 flex-1"
         >
-          <SellerMeta name={shopName} verified={video.is_verified} when={when} place={place} />
+          <SellerMeta name={shopName} verified={video.is_verified} when={when} place={place} paid={paidAd} />
         </Link>
         <button
           type="button"
-          onClick={() => actions.onFollowShop(video.business_id, video.business_name)}
+          onClick={() => {
+            if (video.sponsored_ad_id) void trackAdEvent(video.sponsored_ad_id, "follow");
+            actions.onFollowShop(video.business_id, video.business_name);
+          }}
           className={cn(
             "inline-flex min-h-11 shrink-0 items-center rounded-full px-4 text-sm font-extrabold",
             following ? "border border-border bg-white text-foreground" : "bg-primary text-white",
@@ -1878,6 +1891,7 @@ const VideoSlide = memo(function VideoSlide({
               unit={featured?.unit}
               host="tijar.ng"
               onPay={() => {
+                if (video.sponsored_ad_id) void trackAdEvent(video.sponsored_ad_id, "buy");
                 if (featured) {
                   void navigate({ to: "/shop/buy", search: { productId: featured.id } });
                   return;
@@ -1931,6 +1945,12 @@ const VideoSlide = memo(function VideoSlide({
           <span className="font-extrabold">{displayShopName(video.business_name)} </span>
           <CaptionText text={video.caption} />
         </p>
+      ) : null}
+      {paidAd ? (
+        <PaidAdCta video={video} featured={featured} following={following} onFollow={() => {
+          if (video.sponsored_ad_id) void trackAdEvent(video.sponsored_ad_id, "follow");
+          actions.onFollowShop(video.business_id, video.business_name);
+        }} />
       ) : null}
       {video.comment_count > 0 ? (
         <button
@@ -2002,16 +2022,69 @@ function FeedShopAvatar({
   );
 }
 
+function PaidAdCta({
+  video,
+  featured,
+  following,
+  onFollow,
+}: {
+  video: PublicFeedVideo;
+  featured: PublicProduct | null;
+  following: boolean;
+  onFollow: () => void;
+}) {
+  const navigate = useNavigate();
+  const goal = video.ad_objective;
+  const label = adCtaLabel(goal);
+  function run() {
+    if (video.sponsored_ad_id) {
+      if (goal === "calls") void trackAdEvent(video.sponsored_ad_id, "call");
+      else if (goal === "sales") void trackAdEvent(video.sponsored_ad_id, "buy");
+      else void trackAdEvent(video.sponsored_ad_id, "click");
+    }
+    if (goal === "calls" && video.shop_phone) {
+      window.location.href = `tel:${video.shop_phone.replace(/\s+/g, "")}`;
+      return;
+    }
+    if (goal === "followers") {
+      onFollow();
+      return;
+    }
+    if (video.destination_url) {
+      window.open(video.destination_url, "_blank", "noopener,noreferrer");
+      return;
+    }
+    if (featured) {
+      void navigate({ to: "/shop/buy", search: { productId: featured.id } });
+      return;
+    }
+    void navigate({ to: "/b/$slug", params: { slug: shopLinkSlug(video.slug, video.business_id) } });
+  }
+  return (
+    <div className="px-3 pb-2">
+      <button
+        type="button"
+        onClick={run}
+        className="min-h-11 w-full rounded-xl bg-[#0B1F4D] text-sm font-extrabold text-white"
+      >
+        {goal === "followers" && following ? "Following" : label}
+      </button>
+    </div>
+  );
+}
+
 function SellerMeta({
   name,
   verified,
   when,
   place,
+  paid,
 }: {
   name: string;
   verified: boolean;
   when: string;
   place: string | null;
+  paid?: boolean;
 }) {
   const { t } = useTranslation();
   return (
@@ -2019,6 +2092,11 @@ function SellerMeta({
       <span className="flex items-center gap-1 truncate text-[15px] font-extrabold text-foreground">
         {name}
         {verified ? <BadgeCheck className="size-4 shrink-0 fill-primary text-white" aria-label={t("shop.explore.verified")} /> : null}
+        {paid ? (
+          <span className="shrink-0 rounded-full bg-[#0B1F4D] px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wide text-white">
+            Paid ads
+          </span>
+        ) : null}
       </span>
       <span className="flex items-center gap-1 truncate text-[11px] text-muted-foreground">
         {when || t("shop.feed.justNow")}

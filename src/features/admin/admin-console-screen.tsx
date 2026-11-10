@@ -24,7 +24,7 @@ import {
   Users,
   Wallet,
 } from "lucide-react";
-import { useMemo, useState, type ReactNode } from "react";
+import { lazy, Suspense, useMemo, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
@@ -32,6 +32,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { downloadAdminCsv, downloadExpenseLedgerExcel, downloadExpenseLedgerPdf } from "@/features/admin/admin-export";
 import { BusinessOfTheWeekAdmin } from "@/features/admin/business-of-the-week-admin";
+
+const AdminAdsManager = lazy(() =>
+  import("@/features/ads/ads-manager-screen").then((m) => ({ default: m.AdsManagerScreen })),
+);
 import {
   accountCategory,
   businessGross,
@@ -95,7 +99,8 @@ type Tab =
   | "transactions"
   | "orders"
   | "ticks"
-  | "week";
+  | "week"
+  | "ads";
 
 const KYC_QUEUE: KycStatus[] = ["submitted", "under_review", "in_progress", "requires_update"];
 
@@ -657,6 +662,7 @@ export function AdminConsoleScreen() {
     { id: "agents", label: "Agents" },
     { id: "transactions", label: "Transactions" },
     { id: "orders", label: "Orders" },
+    { id: "ads", label: "Ads" },
   ];
 
   function exportUsers() {
@@ -1502,6 +1508,11 @@ export function AdminConsoleScreen() {
       )}
 
       {tab === "week" && <BusinessOfTheWeekAdmin businesses={businesses} />}
+      {tab === "ads" && (
+        <Suspense fallback={<p className="mt-4 text-sm text-muted-foreground">Loading ads…</p>}>
+          <AdminAdsManager adminMode embedded />
+        </Suspense>
+      )}
 
       {tab === "users" && (
         <>

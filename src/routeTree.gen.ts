@@ -86,6 +86,7 @@ import { Route as ShopAgentRouteImport } from './routes/shop/agent'
 import { Route as ShopBranchesRouteImport } from './routes/shop/branches'
 import { Route as ShopSettingsRouteImport } from './routes/shop/settings'
 import { Route as ShopStudioRouteImport } from './routes/shop/studio'
+import { Route as ShopAdsRouteImport } from './routes/shop/ads'
 import { Route as ApiAiCaptionRouteImport } from './routes/api.ai.caption'
 import { Route as ApiAiGraphicsRouteImport } from './routes/api.ai.graphics'
 import { Route as ApiAiListingRouteImport } from './routes/api.ai.listing'
@@ -100,6 +101,10 @@ import { Route as ApiAgentShopsRouteImport } from './routes/api.agent.shops'
 import { Route as ApiShopBranchesRouteImport } from './routes/api.shop.branches'
 import { Route as ApiKycVerifyRouteImport } from './routes/api.kyc.verify'
 import { Route as ApiPaymentsConfirmOrderRouteImport } from './routes/api.payments.confirm-order'
+import { Route as ApiAdsAccountRouteImport } from './routes/api.ads.account'
+import { Route as ApiAdsConfirmRouteImport } from './routes/api.ads.confirm'
+import { Route as ApiAdsGoLiveRouteImport } from './routes/api.ads.go-live'
+import { Route as ApiCronAdsRouteImport } from './routes/api.cron.ads'
 import { Route as ApiPaymentsFlutterwaveRouteImport } from './routes/api.payments.flutterwave'
 import { Route as ApiPaymentsPayoutRouteImport } from './routes/api.payments.payout'
 import { Route as ApiPaymentsPaystackRouteImport } from './routes/api.payments.paystack'
@@ -530,6 +535,11 @@ const ShopStudioRoute = ShopStudioRouteImport.update({
   path: '/studio',
   getParentRoute: () => ShopRoute,
 } as any)
+const ShopAdsRoute = ShopAdsRouteImport.update({
+  id: '/ads',
+  path: '/ads',
+  getParentRoute: () => ShopRoute,
+} as any)
 const ApiAiCaptionRoute = ApiAiCaptionRouteImport.update({
   id: '/api/ai/caption',
   path: '/api/ai/caption',
@@ -598,6 +608,26 @@ const ApiKycVerifyRoute = ApiKycVerifyRouteImport.update({
 const ApiPaymentsConfirmOrderRoute = ApiPaymentsConfirmOrderRouteImport.update({
   id: '/api/payments/confirm-order',
   path: '/api/payments/confirm-order',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAdsAccountRoute = ApiAdsAccountRouteImport.update({
+  id: '/api/ads/account',
+  path: '/api/ads/account',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAdsConfirmRoute = ApiAdsConfirmRouteImport.update({
+  id: '/api/ads/confirm',
+  path: '/api/ads/confirm',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAdsGoLiveRoute = ApiAdsGoLiveRouteImport.update({
+  id: '/api/ads/go-live',
+  path: '/api/ads/go-live',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiCronAdsRoute = ApiCronAdsRouteImport.update({
+  id: '/api/cron/ads',
+  path: '/api/cron/ads',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiPaymentsFlutterwaveRoute = ApiPaymentsFlutterwaveRouteImport.update({
@@ -899,6 +929,7 @@ export interface FileRoutesByFullPath {
   '/shop/branches': typeof ShopBranchesRoute
   '/shop/settings': typeof ShopSettingsRoute
   '/shop/studio': typeof ShopStudioRoute
+  '/shop/ads': typeof ShopAdsRoute
   '/app/': typeof AppIndexRoute
   '/shop/': typeof ShopIndexRoute
   '/api/ai/caption': typeof ApiAiCaptionRoute
@@ -915,6 +946,10 @@ export interface FileRoutesByFullPath {
   '/api/shop/branches': typeof ApiShopBranchesRoute
   '/api/kyc/verify': typeof ApiKycVerifyRoute
   '/api/payments/confirm-order': typeof ApiPaymentsConfirmOrderRoute
+  '/api/ads/account': typeof ApiAdsAccountRoute
+  '/api/ads/confirm': typeof ApiAdsConfirmRoute
+  '/api/ads/go-live': typeof ApiAdsGoLiveRoute
+  '/api/cron/ads': typeof ApiCronAdsRoute
   '/api/payments/flutterwave': typeof ApiPaymentsFlutterwaveRoute
   '/api/payments/payout': typeof ApiPaymentsPayoutRoute
   '/api/payments/paystack': typeof ApiPaymentsPaystackRoute
@@ -1029,6 +1064,7 @@ export interface FileRoutesByTo {
   '/shop/branches': typeof ShopBranchesRoute
   '/shop/settings': typeof ShopSettingsRoute
   '/shop/studio': typeof ShopStudioRoute
+  '/shop/ads': typeof ShopAdsRoute
   '/app': typeof AppIndexRoute
   '/shop': typeof ShopIndexRoute
   '/api/ai/caption': typeof ApiAiCaptionRoute
@@ -1045,6 +1081,10 @@ export interface FileRoutesByTo {
   '/api/shop/branches': typeof ApiShopBranchesRoute
   '/api/kyc/verify': typeof ApiKycVerifyRoute
   '/api/payments/confirm-order': typeof ApiPaymentsConfirmOrderRoute
+  '/api/ads/account': typeof ApiAdsAccountRoute
+  '/api/ads/confirm': typeof ApiAdsConfirmRoute
+  '/api/ads/go-live': typeof ApiAdsGoLiveRoute
+  '/api/cron/ads': typeof ApiCronAdsRoute
   '/api/payments/flutterwave': typeof ApiPaymentsFlutterwaveRoute
   '/api/payments/payout': typeof ApiPaymentsPayoutRoute
   '/api/payments/paystack': typeof ApiPaymentsPaystackRoute
@@ -1167,6 +1207,7 @@ export interface FileRoutesById {
   '/shop/branches': typeof ShopBranchesRoute
   '/shop/settings': typeof ShopSettingsRoute
   '/shop/studio': typeof ShopStudioRoute
+  '/shop/ads': typeof ShopAdsRoute
   '/app/': typeof AppIndexRoute
   '/shop/': typeof ShopIndexRoute
   '/api/ai/caption': typeof ApiAiCaptionRoute
@@ -1183,6 +1224,10 @@ export interface FileRoutesById {
   '/api/shop/branches': typeof ApiShopBranchesRoute
   '/api/kyc/verify': typeof ApiKycVerifyRoute
   '/api/payments/confirm-order': typeof ApiPaymentsConfirmOrderRoute
+  '/api/ads/account': typeof ApiAdsAccountRoute
+  '/api/ads/confirm': typeof ApiAdsConfirmRoute
+  '/api/ads/go-live': typeof ApiAdsGoLiveRoute
+  '/api/cron/ads': typeof ApiCronAdsRoute
   '/api/payments/flutterwave': typeof ApiPaymentsFlutterwaveRoute
   '/api/payments/payout': typeof ApiPaymentsPayoutRoute
   '/api/payments/paystack': typeof ApiPaymentsPaystackRoute
@@ -1306,6 +1351,7 @@ export interface FileRouteTypes {
     | '/shop/branches'
     | '/shop/settings'
     | '/shop/studio'
+    | '/shop/ads'
     | '/app/'
     | '/shop/'
     | '/api/ai/caption'
@@ -1322,6 +1368,10 @@ export interface FileRouteTypes {
     | '/api/shop/branches'
     | '/api/kyc/verify'
     | '/api/payments/confirm-order'
+    | '/api/ads/account'
+    | '/api/ads/confirm'
+    | '/api/ads/go-live'
+    | '/api/cron/ads'
     | '/api/payments/flutterwave'
     | '/api/payments/payout'
     | '/api/payments/paystack'
@@ -1436,6 +1486,7 @@ export interface FileRouteTypes {
     | '/shop/branches'
     | '/shop/settings'
     | '/shop/studio'
+    | '/shop/ads'
     | '/app'
     | '/shop'
     | '/api/ai/caption'
@@ -1452,6 +1503,10 @@ export interface FileRouteTypes {
     | '/api/shop/branches'
     | '/api/kyc/verify'
     | '/api/payments/confirm-order'
+    | '/api/ads/account'
+    | '/api/ads/confirm'
+    | '/api/ads/go-live'
+    | '/api/cron/ads'
     | '/api/payments/flutterwave'
     | '/api/payments/payout'
     | '/api/payments/paystack'
@@ -1573,6 +1628,7 @@ export interface FileRouteTypes {
     | '/shop/branches'
     | '/shop/settings'
     | '/shop/studio'
+    | '/shop/ads'
     | '/app/'
     | '/shop/'
     | '/api/ai/caption'
@@ -1589,6 +1645,10 @@ export interface FileRouteTypes {
     | '/api/shop/branches'
     | '/api/kyc/verify'
     | '/api/payments/confirm-order'
+    | '/api/ads/account'
+    | '/api/ads/confirm'
+    | '/api/ads/go-live'
+    | '/api/cron/ads'
     | '/api/payments/flutterwave'
     | '/api/payments/payout'
     | '/api/payments/paystack'
@@ -1676,6 +1736,10 @@ export interface RootRouteChildren {
   ApiShopBranchesRoute: typeof ApiShopBranchesRoute
   ApiKycVerifyRoute: typeof ApiKycVerifyRoute
   ApiPaymentsConfirmOrderRoute: typeof ApiPaymentsConfirmOrderRoute
+  ApiAdsAccountRoute: typeof ApiAdsAccountRoute
+  ApiAdsConfirmRoute: typeof ApiAdsConfirmRoute
+  ApiAdsGoLiveRoute: typeof ApiAdsGoLiveRoute
+  ApiCronAdsRoute: typeof ApiCronAdsRoute
   ApiPaymentsFlutterwaveRoute: typeof ApiPaymentsFlutterwaveRoute
   ApiPaymentsPayoutRoute: typeof ApiPaymentsPayoutRoute
   ApiPaymentsPaystackRoute: typeof ApiPaymentsPaystackRoute
@@ -2231,6 +2295,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ShopStudioRouteImport
       parentRoute: typeof ShopRoute
     }
+    '/shop/ads': {
+      id: '/shop/ads'
+      path: '/ads'
+      fullPath: '/shop/ads'
+      preLoaderRoute: typeof ShopAdsRouteImport
+      parentRoute: typeof ShopRoute
+    }
     '/api/ai/caption': {
       id: '/api/ai/caption'
       path: '/api/ai/caption'
@@ -2327,6 +2398,34 @@ declare module '@tanstack/react-router' {
       path: '/api/payments/confirm-order'
       fullPath: '/api/payments/confirm-order'
       preLoaderRoute: typeof ApiPaymentsConfirmOrderRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/ads/account': {
+      id: '/api/ads/account'
+      path: '/api/ads/account'
+      fullPath: '/api/ads/account'
+      preLoaderRoute: typeof ApiAdsAccountRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/ads/confirm': {
+      id: '/api/ads/confirm'
+      path: '/api/ads/confirm'
+      fullPath: '/api/ads/confirm'
+      preLoaderRoute: typeof ApiAdsConfirmRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/ads/go-live': {
+      id: '/api/ads/go-live'
+      path: '/api/ads/go-live'
+      fullPath: '/api/ads/go-live'
+      preLoaderRoute: typeof ApiAdsGoLiveRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/cron/ads': {
+      id: '/api/cron/ads'
+      path: '/api/cron/ads'
+      fullPath: '/api/cron/ads'
+      preLoaderRoute: typeof ApiCronAdsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/payments/flutterwave': {
@@ -2877,6 +2976,7 @@ interface ShopRouteChildren {
   ShopBranchesRoute: typeof ShopBranchesRoute
   ShopSettingsRoute: typeof ShopSettingsRoute
   ShopStudioRoute: typeof ShopStudioRoute
+  ShopAdsRoute: typeof ShopAdsRoute
   ShopIndexRoute: typeof ShopIndexRoute
   ShopBidPostIdRoute: typeof ShopBidPostIdRoute
   ShopPProductIdRoute: typeof ShopPProductIdRoute
@@ -2912,6 +3012,7 @@ const ShopRouteChildren: ShopRouteChildren = {
   ShopBranchesRoute: ShopBranchesRoute,
   ShopSettingsRoute: ShopSettingsRoute,
   ShopStudioRoute: ShopStudioRoute,
+  ShopAdsRoute: ShopAdsRoute,
   ShopIndexRoute: ShopIndexRoute,
   ShopBidPostIdRoute: ShopBidPostIdRoute,
   ShopPProductIdRoute: ShopPProductIdRoute,
@@ -2974,6 +3075,10 @@ const rootRouteChildren: RootRouteChildren = {
   ApiShopBranchesRoute: ApiShopBranchesRoute,
   ApiKycVerifyRoute: ApiKycVerifyRoute,
   ApiPaymentsConfirmOrderRoute: ApiPaymentsConfirmOrderRoute,
+  ApiAdsAccountRoute: ApiAdsAccountRoute,
+  ApiAdsConfirmRoute: ApiAdsConfirmRoute,
+  ApiAdsGoLiveRoute: ApiAdsGoLiveRoute,
+  ApiCronAdsRoute: ApiCronAdsRoute,
   ApiPaymentsFlutterwaveRoute: ApiPaymentsFlutterwaveRoute,
   ApiPaymentsPayoutRoute: ApiPaymentsPayoutRoute,
   ApiPaymentsPaystackRoute: ApiPaymentsPaystackRoute,

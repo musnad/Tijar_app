@@ -14,6 +14,7 @@ import {
 } from "@/lib/shop-social";
 import { displayShopName, isBlankShopName, lookupProfileNames, lookupProfilePhotos, lookupShopProfiles } from "@/lib/shop-names";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import { fetchLiveAds, interleaveLiveAds, type LiveAdCard } from "@/services/ads-service";
 import { submitStudioVideo } from "@/services/video-studio-service";
 import type { PublicProduct } from "@/types/database";
 
@@ -68,6 +69,11 @@ export type PublicFeedVideo = {
   /** Highest bid so far (from the feed view). */
   top_bid?: number | null;
   bid_count?: number | null;
+  sponsored_ad_id?: string | null;
+  ad_objective?: string | null;
+  destination_url?: string | null;
+  shop_phone?: string | null;
+  is_paid_ad?: boolean;
 };
 
 export function isBidPost(video: { post_type?: string | null }): boolean {
@@ -478,11 +484,55 @@ export async function rankAndLoadFeed(
   const latestIds = new Set(latest.map((v) => v.id));
   const rest = rankedVideos.filter((v) => !latestIds.has(v.id));
   const videos = [...latest, ...rest];
-  const page = videos.slice(0, limit);
+  let page = videos.slice(0, limit);
+  if (!before && !offset) {
+    const live = await fetchLiveAds();
+    page = interleaveLiveAds(page, live.ads, liveAdToFeedVideo);
+  }
   const last = raw.videos[raw.videos.length - 1];
   const nextCursor = raw.videos.length >= fetchLimit ? (last?.published_at ?? last?.created_at ?? null) : null;
 
   return { videos: page, nextCursor, error: null };
+}
+
+function liveAdToFeedVideo(ad: LiveAdCard): PublicFeedVideo {
+  const media = ad.flyer_url || "";
+  return {
+    id: ad.video_post_id || `ad-${ad.id}`,
+    business_id: ad.business_id,
+    profile_id: ad.profile_id,
+    caption: ad.caption,
+    captions_url: null,
+    cover_path: media,
+    playback_url: media,
+    storage_path: media,
+    duration_ms: null,
+    attribution: "sponsored",
+    like_count: ad.likes_count,
+    comment_count: 0,
+    save_count: 0,
+    view_count: ad.views_count,
+    share_count: 0,
+    image_urls: media ? [media] : [],
+    published_at: ad.starts_at,
+    created_at: ad.created_at,
+    slug: ad.shop_slug ?? ad.business_id,
+    business_name: displayShopName(ad.shop_name ?? null),
+    business_logo_url: ad.shop_logo,
+    is_verified: ad.shop_verified,
+    verification_status: ad.shop_verified ? "verified" : "unverified",
+    category_id: null,
+    category_name: null,
+    location_text: ad.location_label,
+    public_location_label: ad.location_label,
+    product_ids: ad.product_id ? [ad.product_id] : [],
+    media_kind: "image",
+    sponsored_ad_id: ad.id,
+    ad_objective: ad.objective,
+    destination_url: ad.destination_url,
+    shop_phone: ad.shop_phone,
+    is_paid_ad: true,
+  };
 }
 
 export async function fetchLiveProductsByIds(ids: string[]): Promise<{

@@ -1,7 +1,7 @@
 "use client";
 
 import { Link } from "@tanstack/react-router";
-import { Clapperboard, Inbox, Package, ShieldCheck, Sparkles, Wallet } from "lucide-react";
+import { Clapperboard, Inbox, Megaphone, Package, ShieldCheck, Sparkles, Wallet } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { METRIC_DEFINITIONS } from "@/lib/business/capabilities";
@@ -100,6 +100,12 @@ export function SellerCommerceCard({
       </div>
 
       <div className="mt-3 flex flex-wrap gap-2">
+        <Button size="sm" className="rounded-xl bg-[#1F7A4D] font-bold text-white hover:bg-[#1F7A4D]/90" asChild>
+          <Link to="/shop/ads">
+            <Megaphone className="size-3.5" />
+            Ads manager
+          </Link>
+        </Button>
         <Button size="sm" className="rounded-xl bg-[#1F7A4D] font-bold text-white hover:bg-[#1F7A4D]/90" asChild>
           <Link to="/app/studio">
             <Sparkles className="size-3.5" />
