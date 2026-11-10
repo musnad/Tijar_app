@@ -3,9 +3,10 @@
 export const MAX_VIDEO_BYTES = 80 * 1024 * 1024;
 export const MAX_IMAGE_BYTES = 12 * 1024 * 1024;
 export const MIN_VIDEO_MS = 3_000;
-export const MAX_VIDEO_MS = 30_000;
+export const MAX_VIDEO_MS = 10_000;
 export const MIN_VIDEO_SEC = 3;
-export const MAX_VIDEO_SEC = 30;
+export const MAX_VIDEO_SEC = 10;
+const CLIP_SLOP_MS = 250;
 
 /** Prefer a container that keeps the microphone, not video-only VP9. */
 export function pickVideoRecorderMime(): string {
@@ -26,18 +27,145 @@ export function videoFileFromRecording(blob: Blob, mimeType: string, prefix: str
   return new File([blob], `${prefix}-${Date.now()}.${ext}`, { type });
 }
 
+export function postVideoNeedsClip(durationMs: number): boolean {
+  return Number.isFinite(durationMs) && durationMs > MAX_VIDEO_MS + CLIP_SLOP_MS;
+}
+
+/**
+ * Keep in-app recordings and gallery uploads at 10 seconds.
+ * Longer files are cut to the first 10 seconds with no seller error.
+ * Photos and clips already at or under 10s are returned unchanged.
+ */
+async function headerBytes(file: File): Promise<Uint8Array> {
+  if (file.size <= 65_536 && typeof file.arrayBuffer === "function") {
+    return new Uint8Array(await file.arrayBuffer()).subarray(0, 32);
+  }
+  const part = file.slice(0, 32);
+  if (typeof part.arrayBuffer === "function") {
+    return new Uint8Array(await part.arrayBuffer());
+  }
+  return new Uint8Array(await new Response(part).arrayBuffer());
+}
+
+export async function clipVideoToMaxDuration(file: File, maxMs = MAX_VIDEO_MS): Promise<File> {
+  if (file.size <= 0) return file;
+  const header = await headerBytes(file);
+  if (!sniffVideoKind(header) && !file.type.startsWith("video/")) return file;
+
+  const objectUrl = URL.createObjectURL(file);
+  const video = document.createElement("video");
+  video.muted = true;
+  video.playsInline = true;
+  video.preload = "auto";
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const timer = window.setTimeout(() => reject(new Error("timeout")), 12_000);
+      video.onloadedmetadata = () => {
+        window.clearTimeout(timer);
+        resolve();
+      };
+      video.onerror = () => {
+        window.clearTimeout(timer);
+        reject(new Error("decode"));
+      };
+      video.src = objectUrl;
+    });
+
+    let seconds = video.duration;
+    if (!Number.isFinite(seconds) || seconds <= 0 || seconds > 120) {
+      try {
+        await new Promise<void>((resolve) => {
+          const onSeeked = () => resolve();
+          video.addEventListener("seeked", onSeeked, { once: true });
+          video.currentTime = 1e10;
+          window.setTimeout(() => resolve(), 1_200);
+        });
+        seconds = video.duration;
+      } catch {
+        return file;
+      }
+    }
+    if (!Number.isFinite(seconds) || seconds <= 0) return file;
+    if (!postVideoNeedsClip(Math.round(seconds * 1000))) return file;
+    if (typeof MediaRecorder === "undefined") return file;
+    const capture =
+      (
+        video as HTMLVideoElement & {
+          captureStream?: () => MediaStream;
+          mozCaptureStream?: () => MediaStream;
+        }
+      ).captureStream?.bind(video) ??
+      (video as HTMLVideoElement & { mozCaptureStream?: () => MediaStream }).mozCaptureStream?.bind(
+        video,
+      );
+    if (!capture) return file;
+
+    video.currentTime = 0;
+    await new Promise<void>((resolve) => {
+      video.onseeked = () => resolve();
+      window.setTimeout(() => resolve(), 400);
+    });
+
+    const stream = capture();
+    const mime = pickVideoRecorderMime();
+    const rec = mime ? new MediaRecorder(stream, { mimeType: mime }) : new MediaRecorder(stream);
+    const chunks: Blob[] = [];
+    rec.ondataavailable = (ev) => {
+      if (ev.data.size) chunks.push(ev.data);
+    };
+    const done = new Promise<File>((resolve) => {
+      rec.onstop = () => {
+        const blob = new Blob(chunks, { type: rec.mimeType || mime || "video/webm" });
+        resolve(videoFileFromRecording(blob, rec.mimeType || blob.type, "tijar-clip"));
+      };
+    });
+    rec.start(100);
+    await video.play().catch(() => undefined);
+    await new Promise<void>((resolve) => {
+      const timer = window.setTimeout(() => resolve(), maxMs);
+      const onTime = () => {
+        if (video.currentTime * 1000 >= maxMs - 40) {
+          window.clearTimeout(timer);
+          video.removeEventListener("timeupdate", onTime);
+          resolve();
+        }
+      };
+      video.addEventListener("timeupdate", onTime);
+    });
+    video.pause();
+    if (rec.state !== "inactive") rec.stop();
+    stream.getTracks().forEach((track) => track.stop());
+    const clipped = await done;
+    return clipped.size > 0 ? clipped : file;
+  } catch {
+    return file;
+  } finally {
+    video.removeAttribute("src");
+    video.load();
+    URL.revokeObjectURL(objectUrl);
+  }
+}
+
 export type DetectedVideoKind = "mp4" | "webm";
 export type DetectedImageKind = "jpeg" | "png" | "webp" | "gif";
 
 export type ShoppingMedia =
-  | { ok: true; media: "video"; kind: DetectedVideoKind; durationMs: number; width: number; height: number }
+  | {
+      ok: true;
+      media: "video";
+      kind: DetectedVideoKind;
+      durationMs: number;
+      width: number;
+      height: number;
+    }
   | { ok: true; media: "image"; kind: DetectedImageKind; width: number; height: number }
   | { ok: false; error: string };
 
 export function sniffImageKind(bytes: Uint8Array): DetectedImageKind | null {
   if (bytes.length < 12) return null;
   if (bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) return "jpeg";
-  if (bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47) return "png";
+  if (bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47)
+    return "png";
   if (bytes[0] === 0x47 && bytes[1] === 0x49 && bytes[2] === 0x46) return "gif";
   const riff = String.fromCharCode(bytes[0]!, bytes[1]!, bytes[2]!, bytes[3]!);
   const four = String.fromCharCode(bytes[8]!, bytes[9]!, bytes[10]!, bytes[11]!);
@@ -51,7 +179,8 @@ export function sniffVideoKind(bytes: Uint8Array): DetectedVideoKind | null {
   const box = String.fromCharCode(bytes[4]!, bytes[5]!, bytes[6]!, bytes[7]!);
   if (box === "ftyp") return "mp4";
   // WebM / Matroska EBML header 1A 45 DF A3
-  if (bytes[0] === 0x1a && bytes[1] === 0x45 && bytes[2] === 0xdf && bytes[3] === 0xa3) return "webm";
+  if (bytes[0] === 0x1a && bytes[1] === 0x45 && bytes[2] === 0xdf && bytes[3] === 0xa3)
+    return "webm";
   return null;
 }
 
@@ -61,8 +190,11 @@ export function validateVideoFileMeta(file: File): { ok: true } | { ok: false; e
   return { ok: true };
 }
 
-export async function inspectImageFile(file: File): Promise<
-  { ok: true; kind: DetectedImageKind; width: number; height: number } | { ok: false; error: string }
+export async function inspectImageFile(
+  file: File,
+): Promise<
+  | { ok: true; kind: DetectedImageKind; width: number; height: number }
+  | { ok: false; error: string }
 > {
   if (file.size <= 0) return { ok: false, error: "The photo is empty." };
   if (file.size > MAX_IMAGE_BYTES) return { ok: false, error: "Photo must be under 12 MB." };
@@ -72,7 +204,8 @@ export async function inspectImageFile(file: File): Promise<
   const objectUrl = URL.createObjectURL(file);
   try {
     const size = await readImageElement(objectUrl);
-    if (size.width < 1 || size.height < 1) return { ok: false, error: "Could not read this photo." };
+    if (size.width < 1 || size.height < 1)
+      return { ok: false, error: "Could not read this photo." };
     return { ok: true, kind, ...size };
   } catch {
     return { ok: false, error: "Could not open this photo." };
@@ -103,27 +236,32 @@ export async function inspectShoppingMedia(
   };
 }
 
-/** MediaRecorder WebM often reports Infinity; that is not a 30s clip. */
+/** MediaRecorder WebM often reports Infinity; that is not a 10s clip. */
 export function usableVideoDurationMs(mediaSeconds: number, hintMs?: number): number | null {
   const fromMedia =
     Number.isFinite(mediaSeconds) && mediaSeconds > 0 && mediaSeconds <= 120
       ? Math.round(mediaSeconds * 1000)
       : null;
   const fromHint =
-    hintMs != null && Number.isFinite(hintMs) && hintMs > 0 && hintMs <= 120_000 ? Math.round(hintMs) : null;
+    hintMs != null && Number.isFinite(hintMs) && hintMs > 0 && hintMs <= 120_000
+      ? Math.round(hintMs)
+      : null;
   return fromMedia ?? fromHint;
 }
 
 export async function inspectVideoFile(
   file: File,
   opts?: { durationHintMs?: number },
-): Promise<{
-  ok: true;
-  kind: DetectedVideoKind;
-  durationMs: number;
-  width: number;
-  height: number;
-} | { ok: false; error: string }> {
+): Promise<
+  | {
+      ok: true;
+      kind: DetectedVideoKind;
+      durationMs: number;
+      width: number;
+      height: number;
+    }
+  | { ok: false; error: string }
+> {
   const meta = validateVideoFileMeta(file);
   if (!meta.ok) return meta;
   const header = new Uint8Array(await file.slice(0, 32).arrayBuffer());
@@ -135,16 +273,26 @@ export async function inspectVideoFile(
   try {
     const stats = await readMediaElement(objectUrl, opts?.durationHintMs);
     if (stats.durationMs == null) {
-      return { ok: false, error: `Could not read video length. Record ${MIN_VIDEO_SEC}–${MAX_VIDEO_SEC} seconds.` };
+      return {
+        ok: false,
+        error: `Could not read video length. Record ${MIN_VIDEO_SEC}–${MAX_VIDEO_SEC} seconds.`,
+      };
     }
     if (stats.durationMs < MIN_VIDEO_MS) {
       return { ok: false, error: `Video must be at least ${MIN_VIDEO_SEC} seconds.` };
     }
+    if (stats.width < 1 || stats.height < 1)
+      return { ok: false, error: "Could not read video dimensions." };
     if (stats.durationMs > MAX_VIDEO_MS) {
-      return { ok: false, error: `Video must be ${MAX_VIDEO_SEC} seconds or less.` };
+      return { ok: true, kind, durationMs: MAX_VIDEO_MS, width: stats.width, height: stats.height };
     }
-    if (stats.width < 1 || stats.height < 1) return { ok: false, error: "Could not read video dimensions." };
-    return { ok: true, kind, durationMs: stats.durationMs, width: stats.width, height: stats.height };
+    return {
+      ok: true,
+      kind,
+      durationMs: stats.durationMs,
+      width: stats.width,
+      height: stats.height,
+    };
   } catch {
     return { ok: false, error: "Could not decode this video in the browser." };
   } finally {

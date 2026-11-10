@@ -4,8 +4,10 @@ import { assertProductsBelongToBusiness, requireShoppingTags } from "@/lib/feed/
 import { extraPhotoError, preparePostImages } from "@/lib/media/compress-upload";
 import {
   captureVideoThumbnail,
+  clipVideoToMaxDuration,
   inspectShoppingMedia,
   MAX_IMAGE_BYTES,
+  MAX_VIDEO_MS,
 } from "@/lib/video/file-guard";
 import { videoPublicStatus } from "@/lib/video/publish-status";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
@@ -54,13 +56,15 @@ export async function submitStudioVideo(
     if (!guard.ok) return { error: guard.error };
   }
 
-  const inspected = await inspectShoppingMedia(input.file, {
-    durationHintMs: input.durationHintMs,
+  const sourceFile = await clipVideoToMaxDuration(input.file);
+  const inspected = await inspectShoppingMedia(sourceFile, {
+    durationHintMs:
+      input.durationHintMs != null ? Math.min(input.durationHintMs, MAX_VIDEO_MS) : undefined,
   });
   if (!inspected.ok) return { error: inspected.error };
 
   const isImage = inspected.media === "image";
-  let uploadFile = input.file;
+  let uploadFile = sourceFile;
   let imageMeta = inspected;
   const extraReady: { file: File; ext: string; type: string }[] = [];
 
@@ -118,7 +122,7 @@ export async function submitStudioVideo(
   let coverPath: string | null = isImage ? storagePath : null;
   if (!isImage) {
     const thumb =
-      input.thumbnail ?? (await blobToFile(await captureVideoThumbnail(input.file), `${id}.jpg`));
+      input.thumbnail ?? (await blobToFile(await captureVideoThumbnail(uploadFile), `${id}.jpg`));
     if (thumb) {
       const thumbPath = `${input.businessId}/${id}.jpg`;
       const t = await supabase.storage.from("business-videos").upload(thumbPath, thumb, {

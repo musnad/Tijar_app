@@ -171,13 +171,13 @@ const CTA: Record<Locale, string> = {
 };
 
 const SCRIPT_LEAD: Record<Locale, string> = {
-  en: "3–30s clip",
-  ha: "Shirin daƙiƙa 3–30",
-  ar: "مقطع 3–30 ثانية",
-  yo: "Fídíò ìṣẹ́jú àáyá 3–30",
-  ig: "Vidiyo nkeji 3–30",
-  sw: "Klipu ya sekunde 3–30",
-  ff: "Widewo 3–30 hojomaaji",
+  en: "3–10s clip",
+  ha: "Shirin daƙiƙa 3–10",
+  ar: "مقطع 3–10 ثانية",
+  yo: "Fídíò ìṣẹ́jú àáyá 3–10",
+  ig: "Vidiyo nkeji 3–10",
+  sw: "Klipu ya sekunde 3–10",
+  ff: "Widewo 3–10 hojomaaji",
 };
 
 export function studioCta(locale: Locale): string {

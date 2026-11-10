@@ -5,7 +5,10 @@ import {
   sniffVideoKind,
   usableVideoDurationMs,
   validateVideoFileMeta,
+  postVideoNeedsClip,
   MAX_VIDEO_BYTES,
+  MAX_VIDEO_MS,
+  MAX_VIDEO_SEC,
 } from "./file-guard";
 
 function bytes(arr: number[]): Uint8Array {
@@ -32,17 +35,33 @@ describe("sniffVideoKind", () => {
 describe("sniffImageKind", () => {
   it("detects jpeg, png and webp", () => {
     expect(sniffImageKind(bytes([0xff, 0xd8, 0xff, 0xe0, 0, 0, 0, 0, 0, 0, 0, 0]))).toBe("jpeg");
-    expect(sniffImageKind(bytes([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0]))).toBe("png");
+    expect(
+      sniffImageKind(bytes([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0])),
+    ).toBe("png");
     const webp = bytes([0x52, 0x49, 0x46, 0x46, 0, 0, 0, 0, 0x57, 0x45, 0x42, 0x50]);
     expect(sniffImageKind(webp)).toBe("webp");
   });
 });
 
 describe("usableVideoDurationMs", () => {
-  it("does not treat Infinity as longer than 30s", () => {
+  it("does not treat Infinity as a real clip length", () => {
     expect(usableVideoDurationMs(Number.POSITIVE_INFINITY)).toBeNull();
     expect(usableVideoDurationMs(Number.POSITIVE_INFINITY, 3_200)).toBe(3_200);
     expect(usableVideoDurationMs(3.1)).toBe(3100);
+  });
+});
+
+describe("post video length", () => {
+  it("caps in-app posts at 10 seconds", () => {
+    expect(MAX_VIDEO_SEC).toBe(10);
+    expect(MAX_VIDEO_MS).toBe(10_000);
+  });
+
+  it("clips only when the clip is longer than 10 seconds", () => {
+    expect(postVideoNeedsClip(9_800)).toBe(false);
+    expect(postVideoNeedsClip(10_000)).toBe(false);
+    expect(postVideoNeedsClip(10_400)).toBe(true);
+    expect(postVideoNeedsClip(45_000)).toBe(true);
   });
 });
 

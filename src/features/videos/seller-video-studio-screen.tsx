@@ -31,7 +31,14 @@ import { TijarLogo } from "@/components/brand-logo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { haptic } from "@/lib/haptics";
-import { inspectShoppingMedia, MAX_VIDEO_SEC, MIN_VIDEO_SEC, pickVideoRecorderMime, videoFileFromRecording } from "@/lib/video/file-guard";
+import {
+  clipVideoToMaxDuration,
+  inspectShoppingMedia,
+  MAX_VIDEO_SEC,
+  MIN_VIDEO_SEC,
+  pickVideoRecorderMime,
+  videoFileFromRecording,
+} from "@/lib/video/file-guard";
 import { cn } from "@/lib/utils";
 import { uploadProductImage } from "@/services/product-image-service";
 import { createProduct, listProducts, updateProductImageUrl } from "@/services/product-service";
@@ -125,7 +132,10 @@ export function SellerVideoStudioScreen({
   const products = productsQuery.data ?? [];
   const product = products.find((p) => p.id === productId) ?? null;
   const previewUrl = useMemo(() => (file ? URL.createObjectURL(file) : null), [file]);
-  const extraPreviews = useMemo(() => extraImages.map((item) => URL.createObjectURL(item)), [extraImages]);
+  const extraPreviews = useMemo(
+    () => extraImages.map((item) => URL.createObjectURL(item)),
+    [extraImages],
+  );
 
   useEffect(() => {
     return () => {
@@ -174,8 +184,12 @@ export function SellerVideoStudioScreen({
     setErrors((e) => ({ ...e, media: undefined }));
     if (!next) return;
     setInspecting(true);
-    const hint = recordSecRef.current > 0 ? recordSecRef.current * 1000 : undefined;
-    const result = await inspectShoppingMedia(next, { durationHintMs: hint });
+    const clipped = await clipVideoToMaxDuration(next);
+    const hint =
+      recordSecRef.current > 0
+        ? Math.min(recordSecRef.current * 1000, MAX_VIDEO_SEC * 1000)
+        : undefined;
+    const result = await inspectShoppingMedia(clipped, { durationHintMs: hint });
     setInspecting(false);
     if (!result.ok) {
       setErrors((e) => ({ ...e, media: result.error }));
@@ -186,7 +200,7 @@ export function SellerVideoStudioScreen({
     streamRef.current = null;
     if (liveRef.current) liveRef.current.srcObject = null;
     setCamLive(false);
-    setFile(next);
+    setFile(clipped);
     setKind(result.media);
     if (result.media === "video") {
       setExtraImages([]);
@@ -235,7 +249,8 @@ export function SellerVideoStudioScreen({
     const hasNew = newName.trim().length > 0 && Number(newPrice.replace(/,/g, "")) > 0;
     if (!productId && !hasNew) next.product = "Pick a product, or type a name and price.";
     if (!file) next.media = "Add a photo or a short video.";
-    if (caption.length > CAPTION_MAX) next.caption = `Caption must be ${CAPTION_MAX} characters or less.`;
+    if (caption.length > CAPTION_MAX)
+      next.caption = `Caption must be ${CAPTION_MAX} characters or less.`;
     if (postMode === "bid") {
       const start = Number(bidStarting.replace(/,/g, ""));
       const limit = Number(bidSaleLimit.replace(/,/g, ""));
@@ -270,7 +285,11 @@ export function SellerVideoStudioScreen({
     streamRef.current?.getTracks().forEach((t) => t.stop());
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: { ideal: nextFacing }, width: { ideal: 720 }, height: { ideal: 1280 } },
+        video: {
+          facingMode: { ideal: nextFacing },
+          width: { ideal: 720 },
+          height: { ideal: 1280 },
+        },
         audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
       });
       streamRef.current = stream;
@@ -367,7 +386,8 @@ export function SellerVideoStudioScreen({
     setBusy(true);
     setProgress({ pct: 4, label: "Preparing…" });
     let tagId = productId;
-    const makingNew = !productId && newName.trim().length > 0 && Number(newPrice.replace(/,/g, "")) > 0;
+    const makingNew =
+      !productId && newName.trim().length > 0 && Number(newPrice.replace(/,/g, "")) > 0;
     if (makingNew && saveToProducts) {
       const sale = Number(newPrice.replace(/,/g, ""));
       const created = await createProduct(businessId, profileId, {
@@ -391,7 +411,9 @@ export function SellerVideoStudioScreen({
       }
     }
     const hashtags = tags.map((t) => `#${t.replace(/\s+/g, "")}`).join(" ");
-    const fullCaption = [caption.trim() || (makingNew ? newName.trim() : ""), hashtags].filter(Boolean).join(" ");
+    const fullCaption = [caption.trim() || (makingNew ? newName.trim() : ""), hashtags]
+      .filter(Boolean)
+      .join(" ");
     const isBid = postMode === "bid";
     const standPrice = postPrice.trim() ? Number(postPrice.replace(/,/g, "")) : null;
     const bidInput: StudioBidInput | null = isBid
@@ -409,9 +431,13 @@ export function SellerVideoStudioScreen({
       extraImages: kind === "image" ? extraImages : [],
       caption: fullCaption,
       productIds: tagId ? [tagId] : [],
-      products: products.map((p) => ({ id: p.id, business_id: p.business_id })).concat(
-        tagId && !products.some((p) => p.id === tagId) ? [{ id: tagId, business_id: businessId }] : [],
-      ),
+      products: products
+        .map((p) => ({ id: p.id, business_id: p.business_id }))
+        .concat(
+          tagId && !products.some((p) => p.id === tagId)
+            ? [{ id: tagId, business_id: businessId }]
+            : [],
+        ),
       attribution: "business",
       rightsAttested: true,
       price: isBid ? null : standPrice,
@@ -472,13 +498,25 @@ export function SellerVideoStudioScreen({
           </button>
           {menuOpen ? (
             <div className="absolute left-3 top-14 z-20 w-48 overflow-hidden rounded-2xl border border-[#EEF1F5] bg-white py-1 shadow-lg">
-              <Link to="/shop" className="block px-3 py-2.5 text-sm font-semibold text-[#0B1F4D]" onClick={() => setMenuOpen(false)}>
+              <Link
+                to="/shop"
+                className="block px-3 py-2.5 text-sm font-semibold text-[#0B1F4D]"
+                onClick={() => setMenuOpen(false)}
+              >
                 For You
               </Link>
-              <Link to="/app/products" className="block px-3 py-2.5 text-sm font-semibold text-[#0B1F4D]" onClick={() => setMenuOpen(false)}>
+              <Link
+                to="/app/products"
+                className="block px-3 py-2.5 text-sm font-semibold text-[#0B1F4D]"
+                onClick={() => setMenuOpen(false)}
+              >
                 Catalogue
               </Link>
-              <Link to="/app" className="block px-3 py-2.5 text-sm font-semibold text-[#0B1F4D]" onClick={() => setMenuOpen(false)}>
+              <Link
+                to="/app"
+                className="block px-3 py-2.5 text-sm font-semibold text-[#0B1F4D]"
+                onClick={() => setMenuOpen(false)}
+              >
                 Dashboard
               </Link>
             </div>
@@ -492,7 +530,8 @@ export function SellerVideoStudioScreen({
       >
         {helpOpen ? (
           <div className="mt-2 rounded-2xl border border-[#EEF1F5] bg-[#F8FAF9] p-3 text-[12px] leading-relaxed text-[#4B5563]">
-            Add a photo or a short video. Pick something from Products, or type a name and price. When you post, you can save it in Products so it stays in your shop.
+            Add a photo or a short video. Pick something from Products, or type a name and price.
+            When you post, you can save it in Products so it stays in your shop.
           </div>
         ) : null}
 
@@ -568,38 +607,57 @@ export function SellerVideoStudioScreen({
 
             {postMode === "bid" ? (
               <p className="mt-2 rounded-2xl bg-[#F3FBF6] px-3 py-2 text-[12px] leading-relaxed text-[#1F7A4D]">
-                Buyers bid on this item. The first bid that reaches your sale limit closes it instantly and shows
-                “Sold to …”. The winner has 5 minutes to pay, or you can mark it unpaid and the item returns to the
-                market.
+                Buyers bid on this item. The first bid that reaches your sale limit closes it
+                instantly and shows “Sold to …”. The winner has 5 minutes to pay, or you can mark it
+                unpaid and the item returns to the market.
               </p>
             ) : null}
 
             <section className="mt-5" aria-labelledby="product-heading">
-              <h2 id="product-heading" className="flex items-center gap-1.5 text-[15px] font-extrabold text-[#0B1F4D]">
+              <h2
+                id="product-heading"
+                className="flex items-center gap-1.5 text-[15px] font-extrabold text-[#0B1F4D]"
+              >
                 <ShoppingBag className="size-4 text-[#1F7A4D]" />
                 What are you selling?
               </h2>
               {productsQuery.isLoading ? (
                 <p className="mt-2 text-sm text-muted-foreground">Loading your products…</p>
               ) : product && !picking ? (
-                <div className={cn("mt-2 rounded-2xl border p-3", errors.product ? "border-red-300" : "border-[#EEF1F5]")}>
+                <div
+                  className={cn(
+                    "mt-2 rounded-2xl border p-3",
+                    errors.product ? "border-red-300" : "border-[#EEF1F5]",
+                  )}
+                >
                   <div className="flex items-center gap-3">
                     {product.image_url ? (
                       // eslint-disable-next-line @next-next/no-img-element
-                      <img src={product.image_url} alt="" className="size-16 rounded-xl object-cover" />
+                      <img
+                        src={product.image_url}
+                        alt=""
+                        className="size-16 rounded-xl object-cover"
+                      />
                     ) : (
                       <span className="size-16 rounded-xl bg-muted" />
                     )}
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-[15px] font-extrabold text-[#0B1F4D]">{product.name}</p>
+                      <p className="truncate text-[15px] font-extrabold text-[#0B1F4D]">
+                        {product.name}
+                      </p>
                       {product.catalogue_category ? (
                         <p className="text-[12px] text-[#6B7280]">{product.catalogue_category}</p>
                       ) : null}
                       {product.sale_price != null ? (
-                        <p className="text-[12px] font-semibold text-[#1F7A4D]">{formatNgn(Number(product.sale_price))}</p>
+                        <p className="text-[12px] font-semibold text-[#1F7A4D]">
+                          {formatNgn(Number(product.sale_price))}
+                        </p>
                       ) : null}
                     </div>
-                    <span className="flex size-7 items-center justify-center rounded-full bg-[#1F7A4D] text-white" aria-hidden>
+                    <span
+                      className="flex size-7 items-center justify-center rounded-full bg-[#1F7A4D] text-white"
+                      aria-hidden
+                    >
                       <Check className="size-4" strokeWidth={3} />
                     </span>
                   </div>
@@ -615,13 +673,15 @@ export function SellerVideoStudioScreen({
                 <>
                   {products.length > 0 ? (
                     <ul className="mt-2 space-y-2">
-            {products.map((p) => (
+                      {products.map((p) => (
                         <li key={p.id}>
                           <button
                             type="button"
                             className={cn(
                               "flex w-full items-center gap-3 rounded-2xl border p-3 text-left",
-                              p.id === productId ? "border-[#1F7A4D] bg-[#F3FBF6]" : "border-[#EEF1F5]",
+                              p.id === productId
+                                ? "border-[#1F7A4D] bg-[#F3FBF6]"
+                                : "border-[#EEF1F5]",
                             )}
                             onClick={() => {
                               setProductId(p.id);
@@ -633,22 +693,32 @@ export function SellerVideoStudioScreen({
                           >
                             {p.image_url ? (
                               // eslint-disable-next-line @next-next/no-img-element
-                              <img src={p.image_url} alt="" className="size-14 rounded-xl object-cover" />
+                              <img
+                                src={p.image_url}
+                                alt=""
+                                className="size-14 rounded-xl object-cover"
+                              />
                             ) : (
                               <span className="size-14 rounded-xl bg-muted" />
                             )}
                             <span className="min-w-0 flex-1">
-                              <span className="block truncate font-extrabold text-[#0B1F4D]">{p.name}</span>
+                              <span className="block truncate font-extrabold text-[#0B1F4D]">
+                                {p.name}
+                              </span>
                               <span className="block text-[12px] font-semibold text-[#1F7A4D]">
-                                {p.sale_price != null ? formatNgn(Number(p.sale_price)) : "No price"}
+                                {p.sale_price != null
+                                  ? formatNgn(Number(p.sale_price))
+                                  : "No price"}
                               </span>
                             </span>
                           </button>
                         </li>
-            ))}
-          </ul>
+                      ))}
+                    </ul>
                   ) : (
-                    <p className="mt-2 text-[13px] text-muted-foreground">No products yet. Add a name and price below.</p>
+                    <p className="mt-2 text-[13px] text-muted-foreground">
+                      No products yet. Add a name and price below.
+                    </p>
                   )}
                   <div className="mt-3 rounded-2xl border border-dashed border-[#D1D5DB] p-3">
                     <p className="text-[13px] font-extrabold text-[#0B1F4D]">Or add a new one</p>
@@ -661,11 +731,11 @@ export function SellerVideoStudioScreen({
                       }}
                       placeholder="Name"
                     />
-          <Input
+                    <Input
                       className="mt-2 min-h-11 rounded-xl"
                       value={newPrice}
                       inputMode="decimal"
-            onChange={(e) => {
+                      onChange={(e) => {
                         setNewPrice(e.target.value);
                         setProductId(null);
                       }}
@@ -674,19 +744,35 @@ export function SellerVideoStudioScreen({
                   </div>
                 </>
               )}
-              {errors.product ? <p className="mt-1 text-[12px] font-semibold text-red-600">{errors.product}</p> : null}
-        </section>
+              {errors.product ? (
+                <p className="mt-1 text-[12px] font-semibold text-red-600">{errors.product}</p>
+              ) : null}
+            </section>
 
             <section className="mt-5" aria-labelledby="video-heading">
-              <h2 id="video-heading" className="flex items-center gap-1.5 text-[15px] font-extrabold text-[#0B1F4D]">
+              <h2
+                id="video-heading"
+                className="flex items-center gap-1.5 text-[15px] font-extrabold text-[#0B1F4D]"
+              >
                 <Video className="size-4 text-[#1F7A4D]" />
                 Photo or video
               </h2>
-              <div className={cn("relative mt-2 overflow-hidden rounded-2xl bg-[#111827]", errors.media && "ring-2 ring-red-400")}>
+              <div
+                className={cn(
+                  "relative mt-2 overflow-hidden rounded-2xl bg-[#111827]",
+                  errors.media && "ring-2 ring-red-400",
+                )}
+              >
                 {camLive ? (
                   <>
                     {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
-                    <video ref={liveRef} className="aspect-[16/9] w-full object-cover" playsInline muted autoPlay />
+                    <video
+                      ref={liveRef}
+                      className="aspect-[16/9] w-full object-cover"
+                      playsInline
+                      muted
+                      autoPlay
+                    />
                     <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent px-3 pb-3 pt-8">
                       <div className="h-1.5 overflow-hidden rounded-full bg-white/30">
                         <div
@@ -719,7 +805,9 @@ export function SellerVideoStudioScreen({
                       onTimeUpdate={(e) => setCurrentSec(e.currentTarget.currentTime)}
                       onPlay={() => setPreviewPlaying(true)}
                       onPause={() => setPreviewPlaying(false)}
-                      onLoadedMetadata={(e) => setDurationSec(e.currentTarget.duration || durationSec)}
+                      onLoadedMetadata={(e) =>
+                        setDurationSec(e.currentTarget.duration || durationSec)
+                      }
                     />
                     <button
                       type="button"
@@ -734,7 +822,11 @@ export function SellerVideoStudioScreen({
                         else el.pause();
                       }}
                     >
-                      {previewPlaying ? <Pause className="size-5 fill-white" /> : <Play className="size-5 fill-white" />}
+                      {previewPlaying ? (
+                        <Pause className="size-5 fill-white" />
+                      ) : (
+                        <Play className="size-5 fill-white" />
+                      )}
                     </button>
                     <p className="absolute bottom-8 left-4 text-[11px] font-semibold text-white">
                       {fmtTime(currentSec)} / {fmtTime(durationSec)}
@@ -753,12 +845,18 @@ export function SellerVideoStudioScreen({
                         }
                       }}
                     >
-                      {previewMuted ? <VolumeX className="size-4" /> : <Volume2 className="size-4" />}
+                      {previewMuted ? (
+                        <VolumeX className="size-4" />
+                      ) : (
+                        <Volume2 className="size-4" />
+                      )}
                     </button>
                     <div className="absolute inset-x-3 bottom-3 h-1.5 overflow-hidden rounded-full bg-white/30">
                       <div
                         className="h-full rounded-full bg-[#1F7A4D]"
-                        style={{ width: `${durationSec ? Math.min(100, (currentSec / durationSec) * 100) : 0}%` }}
+                        style={{
+                          width: `${durationSec ? Math.min(100, (currentSec / durationSec) * 100) : 0}%`,
+                        }}
                       />
                     </div>
                   </>
@@ -772,7 +870,9 @@ export function SellerVideoStudioScreen({
                     onClick={() => void openCamera()}
                   >
                     <Camera className="size-10 opacity-90" />
-                    <p className="mt-2 text-sm font-semibold">{inspecting ? "Checking video…" : "Open camera"}</p>
+                    <p className="mt-2 text-sm font-semibold">
+                      {inspecting ? "Checking video…" : "Open camera"}
+                    </p>
                     <p className="mt-1 text-[11px] text-white/70">
                       {MIN_VIDEO_SEC}–{MAX_VIDEO_SEC} seconds
                     </p>
@@ -807,13 +907,18 @@ export function SellerVideoStudioScreen({
                 <span className="text-[#1F7A4D]" aria-hidden>
                   ↻
                 </span>
-                    Photo, or a video of {MIN_VIDEO_SEC} to {MAX_VIDEO_SEC} seconds. Add up to {MAX_POST_IMAGES} photos — shoppers swipe the rest.
+                Photo, or a video of {MIN_VIDEO_SEC} to {MAX_VIDEO_SEC} seconds. Add up to{" "}
+                {MAX_POST_IMAGES} photos — shoppers swipe the rest.
               </p>
               {kind === "image" && file ? (
                 <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
                   {previewUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={previewUrl} alt="" className="size-16 rounded-xl object-cover ring-2 ring-[#1F7A4D]" />
+                    <img
+                      src={previewUrl}
+                      alt=""
+                      className="size-16 rounded-xl object-cover ring-2 ring-[#1F7A4D]"
+                    />
                   ) : null}
                   {extraPreviews.map((src, i) => (
                     <button
@@ -849,13 +954,19 @@ export function SellerVideoStudioScreen({
                       onClick={() => (recording ? stopRecord() : startClip())}
                       disabled={inspecting}
                     >
-                      {recording ? (recordSec < MIN_VIDEO_SEC ? `Record ${MIN_VIDEO_SEC - recordSec}s more` : "Stop") : "Record clip"}
+                      {recording
+                        ? recordSec < MIN_VIDEO_SEC
+                          ? `Record ${MIN_VIDEO_SEC - recordSec}s more`
+                          : "Stop"
+                        : "Record clip"}
                     </Button>
                     <Button
                       type="button"
                       variant="outline"
                       className="min-h-11 rounded-xl border-[#D1D5DB] font-bold text-[#0B1F4D]"
-                      onClick={() => void openCamera(facing === "environment" ? "user" : "environment")}
+                      onClick={() =>
+                        void openCamera(facing === "environment" ? "user" : "environment")
+                      }
                       disabled={recording || inspecting}
                     >
                       <SwitchCamera className="size-4" />
@@ -894,13 +1005,20 @@ export function SellerVideoStudioScreen({
                   Use device camera app
                 </button>
               ) : null}
-              {permNote ? <p className="mt-2 text-[12px] font-semibold text-amber-800">{permNote}</p> : null}
-              {errors.media ? <p className="mt-1 text-[12px] font-semibold text-red-600">{errors.media}</p> : null}
-        </section>
+              {permNote ? (
+                <p className="mt-2 text-[12px] font-semibold text-amber-800">{permNote}</p>
+              ) : null}
+              {errors.media ? (
+                <p className="mt-1 text-[12px] font-semibold text-red-600">{errors.media}</p>
+              ) : null}
+            </section>
 
             {postMode === "bid" ? (
               <section className="mt-5" aria-labelledby="bid-heading">
-                <h2 id="bid-heading" className="flex items-center gap-1.5 text-[15px] font-extrabold text-[#0B1F4D]">
+                <h2
+                  id="bid-heading"
+                  className="flex items-center gap-1.5 text-[15px] font-extrabold text-[#0B1F4D]"
+                >
                   <Gavel className="size-4 text-[#1F7A4D]" />
                   Bidding
                 </h2>
@@ -936,18 +1054,23 @@ export function SellerVideoStudioScreen({
                       value={bidEndsAt}
                       onChange={(e) => setBidEndsAt(e.target.value)}
                     />
-          </label>
+                  </label>
                 </div>
                 <p className="mt-1.5 flex items-start gap-1.5 text-[12px] text-[#9CA3AF]">
                   <CalendarClock className="mt-0.5 size-3.5 shrink-0" aria-hidden />
-                  When a bid reaches the sale limit, it sells instantly and shows “Sold to …”. If no bid reaches it by
-                  the finish time, nothing is sold.
+                  When a bid reaches the sale limit, it sells instantly and shows “Sold to …”. If no
+                  bid reaches it by the finish time, nothing is sold.
                 </p>
-                {errors.bid ? <p className="mt-1 text-[12px] font-semibold text-red-600">{errors.bid}</p> : null}
+                {errors.bid ? (
+                  <p className="mt-1 text-[12px] font-semibold text-red-600">{errors.bid}</p>
+                ) : null}
               </section>
             ) : (
               <section className="mt-5" aria-labelledby="price-heading">
-                <h2 id="price-heading" className="flex items-center gap-1.5 text-[15px] font-extrabold text-[#0B1F4D]">
+                <h2
+                  id="price-heading"
+                  className="flex items-center gap-1.5 text-[15px] font-extrabold text-[#0B1F4D]"
+                >
                   <Banknote className="size-4 text-[#1F7A4D]" />
                   Price
                 </h2>
@@ -960,12 +1083,15 @@ export function SellerVideoStudioScreen({
                 />
                 <p className="mt-1.5 text-[12px] text-[#9CA3AF]">
                   Shown on the post so buyers see the price at a glance.
-          </p>
-        </section>
-      )}
+                </p>
+              </section>
+            )}
 
             <section className="mt-5" aria-labelledby="caption-heading">
-              <h2 id="caption-heading" className="flex items-center gap-1.5 text-[15px] font-extrabold text-[#0B1F4D]">
+              <h2
+                id="caption-heading"
+                className="flex items-center gap-1.5 text-[15px] font-extrabold text-[#0B1F4D]"
+              >
                 <Pencil className="size-4 text-[#1F7A4D]" />
                 Caption
               </h2>
@@ -982,12 +1108,19 @@ export function SellerVideoStudioScreen({
                   {caption.length}/{CAPTION_MAX}
                 </p>
               </div>
-              <p className="text-[12px] text-[#9CA3AF]">Add details, features, or a story buyers will love.</p>
-              {errors.caption ? <p className="mt-1 text-[12px] font-semibold text-red-600">{errors.caption}</p> : null}
+              <p className="text-[12px] text-[#9CA3AF]">
+                Add details, features, or a story buyers will love.
+              </p>
+              {errors.caption ? (
+                <p className="mt-1 text-[12px] font-semibold text-red-600">{errors.caption}</p>
+              ) : null}
             </section>
 
             <section className="mt-5" aria-labelledby="tags-heading">
-              <h2 id="tags-heading" className="flex items-center gap-1.5 text-[15px] font-extrabold text-[#0B1F4D]">
+              <h2
+                id="tags-heading"
+                className="flex items-center gap-1.5 text-[15px] font-extrabold text-[#0B1F4D]"
+              >
                 <Tag className="size-4 text-[#1F7A4D]" />
                 Tags
               </h2>
@@ -1019,15 +1152,17 @@ export function SellerVideoStudioScreen({
                   onBlur={() => addTag(tagDraft)}
                 />
               </div>
-              <p className="mt-1.5 text-[12px] text-[#9CA3AF]">Add tags to help buyers find your product.</p>
+              <p className="mt-1.5 text-[12px] text-[#9CA3AF]">
+                Add tags to help buyers find your product.
+              </p>
             </section>
 
-          <Button
-            type="button"
+            <Button
+              type="button"
               className="mt-6 min-h-[3.15rem] w-full rounded-xl bg-[#1F7A4D] text-[16px] font-extrabold text-white hover:bg-[#1F7A4D]/90"
               onClick={goNext}
-          >
-            Next
+            >
+              Next
               <ArrowRight className="size-5" />
             </Button>
             <p className="mt-3 flex items-center justify-center gap-1.5 text-center text-[12px] text-[#6B7280]">
@@ -1095,10 +1230,19 @@ function ReviewStep({
       {previewUrl ? (
         kind === "video" ? (
           // eslint-disable-next-line jsx-a11y/media-has-caption
-          <video src={previewUrl} className="mt-4 aspect-[16/9] w-full rounded-2xl object-cover" controls playsInline />
+          <video
+            src={previewUrl}
+            className="mt-4 aspect-[16/9] w-full rounded-2xl object-cover"
+            controls
+            playsInline
+          />
         ) : (
           // eslint-disable-next-line @next-next/no-img-element
-          <img src={previewUrl} alt="" className="mt-4 aspect-[16/9] w-full rounded-2xl object-cover" />
+          <img
+            src={previewUrl}
+            alt=""
+            className="mt-4 aspect-[16/9] w-full rounded-2xl object-cover"
+          />
         )
       ) : null}
       {listingName ? (
@@ -1123,9 +1267,9 @@ function ReviewStep({
             <span className="font-extrabold">Save in Products</span>
             <span className="mt-0.5 block text-[13px] font-medium text-[#6B7280]">
               Keep name, price, and photo in your business dashboard so it stays in the shop.
+            </span>
           </span>
-        </span>
-      </label>
+        </label>
       ) : product ? (
         <p className="mt-3 text-[13px] text-[#6B7280]">This is already in your Products list.</p>
       ) : null}
@@ -1141,18 +1285,29 @@ function ReviewStep({
         <p className="mt-2 text-[13px] font-extrabold text-[#1F7A4D]">Price {money(postPrice)}</p>
       ) : null}
       {tags.length ? (
-        <p className="mt-2 text-[12px] text-[#6B7280]">{tags.map((t) => `#${t.replace(/\s+/g, "")}`).join(" ")}</p>
+        <p className="mt-2 text-[12px] text-[#6B7280]">
+          {tags.map((t) => `#${t.replace(/\s+/g, "")}`).join(" ")}
+        </p>
       ) : null}
       {progress ? (
         <div className="mt-4">
           <div className="h-2 overflow-hidden rounded-full bg-[#E5E7EB]">
-            <div className="h-full rounded-full bg-[#1F7A4D] transition-all" style={{ width: `${progress.pct}%` }} />
+            <div
+              className="h-full rounded-full bg-[#1F7A4D] transition-all"
+              style={{ width: `${progress.pct}%` }}
+            />
           </div>
           <p className="mt-1.5 text-[12px] font-semibold text-[#1F7A4D]">{progress.label}</p>
         </div>
       ) : null}
       <div className="mt-5 grid grid-cols-2 gap-2">
-        <Button type="button" variant="outline" className="min-h-12 rounded-xl font-bold" disabled={busy} onClick={onBack}>
+        <Button
+          type="button"
+          variant="outline"
+          className="min-h-12 rounded-xl font-bold"
+          disabled={busy}
+          onClick={onBack}
+        >
           Back
         </Button>
         <Button

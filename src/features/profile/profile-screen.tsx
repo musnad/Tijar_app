@@ -228,7 +228,7 @@ export function ProfileScreen({
         <ProfileMenuRow
           icon={Sparkles}
           title="AI Marketing Studio"
-          subtitle="Draft captions and 5–30s scripts for your products"
+          subtitle="Draft captions and 3–10s scripts for your products"
           to="/app/studio"
         />
         <ProfileMenuRow
