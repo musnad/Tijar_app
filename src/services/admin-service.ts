@@ -188,6 +188,51 @@ export async function fetchAdminPlatformFees(): Promise<{
   return { fees: (data ?? []) as AdminPlatformFee[], error: null };
 }
 
+export type AdminTijarExpense = {
+  id: string;
+  title: string;
+  amount_ngn: number;
+  from_profit: boolean;
+  notes: string | null;
+  created_at: string;
+};
+
+export async function fetchAdminTijarExpenses(): Promise<{
+  expenses: AdminTijarExpense[];
+  error: string | null;
+}> {
+  const supabase = getSupabaseBrowserClient();
+  const { data, error } = await supabase
+    .from("tijar_expenses")
+    .select("id, title, amount_ngn, from_profit, notes, created_at")
+    .order("created_at", { ascending: false })
+    .limit(400);
+  if (error) return { expenses: [], error: error.message };
+  return { expenses: (data ?? []) as AdminTijarExpense[], error: null };
+}
+
+export async function addAdminTijarExpense(input: {
+  title: string;
+  amount: number;
+  fromProfit: boolean;
+  notes?: string;
+}): Promise<{ error: string | null }> {
+  const supabase = getSupabaseBrowserClient();
+  const { error } = await supabase.rpc("add_tijar_expense", {
+    p_title: input.title.trim(),
+    p_amount: input.amount,
+    p_from_profit: input.fromProfit,
+    p_notes: input.notes?.trim() || null,
+  });
+  return { error: error?.message ?? null };
+}
+
+export async function deleteAdminTijarExpense(id: string): Promise<{ error: string | null }> {
+  const supabase = getSupabaseBrowserClient();
+  const { error } = await supabase.rpc("delete_tijar_expense", { p_id: id });
+  return { error: error?.message ?? null };
+}
+
 export async function fetchAdminPayments(): Promise<{
   payments: AdminPayment[];
   error: string | null;

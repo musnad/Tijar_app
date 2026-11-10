@@ -51,12 +51,15 @@ import {
 } from "@/lib/admin";
 import { cn } from "@/lib/utils";
 import {
+  addAdminTijarExpense,
   approveAllBusinesses,
+  deleteAdminTijarExpense,
   fetchAdminBusinesses,
   fetchAdminOrders,
   fetchAdminPayments,
   fetchAdminPlatformFees,
   fetchAdminProfiles,
+  fetchAdminTijarExpenses,
   fetchAdminTransactions,
   fetchAdminUpgradeRequests,
   fetchVerifiedBadgeRequests,
@@ -255,6 +258,11 @@ export function AdminConsoleScreen() {
   const ratePct = DEFAULT_PLATFORM_COMMISSION_RATE * 100;
   const [notesById, setNotesById] = useState<Record<string, string>>({});
   const [approvingAll, setApprovingAll] = useState(false);
+  const [expenseTitle, setExpenseTitle] = useState("");
+  const [expenseAmount, setExpenseAmount] = useState("");
+  const [expenseNotes, setExpenseNotes] = useState("");
+  const [expenseFromProfit, setExpenseFromProfit] = useState(true);
+  const [savingExpense, setSavingExpense] = useState(false);
   const commissionRate = Math.max(0, ratePct) / 100;
 
   const rolesQuery = useQuery({
@@ -345,6 +353,16 @@ export function AdminConsoleScreen() {
     },
   });
 
+  const expensesQuery = useQuery({
+    queryKey: ["admin-tijar-expenses"],
+    enabled: isAdmin,
+    queryFn: async () => {
+      const r = await fetchAdminTijarExpenses();
+      if (r.error) throw new Error(r.error);
+      return r.expenses;
+    },
+  });
+
   const businesses = businessesQuery.data ?? [];
   const users = usersQuery.data ?? [];
   const orders = ordersQuery.data ?? [];
@@ -353,10 +371,20 @@ export function AdminConsoleScreen() {
   const upgrades = upgradesQuery.data ?? [];
   const badgeRequests = badgeRequestsQuery.data ?? [];
   const fees = feesQuery.data ?? [];
+  const expenses = expensesQuery.data ?? [];
   const collectedFees = useMemo(
     () => fees.filter((f) => !f.voided_at).reduce((n, f) => n + Number(f.fee_ngn), 0),
     [fees],
   );
+  const spentFromProfit = useMemo(
+    () => expenses.filter((row) => row.from_profit).reduce((n, row) => n + Number(row.amount_ngn), 0),
+    [expenses],
+  );
+  const spentOutsideProfit = useMemo(
+    () => expenses.filter((row) => !row.from_profit).reduce((n, row) => n + Number(row.amount_ngn), 0),
+    [expenses],
+  );
+  const profitRemaining = collectedFees - spentFromProfit;
   const collectedToday = useMemo(() => {
     const today = new Date().toISOString().slice(0, 10);
     return fees.filter((f) => !f.voided_at && dayKey(f.created_at) === today).reduce((n, f) => n + Number(f.fee_ngn), 0);
@@ -457,6 +485,8 @@ export function AdminConsoleScreen() {
       queryClient.invalidateQueries({ queryKey: ["admin-orders"] }),
       queryClient.invalidateQueries({ queryKey: ["admin-transactions"] }),
       queryClient.invalidateQueries({ queryKey: ["admin-payments"] }),
+      queryClient.invalidateQueries({ queryKey: ["admin-platform-fees"] }),
+      queryClient.invalidateQueries({ queryKey: ["admin-tijar-expenses"] }),
       queryClient.invalidateQueries({ queryKey: ["moderation-listings"] }),
       queryClient.invalidateQueries({ queryKey: ["admin-botw"] }),
       queryClient.invalidateQueries({ queryKey: ["business-of-the-week"] }),
@@ -465,6 +495,47 @@ export function AdminConsoleScreen() {
 
   function noteFor(id: string): string {
     return notesById[id] ?? "";
+  }
+
+  async function saveExpense() {
+    const title = expenseTitle.trim();
+    const amount = Number(expenseAmount.replace(/,/g, ""));
+    if (!title) {
+      toast.error("Give this expense a name.");
+      return;
+    }
+    if (!Number.isFinite(amount) || amount <= 0) {
+      toast.error("Enter an amount greater than 0.");
+      return;
+    }
+    if (savingExpense) return;
+    setSavingExpense(true);
+    const { error } = await addAdminTijarExpense({
+      title,
+      amount,
+      fromProfit: expenseFromProfit,
+      notes: expenseNotes,
+    });
+    setSavingExpense(false);
+    if (error) {
+      toast.error(error.includes("tijar_expenses") || error.includes("schema") ? "Run migration 000095 in Supabase first." : error);
+      return;
+    }
+    setExpenseTitle("");
+    setExpenseAmount("");
+    setExpenseNotes("");
+    toast.success(expenseFromProfit ? "Expense taken from TIJAR profit." : "Expense recorded (not from profit).");
+    await queryClient.invalidateQueries({ queryKey: ["admin-tijar-expenses"] });
+  }
+
+  async function removeExpense(id: string) {
+    const { error } = await deleteAdminTijarExpense(id);
+    if (error) {
+      toast.error(error);
+      return;
+    }
+    toast.success("Expense removed.");
+    await queryClient.invalidateQueries({ queryKey: ["admin-tijar-expenses"] });
   }
 
   async function approveEverything() {
@@ -676,7 +747,7 @@ export function AdminConsoleScreen() {
           <Kpi icon={BadgeCheck} label="KYC queue" value={String(stats.pendingKyc)} hint={`${stats.pendingApps} applications`} />
           <Kpi icon={Wallet} label="Sales (ledger)" value={formatNgnCompact(stats.salesVolume)} hint={`${formatNgnCompact(stats.salesToday)} today`} />
           <Kpi icon={Building2} label="Marketplace GMV" value={formatNgnCompact(stats.gmv)} hint={`${stats.ordersToday} orders today`} />
-          <Kpi icon={Percent} label="Platform fees" value={formatNgnCompact(collectedFees)} hint={`${formatNgnCompact(collectedToday)} today · TIJAR keep in admin wallet`} />
+          <Kpi icon={Percent} label="Platform fees" value={formatNgnCompact(profitRemaining)} hint={`${formatNgnCompact(collectedFees)} collected · ${formatNgnCompact(spentFromProfit)} spent from profit`} />
         </div>
       </section>
 
@@ -804,6 +875,12 @@ export function AdminConsoleScreen() {
                   {formatNgn(collectedFees)}
                 </button>
               </li>
+              <li className="flex justify-between gap-3">
+                <span>Profit remaining</span>
+                <button type="button" className="font-bold text-primary" onClick={() => setTab("finance")}>
+                  {formatNgn(profitRemaining)}
+                </button>
+              </li>
             </ul>
           </div>
         </div>
@@ -818,10 +895,102 @@ export function AdminConsoleScreen() {
             </p>
           </div>
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <FinanceStat label="Fees collected" value={formatNgn(collectedFees)} hint="Real paid sales only" />
-            <FinanceStat label="Collected today" value={formatNgn(collectedToday)} hint="Paid orders today" />
-            <FinanceStat label="Paid sales counted" value={String(fees.length)} hint="Fee records" />
-            <FinanceStat label="Settles to" value="Admin wallet" hint={TIJAR_SUPER_ADMIN_EMAIL} />
+            <FinanceStat label="Fees collected" value={formatNgn(collectedFees)} hint="TIJAR keep before expenses" />
+            <FinanceStat label="Profit remaining" value={formatNgn(profitRemaining)} hint="Collected minus profit expenses" />
+            <FinanceStat label="Spent from profit" value={formatNgn(spentFromProfit)} hint="Custom expenses marked from profit" />
+            <FinanceStat label="Outside expenses" value={formatNgn(spentOutsideProfit)} hint="Recorded as minus, profit unchanged" />
+          </div>
+          <div className="rounded-2xl border border-border bg-card p-4">
+            <h2 className="font-extrabold">Write a TIJAR expense</h2>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Name it yourself. If the money came from TIJAR profit, profit and the admin wallet go down. If it did not, it is still listed as a minus, but profit stays.
+            </p>
+            <div className="mt-3 grid gap-2 sm:grid-cols-2">
+              <Input
+                value={expenseTitle}
+                onChange={(e) => setExpenseTitle(e.target.value)}
+                placeholder="Expense name, e.g. Data, ads, transport"
+                className="h-11 rounded-xl"
+              />
+              <Input
+                value={expenseAmount}
+                onChange={(e) => setExpenseAmount(e.target.value)}
+                placeholder="Amount in naira"
+                inputMode="decimal"
+                className="h-11 rounded-xl"
+              />
+            </div>
+            <Input
+              value={expenseNotes}
+              onChange={(e) => setExpenseNotes(e.target.value)}
+              placeholder="Note (optional)"
+              className="mt-2 h-11 rounded-xl"
+            />
+            <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+              <button
+                type="button"
+                onClick={() => setExpenseFromProfit(true)}
+                className={cn(
+                  "min-h-11 flex-1 rounded-xl border px-3 text-left text-sm font-bold",
+                  expenseFromProfit ? "border-primary bg-primary/10 text-primary" : "border-border bg-background",
+                )}
+              >
+                From TIJAR profit — minus profit
+              </button>
+              <button
+                type="button"
+                onClick={() => setExpenseFromProfit(false)}
+                className={cn(
+                  "min-h-11 flex-1 rounded-xl border px-3 text-left text-sm font-bold",
+                  !expenseFromProfit ? "border-primary bg-primary/10 text-primary" : "border-border bg-background",
+                )}
+              >
+                Not from profit — add as minus only
+              </button>
+            </div>
+            <Button className="mt-3 rounded-xl font-extrabold" disabled={savingExpense} onClick={() => void saveExpense()}>
+              {savingExpense ? "Saving…" : "Save expense"}
+            </Button>
+          </div>
+          <div className="rounded-2xl border border-border bg-card p-4">
+            <h2 className="font-extrabold">Expense ledger</h2>
+            {expensesQuery.isError ? (
+              <p className="mt-2 text-sm text-destructive">Run migration 000095 in Supabase so expenses can be stored.</p>
+            ) : expenses.length === 0 ? (
+              <p className="mt-2 text-sm text-muted-foreground">No custom expenses yet.</p>
+            ) : (
+              <div className="mt-3 overflow-x-auto">
+                <table className="w-full min-w-[640px] text-left text-sm">
+                  <thead className="text-[11px] uppercase text-muted-foreground">
+                    <tr>
+                      <th className="px-3 py-2">When</th>
+                      <th className="px-3 py-2">Expense</th>
+                      <th className="px-3 py-2">Source</th>
+                      <th className="px-3 py-2">Amount</th>
+                      <th className="px-3 py-2" />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {expenses.slice(0, 80).map((row) => (
+                      <tr key={row.id} className="border-t border-border">
+                        <td className="px-3 py-2.5 text-muted-foreground">{formatWhen(row.created_at)}</td>
+                        <td className="px-3 py-2.5">
+                          <p className="font-semibold">{row.title}</p>
+                          {row.notes ? <p className="text-xs text-muted-foreground">{row.notes}</p> : null}
+                        </td>
+                        <td className="px-3 py-2.5">{row.from_profit ? "From profit" : "Not from profit"}</td>
+                        <td className="px-3 py-2.5 tabular-nums font-bold text-destructive">− {formatNgn(Number(row.amount_ngn))}</td>
+                        <td className="px-3 py-2.5 text-right">
+                          <Button variant="outline" className="h-9 rounded-xl font-bold" onClick={() => void removeExpense(row.id)}>
+                            Remove
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
           <div className="rounded-2xl border border-border bg-card p-4">
             <h2 className="font-extrabold">Fee ledger</h2>
