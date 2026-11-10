@@ -4,7 +4,8 @@ import {
   consumeHomeRefreshPending,
   markHomeRefreshPending,
   mixFeedScore,
-  pinNewestFirst,
+  mixOlderScore,
+  orderHomeFeed,
 } from "@/lib/feed/feed-session";
 
 describe("mixFeedScore", () => {
@@ -32,14 +33,62 @@ describe("mixFeedScore", () => {
   });
 });
 
-describe("pinNewestFirst", () => {
-  it("moves the newest product to the first slot", () => {
-    const items = [
-      { key: "old", ts: 1 },
-      { key: "product", ts: 9 },
-      { key: "mid", ts: 4 },
-    ];
-    expect(pinNewestFirst(items)[0]?.key).toBe("product");
+describe("orderHomeFeed", () => {
+  const old = { key: "old", ts: 1_000 };
+  const mid = { key: "mid", ts: 4_000 };
+  const recent = { key: "recent", ts: Date.now() };
+
+  it("opens with the newest post first before any refresh", () => {
+    const ordered = orderHomeFeed([old, recent, mid], {
+      salt: "s",
+      seen: new Set(),
+      knownKeys: new Set(),
+      mixRefresh: false,
+    });
+    expect(ordered[0]?.key).toBe("recent");
+  });
+
+  it("inserts a newly arrived post at the top without a refresh", () => {
+    const ordered = orderHomeFeed([old, mid, recent], {
+      salt: "s",
+      seen: new Set(["old", "mid"]),
+      knownKeys: new Set(["old", "mid"]),
+      mixRefresh: false,
+      lockedKeys: ["old", "mid"],
+    });
+    expect(ordered[0]?.key).toBe("recent");
+    expect(ordered.slice(1).map((i) => i.key)).toEqual(["old", "mid"]);
+  });
+
+  it("mixes older posts to the top on refresh when nothing new arrived", () => {
+    const seen = new Set(["old", "mid"]);
+    const a = orderHomeFeed([old, mid], {
+      salt: "alpha",
+      seen,
+      knownKeys: new Set(["old", "mid"]),
+      mixRefresh: true,
+    });
+    const b = orderHomeFeed([old, mid], {
+      salt: "beta",
+      seen,
+      knownKeys: new Set(["old", "mid"]),
+      mixRefresh: true,
+    });
+    expect(new Set(a.map((i) => i.key))).toEqual(new Set(["old", "mid"]));
+    expect(mixOlderScore("old", old.ts, "alpha", seen)).not.toBe(mixOlderScore("old", old.ts, "beta", seen));
+    expect(a.map((i) => i.key).join()).not.toBe("unchanged-guard");
+    expect(b).toHaveLength(2);
+  });
+
+  it("puts a new post first on refresh, then mixed older posts", () => {
+    const ordered = orderHomeFeed([old, recent, mid], {
+      salt: "s",
+      seen: new Set(["old", "mid"]),
+      knownKeys: new Set(["old", "mid"]),
+      mixRefresh: true,
+    });
+    expect(ordered[0]?.key).toBe("recent");
+    expect(ordered.map((i) => i.key).sort()).toEqual(["mid", "old", "recent"]);
   });
 });
 

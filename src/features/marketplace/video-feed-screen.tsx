@@ -63,8 +63,7 @@ import {
   currentFeedRound,
   currentFeedSalt,
   markHomeRefreshPending,
-  mixFeedScore,
-  pinNewestFirst,
+  orderHomeFeed,
   readSeenFeedIds,
   rememberSeenFeedIds,
   rotateFeedSalt,
@@ -350,6 +349,7 @@ export function VideoFeedScreen({ initialVideoId }: { initialVideoId?: string })
     staleTime: 15_000,
     gcTime: 30 * 60_000,
     refetchOnMount: "always",
+    refetchInterval: 20_000,
     placeholderData: (previous) => previous,
   });
 
@@ -362,6 +362,7 @@ export function VideoFeedScreen({ initialVideoId }: { initialVideoId?: string })
     },
     staleTime: 15_000,
     refetchOnMount: "always",
+    refetchInterval: 20_000,
   });
 
   const placeOrdersQuery = useQuery({
@@ -369,6 +370,7 @@ export function VideoFeedScreen({ initialVideoId }: { initialVideoId?: string })
     queryFn: async () => (await fetchPlaceOrderListings({ day: "all", limit: 8 })).listings,
     staleTime: 15_000,
     refetchOnMount: "always",
+    refetchInterval: 20_000,
   });
 
   const liveVideos = useMemo(() => {
@@ -392,6 +394,10 @@ export function VideoFeedScreen({ initialVideoId }: { initialVideoId?: string })
   const restoredRef = useRef(false);
   const stickToTopUntil = useRef(0);
   const stickTimer = useRef<number | null>(null);
+  const knownFeedKeysRef = useRef<Set<string>>(new Set());
+  const lockedFeedKeysRef = useRef<string[]>([]);
+  const mixRefreshRef = useRef(false);
+  const [mixNonce, setMixNonce] = useState(0);
 
   const productCacheId = profile?.id ?? "anon";
   const productsQuery = useQuery({
@@ -567,6 +573,8 @@ export function VideoFeedScreen({ initialVideoId }: { initialVideoId?: string })
     consumeHomeRefreshPending();
     rememberSeenFeedIds(itemKeysRef.current);
     setSeenIds(readSeenFeedIds());
+    mixRefreshRef.current = true;
+    setMixNonce((n) => n + 1);
     setFeedSalt(rotateFeedSalt());
     setFeedRound(bumpFeedRound());
     restoredRef.current = false;
@@ -874,8 +882,7 @@ export function VideoFeedScreen({ initialVideoId }: { initialVideoId?: string })
     return map;
   }, [showPosts, productsById, listingsByBusiness]);
 
-  // Merge posts, product listings and place-order posts into ONE stream sorted by
-  // recency, so a fresh post always lands on top instead of being grouped by type.
+  // New posts go first as they arrive. A Home refresh mixes older posts unless something new just landed.
   const feedItems = useMemo<FeedItem[]>(() => {
     const items: FeedItem[] = [];
     for (const listing of showPlaceOrders) {
@@ -892,20 +899,27 @@ export function VideoFeedScreen({ initialVideoId }: { initialVideoId?: string })
     for (const product of showListings) {
       items.push({ kind: "listing", key: `listing:${product.id}`, ts: feedTimestamp(product.created_at), product });
     }
-    return pinNewestFirst(
-      items.sort(
-        (a, b) => mixFeedScore(b.key, b.ts, feedSalt, seenIds) - mixFeedScore(a.key, a.ts, feedSalt, seenIds) || b.ts - a.ts,
-      ),
-    );
-  }, [showPlaceOrders, showPosts, showListings, feedSalt, seenIds]);
+    const mixRefresh = mixRefreshRef.current;
+    const ordered = orderHomeFeed(items, {
+      salt: feedSalt,
+      seen: seenIds,
+      knownKeys: knownFeedKeysRef.current,
+      mixRefresh,
+      lockedKeys: lockedFeedKeysRef.current,
+    });
+    lockedFeedKeysRef.current = ordered.map((item) => item.key);
+    for (const item of ordered) knownFeedKeysRef.current.add(item.key);
+    mixRefreshRef.current = false;
+    return ordered;
+  }, [showPlaceOrders, showPosts, showListings, feedSalt, seenIds, mixNonce]);
   itemKeysRef.current = feedItems.map((item) => item.key);
 
   useEffect(() => {
     if (feedItems.length === 0) return;
     const refreshing = Date.now() < stickToTopUntil.current;
-    if (!refreshing && restoredRef.current) return;
-    if (initialVideoId && restoredRef.current) return;
-    jumpFeedToFirst(feedItems);
+    const atTop = (scrollerRef.current?.scrollTop ?? 0) < 56;
+    if (initialVideoId && restoredRef.current && !refreshing) return;
+    if (refreshing || !restoredRef.current || atTop) jumpFeedToFirst(feedItems);
   }, [feedItems, jumpFeedToFirst, feedQuery.isFetching, listingsQuery.isFetching, placeOrdersQuery.isFetching, initialVideoId]);
 
   useEffect(() => {

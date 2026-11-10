@@ -1,4 +1,4 @@
-/** Home tap and pull-to-refresh: newest posts stay first, then a new mix of older posts. */
+/** New posts surface at the top on their own. A Home refresh mixes older posts up, unless something new just arrived. */
 
 export const HOME_REFRESH_EVENT = "tijar-home-refresh";
 
@@ -106,18 +106,6 @@ export function hashFeedKey(value: string): number {
 
 export const FRESH_POST_HOURS = 12;
 
-/** Higher = should appear earlier. Brand-new posts stay on top; refresh can lift older unseen posts. */
-/** Newest product or post always occupies slot 1, like TikTok / Instagram after a refresh. */
-export function pinNewestFirst<T extends { key: string; ts: number }>(items: T[]): T[] {
-  if (items.length < 2) return items;
-  let newest = items[0]!;
-  for (const item of items) {
-    if (item.ts > newest.ts) newest = item;
-  }
-  if (items[0]?.key === newest.key) return items;
-  return [newest, ...items.filter((item) => item.key !== newest.key)];
-}
-
 export function mixFeedScore(id: string, ts: number, salt: string, seen: Set<string>): number {
   const ageHours = Math.max(0, (Date.now() - (ts || 0)) / 3_600_000);
   if (ageHours <= FRESH_POST_HOURS) {
@@ -128,4 +116,61 @@ export function mixFeedScore(id: string, ts: number, salt: string, seen: Set<str
   const unseen = seen.has(id) ? 0 : 1.35;
   const olderUnseen = !seen.has(id) ? 0.9 : 0;
   return unseen + olderUnseen + recency * 0.35 + jitter * 0.55;
+}
+
+/** Shuffle older posts on refresh. Does not pin brand-new items (those go first separately). */
+export function mixOlderScore(id: string, ts: number, salt: string, seen: Set<string>): number {
+  const ageHours = Math.max(0, (Date.now() - (ts || 0)) / 3_600_000);
+  const jitter = (hashFeedKey(`mix:${salt}:${id}`) % 1000) / 1000;
+  const unseen = seen.has(id) ? 0 : 2.4;
+  const recency = 1 / (1 + ageHours / 48);
+  return unseen + jitter * 1.6 + recency * 0.15;
+}
+
+export function orderHomeFeed<T extends { key: string; ts: number }>(
+  items: T[],
+  opts: {
+    salt: string;
+    seen: Set<string>;
+    knownKeys: Set<string>;
+    mixRefresh: boolean;
+    lockedKeys?: string[];
+  },
+): T[] {
+  if (items.length <= 1) return items;
+  const known = opts.knownKeys;
+  const byKey = new Map(items.map((item) => [item.key, item]));
+  const fresh = items
+    .filter((item) => !known.has(item.key))
+    .sort((a, b) => b.ts - a.ts || a.key.localeCompare(b.key));
+
+  if (known.size === 0 && !opts.mixRefresh) {
+    return [...items].sort((a, b) => b.ts - a.ts || a.key.localeCompare(b.key));
+  }
+
+  if (opts.mixRefresh) {
+    const rest = items
+      .filter((item) => known.has(item.key))
+      .sort(
+        (a, b) =>
+          mixOlderScore(b.key, b.ts, opts.salt, opts.seen) - mixOlderScore(a.key, a.ts, opts.salt, opts.seen) ||
+          b.ts - a.ts,
+      );
+    return [...fresh, ...rest];
+  }
+
+  const locked = opts.lockedKeys ?? [];
+  const used = new Set(fresh.map((item) => item.key));
+  const rest: T[] = [];
+  for (const key of locked) {
+    const item = byKey.get(key);
+    if (!item || used.has(key)) continue;
+    used.add(key);
+    rest.push(item);
+  }
+  for (const item of items) {
+    if (used.has(item.key)) continue;
+    rest.push(item);
+  }
+  return [...fresh, ...rest];
 }
