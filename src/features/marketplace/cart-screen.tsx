@@ -271,6 +271,5 @@ export function CartScreen() {
         </nav>
       </div>
     </MarketplaceShell>
-        )}
   );
 }
