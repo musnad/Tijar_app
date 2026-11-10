@@ -112,11 +112,10 @@ export function CheckoutScreen() {
   const shopAccounts = accountsQuery.data ?? [];
   const missingAccount = shopAccounts.some((r) => !r.account?.accountNumber);
   const goods = useMemo(() => items.reduce((s, i) => s + Number(i.quantity) * Number(i.unit_price), 0), [items]);
-  const firstShopId = shopIds[0] ?? null;
   const providersQuery = useQuery({
-    queryKey: ["delivery-providers", firstShopId ?? ""],
+    queryKey: ["delivery-providers"],
     queryFn: async () => {
-      const r = await fetchDeliveryProviders(firstShopId);
+      const r = await fetchDeliveryProviders();
       if (r.error) throw new Error(r.error);
       return r.providers;
     },
@@ -155,7 +154,7 @@ export function CheckoutScreen() {
       "Pay: Transfer to shop",
       `Pickup: ${pickupStreet.trim()}`,
       `Drop-off: ${addr.street}`,
-      courier ? `Delivery: ${courier.name}` : null,
+      courier ? `Delivery: ${courier.name} · ${courier.offerTitle}` : null,
     ]
       .filter(Boolean)
       .join(" · ");
@@ -263,7 +262,7 @@ export function CheckoutScreen() {
                 <h2 id="delivery-heading" className="flex items-center gap-1.5 text-[15px] font-extrabold text-[#1F7A4D]">
                   Delivery
                 </h2>
-                <DeliveryProviderPicker includeShopId={firstShopId} selectedId={courier?.id ?? null} onSelect={setCourier} />
+                <DeliveryProviderPicker selectedId={courier?.offerId ?? null} onSelect={setCourier} />
               </section>
               <section className="mt-5" aria-labelledby="addr-heading">
                 <div className="flex items-center justify-between">

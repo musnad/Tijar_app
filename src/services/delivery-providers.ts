@@ -2,17 +2,36 @@ import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 
 export type DeliveryProvider = {
   id: string;
+  offerId: string;
   name: string;
+  offerTitle: string;
+  source: "place_order" | "product";
   fee: number;
   location: string | null;
   phone: string | null;
   logoUrl: string | null;
-  ownShop?: boolean;
 };
 
-const COURIER_SLUGS = ["logistics", "okada", "transport"];
+const COURIER_SLUGS = ["logistics"];
+const COURIER_TEXT = /dispatch|deliver|logistics|courier/;
 
-export async function fetchDeliveryProviders(includeShopId?: string | null): Promise<{
+function money(n: unknown): number {
+  const v = Number(n ?? 0);
+  return Number.isFinite(v) && v > 0 ? v : 0;
+}
+
+function isCourierText(...parts: Array<string | null | undefined>): boolean {
+  return COURIER_TEXT.test(parts.map((p) => String(p ?? "").toLowerCase()).join(" "));
+}
+
+/** Place-order: use the post's delivery fee when set, otherwise the listing price (the trip itself). */
+function feeFromPlaceOrder(price: unknown, deliveryFee: unknown): number {
+  const extra = money(deliveryFee);
+  if (extra > 0) return extra;
+  return money(price);
+}
+
+export async function fetchDeliveryProviders(): Promise<{
   providers: DeliveryProvider[];
   error: string | null;
 }> {
@@ -20,77 +39,109 @@ export async function fetchDeliveryProviders(includeShopId?: string | null): Pro
   const cats = await supabase.from("business_categories").select("id, slug").in("slug", COURIER_SLUGS);
   const catIds = (cats.data ?? []).map((row) => String(row.id));
   const selectCols =
-    "id, business_name, delivery_fee, public_location_label, location, public_phone, logo_url, category_id, custom_category, is_published";
+    "id, business_name, public_location_label, location, public_phone, logo_url, category_id, custom_category, is_published";
   const rows: Array<Record<string, unknown>> = [];
 
   if (catIds.length > 0) {
     const byCat = await supabase.from("businesses").select(selectCols).eq("is_published", true).in("category_id", catIds).limit(100);
     if (!byCat.error) rows.push(...((byCat.data ?? []) as Array<Record<string, unknown>>));
   }
-  const byName = await supabase
+
+  const byCustom = await supabase
     .from("businesses")
     .select(selectCols)
     .eq("is_published", true)
     .or(
-      "business_name.ilike.%deliver%,business_name.ilike.%dispatch%,business_name.ilike.%logistics%,business_name.ilike.%okada%,business_name.ilike.%keke%,business_name.ilike.%courier%,custom_category.ilike.%deliver%,custom_category.ilike.%dispatch%,custom_category.ilike.%logistics%,custom_category.ilike.%rider%,custom_category.ilike.%okada%,custom_category.ilike.%courier%",
+      "custom_category.ilike.%dispatch%,custom_category.ilike.%deliver%,custom_category.ilike.%logistics%,custom_category.ilike.%courier%",
     )
     .limit(100);
-  if (!byName.error) rows.push(...((byName.data ?? []) as Array<Record<string, unknown>>));
-  if (rows.length === 0 && byName.error) {
-    const listed = await supabase.from("businesses").select(selectCols).eq("is_published", true).limit(80);
-    if (listed.error) return { providers: [], error: listed.error.message };
-    rows.push(...((listed.data ?? []) as Array<Record<string, unknown>>));
-  }
+  if (!byCustom.error) rows.push(...((byCustom.data ?? []) as Array<Record<string, unknown>>));
 
-  const map = new Map<string, DeliveryProvider>();
+  const shops = new Map<
+    string,
+    { id: string; name: string; location: string | null; phone: string | null; logoUrl: string | null }
+  >();
   for (const row of rows) {
+    const id = String(row.id ?? "");
+    if (!id) continue;
     const categoryMatch = catIds.includes(String(row.category_id ?? ""));
-    const custom = String((row as { custom_category?: string | null }).custom_category ?? "").toLowerCase();
-    const name = String(row.business_name ?? "");
-    const isCourier =
-      categoryMatch ||
-      /deliver|dispatch|logistics|rider|okada|keke|courier/.test(`${custom} ${name.toLowerCase()}`);
-    const ownShop = includeShopId && String(row.id) === includeShopId;
-    if (!isCourier && !ownShop) continue;
-    const fee = Number((row as { delivery_fee?: number | null }).delivery_fee ?? 0);
-    map.set(String(row.id), {
-      id: String(row.id),
-      name: name || "Delivery",
-      fee: Number.isFinite(fee) && fee > 0 ? fee : 0,
+    const custom = String(row.custom_category ?? "");
+    if (!categoryMatch && !isCourierText(custom)) continue;
+    shops.set(id, {
+      id,
+      name: String(row.business_name ?? "Delivery") || "Delivery",
       location: (row.public_location_label as string | null) || (row.location as string | null),
       phone: (row.public_phone as string | null) ?? null,
       logoUrl: (row.logo_url as string | null) ?? null,
-      ownShop: Boolean(ownShop),
     });
   }
 
-  if (includeShopId && !map.has(includeShopId)) {
-    const shop = await supabase
-      .from("businesses")
-      .select("id, business_name, delivery_fee, public_location_label, location, public_phone, logo_url")
-      .eq("id", includeShopId)
-      .maybeSingle();
-    if (shop.data) {
-      const fee = Number((shop.data as { delivery_fee?: number | null }).delivery_fee ?? 0);
-      map.set(includeShopId, {
-        id: includeShopId,
-        name: `${String(shop.data.business_name ?? "This shop")} (this shop)`,
-        fee: Number.isFinite(fee) && fee > 0 ? fee : 0,
-        location: (shop.data.public_location_label as string | null) || (shop.data.location as string | null),
-        phone: (shop.data.public_phone as string | null) ?? null,
-        logoUrl: (shop.data.logo_url as string | null) ?? null,
-        ownShop: true,
+  const ids = [...shops.keys()];
+  if (ids.length === 0) return { providers: [], error: null };
+
+  const providers: DeliveryProvider[] = [];
+
+  const listings = await supabase
+    .from("place_order_listings")
+    .select("id, business_id, title, price, delivery_fee, location_label, is_open, created_at")
+    .in("business_id", ids)
+    .eq("is_open", true)
+    .order("created_at", { ascending: false })
+    .limit(200);
+  if (!listings.error) {
+    for (const row of listings.data ?? []) {
+      const shop = shops.get(String(row.business_id));
+      const fee = feeFromPlaceOrder(row.price, row.delivery_fee);
+      if (!shop || fee <= 0) continue;
+      providers.push({
+        id: shop.id,
+        offerId: `place:${row.id}`,
+        name: shop.name,
+        offerTitle: String(row.title ?? "Place your order").trim() || "Place your order",
+        source: "place_order",
+        fee,
+        location: (row.location_label as string | null) || shop.location,
+        phone: shop.phone,
+        logoUrl: shop.logoUrl,
       });
     }
-  } else if (includeShopId && map.has(includeShopId)) {
-    const current = map.get(includeShopId)!;
-    map.set(includeShopId, { ...current, ownShop: true, name: current.name.includes("this shop") ? current.name : `${current.name} (this shop)` });
   }
 
-  const providers = [...map.values()].sort((a, b) => {
-    if (a.ownShop && !b.ownShop) return -1;
-    if (!a.ownShop && b.ownShop) return 1;
-    return a.fee - b.fee;
-  });
+  let products = await supabase
+    .from("products")
+    .select("id, business_id, name, sale_price, image_url, is_active, is_published")
+    .in("business_id", ids)
+    .gt("sale_price", 0)
+    .limit(200);
+  if (products.error && /is_published|is_active/i.test(products.error.message)) {
+    products = await supabase
+      .from("products")
+      .select("id, business_id, name, sale_price, image_url")
+      .in("business_id", ids)
+      .gt("sale_price", 0)
+      .limit(200);
+  }
+  if (!products.error) {
+    for (const row of products.data ?? []) {
+      const shop = shops.get(String(row.business_id));
+      const fee = money(row.sale_price);
+      const active = row.is_active == null || Boolean(row.is_active);
+      const published = row.is_published == null || Boolean(row.is_published);
+      if (!shop || fee <= 0 || !active || !published) continue;
+      providers.push({
+        id: shop.id,
+        offerId: `product:${row.id}`,
+        name: shop.name,
+        offerTitle: String(row.name ?? "Delivery").trim() || "Delivery",
+        source: "product",
+        fee,
+        location: shop.location,
+        phone: shop.phone,
+        logoUrl: shop.logoUrl || (row.image_url as string | null),
+      });
+    }
+  }
+
+  providers.sort((a, b) => a.fee - b.fee || a.name.localeCompare(b.name));
   return { providers, error: null };
 }

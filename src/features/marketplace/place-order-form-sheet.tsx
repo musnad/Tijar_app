@@ -40,8 +40,7 @@ export function PlaceOrderForm({ listing }: { listing: PlaceOrderListing }) {
   const [paid, setPaid] = useState(false);
   const [courier, setCourier] = useState<DeliveryProvider | null>(null);
 
-  const deliveryFee =
-    fulfilment === "delivery" ? Math.max(0, Number(courier?.fee ?? listing.delivery_fee ?? 0)) : 0;
+  const deliveryFee = fulfilment === "delivery" ? Math.max(0, Number(courier?.fee ?? 0)) : 0;
   const total = listing.price * qty + deliveryFee;
   const dayOptions = useMemo(() => {
     const options: Array<"today" | "tomorrow"> = [];
@@ -86,7 +85,7 @@ export function PlaceOrderForm({ listing }: { listing: PlaceOrderListing }) {
       return;
     }
     if (fulfilment === "delivery") {
-      const listed = await fetchDeliveryProviders(listing.business_id);
+      const listed = await fetchDeliveryProviders();
       if (listed.providers.length > 0 && !courier) {
         toast.error("Choose a delivery business.");
         return;
@@ -118,7 +117,7 @@ export function PlaceOrderForm({ listing }: { listing: PlaceOrderListing }) {
       listingTitle: listing.title,
       deliveryFee,
       deliveryBusinessId: courier?.id ?? null,
-      deliveryName: courier?.name ?? null,
+      deliveryName: courier ? `${courier.name} · ${courier.offerTitle}` : null,
     });
     setBusy(false);
     if (placed.error || !placed.order) {
@@ -224,7 +223,7 @@ export function PlaceOrderForm({ listing }: { listing: PlaceOrderListing }) {
         </div>
         {fulfilment === "delivery" ? (
           <div className="space-y-3">
-            <DeliveryProviderPicker includeShopId={listing.business_id} selectedId={courier?.id ?? null} onSelect={setCourier} />
+            <DeliveryProviderPicker selectedId={courier?.offerId ?? null} onSelect={setCourier} />
             <label className="block text-sm font-extrabold text-[#0B1F4D]">
               Pickup destination
               <Input

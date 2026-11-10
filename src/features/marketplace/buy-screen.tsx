@@ -84,7 +84,7 @@ export function BuyScreen({ productId, initialQty }: { productId?: string; initi
       return;
     }
     if (fulfilment === "seller_delivery") {
-      const listed = await fetchDeliveryProviders(product.business_id);
+      const listed = await fetchDeliveryProviders();
       if (listed.providers.length > 0 && !courier) {
         toast.error("Choose a delivery business.");
         return;
@@ -119,7 +119,7 @@ export function BuyScreen({ productId, initialQty }: { productId?: string; initi
         "Pay: Transfer to shop",
         fulfilment === "seller_delivery" ? `Pickup: ${pickupAddress.trim()}` : null,
         fulfilment === "seller_delivery" ? `Drop-off: ${dropoffAddress.trim()}` : null,
-        courier ? `Delivery: ${courier.name}` : null,
+        courier ? `Delivery: ${courier.name} · ${courier.offerTitle}` : null,
         note,
       ]
         .filter(Boolean)
@@ -233,7 +233,7 @@ export function BuyScreen({ productId, initialQty }: { productId?: string; initi
 
               {fulfilment === "seller_delivery" ? (
                 <>
-                  <DeliveryProviderPicker includeShopId={product.business_id} selectedId={courier?.id ?? null} onSelect={setCourier} />
+                  <DeliveryProviderPicker selectedId={courier?.offerId ?? null} onSelect={setCourier} />
                   <label className="mt-4 block text-sm font-bold">Pickup destination</label>
                   <Input className="mt-1 min-h-11 rounded-xl" value={pickupAddress} onChange={(e) => setPickupAddress(e.target.value)} placeholder="Where should they collect from?" />
                   <label className="mt-3 block text-sm font-bold">Drop-off destination</label>
