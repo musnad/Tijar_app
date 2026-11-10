@@ -13,7 +13,7 @@ import { useAuth } from "@/features/auth/auth-context";
 import { isTijarNativeApp } from "@/lib/tijar-native-app";
 import { useTranslation } from "@/lib/i18n/context";
 import { cn } from "@/lib/utils";
-import { HOME_REFRESH_EVENT } from "@/lib/feed/feed-session";
+import { HOME_REFRESH_EVENT, markHomeRefreshPending } from "@/lib/feed/feed-session";
 import { countUnreadShopChats, fetchMyBusinessIds } from "@/services/shop-chat-service";
 
 function initials(name: string): string {
@@ -211,9 +211,10 @@ export function MarketplaceShell({
                 to={tab.to}
                 activeOptions={{ exact: Boolean("exact" in tab && tab.exact) }}
                 onClick={(event) => {
-                  if (!active || tab.to !== "/shop") return;
-                  event.preventDefault();
+                  if (tab.to !== "/shop") return;
+                  markHomeRefreshPending();
                   window.dispatchEvent(new Event(HOME_REFRESH_EVENT));
+                  if (active) event.preventDefault();
                 }}
                 aria-label={tab.label}
                 className={cn(

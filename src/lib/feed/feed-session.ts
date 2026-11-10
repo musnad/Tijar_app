@@ -1,10 +1,11 @@
-/** Session rotation so tapping Home surfaces a different mix, including older posts. */
+/** Home tap and pull-to-refresh: newest posts stay first, then a new mix of older posts. */
 
 export const HOME_REFRESH_EVENT = "tijar-home-refresh";
 
 const SEEN_KEY = "tijar-feed-seen";
 const ROUND_KEY = "tijar-feed-round";
 const SALT_KEY = "tijar-feed-salt";
+const PENDING_KEY = "tijar-feed-refresh-pending";
 const MAX_SEEN = 220;
 
 function readJsonArray(key: string): string[] {
@@ -54,8 +55,28 @@ export function bumpFeedRound(): number {
   return next;
 }
 
+/** Kept for listings rotation. For You video pages always start at offset 0 so new posts stay on top. */
 export function feedOffsetForRound(round: number, pageSize: number, windows = 10): number {
   return (round % windows) * pageSize;
+}
+
+export function markHomeRefreshPending(): void {
+  try {
+    if (typeof window !== "undefined") window.sessionStorage.setItem(PENDING_KEY, "1");
+  } catch {
+    // Ignore.
+  }
+}
+
+export function consumeHomeRefreshPending(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    const pending = window.sessionStorage.getItem(PENDING_KEY) === "1";
+    if (pending) window.sessionStorage.removeItem(PENDING_KEY);
+    return pending;
+  } catch {
+    return false;
+  }
 }
 
 export function currentFeedSalt(): string {

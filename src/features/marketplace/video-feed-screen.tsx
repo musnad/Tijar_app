@@ -59,9 +59,10 @@ import { NEARBY_RADIUS_KM } from "@/lib/feed/rank-video-feed";
 import {
   HOME_REFRESH_EVENT,
   bumpFeedRound,
+  consumeHomeRefreshPending,
   currentFeedRound,
   currentFeedSalt,
-  feedOffsetForRound,
+  markHomeRefreshPending,
   mixFeedScore,
   readSeenFeedIds,
   rememberSeenFeedIds,
@@ -335,7 +336,7 @@ export function VideoFeedScreen({ initialVideoId }: { initialVideoId?: string })
         viewerLat: here?.lat ?? null,
         viewerLng: here?.lng ?? null,
         nearbyOnly: feedTab === "nearby",
-        offset: pageParam ? 0 : feedOffsetForRound(feedRound, FEED_PAGE_SIZE),
+        offset: 0,
         shuffleSalt: feedSalt,
         seenVideoIds: [...seenIds],
       });
@@ -353,11 +354,7 @@ export function VideoFeedScreen({ initialVideoId }: { initialVideoId?: string })
   const listingsQuery = useQuery({
     queryKey: ["for-you-listings", feedRound],
     queryFn: async () => {
-      const offset = feedOffsetForRound(feedRound, 24);
-      let r = await fetchMarketplaceProducts(24, null, offset);
-      if (!r.error && r.data.length === 0 && offset > 0) {
-        r = await fetchMarketplaceProducts(24);
-      }
+      const r = await fetchMarketplaceProducts(24);
       if (r.error) throw new Error(r.error);
       return r.data;
     },
@@ -550,22 +547,36 @@ export function VideoFeedScreen({ initialVideoId }: { initialVideoId?: string })
   }, [activeId]);
 
   const itemKeysRef = useRef<string[]>([]);
+  const [pull, setPull] = useState(0);
+  const pullStartY = useRef(0);
+  const pulling = useRef(false);
+
+  const refreshFeed = useCallback(() => {
+    consumeHomeRefreshPending();
+    rememberSeenFeedIds(itemKeysRef.current);
+    setSeenIds(readSeenFeedIds());
+    setFeedSalt(rotateFeedSalt());
+    setFeedRound(bumpFeedRound());
+    restoredRef.current = false;
+    scrollerRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+    void queryClient.invalidateQueries({ queryKey: ["video-feed"] });
+    void queryClient.invalidateQueries({ queryKey: ["for-you-listings"] });
+    void queryClient.invalidateQueries({ queryKey: ["live-stories"] });
+    void queryClient.invalidateQueries({ queryKey: ["business-of-the-week"] });
+    void queryClient.invalidateQueries({ queryKey: ["for-you-place-orders"] });
+  }, [queryClient]);
 
   useEffect(() => {
     function onHomeRefresh() {
-      rememberSeenFeedIds(itemKeysRef.current);
-      setSeenIds(readSeenFeedIds());
-      setFeedSalt(rotateFeedSalt());
-      setFeedRound(bumpFeedRound());
-      restoredRef.current = false;
-      scrollerRef.current?.scrollTo({ top: 0, behavior: "smooth" });
-      void queryClient.invalidateQueries({ queryKey: ["live-stories"] });
-      void queryClient.invalidateQueries({ queryKey: ["business-of-the-week"] });
-      void queryClient.invalidateQueries({ queryKey: ["for-you-place-orders"] });
+      refreshFeed();
     }
     window.addEventListener(HOME_REFRESH_EVENT, onHomeRefresh);
     return () => window.removeEventListener(HOME_REFRESH_EVENT, onHomeRefresh);
-  }, [queryClient]);
+  }, [refreshFeed]);
+
+  useEffect(() => {
+    if (consumeHomeRefreshPending()) refreshFeed();
+  }, [refreshFeed]);
 
   const feedTabRef = useRef(feedTab);
   useEffect(() => {
@@ -903,8 +914,42 @@ export function VideoFeedScreen({ initialVideoId }: { initialVideoId?: string })
           ref={scrollerRef}
           style={{ WebkitOverflowScrolling: "touch" }}
           className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-contain touch-pan-y [overflow-anchor:none] [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          onTouchStart={(e) => {
+            const top = scrollerRef.current?.scrollTop ?? 1;
+            if (top <= 2) {
+              pullStartY.current = e.touches[0]?.clientY ?? 0;
+              pulling.current = true;
+            } else {
+              pullStartY.current = 0;
+              pulling.current = false;
+            }
+          }}
+          onTouchMove={(e) => {
+            if (!pulling.current || (scrollerRef.current?.scrollTop ?? 0) > 2) {
+              if (pull !== 0) setPull(0);
+              return;
+            }
+            const dy = (e.touches[0]?.clientY ?? 0) - pullStartY.current;
+            setPull(Math.max(0, Math.min(76, dy * 0.42)));
+          }}
+          onTouchEnd={() => {
+            if (pull > 52) refreshFeed();
+            setPull(0);
+            pulling.current = false;
+            pullStartY.current = 0;
+          }}
         >
           <FeedTopBar tab={feedTab} onTab={setFeedTab} />
+          {pull > 10 || (feedQuery.isFetching && Boolean(feedQuery.data)) ? (
+            <p
+              className="text-center text-[11px] font-semibold text-[#1F7A4D]"
+              style={{
+                height: Math.max(pull, feedQuery.isFetching && feedQuery.data ? 28 : 0),
+              }}
+            >
+              {feedQuery.isFetching && feedQuery.data ? "Refreshing…" : "Release to refresh"}
+            </p>
+          ) : null}
           {feedTab === "nearby" && location.status === "denied" ? (
             <button
               type="button"
@@ -1272,6 +1317,7 @@ function FeedTopBar({ tab, onTab }: { tab: FeedTab; onTab: (t: FeedTab) => void 
           className="flex min-w-0 flex-1 flex-col justify-center"
           onClick={(event) => {
             event.preventDefault();
+            markHomeRefreshPending();
             window.dispatchEvent(new Event(HOME_REFRESH_EVENT));
           }}
         >

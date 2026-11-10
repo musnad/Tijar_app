@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { mixFeedScore } from "@/lib/feed/feed-session";
+import {
+  consumeHomeRefreshPending,
+  markHomeRefreshPending,
+  mixFeedScore,
+} from "@/lib/feed/feed-session";
 
 describe("mixFeedScore", () => {
   it("puts a brand-new post above older unseen posts", () => {
@@ -15,5 +19,22 @@ describe("mixFeedScore", () => {
     const shown = mixFeedScore("shown", Date.now() - 3 * 86_400_000, "salt", seen);
     const older = mixFeedScore("older", Date.now() - 5 * 86_400_000, "salt", seen);
     expect(older).toBeGreaterThan(shown);
+  });
+
+  it("keeps a brand-new post first after the mix salt changes", () => {
+    const seen = new Set(["old-seen"]);
+    const freshA = mixFeedScore("new", Date.now(), "salt-a", seen);
+    const freshB = mixFeedScore("new", Date.now(), "salt-b", seen);
+    const older = mixFeedScore("older", Date.now() - 4 * 86_400_000, "salt-b", seen);
+    expect(freshA).toBeGreaterThan(older);
+    expect(freshB).toBeGreaterThan(older);
+  });
+});
+
+describe("home refresh pending", () => {
+  it("remembers a Home tap until the feed consumes it", () => {
+    markHomeRefreshPending();
+    expect(consumeHomeRefreshPending()).toBe(true);
+    expect(consumeHomeRefreshPending()).toBe(false);
   });
 });

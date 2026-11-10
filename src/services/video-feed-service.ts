@@ -419,7 +419,7 @@ export async function rankAndLoadFeed(
     opts?.viewerLat != null && opts?.viewerLng != null
       ? { lat: opts.viewerLat, lng: opts.viewerLng }
       : null;
-  const fetchLimit = Math.max(limit * 2, 16);
+  const fetchLimit = Math.max(limit * 4, 24);
 
   const [raw, baseSignals] = await Promise.all([
     fetchPublicVideoFeed({ limit: fetchLimit, before, offset: before ? 0 : offset }),
