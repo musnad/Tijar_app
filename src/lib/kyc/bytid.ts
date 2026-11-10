@@ -435,12 +435,24 @@ export function maskNin(idNumber: string): string {
   return `${digits.slice(0, 3)}*****${digits.slice(-3)}`;
 }
 
+export function isShopFaceVerified(business: {
+  verification_status?: string | null;
+  kyc_verified_at?: string | null;
+  kyc_face_matched?: boolean | null;
+}): boolean {
+  return business.verification_status === "verified" && Boolean(business.kyc_verified_at);
+}
+
+/** NIN saved on the shop is enough to post. Live face is optional. */
 export function isShopIdentityVerified(business: {
   verification_status?: string | null;
   kyc_verified_at?: string | null;
   kyc_face_matched?: boolean | null;
   kyc_id_last4?: string | null;
+  kyc_full_name?: string | null;
 }): boolean {
-  // Real NIN/face completion writes kyc_verified_at. Bulk "verified" flags do not.
-  return business.verification_status === "verified" && Boolean(business.kyc_verified_at);
+  if (isShopFaceVerified(business)) return true;
+  const status = business.verification_status ?? "";
+  const ninOnFile = Boolean(business.kyc_id_last4) || Boolean(business.kyc_full_name);
+  return ninOnFile && (status === "in_progress" || status === "verified");
 }

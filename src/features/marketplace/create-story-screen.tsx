@@ -78,7 +78,7 @@ export function CreateStoryScreen() {
       return;
     }
     if (!isShopIdentityVerified(business)) {
-      toast.error("Verify your NIN and live face before you post.");
+      toast.error("Verify your NIN on this shop before you post.");
       return;
     }
     if (!file) {

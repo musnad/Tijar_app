@@ -10,7 +10,7 @@ import {
   digitsId,
   extractNinRecord,
   faceMatched,
-  isShopIdentityVerified,
+  isShopFaceVerified,
   maskNin,
   ninDetailsForStorage,
   normalizeCacNumber,
@@ -84,7 +84,7 @@ export const Route = createFileRoute("/api/kyc/verify")({
           return saveOptionalCac(ctx.admin, businessId, ctx.profile.id, body.cacNumber);
         }
 
-        if (isShopIdentityVerified(owned)) {
+        if (isShopFaceVerified(owned) && body.action !== "cac" && body.action !== "liveness-start" && body.action !== "nin-liveness") {
           return Response.json({
             ok: true,
             alreadyVerified: true,
@@ -117,7 +117,7 @@ export const Route = createFileRoute("/api/kyc/verify")({
           return Response.json({
             ok: true,
             step: "nin_found",
-            message: "NIN found. Save this record on your shop, then complete live face verification.",
+            message: "NIN found. Save this record on your shop to start posting. Live face is optional.",
             record,
             person: record,
           });
@@ -160,21 +160,21 @@ export const Route = createFileRoute("/api/kyc/verify")({
               kyc_face_matched: false,
               kyc_verified_at: null,
               kyc_reference: typeof last.provider_reference === "string" ? last.provider_reference : null,
-              moderation_notes: "NIN saved on shop. Waiting for live face check.",
+              moderation_notes: "NIN saved on shop. Live face is optional.",
               updated_at: new Date().toISOString(),
             })
             .eq("id", businessId);
           return Response.json({
             ok: true,
             step: "nin_saved",
-            message: "Saved on your business account. Continue to live face verification.",
+            message: "NIN saved. You can post from this shop. Live face is optional.",
             record: { ...record, id_number: idNumber.length === 11 ? idNumber : record.id_number },
             person: details,
           });
         }
 
         if (body.action === "liveness-start") {
-          if (owned.verification_status !== "in_progress" && owned.verification_status !== "verified") {
+          if (!owned.kyc_id_last4 && owned.verification_status !== "in_progress" && owned.verification_status !== "verified") {
             return Response.json({ error: "Save the NIN record on your shop first." }, { status: 400 });
           }
           const redirectUrl = String(body.redirectUrl ?? "").trim();

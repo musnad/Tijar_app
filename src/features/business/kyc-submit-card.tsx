@@ -7,7 +7,7 @@ import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { isShopIdentityVerified, type NinRecord } from "@/lib/kyc/bytid";
+import { isShopFaceVerified, isShopIdentityVerified, type NinRecord } from "@/lib/kyc/bytid";
 import { absoluteAuthUrl } from "@/lib/site-url";
 import { kycRequest, verifyShopCac } from "@/services/business-service";
 import type { Business } from "@/types/database";
@@ -57,7 +57,8 @@ function recordFromDetails(details: Record<string, unknown> | null | undefined, 
 
 export function KycSubmitCard({ business }: { business: Business }) {
   const queryClient = useQueryClient();
-  const already = isShopIdentityVerified(business);
+  const faceDone = isShopFaceVerified(business);
+  const ninDone = isShopIdentityVerified(business);
   const savedStep = String((business.kyc_details as Record<string, unknown> | null)?.step ?? "");
   const [idNumber, setIdNumber] = useState("");
   const [record, setRecord] = useState<NinRecord | null>(
@@ -207,13 +208,12 @@ export function KycSubmitCard({ business }: { business: Business }) {
     <section className="mt-5 rounded-2xl border border-border bg-card p-4">
       <h2 className="flex items-center gap-1.5 text-sm font-extrabold">
         <BadgeCheck className="size-4 text-[#1F7A4D]" />
-        Verify with NIN + live face
+        Verify with NIN
       </h2>
       <p className="mt-1 text-xs text-muted-foreground">
-        Enter your NIN to load the official registry record. Save it on this shop, then complete a live camera check.
-        You cannot post until this is done. CAC is optional.
+        Enter your NIN, save it on this shop, and you can post. Live face check is optional. CAC is optional.
       </p>
-      {already ? (
+      {faceDone ? (
         <div className="mt-3 space-y-2">
           <p className="rounded-xl bg-[#1F7A4D]/10 px-3 py-2 text-sm font-bold text-[#1F7A4D]">
             Verified with NIN + live face
@@ -249,6 +249,12 @@ export function KycSubmitCard({ business }: { business: Business }) {
             placeholder="11-digit NIN"
             autoComplete="off"
           />
+          {ninDone ? (
+            <p className="rounded-xl bg-[#1F7A4D]/10 px-3 py-2 text-xs font-bold text-[#1F7A4D]">
+              NIN saved. You can post from this shop now.
+              {business.kyc_full_name ? ` · ${business.kyc_full_name}` : ""}
+            </p>
+          ) : null}
           <Button
             type="button"
             className="min-h-11 w-full rounded-xl bg-[#0B1F4D] font-extrabold text-white hover:bg-[#0B1F4D]/90"
@@ -257,14 +263,22 @@ export function KycSubmitCard({ business }: { business: Business }) {
           >
             {saving && !record ? "Looking up NIN…" : "Fetch NIN record"}
           </Button>
+          {ninDone && !displayRecord ? (
+            <Button
+              type="button"
+              variant="outline"
+              className="min-h-11 w-full rounded-xl"
+              disabled={saving}
+              onClick={() => void startLive()}
+            >
+              <ScanFace className="size-4" />
+              {saving ? "Opening camera…" : "Optional live face verification"}
+            </Button>
+          ) : null}
           {displayRecord ? (
             <div className="space-y-3">
               <NinRecordCard record={displayRecord} />
-              {savedOnAccount ? (
-                <p className="rounded-xl bg-[#1F7A4D]/10 px-3 py-2 text-xs font-bold text-[#1F7A4D]">
-                  Saved on this business account. Continue to live face verification.
-                </p>
-              ) : (
+              {savedOnAccount || ninDone ? null : (
                 <Button
                   type="button"
                   className="min-h-11 w-full rounded-xl bg-[#0B1F4D] font-extrabold text-white hover:bg-[#0B1F4D]/90"
@@ -275,16 +289,17 @@ export function KycSubmitCard({ business }: { business: Business }) {
                 </Button>
               )}
               <p className="text-xs text-muted-foreground">
-                Next is NIN + face verification. This is a live liveness check — printed photos will not pass.
+                Optional: live face check. Printed photos will not pass.
               </p>
               <Button
                 type="button"
-                className="min-h-11 w-full rounded-xl bg-[#1F7A4D] font-extrabold text-white hover:bg-[#1F7A4D]/90"
-                disabled={saving || !savedOnAccount}
+                variant="outline"
+                className="min-h-11 w-full rounded-xl"
+                disabled={saving || !(savedOnAccount || ninDone)}
                 onClick={() => void startLive()}
               >
                 <ScanFace className="size-4" />
-                {saving ? "Opening camera…" : "Start live face verification"}
+                {saving ? "Opening camera…" : "Optional live face verification"}
               </Button>
             </div>
           ) : null}

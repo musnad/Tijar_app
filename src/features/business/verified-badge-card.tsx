@@ -74,7 +74,7 @@ export function VerifiedBadgeCard({ business }: { business: Business }) {
           </p>
           <ul className="mt-3 space-y-1.5">
             <CheckRow ok={Boolean(elig?.nin_verified)}>
-              NIN + live face verified
+              NIN verified
               {!elig?.nin_verified ? (
                 <>
                   {" · "}
@@ -112,7 +112,7 @@ export function VerifiedBadgeCard({ business }: { business: Business }) {
             {pending ? "Request pending" : ask.isPending ? "Sending…" : "Request verification icon"}
           </Button>
           {!elig?.nin_verified && eligQuery.isSuccess ? (
-            <p className="mt-2 text-[11px] font-semibold text-muted-foreground">Finish NIN + live face verification before you can apply.</p>
+            <p className="mt-2 text-[11px] font-semibold text-muted-foreground">Finish NIN verification before you can apply.</p>
           ) : null}
         </>
       )}
