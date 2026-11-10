@@ -218,7 +218,11 @@ export function KycSubmitCard({ business }: { business: Business }) {
           <p className="rounded-xl bg-[#1F7A4D]/10 px-3 py-2 text-sm font-bold text-[#1F7A4D]">
             Verified with NIN + live face
             {business.kyc_full_name ? ` · ${business.kyc_full_name}` : ""}
-            {business.kyc_id_last4 ? ` · NIN ****${business.kyc_id_last4}` : ""}
+            {business.kyc_masked_id
+              ? ` · NIN ${business.kyc_masked_id}`
+              : business.kyc_id_last4
+                ? ` · NIN ****${business.kyc_id_last4}`
+                : ""}
           </p>
           {record ? <NinRecordCard record={record} /> : null}
           {business.cac_legal_name || business.cac_number ? (
