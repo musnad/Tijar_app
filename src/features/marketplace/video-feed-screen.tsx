@@ -941,10 +941,10 @@ export function VideoFeedScreen({ initialVideoId }: { initialVideoId?: string })
           {feedQuery.isPending
             ? Array.from({ length: 3 }, (_, i) => <FeedSkeleton key={`sk-${i}`} />)
             : null}
-          {feedItems.map((item, index) => {
+          {feedItems.map((item, itemIndex) => {
             if (item.kind === "place") {
               const slideId = `place-order:${item.listing.id}`;
-              const next = feedItems[index + 1];
+              const next = feedItems[itemIndex + 1];
               const nextId =
                 next?.kind === "place"
                   ? `place-order:${next.listing.id}`
@@ -968,7 +968,7 @@ export function VideoFeedScreen({ initialVideoId }: { initialVideoId?: string })
             }
             if (item.kind === "listing") {
               const slideId = `listing:${item.product.id}`;
-              const next = feedItems[index + 1];
+              const next = feedItems[itemIndex + 1];
               const nextId =
                 next?.kind === "place"
                   ? `place-order:${next.listing.id}`
@@ -991,10 +991,10 @@ export function VideoFeedScreen({ initialVideoId }: { initialVideoId?: string })
               );
             }
             const video = item.video;
-            const index = videoIndexById.get(video.id) ?? 0;
+            const videoIndex = videoIndexById.get(video.id) ?? 0;
             const idx = activeIndex < 0 ? 0 : activeIndex;
             const isActive = activeId === video.id;
-            const isNext = index === idx + 1;
+            const isNext = videoIndex === idx + 1;
             const mountMedia = isActive || (!dataSaver && isNext);
             return (
               <VideoSlide

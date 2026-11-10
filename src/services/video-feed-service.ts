@@ -421,13 +421,13 @@ export async function rankAndLoadFeed(
       : null;
   const fetchLimit = Math.max(limit * 2, 16);
 
-  const [raw, signals] = await Promise.all([
+  const [raw, baseSignals] = await Promise.all([
     fetchPublicVideoFeed({ limit: fetchLimit, before, offset: before ? 0 : offset }),
     fetchFeedViewerSignals(profileId, geo),
   ]);
   if (raw.error) return { videos: [], nextCursor: null, error: raw.error };
-  signals = {
-    ...signals,
+  const signals = {
+    ...baseSignals,
     seenVideoIds: opts?.seenVideoIds ?? [],
     shuffleSalt: opts?.shuffleSalt,
   };

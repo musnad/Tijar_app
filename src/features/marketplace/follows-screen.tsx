@@ -162,6 +162,8 @@ export function FollowsScreen() {
           </ul>
         </>
       )}
+        </div>
+      </div>
     </MarketplaceShell>
   );
 }
@@ -223,8 +225,6 @@ export function FollowersScreen() {
           />
         ))}
       </ul>
-        </div>
-      </div>
     </MarketplaceShell>
   );
 }
