@@ -2,18 +2,29 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { Phone, Store } from "lucide-react";
-import { useMemo, useState } from "react";
+import {
+  AtSign,
+  Camera,
+  ImagePlus,
+  MapPin,
+  Phone,
+  Store,
+  Tag,
+} from "lucide-react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PasswordToggle } from "@/features/auth/auth-ui";
 import { MarketplaceShell } from "@/features/marketplace/marketplace-shell";
+import { NativePageHeader, nativeCanvasClass } from "@/features/marketplace/native-page-header";
 import { useAuth } from "@/features/auth/auth-context";
 import { tijarShopEmail, shopUsernameFromName } from "@/lib/agent-email";
 import { getMapsProvider } from "@/lib/maps/provider";
 import { compressImageFile } from "@/lib/media/compress-upload";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import { cn } from "@/lib/utils";
 import { listBusinessCategories } from "@/services/business-service";
 import { fetchMyPlatformRoles } from "@/services/discover-service";
 import { slugifyBusinessName } from "@/utils/discover";
@@ -25,6 +36,7 @@ type CreatedShop = {
   email: string;
   phone: string;
   location: string;
+  password: string;
 };
 
 async function authHeader() {
@@ -32,6 +44,54 @@ async function authHeader() {
     data: { session },
   } = await getSupabaseBrowserClient().auth.getSession();
   return session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {};
+}
+
+function FieldLabel({ children }: { children: string }) {
+  return <p className="mb-1.5 text-[12px] font-extrabold uppercase tracking-wide text-[#6B7280]">{children}</p>;
+}
+
+function FileWell({
+  label,
+  hint,
+  preview,
+  multiple,
+  onFiles,
+}: {
+  label: string;
+  hint: string;
+  preview?: string[];
+  multiple?: boolean;
+  onFiles: (files: File[]) => void;
+}) {
+  return (
+    <label className="block cursor-pointer">
+      <FieldLabel>{label}</FieldLabel>
+      <div className="flex min-h-[5.5rem] items-center gap-3 rounded-2xl border border-dashed border-[#1F7A4D]/35 bg-[#F4FBF7] px-3 py-3">
+        <span className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-white text-[#1F7A4D] shadow-sm">
+          {multiple ? <ImagePlus className="size-5" /> : <Camera className="size-5" />}
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-sm font-extrabold text-[#0B1F4D]">{hint}</span>
+          <span className="mt-0.5 block text-[11px] text-muted-foreground">JPG or PNG · tap to choose</span>
+        </span>
+        {preview && preview.length > 0 ? (
+          <span className="flex gap-1">
+            {preview.slice(0, 3).map((src) => (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img key={src} src={src} alt="" className="size-11 rounded-xl object-cover ring-2 ring-white" />
+            ))}
+          </span>
+        ) : null}
+      </div>
+      <input
+        className="sr-only"
+        type="file"
+        accept="image/*"
+        multiple={multiple}
+        onChange={(e) => onFiles(Array.from(e.target.files ?? []))}
+      />
+    </label>
+  );
 }
 
 export function AgentSetupScreen() {
@@ -60,6 +120,8 @@ export function AgentSetupScreen() {
   const [businessName, setBusinessName] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showCreatedPassword, setShowCreatedPassword] = useState(false);
   const [phone, setPhone] = useState("");
   const [location, setLocation] = useState("");
   const [categoryId, setCategoryId] = useState("");
@@ -73,8 +135,15 @@ export function AgentSetupScreen() {
   const email = tijarShopEmail(slug || shopUsernameFromName(businessName));
   const categories = categoriesQuery.data ?? [];
   const otherSelected = /other/i.test(categories.find((c) => c.id === categoryId)?.slug ?? categoryId);
+  const logoPreview = useMemo(() => (logo ? URL.createObjectURL(logo) : ""), [logo]);
+  const photoPreviews = useMemo(() => photos.map((file) => URL.createObjectURL(file)), [photos]);
 
-  const photoNames = useMemo(() => photos.map((f) => f.name).join(", "), [photos]);
+  useEffect(() => {
+    return () => {
+      if (logoPreview) URL.revokeObjectURL(logoPreview);
+      photoPreviews.forEach((src) => URL.revokeObjectURL(src));
+    };
+  }, [logoPreview, photoPreviews]);
 
   async function submit() {
     if (saving) return;
@@ -107,10 +176,12 @@ export function AgentSetupScreen() {
         toast.error(json.error ?? "Could not create this shop.");
         return;
       }
-      setCreated(json.shop);
+      setCreated({ ...json.shop, password });
+      setShowCreatedPassword(false);
       setBusinessName("");
       setUsername("");
       setPassword("");
+      setShowPassword(false);
       setPhone("");
       setLocation("");
       setCustomCategory("");
@@ -123,127 +194,241 @@ export function AgentSetupScreen() {
     }
   }
 
+  const shell = (children: ReactNode) => (
+    <MarketplaceShell hideTopBar variant="feed">
+      <div className={cn("flex min-h-0 flex-1 flex-col overflow-y-auto", nativeCanvasClass())}>{children}</div>
+    </MarketplaceShell>
+  );
+
   if (!profile) {
-    return (
-      <MarketplaceShell>
-        <p className="p-6 text-sm text-muted-foreground">Sign in as an agent first.</p>
-      </MarketplaceShell>
+    return shell(
+      <>
+        <NativePageHeader title="TIJAR agent" subtitle="Set up a business" showBack />
+        <p className="px-4 pt-6 text-sm text-muted-foreground">Sign in as an agent first.</p>
+      </>,
     );
   }
 
   if (rolesQuery.isLoading) {
-    return (
-      <MarketplaceShell>
-        <p className="p-6 text-sm text-muted-foreground">Checking agent access…</p>
-      </MarketplaceShell>
+    return shell(
+      <>
+        <NativePageHeader title="TIJAR agent" subtitle="Set up a business" showBack />
+        <p className="px-4 pt-6 text-sm text-muted-foreground">Checking agent access…</p>
+      </>,
     );
   }
 
   if (!isAgent) {
-    return (
-      <MarketplaceShell>
-        <div className="p-6">
-          <p className="font-extrabold">Agents only</p>
+    return shell(
+      <>
+        <NativePageHeader title="TIJAR agent" subtitle="Set up a business" showBack />
+        <div className="px-4 pt-6">
+          <p className="font-extrabold text-[#0B1F4D]">Agents only</p>
           <p className="mt-1 text-sm text-muted-foreground">Ask TIJAR admin to make this account an agent.</p>
         </div>
-      </MarketplaceShell>
+      </>,
     );
   }
 
-  return (
-    <MarketplaceShell>
-      <div className="space-y-4 pb-8">
-        <div>
-          <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">TIJAR agent</p>
-          <h1 className="text-xl font-extrabold">Set up a business</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Create a login, photos, phone and location so customers can search and call them.
+  return shell(
+    <>
+      <NativePageHeader title="Set up a business" subtitle="TIJAR agent" showBack />
+      <div className="space-y-4 px-4 pb-10">
+        <section className="overflow-hidden rounded-[28px] bg-[linear-gradient(145deg,#0B1F4D_0%,#14532d_58%,#1F7A4D_100%)] p-5 text-white shadow-[0_18px_40px_rgba(11,31,77,0.22)]">
+          <p className="text-[11px] font-extrabold uppercase tracking-[0.18em] text-white/70">TIJAR agent</p>
+          <h2 className="mt-1 text-[22px] font-extrabold leading-tight">Create a shop they can log in to</h2>
+          <p className="mt-2 text-[13px] leading-relaxed text-white/85">
+            Add a login, photos, phone and location so customers can search this business and call them for service.
           </p>
-        </div>
+        </section>
 
         {created ? (
-          <div className="rounded-2xl border border-primary/25 bg-primary/5 p-4 text-sm">
-            <p className="font-extrabold">{created.businessName} is ready</p>
-            <p className="mt-1">Email: {created.email}</p>
-            <p>Username: @{created.username}</p>
-            <p>Phone: {created.phone}</p>
-            <Link className="mt-2 inline-block font-bold text-primary" to="/b/$slug" params={{ slug: created.username }}>
+          <section className="rounded-[24px] border border-[#1F7A4D]/25 bg-white p-4 shadow-sm">
+            <p className="text-sm font-extrabold text-[#1F7A4D]">{created.businessName} is live</p>
+            <dl className="mt-3 space-y-2 text-sm">
+              <div className="flex justify-between gap-3">
+                <dt className="text-muted-foreground">Email</dt>
+                <dd className="font-bold">{created.email}</dd>
+              </div>
+              <div className="flex justify-between gap-3">
+                <dt className="text-muted-foreground">Username</dt>
+                <dd className="font-bold">@{created.username}</dd>
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <dt className="text-muted-foreground">Password</dt>
+                <dd className="flex items-center gap-1 font-bold">
+                  <span>{showCreatedPassword ? created.password : "••••••••"}</span>
+                  <PasswordToggle visible={showCreatedPassword} onToggle={() => setShowCreatedPassword((v) => !v)} />
+                </dd>
+              </div>
+            </dl>
+            <Link
+              className="mt-3 inline-flex min-h-11 items-center justify-center rounded-2xl bg-[#1F7A4D] px-4 text-sm font-extrabold text-white"
+              to="/b/$slug"
+              params={{ slug: created.username }}
+            >
               Open shop
             </Link>
-          </div>
+          </section>
         ) : null}
 
-        <div className="rounded-2xl border border-border bg-card p-4 space-y-3">
-          <Input className="h-11 rounded-xl" placeholder="Business name" value={businessName} onChange={(e) => setBusinessName(e.target.value)} />
-          <Input
-            className="h-11 rounded-xl"
-            placeholder={shopUsernameFromName(businessName) || "Username"}
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
+        <form
+          className="space-y-4 rounded-[24px] border border-border bg-white p-4 shadow-sm"
+          onSubmit={(e) => {
+            e.preventDefault();
+            void submit();
+          }}
+        >
+          <div>
+            <FieldLabel>Business name</FieldLabel>
+            <div className="relative">
+              <Store className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[#1F7A4D]" />
+              <Input
+                className="h-12 rounded-2xl border-[#E5E7EB] bg-[#F8FAFC] pl-10 font-semibold"
+                placeholder="e.g. Mama Chichi Foods"
+                value={businessName}
+                onChange={(e) => setBusinessName(e.target.value)}
+              />
+            </div>
+          </div>
+
+          <div>
+            <FieldLabel>Username</FieldLabel>
+            <div className="relative">
+              <AtSign className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[#1F7A4D]" />
+              <Input
+                className="h-12 rounded-2xl border-[#E5E7EB] bg-[#F8FAFC] pl-10 font-semibold"
+                placeholder={shopUsernameFromName(businessName) || "shop-name"}
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+              />
+            </div>
+            <p className="mt-1.5 text-[12px] font-medium text-[#1F7A4D]">Login email: {email}</p>
+          </div>
+
+          <div>
+            <FieldLabel>Password</FieldLabel>
+            <div className="relative">
+              <Input
+                className="h-12 rounded-2xl border-[#E5E7EB] bg-[#F8FAFC] pr-12 font-semibold"
+                type={showPassword ? "text" : "password"}
+                placeholder="Password they will use"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                autoComplete="new-password"
+              />
+              <div className="absolute right-1.5 top-1/2 -translate-y-1/2">
+                <PasswordToggle visible={showPassword} onToggle={() => setShowPassword((v) => !v)} />
+              </div>
+            </div>
+            <p className="mt-1 text-[11px] text-muted-foreground">At least 8 characters. Tap the eye to show or hide it.</p>
+          </div>
+
+          <div>
+            <FieldLabel>Phone number</FieldLabel>
+            <div className="relative">
+              <Phone className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[#1F7A4D]" />
+              <Input
+                className="h-12 rounded-2xl border-[#E5E7EB] bg-[#F8FAFC] pl-10 font-semibold"
+                placeholder="0803 000 0000"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                inputMode="tel"
+              />
+            </div>
+          </div>
+
+          <div>
+            <FieldLabel>Location</FieldLabel>
+            <div className="relative">
+              <MapPin className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[#1F7A4D]" />
+              <Input
+                className="h-12 rounded-2xl border-[#E5E7EB] bg-[#F8FAFC] pl-10 font-semibold"
+                placeholder="Wuse 2, Abuja"
+                value={location}
+                onChange={(e) => setLocation(e.target.value)}
+              />
+            </div>
+          </div>
+
+          <div>
+            <FieldLabel>Category</FieldLabel>
+            <div className="relative">
+              <Tag className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[#1F7A4D]" />
+              <select
+                className="h-12 w-full appearance-none rounded-2xl border border-[#E5E7EB] bg-[#F8FAFC] pl-10 pr-4 text-sm font-semibold"
+                value={categoryId}
+                onChange={(e) => setCategoryId(e.target.value)}
+              >
+                <option value="">Select category</option>
+                {categories.map((cat) => (
+                  <option key={cat.id} value={cat.id}>
+                    {cat.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            {otherSelected || !categoryId ? (
+              <Input
+                className="mt-2 h-12 rounded-2xl border-[#E5E7EB] bg-[#F8FAFC] font-semibold"
+                placeholder="If Other, write the category"
+                value={customCategory}
+                onChange={(e) => setCustomCategory(e.target.value)}
+              />
+            ) : null}
+          </div>
+
+          <FileWell
+            label="Logo"
+            hint={logo ? logo.name : "Add a shop logo"}
+            preview={logoPreview ? [logoPreview] : []}
+            onFiles={(files) => setLogo(files[0] ?? null)}
           />
-          <p className="text-xs text-muted-foreground">Login email: {email}</p>
-          <Input className="h-11 rounded-xl" type="password" placeholder="Password they will use" value={password} onChange={(e) => setPassword(e.target.value)} />
-          <Input className="h-11 rounded-xl" placeholder="Phone number" value={phone} onChange={(e) => setPhone(e.target.value)} inputMode="tel" />
-          <Input className="h-11 rounded-xl" placeholder="Location, e.g. Wuse 2, Abuja" value={location} onChange={(e) => setLocation(e.target.value)} />
-          <select
-            className="h-11 w-full rounded-xl border border-border bg-background px-3 text-sm font-semibold"
-            value={categoryId}
-            onChange={(e) => setCategoryId(e.target.value)}
+          <FileWell
+            label="Pictures"
+            hint={photos.length ? `${photos.length} of 5 selected` : "Up to 5 shop pictures"}
+            preview={photoPreviews}
+            multiple
+            onFiles={(files) => setPhotos(files.slice(0, 5))}
+          />
+
+          <Button
+            type="submit"
+            className="h-12 w-full rounded-2xl bg-[#1F7A4D] text-[15px] font-extrabold text-white hover:bg-[#19663F]"
+            disabled={saving}
           >
-            <option value="">Select category</option>
-            {categories.map((cat) => (
-              <option key={cat.id} value={cat.id}>
-                {cat.name}
-              </option>
-            ))}
-          </select>
-          {otherSelected || !categoryId ? (
-            <Input
-              className="h-11 rounded-xl"
-              placeholder="If Other, write the category"
-              value={customCategory}
-              onChange={(e) => setCustomCategory(e.target.value)}
-            />
-          ) : null}
-          <label className="block text-sm font-bold">
-            Logo
-            <input className="mt-1 block w-full text-sm" type="file" accept="image/*" onChange={(e) => setLogo(e.target.files?.[0] ?? null)} />
-          </label>
-          <label className="block text-sm font-bold">
-            Up to 5 pictures
-            <input
-              className="mt-1 block w-full text-sm"
-              type="file"
-              accept="image/*"
-              multiple
-              onChange={(e) => setPhotos(Array.from(e.target.files ?? []).slice(0, 5))}
-            />
-          </label>
-          {photoNames ? <p className="text-xs text-muted-foreground">{photos.length} selected · {photoNames}</p> : null}
-          <Button className="w-full rounded-xl font-extrabold" disabled={saving} onClick={() => void submit()}>
             {saving ? "Creating shop…" : "Create shop"}
           </Button>
-        </div>
+        </form>
 
-        <div className="rounded-2xl border border-border bg-card p-4">
-          <h2 className="font-extrabold">Shops you set up</h2>
+        <section className="rounded-[24px] border border-border bg-white p-4 shadow-sm">
+          <h2 className="text-[15px] font-extrabold text-[#0B1F4D]">Shops you set up</h2>
           {(shopsQuery.data ?? []).length === 0 ? (
-            <p className="mt-2 text-sm text-muted-foreground">None yet.</p>
+            <p className="mt-2 text-sm text-muted-foreground">None yet. The first shop you create will appear here.</p>
           ) : (
             <ul className="mt-3 space-y-2">
               {(shopsQuery.data ?? []).map((shop) => (
-                <li key={String(shop.id)} className="flex items-center justify-between gap-2 rounded-xl border border-border px-3 py-2">
-                  <span className="min-w-0">
-                    <span className="flex items-center gap-1 font-bold">
-                      <Store className="size-3.5" />
-                      {String(shop.business_name)}
-                    </span>
-                    <span className="block truncate text-xs text-muted-foreground">
-                      @{String(shop.public_slug ?? "")} · {String(shop.public_phone ?? "")}
+                <li key={String(shop.id)} className="flex items-center gap-3 rounded-2xl bg-[#F8FAFC] px-3 py-2.5">
+                  <span className="flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-[#0B1F4D] text-sm font-extrabold text-white">
+                    {shop.logo_url ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={String(shop.logo_url)} alt="" className="size-full object-cover" />
+                    ) : (
+                      String(shop.business_name ?? "S").slice(0, 1).toUpperCase()
+                    )}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate font-extrabold text-[#0B1F4D]">{String(shop.business_name)}</span>
+                    <span className="block truncate text-[11px] text-muted-foreground">
+                      @{String(shop.public_slug ?? "")} · {String(shop.public_location_label ?? "")}
                     </span>
                   </span>
                   {shop.public_phone ? (
-                    <a className="text-xs font-bold text-primary" href={`tel:${String(shop.public_phone).replace(/[^\d+]/g, "")}`}>
+                    <a
+                      className="flex size-10 items-center justify-center rounded-full bg-[#1F7A4D] text-white"
+                      href={`tel:${String(shop.public_phone).replace(/[^\d+]/g, "")}`}
+                      aria-label="Call shop"
+                    >
                       <Phone className="size-4" />
                     </a>
                   ) : null}
@@ -251,8 +436,8 @@ export function AgentSetupScreen() {
               ))}
             </ul>
           )}
-        </div>
+        </section>
       </div>
-    </MarketplaceShell>
+    </>,
   );
 }
