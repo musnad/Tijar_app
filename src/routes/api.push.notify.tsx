@@ -49,9 +49,13 @@ export const Route = createFileRoute("/api/push/notify")({
 
         const env = readSupabasePublicEnv();
         const service = readEnvString("SUPABASE_SERVICE_ROLE_KEY");
+        if (!env || !service) {
+          return Response.json({ error: "Push is not configured." }, { status: 503 });
+        }
         const publicKey = readEnvString("VAPID_PUBLIC_KEY");
         const privateKey = readEnvString("VAPID_PRIVATE_KEY");
-        if (!env || !service || !publicKey || !privateKey) {
+        const fcmKey = readEnvString("FCM_SERVER_KEY");
+        if (!fcmKey && (!publicKey || !privateKey)) {
           return Response.json({ error: "Push is not configured." }, { status: 503 });
         }
 
@@ -67,8 +71,18 @@ export const Route = createFileRoute("/api/push/notify")({
         const subscriptions = (subs ?? []) as SubscriptionRow[];
         if (subscriptions.length === 0) return Response.json({ ok: true, sent: 0 });
 
-        const webPush = (await import("web-push")).default;
-        webPush.setVapidDetails(readEnvString("PUSH_VAPID_SUBJECT") ?? "mailto:hello@tijar.ng", publicKey, privateKey);
+        const webSubs = subscriptions.filter((sub) => !sub.endpoint.startsWith("fcm:"));
+        const webPush =
+          webSubs.length > 0 && publicKey && privateKey
+            ? (await import("web-push")).default
+            : null;
+        if (webPush) {
+          webPush.setVapidDetails(
+            readEnvString("PUSH_VAPID_SUBJECT") ?? "mailto:hello@tijar.ng",
+            publicKey,
+            privateKey,
+          );
+        }
 
         const title = row.title ?? "Tijar";
         const bodyText = row.body ?? "";
@@ -81,7 +95,6 @@ export const Route = createFileRoute("/api/push/notify")({
           tag: row.id ? `tijar-${row.id}` : undefined,
           sound: sale ? "sale" : "default",
         });
-        const fcmKey = readEnvString("FCM_SERVER_KEY");
 
         const stale: string[] = [];
         let sent = 0;
@@ -114,6 +127,7 @@ export const Route = createFileRoute("/api/push/notify")({
                 else if (res.ok) sent += 1;
                 return;
               }
+              if (!webPush) return;
               await webPush.sendNotification(
                 { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
                 payload,
