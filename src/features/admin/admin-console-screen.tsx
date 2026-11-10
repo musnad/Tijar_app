@@ -54,6 +54,7 @@ import {
   addAdminTijarExpense,
   approveAllBusinesses,
   deleteAdminTijarExpense,
+  fetchAdminAgents,
   fetchAdminBusinesses,
   fetchAdminOrders,
   fetchAdminPayments,
@@ -67,6 +68,7 @@ import {
   reviewVerifiedBadgeRequest,
   setBusinessPublished,
   setBusinessVerification,
+  setAdminAgent,
   setBusinessVerifiedBadge,
   shopName,
   type AdminBusiness,
@@ -85,6 +87,7 @@ type Tab =
   | "applications"
   | "businesses"
   | "users"
+  | "agents"
   | "transactions"
   | "orders"
   | "ticks"
@@ -359,6 +362,15 @@ export function AdminConsoleScreen() {
     queryFn: fetchAdminTijarExpenses,
   });
 
+  const agentsQuery = useQuery({
+    queryKey: ["admin-agents"],
+    enabled: isAdmin,
+    queryFn: async () => {
+      const r = await fetchAdminAgents();
+      return r.agents;
+    },
+  });
+
   const businesses = businessesQuery.data ?? [];
   const users = usersQuery.data ?? [];
   const orders = ordersQuery.data ?? [];
@@ -367,6 +379,7 @@ export function AdminConsoleScreen() {
   const upgrades = upgradesQuery.data ?? [];
   const badgeRequests = badgeRequestsQuery.data ?? [];
   const fees = feesQuery.data ?? [];
+  const agentIds = useMemo(() => new Set((agentsQuery.data ?? []).map((row) => row.profileId)), [agentsQuery.data]);
   const expenses = expensesQuery.data?.expenses ?? [];
   const expensesError = expensesQuery.data?.error ?? (expensesQuery.error as Error | undefined)?.message ?? null;
   const collectedFees = useMemo(
@@ -505,6 +518,7 @@ export function AdminConsoleScreen() {
       queryClient.invalidateQueries({ queryKey: ["admin-payments"] }),
       queryClient.invalidateQueries({ queryKey: ["admin-platform-fees"] }),
       queryClient.invalidateQueries({ queryKey: ["admin-tijar-expenses"] }),
+      queryClient.invalidateQueries({ queryKey: ["admin-agents"] }),
       queryClient.invalidateQueries({ queryKey: ["moderation-listings"] }),
       queryClient.invalidateQueries({ queryKey: ["admin-botw"] }),
       queryClient.invalidateQueries({ queryKey: ["business-of-the-week"] }),
@@ -574,6 +588,16 @@ export function AdminConsoleScreen() {
     toast.success("Expense ledger Excel downloaded");
   }
 
+  async function toggleAgent(profileId: string, on: boolean) {
+    const { error } = await setAdminAgent(profileId, on);
+    if (error) {
+      toast.error(error.includes("agent") || error.includes("schema") ? "Run 000097 and 000098 in Supabase first." : error);
+      return;
+    }
+    toast.success(on ? "This account is now an agent." : "Agent access removed.");
+    await queryClient.invalidateQueries({ queryKey: ["admin-agents"] });
+  }
+
   async function approveEverything() {
     if (approvingAll) return;
     if (!window.confirm("Approve every pending application and live every shop that is not suspended?")) return;
@@ -610,6 +634,7 @@ export function AdminConsoleScreen() {
     { id: "ticks", label: "Blue ticks" },
     { id: "week", label: "This week" },
     { id: "users", label: "Users" },
+    { id: "agents", label: "Agents" },
     { id: "transactions", label: "Transactions" },
     { id: "orders", label: "Orders" },
   ];
@@ -1333,6 +1358,14 @@ export function AdminConsoleScreen() {
                   >
                     {biz.moderation_status === "approved" ? "Suspend" : "Approve listing"}
                   </Button>
+                  <Button
+                    size="sm"
+                    variant={agentIds.has(biz.owner_id) ? "outline" : "default"}
+                    className="h-8 rounded-lg text-xs font-bold"
+                    onClick={() => void toggleAgent(biz.owner_id, !agentIds.has(biz.owner_id))}
+                  >
+                    {agentIds.has(biz.owner_id) ? "Remove agent" : "Make agent"}
+                  </Button>
                 </div>
               </td>
             </tr>
@@ -1459,12 +1492,41 @@ export function AdminConsoleScreen() {
               </button>
             ))}
           </div>
-          <AdminTable empty="No users in this category." headers={["Name", "Phone numbers", "Category", "Spend", "Business making", "Email", "Joined"]}>
+          <AdminTable empty="No users in this category." headers={["Name", "Phone numbers", "Category", "Spend", "Business making", "Email", "Joined", "Agent"]}>
             {userRows.map((row) => (
-              <UserRow key={row.user.id} row={row} />
+              <UserRow
+                key={row.user.id}
+                row={row}
+                isAgent={agentIds.has(row.user.id)}
+                onToggle={() => void toggleAgent(row.user.id, !agentIds.has(row.user.id))}
+              />
             ))}
           </AdminTable>
         </>
+      )}
+
+      {tab === "agents" && (
+        <div className="mt-4 space-y-3">
+          <p className="text-sm text-muted-foreground">
+            Agents can open /shop/agent and create shops with a {`{name}@tijar.ng`} login, photos, phone and location.
+          </p>
+          <AdminTable empty="No agents yet. Make a user or business an agent from Users or Businesses." headers={["Name", "Email", "Phone", "Actions"]}>
+            {users
+              .filter((user) => agentIds.has(user.id))
+              .map((user) => (
+                <tr key={user.id} className="border-t border-border">
+                  <td className="px-3 py-2.5 font-semibold">{user.full_name || "—"}</td>
+                  <td className="px-3 py-2.5 text-muted-foreground">{user.email ?? "—"}</td>
+                  <td className="px-3 py-2.5">{user.phone ?? "—"}</td>
+                  <td className="px-3 py-2.5">
+                    <Button size="sm" variant="outline" className="h-8 rounded-lg text-xs font-bold" onClick={() => void toggleAgent(user.id, false)}>
+                      Remove agent
+                    </Button>
+                  </td>
+                </tr>
+              ))}
+          </AdminTable>
+        </div>
       )}
 
       {tab === "transactions" && (
@@ -1552,6 +1614,8 @@ function AdminTable({
 
 function UserRow({
   row,
+  isAgent,
+  onToggle,
 }: {
   row: {
     user: Profile;
@@ -1560,6 +1624,8 @@ function UserRow({
     making: number;
     phones: LabeledPhone[];
   };
+  isAgent: boolean;
+  onToggle: () => void;
 }) {
   const { user, kind, spend, making, phones } = row;
   return (
@@ -1580,6 +1646,11 @@ function UserRow({
       <td className="px-3 py-2.5 tabular-nums">{formatNgn(making)}</td>
       <td className="px-3 py-2.5 text-muted-foreground">{user.email ?? "—"}</td>
       <td className="px-3 py-2.5 text-muted-foreground">{formatWhen(user.created_at)}</td>
+      <td className="px-3 py-2.5">
+        <Button size="sm" variant={isAgent ? "outline" : "default"} className="h-8 rounded-lg text-xs font-bold" onClick={onToggle}>
+          {isAgent ? "Remove agent" : "Make agent"}
+        </Button>
+      </td>
     </tr>
   );
 }

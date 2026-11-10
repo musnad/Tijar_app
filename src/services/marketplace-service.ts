@@ -381,6 +381,7 @@ export async function searchLocalBusinesses(input: {
       shop.business_name,
       shop.description ?? "",
       shop.category_name ?? "",
+      shop.custom_category ?? "",
       shop.location_text ?? "",
       shop.public_location_label ?? "",
     ]

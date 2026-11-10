@@ -77,26 +77,12 @@ function productBadge(p: PublicProduct): string | null {
 }
 
 function StoreProductCard({ product: p, canPost }: { product: PublicProduct; canPost?: boolean }) {
-  const queryClient = useQueryClient();
   const badge = productBadge(p) || p.category_name;
-  function prefetch() {
-    void queryClient.prefetchQuery({
-      queryKey: ["marketplace-product", p.id],
-      queryFn: async () => {
-        const res = await fetchMarketplaceProduct(p.id);
-        if (res.error || !res.product) throw new Error(res.error ?? "Product not found");
-        return res.product;
-      },
-      staleTime: 30_000,
-    });
-  }
   return (
     <div>
       <Link
         to="/shop/p/$productId"
         params={{ productId: p.id }}
-        preload="intent"
-        onPointerDown={prefetch}
         className="block overflow-hidden rounded-2xl bg-white text-left shadow-[0_1px_0_rgba(11,31,77,0.04)]"
       >
         <div className="relative aspect-[4/3] overflow-hidden bg-[#F3F4F6]">
@@ -144,13 +130,10 @@ function ShopPostTile({ video, shopName }: { video: PublicFeedVideo; shopName: s
   const src = resolveVideoSrc(video);
   const image = isImagePost(video);
   const poster = cover || src;
-  const productId = video.product_ids?.[0];
   return (
     <Link
-      {...(productId
-        ? { to: "/shop/p/$productId" as const, params: { productId } }
-        : { to: "/shop" as const, search: { v: video.id } })}
-      preload="intent"
+      to="/shop"
+      search={{ v: video.id }}
       className="relative block aspect-[3/4] overflow-hidden bg-[#F3F4F6]"
       aria-label={`${image ? "Photo" : "Video"} from ${shopName}`}
     >
@@ -161,10 +144,13 @@ function ShopPostTile({ video, shopName }: { video: PublicFeedVideo; shopName: s
         <span className="flex size-full items-center justify-center text-[#9CA3AF]">{shopName.slice(0, 1)}</span>
       )}
       {!image ? (
-        <span className="absolute right-1.5 top-1.5 flex size-6 items-center justify-center rounded-full bg-black/45 text-white">
-          <Play className="size-3 fill-white" />
-        </span>
-      ) : null}
+  const productId = video.product_ids?.[0];
+  return (
+    <Link
+      {...(productId
+        ? { to: "/shop/p/$productId" as const, params: { productId } }
+        : { to: "/shop" as const, search: { v: video.id } })}
+      preload="intent"
     </Link>
   );
 }
@@ -429,12 +415,12 @@ export function StorefrontScreen({ slug }: { slug: string }) {
               type="button"
               onClick={() => void onShareShop()}
               className="flex size-10 shrink-0 items-center justify-center rounded-full text-[#0B1F4D] transition active:bg-[#F3F4F6]"
-              aria-label="Share profile"
-            >
-              <Share2 className="size-5" strokeWidth={1.9} />
-            </button>
-            <Link
-              to="/shop/notifications"
+        className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-y-contain bg-white [-webkit-overflow-scrolling:touch] in-[.native-shop]:bg-[var(--native-canvas,#F3F5F8)]"
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
+        onTouchEnd={onTouchEnd}
+      >
+        <header className="sticky top-0 z-20 border-b border-[#EEF1F5] bg-white/95 px-4 py-1.5 backdrop-blur-md in-[.native-shop]:border-0 in-[.native-shop]:bg-transparent">
               className="flex size-10 shrink-0 items-center justify-center rounded-full text-[#0B1F4D] transition active:bg-[#F3F4F6]"
               aria-label="Notifications"
             >
@@ -553,6 +539,14 @@ export function StorefrontScreen({ slug }: { slug: string }) {
                   </li>
                 ) : null}
               </ul>
+              {(business.gallery_urls ?? []).length > 0 ? (
+                <div className="mt-3 flex gap-2 overflow-x-auto">
+                  {business.gallery_urls!.map((src) => (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img key={src} src={src} alt="" className="h-24 w-24 shrink-0 rounded-xl object-cover" />
+                  ))}
+                </div>
+              ) : null}
             </section>
 
             <section className="flex items-center gap-2 px-4 pb-3">

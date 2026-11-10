@@ -82,6 +82,7 @@ import { Route as ShopPayoutsRouteImport } from './routes/shop/payouts'
 import { Route as ShopProfileRouteImport } from './routes/shop/profile'
 import { Route as ShopSellItemRouteImport } from './routes/shop/sell-item'
 import { Route as ShopServicesRouteImport } from './routes/shop/services'
+import { Route as ShopAgentRouteImport } from './routes/shop/agent'
 import { Route as ShopSettingsRouteImport } from './routes/shop/settings'
 import { Route as ShopStudioRouteImport } from './routes/shop/studio'
 import { Route as ApiAiCaptionRouteImport } from './routes/api.ai.caption'
@@ -93,6 +94,8 @@ import { Route as ApiAiTranscribeRouteImport } from './routes/api.ai.transcribe'
 import { Route as ApiAssistantChatRouteImport } from './routes/api.assistant.chat'
 import { Route as ApiAdminVerifiedBadgeRouteImport } from './routes/api.admin.verified-badge'
 import { Route as ApiAdminExpensesRouteImport } from './routes/api.admin.expenses'
+import { Route as ApiAdminAgentsRouteImport } from './routes/api.admin.agents'
+import { Route as ApiAgentShopsRouteImport } from './routes/api.agent.shops'
 import { Route as ApiKycVerifyRouteImport } from './routes/api.kyc.verify'
 import { Route as ApiPaymentsConfirmOrderRouteImport } from './routes/api.payments.confirm-order'
 import { Route as ApiPaymentsFlutterwaveRouteImport } from './routes/api.payments.flutterwave'
@@ -505,6 +508,11 @@ const ShopServicesRoute = ShopServicesRouteImport.update({
   path: '/services',
   getParentRoute: () => ShopRoute,
 } as any)
+const ShopAgentRoute = ShopAgentRouteImport.update({
+  id: '/agent',
+  path: '/agent',
+  getParentRoute: () => ShopRoute,
+} as any)
 const ShopSettingsRoute = ShopSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
@@ -558,6 +566,16 @@ const ApiAdminVerifiedBadgeRoute = ApiAdminVerifiedBadgeRouteImport.update({
 const ApiAdminExpensesRoute = ApiAdminExpensesRouteImport.update({
   id: '/api/admin/expenses',
   path: '/api/admin/expenses',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAdminAgentsRoute = ApiAdminAgentsRouteImport.update({
+  id: '/api/admin/agents',
+  path: '/api/admin/agents',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAgentShopsRoute = ApiAgentShopsRouteImport.update({
+  id: '/api/agent/shops',
+  path: '/api/agent/shops',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiKycVerifyRoute = ApiKycVerifyRouteImport.update({
@@ -865,6 +883,7 @@ export interface FileRoutesByFullPath {
   '/shop/profile': typeof ShopProfileRoute
   '/shop/sell-item': typeof ShopSellItemRoute
   '/shop/services': typeof ShopServicesRoute
+  '/shop/agent': typeof ShopAgentRoute
   '/shop/settings': typeof ShopSettingsRoute
   '/shop/studio': typeof ShopStudioRoute
   '/app/': typeof AppIndexRoute
@@ -878,6 +897,8 @@ export interface FileRoutesByFullPath {
   '/api/assistant/chat': typeof ApiAssistantChatRoute
   '/api/admin/verified-badge': typeof ApiAdminVerifiedBadgeRoute
   '/api/admin/expenses': typeof ApiAdminExpensesRoute
+  '/api/admin/agents': typeof ApiAdminAgentsRoute
+  '/api/agent/shops': typeof ApiAgentShopsRoute
   '/api/kyc/verify': typeof ApiKycVerifyRoute
   '/api/payments/confirm-order': typeof ApiPaymentsConfirmOrderRoute
   '/api/payments/flutterwave': typeof ApiPaymentsFlutterwaveRoute
@@ -990,6 +1011,7 @@ export interface FileRoutesByTo {
   '/shop/profile': typeof ShopProfileRoute
   '/shop/sell-item': typeof ShopSellItemRoute
   '/shop/services': typeof ShopServicesRoute
+  '/shop/agent': typeof ShopAgentRoute
   '/shop/settings': typeof ShopSettingsRoute
   '/shop/studio': typeof ShopStudioRoute
   '/app': typeof AppIndexRoute
@@ -1003,6 +1025,8 @@ export interface FileRoutesByTo {
   '/api/assistant/chat': typeof ApiAssistantChatRoute
   '/api/admin/verified-badge': typeof ApiAdminVerifiedBadgeRoute
   '/api/admin/expenses': typeof ApiAdminExpensesRoute
+  '/api/admin/agents': typeof ApiAdminAgentsRoute
+  '/api/agent/shops': typeof ApiAgentShopsRoute
   '/api/kyc/verify': typeof ApiKycVerifyRoute
   '/api/payments/confirm-order': typeof ApiPaymentsConfirmOrderRoute
   '/api/payments/flutterwave': typeof ApiPaymentsFlutterwaveRoute
@@ -1123,6 +1147,7 @@ export interface FileRoutesById {
   '/shop/profile': typeof ShopProfileRoute
   '/shop/sell-item': typeof ShopSellItemRoute
   '/shop/services': typeof ShopServicesRoute
+  '/shop/agent': typeof ShopAgentRoute
   '/shop/settings': typeof ShopSettingsRoute
   '/shop/studio': typeof ShopStudioRoute
   '/app/': typeof AppIndexRoute
@@ -1136,6 +1161,8 @@ export interface FileRoutesById {
   '/api/assistant/chat': typeof ApiAssistantChatRoute
   '/api/admin/verified-badge': typeof ApiAdminVerifiedBadgeRoute
   '/api/admin/expenses': typeof ApiAdminExpensesRoute
+  '/api/admin/agents': typeof ApiAdminAgentsRoute
+  '/api/agent/shops': typeof ApiAgentShopsRoute
   '/api/kyc/verify': typeof ApiKycVerifyRoute
   '/api/payments/confirm-order': typeof ApiPaymentsConfirmOrderRoute
   '/api/payments/flutterwave': typeof ApiPaymentsFlutterwaveRoute
@@ -1257,6 +1284,7 @@ export interface FileRouteTypes {
     | '/shop/profile'
     | '/shop/sell-item'
     | '/shop/services'
+    | '/shop/agent'
     | '/shop/settings'
     | '/shop/studio'
     | '/app/'
@@ -1270,6 +1298,8 @@ export interface FileRouteTypes {
     | '/api/assistant/chat'
     | '/api/admin/verified-badge'
     | '/api/admin/expenses'
+    | '/api/admin/agents'
+    | '/api/agent/shops'
     | '/api/kyc/verify'
     | '/api/payments/confirm-order'
     | '/api/payments/flutterwave'
@@ -1382,6 +1412,7 @@ export interface FileRouteTypes {
     | '/shop/profile'
     | '/shop/sell-item'
     | '/shop/services'
+    | '/shop/agent'
     | '/shop/settings'
     | '/shop/studio'
     | '/app'
@@ -1395,6 +1426,8 @@ export interface FileRouteTypes {
     | '/api/assistant/chat'
     | '/api/admin/verified-badge'
     | '/api/admin/expenses'
+    | '/api/admin/agents'
+    | '/api/agent/shops'
     | '/api/kyc/verify'
     | '/api/payments/confirm-order'
     | '/api/payments/flutterwave'
@@ -1514,6 +1547,7 @@ export interface FileRouteTypes {
     | '/shop/profile'
     | '/shop/sell-item'
     | '/shop/services'
+    | '/shop/agent'
     | '/shop/settings'
     | '/shop/studio'
     | '/app/'
@@ -1527,6 +1561,8 @@ export interface FileRouteTypes {
     | '/api/assistant/chat'
     | '/api/admin/verified-badge'
     | '/api/admin/expenses'
+    | '/api/admin/agents'
+    | '/api/agent/shops'
     | '/api/kyc/verify'
     | '/api/payments/confirm-order'
     | '/api/payments/flutterwave'
@@ -1611,6 +1647,8 @@ export interface RootRouteChildren {
   ApiAssistantChatRoute: typeof ApiAssistantChatRoute
   ApiAdminVerifiedBadgeRoute: typeof ApiAdminVerifiedBadgeRoute
   ApiAdminExpensesRoute: typeof ApiAdminExpensesRoute
+  ApiAdminAgentsRoute: typeof ApiAdminAgentsRoute
+  ApiAgentShopsRoute: typeof ApiAgentShopsRoute
   ApiKycVerifyRoute: typeof ApiKycVerifyRoute
   ApiPaymentsConfirmOrderRoute: typeof ApiPaymentsConfirmOrderRoute
   ApiPaymentsFlutterwaveRoute: typeof ApiPaymentsFlutterwaveRoute
@@ -2140,6 +2178,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ShopServicesRouteImport
       parentRoute: typeof ShopRoute
     }
+    '/shop/agent': {
+      id: '/shop/agent'
+      path: '/agent'
+      fullPath: '/shop/agent'
+      preLoaderRoute: typeof ShopAgentRouteImport
+      parentRoute: typeof ShopRoute
+    }
     '/shop/settings': {
       id: '/shop/settings'
       path: '/settings'
@@ -2215,6 +2260,20 @@ declare module '@tanstack/react-router' {
       path: '/api/admin/expenses'
       fullPath: '/api/admin/expenses'
       preLoaderRoute: typeof ApiAdminExpensesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/admin/agents': {
+      id: '/api/admin/agents'
+      path: '/api/admin/agents'
+      fullPath: '/api/admin/agents'
+      preLoaderRoute: typeof ApiAdminAgentsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/agent/shops': {
+      id: '/api/agent/shops'
+      path: '/api/agent/shops'
+      fullPath: '/api/agent/shops'
+      preLoaderRoute: typeof ApiAgentShopsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/kyc/verify': {
@@ -2775,6 +2834,7 @@ interface ShopRouteChildren {
   ShopProfileRoute: typeof ShopProfileRoute
   ShopSellItemRoute: typeof ShopSellItemRoute
   ShopServicesRoute: typeof ShopServicesRoute
+  ShopAgentRoute: typeof ShopAgentRoute
   ShopSettingsRoute: typeof ShopSettingsRoute
   ShopStudioRoute: typeof ShopStudioRoute
   ShopIndexRoute: typeof ShopIndexRoute
@@ -2808,6 +2868,7 @@ const ShopRouteChildren: ShopRouteChildren = {
   ShopProfileRoute: ShopProfileRoute,
   ShopSellItemRoute: ShopSellItemRoute,
   ShopServicesRoute: ShopServicesRoute,
+  ShopAgentRoute: ShopAgentRoute,
   ShopSettingsRoute: ShopSettingsRoute,
   ShopStudioRoute: ShopStudioRoute,
   ShopIndexRoute: ShopIndexRoute,
@@ -2867,6 +2928,8 @@ const rootRouteChildren: RootRouteChildren = {
   ApiAssistantChatRoute: ApiAssistantChatRoute,
   ApiAdminVerifiedBadgeRoute: ApiAdminVerifiedBadgeRoute,
   ApiAdminExpensesRoute: ApiAdminExpensesRoute,
+  ApiAdminAgentsRoute: ApiAdminAgentsRoute,
+  ApiAgentShopsRoute: ApiAgentShopsRoute,
   ApiKycVerifyRoute: ApiKycVerifyRoute,
   ApiPaymentsConfirmOrderRoute: ApiPaymentsConfirmOrderRoute,
   ApiPaymentsFlutterwaveRoute: ApiPaymentsFlutterwaveRoute,

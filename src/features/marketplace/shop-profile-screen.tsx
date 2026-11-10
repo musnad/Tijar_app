@@ -253,6 +253,7 @@ export function ShopProfileScreen() {
         ]
       : []),
     { to: "/shop/order-now", label: "Place your order", icon: UtensilsCrossed },
+    ...(!demo ? [{ to: "/shop/agent", label: "Set up a business (agent)", icon: Store }] : []),
     { to: "/app/learn", label: t("shop.profile.learn"), icon: BookOpen },
     { to: "/translate", label: t("shop.profile.translate"), icon: Languages },
     { to: "/shop/orders", label: t("shop.profile.orders"), icon: Package },

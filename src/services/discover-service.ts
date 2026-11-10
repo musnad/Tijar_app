@@ -186,6 +186,22 @@ export async function fetchStorefront(slug: string): Promise<{
   if (!found.business) return { business: null, products: [], videos: [], error: null };
 
   let business = found.business;
+  const extra = await supabase
+    .from("businesses")
+    .select("gallery_urls, custom_category, public_phone, public_whatsapp, logo_url")
+    .eq("id", business.id)
+    .maybeSingle();
+  if (extra.data) {
+    business = {
+      ...business,
+      gallery_urls: Array.isArray(extra.data.gallery_urls) ? extra.data.gallery_urls : [],
+      custom_category: (extra.data.custom_category as string | null) ?? null,
+      public_phone: (extra.data.public_phone as string | null) ?? business.public_phone,
+      public_whatsapp: (extra.data.public_whatsapp as string | null) ?? business.public_whatsapp,
+      logo_url: (extra.data.logo_url as string | null) ?? business.logo_url,
+      category_name: (extra.data.custom_category as string | null) || business.category_name,
+    };
+  }
   const shops = await lookupShopProfiles([business.id]);
   const shop = shops.get(business.id);
   if (shop) {

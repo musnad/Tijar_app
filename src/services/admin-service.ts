@@ -293,6 +293,43 @@ export async function deleteAdminTijarExpense(id: string): Promise<{ error: stri
   return { error: error?.message ?? null };
 }
 
+export async function fetchAdminAgents(): Promise<{ agents: Array<{ profileId: string }>; error: string | null }> {
+  const supabase = getSupabaseBrowserClient();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  if (!session?.access_token) return { agents: [], error: "Sign in first." };
+  try {
+    const res = await fetch("/api/admin/agents", {
+      headers: { Authorization: `Bearer ${session.access_token}` },
+      cache: "no-store",
+    });
+    const json = (await res.json().catch(() => ({}))) as { agents?: Array<{ profileId: string }>; error?: string };
+    if (!res.ok) return { agents: [], error: json.error ?? "Could not load agents." };
+    return { agents: json.agents ?? [], error: null };
+  } catch {
+    return { agents: [], error: "Could not load agents." };
+  }
+}
+
+export async function setAdminAgent(profileId: string, on: boolean): Promise<{ error: string | null }> {
+  const supabase = getSupabaseBrowserClient();
+  const rpc = await supabase.rpc("set_tijar_agent", { p_profile_id: profileId, p_on: on });
+  if (!rpc.error) return { error: null };
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  if (!session?.access_token) return { error: rpc.error.message };
+  const res = await fetch("/api/admin/agents", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${session.access_token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ profileId, on }),
+  });
+  const json = (await res.json().catch(() => ({}))) as { error?: string };
+  if (res.ok) return { error: null };
+  return { error: json.error ?? rpc.error.message };
+}
+
 export async function fetchAdminPayments(): Promise<{
   payments: AdminPayment[];
   error: string | null;
