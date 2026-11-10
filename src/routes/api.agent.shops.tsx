@@ -6,14 +6,16 @@ import { coordinatesForState, parseNigerianLocation } from "@/lib/nigeria-locati
 import { signedPlatformActor } from "@/lib/platform-access";
 import { isValidSlug, slugifyBusinessName } from "@/utils/discover";
 
-function uniqueLocal(base: string, taken: Set<string>): string {
-  let local = base;
-  let n = 2;
-  while (taken.has(local)) {
-    local = `${base.slice(0, 32)}${n}`;
-    n += 1;
-  }
-  return local;
+async function loginTaken(admin: SupabaseClient, slug: string): Promise<string | null> {
+  const email = tijarShopEmail(slug);
+  const [slugHit, emailHit, authHit] = await Promise.all([
+    admin.from("businesses").select("id").eq("public_slug", slug).maybeSingle(),
+    admin.from("profiles").select("id").ilike("email", email).maybeSingle(),
+    admin.auth.admin.getUserByEmail(email).catch(() => ({ data: { user: null } })),
+  ]);
+  if (slugHit.data?.id) return "That username is already taken.";
+  if (emailHit.data?.id || authHit.data?.user) return `${email} is already taken.`;
+  return null;
 }
 
 async function uploadPublic(admin: SupabaseClient, bucket: string, path: string, file: File): Promise<string | null> {
@@ -33,6 +35,26 @@ export const Route = createFileRoute("/api/agent/shops")({
       GET: async ({ request }) => {
         const ctx = await signedPlatformActor(request, ["admin", "agent"]);
         if ("error" in ctx) return ctx.error;
+        const checkName = new URL(request.url).searchParams.get("username")?.trim() ?? "";
+        if (checkName) {
+          const slug = slugifyBusinessName(checkName);
+          const email = tijarShopEmail(slug);
+          if (!isValidSlug(slug)) {
+            return Response.json({
+              available: false,
+              username: slug,
+              email,
+              error: "Use letters or numbers, at least 2 characters.",
+            });
+          }
+          const taken = await loginTaken(ctx.admin, slug);
+          return Response.json({
+            available: !taken,
+            username: slug,
+            email,
+            error: taken,
+          });
+        }
         const query = ctx.admin
           .from("businesses")
           .select("id, business_name, public_slug, public_phone, public_location_label, logo_url, created_at, custom_category")
@@ -68,21 +90,13 @@ export const Route = createFileRoute("/api/agent/shops")({
         if (phone.replace(/\D/g, "").length < 7) return Response.json({ error: "Enter a phone number customers can call." }, { status: 400 });
         if (!location) return Response.json({ error: "Enter the business location." }, { status: 400 });
 
-        let slug = slugifyBusinessName(usernameRaw || businessName);
-        if (!isValidSlug(slug)) return Response.json({ error: "Username must use letters or numbers." }, { status: 400 });
-
-        const { data: slugRows } = await ctx.admin.from("businesses").select("public_slug").not("public_slug", "is", null);
-        const takenSlugs = new Set((slugRows ?? []).map((row) => String(row.public_slug)));
-        if (takenSlugs.has(slug)) slug = uniqueLocal(slug, takenSlugs);
-        const email = tijarShopEmail(slug);
-
-        const { data: usersPage } = await ctx.admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
-        const emails = new Set((usersPage?.users ?? []).map((u) => (u.email ?? "").toLowerCase()));
-        let loginEmail = email;
-        if (emails.has(loginEmail.toLowerCase())) {
-          const local = uniqueLocal(slug, new Set([...emails].map((e) => e.split("@")[0] ?? "")));
-          loginEmail = tijarShopEmail(local);
+        const slug = slugifyBusinessName(usernameRaw);
+        if (!isValidSlug(slug)) {
+          return Response.json({ error: "Type a username so we can make their login email." }, { status: 400 });
         }
+        const taken = await loginTaken(ctx.admin, slug);
+        if (taken) return Response.json({ error: taken }, { status: 409 });
+        const loginEmail = tijarShopEmail(slug);
 
         const created = await ctx.admin.auth.admin.createUser({
           email: loginEmail,

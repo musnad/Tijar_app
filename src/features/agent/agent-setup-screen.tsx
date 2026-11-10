@@ -20,7 +20,7 @@ import { PasswordToggle } from "@/features/auth/auth-ui";
 import { MarketplaceShell } from "@/features/marketplace/marketplace-shell";
 import { NativePageHeader, nativeCanvasClass } from "@/features/marketplace/native-page-header";
 import { useAuth } from "@/features/auth/auth-context";
-import { tijarShopEmail, shopUsernameFromName } from "@/lib/agent-email";
+import { tijarShopEmail } from "@/lib/agent-email";
 import { getMapsProvider } from "@/lib/maps/provider";
 import { compressImageFile } from "@/lib/media/compress-upload";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
@@ -130,9 +130,11 @@ export function AgentSetupScreen() {
   const [photos, setPhotos] = useState<File[]>([]);
   const [saving, setSaving] = useState(false);
   const [created, setCreated] = useState<CreatedShop | null>(null);
+  const [usernameStatus, setUsernameStatus] = useState<"idle" | "checking" | "available" | "taken" | "invalid">("idle");
+  const [usernameMessage, setUsernameMessage] = useState("");
 
-  const slug = slugifyBusinessName(username || businessName);
-  const email = tijarShopEmail(slug || shopUsernameFromName(businessName));
+  const slug = slugifyBusinessName(username);
+  const email = slug ? tijarShopEmail(slug) : "";
   const categories = categoriesQuery.data ?? [];
   const otherSelected = /other/i.test(categories.find((c) => c.id === categoryId)?.slug ?? categoryId);
   const logoPreview = useMemo(() => (logo ? URL.createObjectURL(logo) : ""), [logo]);
@@ -145,8 +147,48 @@ export function AgentSetupScreen() {
     };
   }, [logoPreview, photoPreviews]);
 
+  useEffect(() => {
+    if (!slug) {
+      setUsernameStatus("idle");
+      setUsernameMessage("");
+      return;
+    }
+    setUsernameStatus("checking");
+    setUsernameMessage("Checking if this login is free…");
+    const timer = window.setTimeout(() => {
+      void (async () => {
+        const res = await fetch(`/api/agent/shops?username=${encodeURIComponent(username.trim())}`, {
+          headers: await authHeader(),
+          cache: "no-store",
+        });
+        const json = (await res.json().catch(() => ({}))) as { available?: boolean; error?: string };
+        if (!res.ok && json.error && !("available" in json)) {
+          setUsernameStatus("idle");
+          setUsernameMessage("");
+          return;
+        }
+        if (json.available) {
+          setUsernameStatus("available");
+          setUsernameMessage("Available");
+          return;
+        }
+        setUsernameStatus(json.error?.includes("2 characters") ? "invalid" : "taken");
+        setUsernameMessage(json.error ?? "Already taken");
+      })();
+    }, 350);
+    return () => window.clearTimeout(timer);
+  }, [slug, username]);
+
   async function submit() {
     if (saving) return;
+    if (!slug) {
+      toast.error("Type a username for their login.");
+      return;
+    }
+    if (usernameStatus === "taken" || usernameStatus === "invalid") {
+      toast.error(usernameMessage || "That username is already taken.");
+      return;
+    }
     setSaving(true);
     try {
       const form = new FormData();
@@ -298,12 +340,32 @@ export function AgentSetupScreen() {
               <AtSign className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[#1F7A4D]" />
               <Input
                 className="h-12 rounded-2xl border-[#E5E7EB] bg-[#F8FAFC] pl-10 font-semibold"
-                placeholder={shopUsernameFromName(businessName) || "shop-name"}
+                placeholder="Nailah"
                 value={username}
-                onChange={(e) => setUsername(e.target.value)}
+                onChange={(e) => setUsername(e.target.value.replace(/^@/, ""))}
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
               />
             </div>
-            <p className="mt-1.5 text-[12px] font-medium text-[#1F7A4D]">Login email: {email}</p>
+            <p className="mt-1.5 text-[13px] font-semibold text-[#0B1F4D]">
+              Login email: {email || "username@tijar.ng"}
+            </p>
+            {usernameStatus !== "idle" ? (
+              <p
+                className={cn(
+                  "mt-1 text-[12px] font-bold",
+                  usernameStatus === "available" && "text-[#1F7A4D]",
+                  usernameStatus === "taken" && "text-destructive",
+                  usernameStatus === "invalid" && "text-amber-700",
+                  usernameStatus === "checking" && "text-muted-foreground",
+                )}
+              >
+                {usernameMessage}
+              </p>
+            ) : (
+              <p className="mt-1 text-[12px] text-muted-foreground">We check if this @username and email are free.</p>
+            )}
           </div>
 
           <div>
@@ -395,7 +457,7 @@ export function AgentSetupScreen() {
           <Button
             type="submit"
             className="h-12 w-full rounded-2xl bg-[#1F7A4D] text-[15px] font-extrabold text-white hover:bg-[#19663F]"
-            disabled={saving}
+            disabled={saving || usernameStatus === "taken" || usernameStatus === "invalid" || usernameStatus === "checking"}
           >
             {saving ? "Creating shop…" : "Create shop"}
           </Button>
