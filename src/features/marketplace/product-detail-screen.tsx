@@ -6,6 +6,7 @@ import { BadgeCheck, Bookmark, ChevronRight, Heart, ShoppingBag, Star, Store, Za
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
+import { FeedImage } from "@/components/media/feed-image";
 import { TijarLogo } from "@/components/brand-logo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -317,10 +318,11 @@ export function ProductDetailScreen({ productId }: { productId: string }) {
                   {(gallery.length ? gallery : [null]).map((src, i) => (
                     <div key={src ?? "empty"} className="h-[min(38vh,16.5rem)] w-full shrink-0 snap-center bg-muted">
                       {src ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
+                        <FeedImage
                           src={src}
                           alt={`${product.name}, photo ${i + 1} of ${gallery.length}`}
+                          eager={i === 0}
+                          width={720}
                           className="size-full object-contain p-2"
                         />
                       ) : (
@@ -372,8 +374,7 @@ export function ProductDetailScreen({ productId }: { productId: string }) {
                           i === imageIndex ? "border-primary" : "border-transparent",
                         )}
                       >
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={src} alt="" className="size-full object-cover" />
+                        <FeedImage src={src} alt="" width={112} />
                       </button>
                     </li>
                   ))}

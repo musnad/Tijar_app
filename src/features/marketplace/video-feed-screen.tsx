@@ -79,6 +79,7 @@ import { parseVariantList } from "@/lib/catalogue/variants";
 import { TijarLogo } from "@/components/brand-logo";
 import { isTijarNativeApp } from "@/lib/tijar-native-app";
 import { FeedImage } from "@/components/media/feed-image";
+import { optimizedImageUrl, prefetchOptimizedImages } from "@/lib/media/optimize";
 import { MediaCarousel } from "@/components/media/media-carousel";
 import { FeedSkeleton } from "@/features/marketplace/feed-skeleton";
 import { AppLanguageButton } from "@/features/app-layout/app-language-button";
@@ -878,6 +879,25 @@ export function VideoFeedScreen({ initialVideoId }: { initialVideoId?: string })
     );
   }, [showPlaceOrders, showPosts, showListings, feedSalt, seenIds]);
   itemKeysRef.current = feedItems.map((item) => item.key);
+
+  useEffect(() => {
+    const urls: string[] = [];
+    for (const item of feedItems.slice(0, 5)) {
+      if (item.kind === "video") {
+        const cover = resolveCoverSrc(item.video.cover_path);
+        if (cover) urls.push(cover);
+        const first = resolvePostGallery(item.video, productsByVideo.get(item.video.id) ?? [])[0];
+        if (first) urls.push(first);
+        if (item.video.business_logo_url) urls.push(item.video.business_logo_url);
+      } else if (item.kind === "listing" && item.product.image_url) {
+        urls.push(item.product.image_url);
+      } else if (item.kind === "place") {
+        const photo = item.listing.image_urls?.[0];
+        if (photo) urls.push(photo);
+      }
+    }
+    prefetchOptimizedImages(urls, 540);
+  }, [feedItems, productsByVideo]);
 
   const videoIndexById = useMemo(() => {
     const m = new Map<string, number>();
@@ -1739,7 +1759,7 @@ const VideoSlide = memo(function VideoSlide({
             ref={ref}
             className="h-full w-full object-cover"
             src={active || preload ? src : undefined}
-            poster={poster}
+            poster={poster ? optimizedImageUrl(poster, 540) : undefined}
             autoPlay={active && !paused}
             muted={muted}
             playsInline
@@ -1905,8 +1925,7 @@ function FeedShopAvatar({
   src?: string | null;
   slug: string;
 }) {
-  const [broken, setBroken] = useState(false);
-  const photo = Boolean(src) && !broken;
+  const photo = Boolean(src);
   const initial = (name.trim().slice(0, 1) || "S").toUpperCase();
   return (
     <Link
@@ -1917,8 +1936,7 @@ function FeedShopAvatar({
     >
       <span className="flex size-11 items-center justify-center overflow-hidden rounded-full bg-[#0B1F4D] text-sm font-extrabold text-white ring-2 ring-white">
         {photo ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={src!} alt="" className="size-full object-cover" onError={() => setBroken(true)} />
+          <FeedImage src={src!} alt="" eager width={88} className="size-full object-cover" />
         ) : (
           initial
         )}

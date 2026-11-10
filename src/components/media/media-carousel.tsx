@@ -55,8 +55,10 @@ export function MediaCarousel({
         aria-label={total > 1 ? `Photos, ${index + 1} of ${total}. Swipe for more.` : "Photo"}
       >
         {urls.map((src, i) => (
-          <div key={`${src}-${i}`} className="h-full w-full shrink-0 snap-center">
-            <FeedImage src={src} alt="" eager={eager && i === 0} width={720} />
+          <div key={`${src}-${i}`} className="h-full w-full shrink-0 snap-center bg-zinc-100">
+            {Math.abs(i - index) <= 1 || (eager && i === 0) ? (
+              <FeedImage src={src} alt="" eager={eager && i === 0} width={540} />
+            ) : null}
           </div>
         ))}
       </div>

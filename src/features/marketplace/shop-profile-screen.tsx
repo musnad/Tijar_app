@@ -35,6 +35,7 @@ import { toast } from "sonner";
 import type { LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 
+import { FeedImage } from "@/components/media/feed-image";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Switch } from "@/components/ui/switch";
@@ -354,10 +355,11 @@ export function ShopProfileScreen() {
       >
         <section className="flex items-center gap-5 px-5 pt-4" aria-label={t("shop.nav.profile")}>
           {photo ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
+            <FeedImage
               src={photo}
               alt=""
+              eager
+              width={168}
               className="size-[5.25rem] shrink-0 rounded-full object-cover ring-2 ring-primary/25"
             />
           ) : (
@@ -510,8 +512,7 @@ export function ShopProfileScreen() {
                   <li key={post.id} className="relative overflow-hidden rounded-2xl bg-white shadow-[0_8px_22px_rgba(11,31,58,0.08)]">
                     <Link to="/shop" search={{ v: post.id }} className="block aspect-square bg-muted">
                       {cover ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={cover} alt="" className="size-full object-cover" />
+                        <FeedImage src={cover} alt="" width={360} />
                       ) : (
                         <span className="flex size-full items-center justify-center text-[10px] font-bold text-muted-foreground">
                           {t("shop.profile.posts")}
@@ -541,8 +542,7 @@ export function ShopProfileScreen() {
                 <Link to="/shop/p/$productId" params={{ productId: product.id }} className="block">
                   <span className="block aspect-[4/3] bg-muted">
                     {product.image_url ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={product.image_url} alt="" className="size-full object-cover" />
+                      <FeedImage src={product.image_url} alt="" width={360} />
                     ) : (
                       <span className="flex size-full items-center justify-center text-[10px] font-bold text-muted-foreground">
                         {t("shop.profile.products")}

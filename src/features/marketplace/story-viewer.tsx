@@ -6,6 +6,7 @@ import { ArrowLeft, Eye, Heart, MessageCircle, Send, Share2 } from "lucide-react
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
+import { FeedImage } from "@/components/media/feed-image";
 import { ShareSheet } from "@/components/share-sheet";
 import { CommerceSticker } from "@/features/marketplace/commerce-sticker";
 import { useAccountGate } from "@/features/auth/account-gate";
@@ -269,8 +270,7 @@ export function StoryViewer({
         </button>
         <button type="button" onClick={openShop} className="flex min-w-0 flex-1 items-center gap-2 text-left">
           {ring.logoUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={ring.logoUrl} alt="" className="size-9 rounded-full object-cover" />
+            <FeedImage src={ring.logoUrl} alt="" eager width={72} className="size-9 rounded-full object-cover" />
           ) : (
             <span className="flex size-9 items-center justify-center rounded-full bg-[#00B86B] text-sm font-extrabold">
               {ring.businessName.slice(0, 1)}
@@ -300,8 +300,7 @@ export function StoryViewer({
             playsInline
           />
         ) : (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={story.media_url} alt="" className="h-full w-full object-contain" />
+          <FeedImage src={story.media_url} alt="" eager width={720} className="h-full w-full object-contain" />
         )}
         <button type="button" className="absolute inset-y-0 left-0 w-1/4" aria-label="Previous" onClick={goPrev} />
         <button type="button" className="absolute inset-y-0 right-0 w-1/4" aria-label="Next" onClick={goNext} />
@@ -381,8 +380,7 @@ export function StoryViewer({
             {viewers.map((person) => (
               <li key={person.profileId} className="flex items-center gap-3">
                 {person.avatarUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={person.avatarUrl} alt="" className="size-10 rounded-full object-cover" />
+                  <FeedImage src={person.avatarUrl} alt="" width={80} className="size-10 rounded-full object-cover" />
                 ) : (
                   <span className="flex size-10 items-center justify-center rounded-full bg-[#0A2540] text-sm font-extrabold text-white">
                     {person.name.slice(0, 1)}

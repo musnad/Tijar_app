@@ -3,6 +3,7 @@
 import { Link } from "@tanstack/react-router";
 import { BadgeCheck, MapPin, Sparkles } from "lucide-react";
 
+import { FeedImage } from "@/components/media/feed-image";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "@/lib/i18n/context";
 import type { BusinessOfTheWeek } from "@/services/business-of-the-week-service";
@@ -24,8 +25,7 @@ export function BusinessOfTheWeekCard({
       <div className="overflow-hidden rounded-2xl border border-[#F5C542]/50 bg-[#FFF9E8] shadow-[0_1px_8px_rgba(15,40,50,0.06)]">
         <div className="relative aspect-[16/9] w-full bg-[#0A2540]">
           {hero ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={hero} alt="" className="size-full object-cover" />
+            <FeedImage src={hero} alt="" eager width={720} />
           ) : (
             <div className="flex size-full items-center justify-center text-3xl font-extrabold text-white">
               {featured.businessName.slice(0, 1)}
@@ -39,7 +39,7 @@ export function BusinessOfTheWeekCard({
         <div className="flex items-center gap-2 p-3">
           {featured.logoUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={featured.logoUrl} alt="" className="size-11 shrink-0 rounded-full object-cover ring-2 ring-[#F5C542]" />
+            <FeedImage src={featured.logoUrl} alt="" eager width={88} className="size-11 shrink-0 rounded-full object-cover ring-2 ring-[#F5C542]" />
           ) : (
             <span className="flex size-11 shrink-0 items-center justify-center rounded-full bg-[#0A2540] text-sm font-extrabold text-white">
               {featured.businessName.slice(0, 1)}

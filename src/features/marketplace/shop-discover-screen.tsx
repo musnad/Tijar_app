@@ -16,6 +16,7 @@ import {
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
+import { FeedImage } from "@/components/media/feed-image";
 import { TijarLogo } from "@/components/brand-logo";
 import { isTijarNativeApp } from "@/lib/tijar-native-app";
 import { Button } from "@/components/ui/button";
@@ -563,8 +564,7 @@ export function ShopDiscoverScreen() {
                       className="flex min-h-[3.5rem] items-center gap-3 rounded-2xl border border-border bg-card px-3 py-2"
                     >
                       {person.avatarUrl ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={person.avatarUrl} alt="" className="size-10 shrink-0 rounded-full object-cover" />
+                        <FeedImage src={person.avatarUrl} alt="" width={80} className="size-10 shrink-0 rounded-full object-cover" />
                       ) : (
                         <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-[color:var(--brand-navy,#001B3A)] text-sm font-extrabold text-white">
                           {person.fullName.slice(0, 1)}
@@ -605,8 +605,7 @@ export function ShopDiscoverScreen() {
                       className="flex min-h-[3.5rem] items-center gap-3 rounded-2xl border border-border bg-card px-3 py-2"
                     >
                       {shop.logo_url ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={shop.logo_url} alt="" className="size-10 shrink-0 rounded-xl object-cover" />
+                        <FeedImage src={shop.logo_url} alt="" width={80} className="size-10 shrink-0 rounded-xl object-cover" />
                       ) : (
                         <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-[color:var(--brand-navy,#001B3A)] text-sm font-extrabold text-white">
                           {shop.business_name.slice(0, 1)}
@@ -653,8 +652,7 @@ export function ShopDiscoverScreen() {
                       className="flex flex-col items-center gap-1.5 text-center"
                     >
                       {shop.logo_url ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={shop.logo_url} alt="" className="size-14 rounded-full object-cover ring-2 ring-primary/25" />
+                        <FeedImage src={shop.logo_url} alt="" width={112} className="size-14 rounded-full object-cover ring-2 ring-primary/25" />
                       ) : (
                         <span className="flex size-14 items-center justify-center rounded-full bg-[color:var(--brand-navy,#001B3A)] text-sm font-extrabold text-white">
                           {shop.business_name.slice(0, 1)}
@@ -754,8 +752,7 @@ export function ShopDiscoverScreen() {
                         className="flex min-h-[4.5rem] items-center gap-3 rounded-2xl border border-border bg-card p-3"
                       >
                         {person.avatarUrl ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img src={person.avatarUrl} alt="" className="size-14 shrink-0 rounded-full object-cover" />
+                          <FeedImage src={person.avatarUrl} alt="" width={112} className="size-14 shrink-0 rounded-full object-cover" />
                         ) : (
                           <span className="flex size-14 shrink-0 items-center justify-center rounded-full bg-[color:var(--brand-navy,#001B3A)] text-lg font-extrabold text-white">
                             {person.fullName.slice(0, 1)}
@@ -793,8 +790,7 @@ export function ShopDiscoverScreen() {
                         className="flex min-h-[4.5rem] items-center gap-3 rounded-2xl border border-border bg-card p-3"
                       >
                         {shop.logo_url ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img src={shop.logo_url} alt="" className="size-14 shrink-0 rounded-2xl object-cover" />
+                          <FeedImage src={shop.logo_url} alt="" width={112} className="size-14 shrink-0 rounded-2xl object-cover" />
                         ) : (
                           <span className="flex size-14 shrink-0 items-center justify-center rounded-2xl bg-[color:var(--brand-navy,#001B3A)] text-lg font-extrabold text-white">
                             {shop.business_name.slice(0, 1)}

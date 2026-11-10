@@ -13,6 +13,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { AppShell } from "@/features/mobile/AppShell";
 import { TijarLogo } from "@/components/brand-logo";
 import { isTijarNativeApp } from "@/lib/tijar-native-app";
+import { supabaseStorageOrigin } from "@/lib/media/optimize";
 
 import appCss from "../styles.css?url";
 import { AccountGateProvider } from "@/features/auth/account-gate";
@@ -99,7 +100,9 @@ function ErrorComponent(props: ErrorComponentProps) {
 }
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
-  head: () => ({
+  head: () => {
+    const storage = supabaseStorageOrigin();
+    return {
     meta: [
       { charSet: "utf-8" },
       {
@@ -120,6 +123,12 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       },
       { rel: "icon", href: "/tijar-logo.png", type: "image/png" },
       { rel: "apple-touch-icon", href: "/tijar-logo.png" },
+      ...(storage
+        ? [
+            { rel: "preconnect" as const, href: storage },
+            { rel: "dns-prefetch" as const, href: storage },
+          ]
+        : []),
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       {
@@ -127,7 +136,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         href: "https://fonts.googleapis.com/css2?family=Manrope:wght@600;700;800&display=swap",
       },
     ],
-  }),
+  };
+  },
   shellComponent: RootShell,
   component: RootComponent,
   notFoundComponent: NotFoundComponent,

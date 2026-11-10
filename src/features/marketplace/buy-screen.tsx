@@ -6,6 +6,7 @@ import { ArrowLeft } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { FeedImage } from "@/components/media/feed-image";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { MarketplaceShell } from "@/features/marketplace/marketplace-shell";
@@ -156,8 +157,7 @@ export function BuyScreen({ productId, initialQty }: { productId?: string; initi
               <div className="flex gap-3 rounded-2xl border border-border p-3">
                 <div className="size-20 overflow-hidden rounded-xl bg-muted">
                   {product.image_url ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={product.image_url} alt="" className="size-full object-cover" />
+                    <FeedImage src={product.image_url} alt="" eager width={160} />
                   ) : null}
                 </div>
                 <div className="min-w-0 flex-1">

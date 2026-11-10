@@ -5,6 +5,7 @@ import { Link } from "@tanstack/react-router";
 import { Clock3, MapPin, Search, UtensilsCrossed } from "lucide-react";
 import { useMemo, useState } from "react";
 
+import { FeedImage } from "@/components/media/feed-image";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { MarketplaceShell } from "@/features/marketplace/marketplace-shell";
@@ -139,8 +140,7 @@ function ListingCard({ listing }: { listing: PlaceOrderListing }) {
       >
         <div className="size-[6.5rem] shrink-0 bg-muted">
           {photo ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={photo} alt="" className="size-full object-cover" />
+            <FeedImage src={photo} alt="" width={208} />
           ) : (
             <span className="flex size-full items-center justify-center text-[#1F7A4D]">
               <UtensilsCrossed className="size-7" />

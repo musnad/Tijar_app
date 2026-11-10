@@ -2,6 +2,7 @@
 
 import { Link2 } from "lucide-react";
 
+import { FeedImage } from "@/components/media/feed-image";
 import { formatPricePerUnit } from "@/lib/catalogue/units";
 import { formatNgn } from "@/utils/money";
 import { cn } from "@/lib/utils";
@@ -51,8 +52,7 @@ export function CommerceSticker({
     >
       <span className="flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white/15">
         {imageUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={imageUrl} alt="" className="size-full object-cover" />
+          <FeedImage src={imageUrl} alt="" eager width={96} />
         ) : (
           <Link2 className="size-5 text-white" />
         )}

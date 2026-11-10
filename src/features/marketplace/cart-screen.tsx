@@ -6,6 +6,7 @@ import { Home, Lock, ShieldCheck, ShoppingBag, ShoppingCart, Store, Trash2, User
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
+import { FeedImage } from "@/components/media/feed-image";
 import { TijarLogo } from "@/components/brand-logo";
 import { Button } from "@/components/ui/button";
 import { MarketplaceShell } from "@/features/marketplace/marketplace-shell";
@@ -44,7 +45,6 @@ export function CartScreen() {
     setLocalItems(listLocalCart(actorId));
   }, [actorId, cartQuery.dataUpdatedAt]);
 
-  const nativeApp = isTijarNativeApp();
   const items = (cartQuery.data && cartQuery.data.length > 0 ? cartQuery.data : localItems);
   const pieceCount = items.reduce((n, i) => n + Number(i.quantity), 0);
   const subtotal = items.reduce((s, i) => s + Number(i.quantity) * Number(i.unit_price), 0);
@@ -84,7 +84,7 @@ export function CartScreen() {
   }
 
   return (
-    <MarketplaceShell hideTopBar hideNav={!nativeApp} variant="feed">
+    <MarketplaceShell hideTopBar hideNav variant="feed">
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-white in-[.native-shop]:bg-[var(--native-canvas,#F3F5F8)]">
         <header className="shrink-0 px-5 pb-1 pt-[max(0.55rem,env(safe-area-inset-top))]">
           <Link to="/shop" className="mx-auto block w-[9.5rem]" aria-label="TIJAR home">
@@ -135,8 +135,7 @@ export function CartScreen() {
                       aria-label={item.product_name}
                     >
                       {item.image_url ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={item.image_url} alt="" className="size-full object-cover" />
+                        <FeedImage src={item.image_url} alt="" width={140} />
                       ) : (
                         <span className="flex size-full items-center justify-center text-[#9CA3AF]">
                           <Store className="size-6" />
@@ -235,7 +234,6 @@ export function CartScreen() {
           )}
         </div>
 
-        {nativeApp ? null : (
         <nav
           className="grid shrink-0 grid-cols-4 border-t border-[#EEF1F5] pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-1"
           aria-label="Cart navigation"
@@ -271,8 +269,8 @@ export function CartScreen() {
             );
           })}
         </nav>
-        )}
       </div>
     </MarketplaceShell>
+        )}
   );
 }
