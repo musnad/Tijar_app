@@ -76,7 +76,7 @@ export function KycSubmitCard({ business }: { business: Business }) {
   }
 
   useEffect(() => {
-    if (already) return;
+    if (faceDone) return;
     const params = new URLSearchParams(window.location.search);
     const sessionId = params.get("liveness_session_id")?.trim();
     const liveStatus = params.get("status")?.trim();
@@ -142,15 +142,16 @@ export function KycSubmitCard({ business }: { business: Business }) {
 
   async function startLive() {
     const nin = sessionStorage.getItem(ninStorageKey(business.id)) ?? digitsOnly(idNumber);
-    if (digitsOnly(nin).length !== 11) {
-      toast.error("Enter your NIN first.");
-      return;
-    }
-    if (!savedOnAccount) {
+    if (!savedOnAccount && !ninDone) {
       toast.error("Save the NIN record on your business account first.");
       return;
     }
-    sessionStorage.setItem(ninStorageKey(business.id), digitsOnly(nin));
+    if (digitsOnly(nin).length === 11) {
+      sessionStorage.setItem(ninStorageKey(business.id), digitsOnly(nin));
+    } else if (!ninDone) {
+      toast.error("Enter your NIN first.");
+      return;
+    }
     setSaving(true);
     const result = await kycRequest({
       action: "liveness-start",
