@@ -85,6 +85,8 @@ export const Route = createFileRoute("/api/payments/confirm-order")({
           sourceId: orderId,
           businessId,
           gross: amount,
+          processor: "corv",
+          paymentReference: credit.reference,
         });
         const notifyKind =
           kind === "place_order" ? "place_order_paid" : kind === "bid" ? "bid_paid" : "purchase";

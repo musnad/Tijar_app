@@ -353,10 +353,13 @@ export function AdminConsoleScreen() {
   const upgrades = upgradesQuery.data ?? [];
   const badgeRequests = badgeRequestsQuery.data ?? [];
   const fees = feesQuery.data ?? [];
-  const collectedFees = useMemo(() => fees.reduce((n, f) => n + Number(f.fee_ngn), 0), [fees]);
+  const collectedFees = useMemo(
+    () => fees.filter((f) => !f.voided_at).reduce((n, f) => n + Number(f.fee_ngn), 0),
+    [fees],
+  );
   const collectedToday = useMemo(() => {
     const today = new Date().toISOString().slice(0, 10);
-    return fees.filter((f) => dayKey(f.created_at) === today).reduce((n, f) => n + Number(f.fee_ngn), 0);
+    return fees.filter((f) => !f.voided_at && dayKey(f.created_at) === today).reduce((n, f) => n + Number(f.fee_ngn), 0);
   }, [fees]);
 
   const stats = useMemo(() => {
@@ -673,7 +676,7 @@ export function AdminConsoleScreen() {
           <Kpi icon={BadgeCheck} label="KYC queue" value={String(stats.pendingKyc)} hint={`${stats.pendingApps} applications`} />
           <Kpi icon={Wallet} label="Sales (ledger)" value={formatNgnCompact(stats.salesVolume)} hint={`${formatNgnCompact(stats.salesToday)} today`} />
           <Kpi icon={Building2} label="Marketplace GMV" value={formatNgnCompact(stats.gmv)} hint={`${stats.ordersToday} orders today`} />
-          <Kpi icon={Percent} label="Platform fees" value={formatNgnCompact(collectedFees)} hint={`${formatNgnCompact(collectedToday)} today · 3% min ₦50`} />
+          <Kpi icon={Percent} label="Platform fees" value={formatNgnCompact(collectedFees)} hint={`${formatNgnCompact(collectedToday)} today · TIJAR keep in admin wallet`} />
         </div>
       </section>
 
@@ -811,7 +814,7 @@ export function AdminConsoleScreen() {
           <div className="rounded-2xl border border-border bg-card p-4">
             <p className="text-sm font-extrabold">TIJAR platform fee</p>
             <p className="mt-1 text-xs text-muted-foreground">
-              3% of each paid sale, minimum ₦50, settled into {TIJAR_SUPER_ADMIN_EMAIL}. Counting starts from fees recorded going forward — not estimated on old volume.
+              Deposits: 1% TIJAR (Corvi already takes 1%). Sales: 3% from the seller; Corvi’s 1% comes out of that 3%, so TIJAR keeps 2%. Settled into {TIJAR_SUPER_ADMIN_EMAIL}. This count is money actually credited to the admin wallet — not an estimate.
             </p>
           </div>
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">

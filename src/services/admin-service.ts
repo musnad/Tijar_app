@@ -156,6 +156,9 @@ export type AdminPlatformFee = {
   seller_net_ngn: number;
   settled_to_email: string;
   created_at: string;
+  voided_at?: string | null;
+  processor?: string | null;
+  tijar_keep_ngn?: number | null;
   businesses?: { business_name: string } | null;
 };
 
@@ -167,9 +170,19 @@ export async function fetchAdminPlatformFees(): Promise<{
   const joined = await supabase
     .from("platform_fees")
     .select("*, businesses(business_name)")
+    .is("voided_at", null)
     .order("created_at", { ascending: false })
     .limit(800);
   if (!joined.error) return { fees: (joined.data ?? []) as AdminPlatformFee[], error: null };
+  const withVoid = await supabase
+    .from("platform_fees")
+    .select("*, businesses(business_name)")
+    .order("created_at", { ascending: false })
+    .limit(800);
+  if (!withVoid.error) {
+    const rows = (withVoid.data ?? []) as AdminPlatformFee[];
+    return { fees: rows.filter((row) => !row.voided_at), error: null };
+  }
   const { data, error } = await supabase.from("platform_fees").select("*").order("created_at", { ascending: false }).limit(800);
   if (error) return { fees: [], error: error.message };
   return { fees: (data ?? []) as AdminPlatformFee[], error: null };

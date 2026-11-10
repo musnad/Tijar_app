@@ -1,7 +1,13 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 import { corvConfigured, corvReceivedPayments, sameNuban, type CorvActivity } from "@/lib/payments/corv";
-import { PLATFORM_FEE_SETTLE_EMAIL, platformFeeSplit } from "@/lib/platform-fee";
+import {
+  PLATFORM_FEE_SETTLE_EMAIL,
+  type PaymentProcessor,
+  saleFeeSplit,
+  saleTopUpKeep,
+  walletInboundSplit,
+} from "@/lib/platform-fee";
 import { readEnvString, readSupabasePublicEnv } from "@/lib/supabase/runtime-env";
 
 export type ShopProfile = {
@@ -132,22 +138,122 @@ async function creditOnce(
     p_reference: reference,
     p_account_number: accountNumber,
   });
-  if (!once.error) return;
-  const existing = await admin
+  if (once.error) {
+    const existing = await admin
+      .from("wallet_credits")
+      .select("id")
+      .eq("provider", "corv")
+      .eq("provider_reference", reference)
+      .maybeSingle();
+    if (!existing.data) {
+      await admin.from("wallet_credits").insert({
+        business_id: businessId,
+        provider: "corv",
+        provider_reference: reference,
+        amount_ngn: amount,
+        account_number: accountNumber,
+      });
+      await admin.rpc("credit_seller_wallet", { p_business_id: businessId, p_amount: amount });
+    }
+  }
+  await applyWalletInboundFee(admin, businessId, amount, reference);
+}
+
+export async function creditCorvInbound(
+  admin: SupabaseClient,
+  businessId: string,
+  amount: number,
+  reference: string,
+  accountNumber: string | null,
+) {
+  await creditOnce(admin, businessId, amount, reference, accountNumber);
+}
+
+async function applyWalletInboundFee(
+  admin: SupabaseClient,
+  businessId: string,
+  landed: number,
+  reference: string,
+) {
+  const split = walletInboundSplit(landed);
+  if (split.tijarKeep <= 0 || !reference) return;
+  const platformId = await findPlatformBusinessId(admin);
+  if (platformId && platformId === businessId) return;
+
+  const { data: credit } = await admin
     .from("wallet_credits")
     .select("id")
     .eq("provider", "corv")
     .eq("provider_reference", reference)
     .maybeSingle();
-  if (existing.data) return;
-  await admin.from("wallet_credits").insert({
-    business_id: businessId,
-    provider: "corv",
-    provider_reference: reference,
-    amount_ngn: amount,
-    account_number: accountNumber,
+  if (!credit?.id) return;
+
+  const rpc = await admin.rpc("apply_tijar_wallet_fee", {
+    p_source_id: credit.id,
+    p_business_id: businessId,
+    p_landed: split.landed,
+    p_payment_ref: reference,
   });
-  await admin.rpc("credit_seller_wallet", { p_business_id: businessId, p_amount: amount });
+  if (!rpc.error) return;
+
+  const existing = await admin
+    .from("platform_fees")
+    .select("id")
+    .eq("source", "wallet")
+    .eq("source_id", credit.id)
+    .maybeSingle();
+  if (existing.data) return;
+
+  const inserted = await admin.from("platform_fees").insert({
+    source: "wallet",
+    source_id: credit.id,
+    business_id: businessId,
+    platform_business_id: platformId,
+    gross_ngn: split.gross,
+    fee_rate: 0.01,
+    fee_ngn: split.tijarKeep,
+    seller_net_ngn: split.userNet,
+    settled_to_email: PLATFORM_FEE_SETTLE_EMAIL,
+    payment_reference: reference,
+    processor: "corv",
+    corv_fee_ngn: split.corvFee,
+    tijar_keep_ngn: split.tijarKeep,
+    total_fee_ngn: split.corvFee + split.tijarKeep,
+  });
+  if (inserted.error) return;
+
+  const { data: wallet } = await admin.from("seller_wallets").select("available_ngn").eq("business_id", businessId).maybeSingle();
+  if (wallet) {
+    await admin
+      .from("seller_wallets")
+      .update({
+        available_ngn: Math.max(Number(wallet.available_ngn ?? 0) - split.tijarKeep, 0),
+        updated_at: new Date().toISOString(),
+      })
+      .eq("business_id", businessId);
+  }
+  if (platformId) {
+    await creditPlatformKeep(admin, platformId, split.tijarKeep, `wallet:${credit.id}`);
+  }
+}
+
+async function creditPlatformKeep(admin: SupabaseClient, platformId: string, amount: number, ref: string) {
+  if (amount <= 0) return;
+  const once = await admin.rpc("credit_seller_wallet_once", {
+    p_business_id: platformId,
+    p_amount: amount,
+    p_provider: "tijar_fee",
+    p_reference: ref,
+    p_account_number: null,
+  });
+  if (!once.error) return;
+  await admin.from("wallet_credits").insert({
+    business_id: platformId,
+    provider: "tijar_fee",
+    provider_reference: ref,
+    amount_ngn: amount,
+  });
+  await admin.rpc("credit_seller_wallet", { p_business_id: platformId, p_amount: amount });
 }
 
 async function ownedNubans(admin: SupabaseClient, businessId: string): Promise<Set<string>> {
@@ -215,10 +321,18 @@ export async function syncCorvWallet(
   const reserved = (outs ?? [])
     .filter((row) => ["paid", "processing", "pending"].includes(String(row.status)))
     .reduce((sum, row) => sum + Number(row.amount_ngn ?? 0), 0);
-  const [{ data: feesPaid }, { data: feesEarned }] = await Promise.all([
-    admin.from("platform_fees").select("fee_ngn").eq("business_id", businessId),
-    admin.from("platform_fees").select("fee_ngn").eq("platform_business_id", businessId),
-  ]);
+  const paidQ = await admin.from("platform_fees").select("fee_ngn").eq("business_id", businessId).is("voided_at", null);
+  const earnedQ = await admin.from("platform_fees").select("fee_ngn").eq("platform_business_id", businessId).is("voided_at", null);
+  let feesPaid = paidQ.data;
+  let feesEarned = earnedQ.data;
+  if (paidQ.error || earnedQ.error) {
+    const fallback = await Promise.all([
+      admin.from("platform_fees").select("fee_ngn").eq("business_id", businessId),
+      admin.from("platform_fees").select("fee_ngn").eq("platform_business_id", businessId),
+    ]);
+    feesPaid = fallback[0].data;
+    feesEarned = fallback[1].data;
+  }
   const taken = (feesPaid ?? []).reduce((sum, row) => sum + Number(row.fee_ngn ?? 0), 0);
   const earned = (feesEarned ?? []).reduce((sum, row) => sum + Number(row.fee_ngn ?? 0), 0);
   const available = Math.max(inbound - reserved - taken + earned, 0);
@@ -388,20 +502,26 @@ export async function applyPlatformFee(
     sourceId: string;
     businessId: string;
     gross: number;
+    processor?: PaymentProcessor;
+    paymentReference?: string | null;
   },
-): Promise<{ fee: number; net: number }> {
-  const split = platformFeeSplit(input.gross);
+): Promise<{ fee: number; net: number; tijarKeep: number }> {
+  const processor = input.processor ?? "corv";
+  const split = saleFeeSplit(input.gross, processor);
   const rpc = await admin.rpc("apply_tijar_platform_fee", {
     p_source: input.source,
     p_source_id: input.sourceId,
     p_business_id: input.businessId,
     p_gross: split.gross,
+    p_processor: processor,
+    p_payment_ref: input.paymentReference ?? null,
   });
   if (!rpc.error) {
     const row = Array.isArray(rpc.data) ? rpc.data[0] : rpc.data;
     return {
-      fee: Number((row as { fee_ngn?: number } | null)?.fee_ngn ?? split.fee),
-      net: Number((row as { seller_net_ngn?: number } | null)?.seller_net_ngn ?? split.net),
+      fee: Number((row as { fee_ngn?: number } | null)?.fee_ngn ?? split.totalFee),
+      net: Number((row as { seller_net_ngn?: number } | null)?.seller_net_ngn ?? split.sellerNet),
+      tijarKeep: split.tijarKeep,
     };
   }
 
@@ -411,7 +531,28 @@ export async function applyPlatformFee(
     .eq("source", input.source)
     .eq("source_id", input.sourceId)
     .maybeSingle();
-  if (existing.data) return { fee: split.fee, net: split.net };
+  if (existing.data) return { fee: split.totalFee, net: split.sellerNet, tijarKeep: split.tijarKeep };
+
+  let alreadyKeep = 0;
+  const paymentRef = input.paymentReference?.trim();
+  if (paymentRef) {
+    const { data: walletFees } = await admin
+      .from("platform_fees")
+      .select("id, fee_ngn")
+      .eq("source", "wallet")
+      .eq("payment_reference", paymentRef)
+      .is("voided_at", null);
+    alreadyKeep = (walletFees ?? []).reduce((n, row) => n + Number(row.fee_ngn ?? 0), 0);
+    if ((walletFees ?? []).length > 0) {
+      await admin
+        .from("platform_fees")
+        .update({ voided_at: new Date().toISOString() })
+        .eq("source", "wallet")
+        .eq("payment_reference", paymentRef)
+        .is("voided_at", null);
+    }
+  }
+  const debit = saleTopUpKeep(split.tijarKeep, alreadyKeep);
 
   const platformId = await findPlatformBusinessId(admin);
   const inserted = await admin.from("platform_fees").insert({
@@ -421,48 +562,37 @@ export async function applyPlatformFee(
     platform_business_id: platformId,
     gross_ngn: split.gross,
     fee_rate: split.rate,
-    fee_ngn: split.fee,
-    seller_net_ngn: split.net,
+    fee_ngn: split.tijarKeep,
+    seller_net_ngn: split.sellerNet,
     settled_to_email: PLATFORM_FEE_SETTLE_EMAIL,
+    payment_reference: paymentRef || null,
+    processor,
+    corv_fee_ngn: split.corvFee,
+    tijar_keep_ngn: split.tijarKeep,
+    total_fee_ngn: split.totalFee,
   });
-  if (inserted.error) return { fee: split.fee, net: split.net };
+  if (inserted.error) return { fee: split.totalFee, net: split.sellerNet, tijarKeep: split.tijarKeep };
 
   if (input.source === "marketplace") {
-    await admin.from("orders").update({ platform_fee_ngn: split.fee, seller_net_ngn: split.net }).eq("id", input.sourceId);
+    await admin.from("orders").update({ platform_fee_ngn: split.totalFee, seller_net_ngn: split.sellerNet }).eq("id", input.sourceId);
   } else if (input.source === "place_order") {
-    await admin.from("place_order_requests").update({ platform_fee_ngn: split.fee, seller_net_ngn: split.net }).eq("id", input.sourceId);
+    await admin.from("place_order_requests").update({ platform_fee_ngn: split.totalFee, seller_net_ngn: split.sellerNet }).eq("id", input.sourceId);
   }
 
-  if (split.fee > 0) {
+  if (debit > 0) {
     const { data: wallet } = await admin.from("seller_wallets").select("available_ngn").eq("business_id", input.businessId).maybeSingle();
     if (wallet) {
       await admin
         .from("seller_wallets")
         .update({
-          available_ngn: Math.max(Number(wallet.available_ngn ?? 0) - split.fee, 0),
+          available_ngn: Math.max(Number(wallet.available_ngn ?? 0) - debit, 0),
           updated_at: new Date().toISOString(),
         })
         .eq("business_id", input.businessId);
     }
     if (platformId) {
-      const ref = `${input.source}:${input.sourceId}`;
-      const once = await admin.rpc("credit_seller_wallet_once", {
-        p_business_id: platformId,
-        p_amount: split.fee,
-        p_provider: "tijar_fee",
-        p_reference: ref,
-        p_account_number: null,
-      });
-      if (once.error) {
-        await admin.from("wallet_credits").insert({
-          business_id: platformId,
-          provider: "tijar_fee",
-          provider_reference: ref,
-          amount_ngn: split.fee,
-        });
-        await admin.rpc("credit_seller_wallet", { p_business_id: platformId, p_amount: split.fee });
-      }
+      await creditPlatformKeep(admin, platformId, debit, `${input.source}:${input.sourceId}`);
     }
   }
-  return { fee: split.fee, net: split.net };
+  return { fee: split.totalFee, net: split.sellerNet, tijarKeep: split.tijarKeep };
 }

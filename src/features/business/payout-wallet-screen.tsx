@@ -300,7 +300,9 @@ export function PayoutWalletScreen({
           {hide ? "₦••••••" : formatNgn(wallet.available_ngn)}
         </p>
         <p className="mt-1 text-xs text-white/70">
-          {wallet.pending_ngn > 0 ? `${formatNgn(wallet.pending_ngn)} pending` : "Balance after TIJAR’s 3% fee on paid sales (min ₦50)"}
+          {wallet.pending_ngn > 0
+            ? `${formatNgn(wallet.pending_ngn)} pending`
+            : "Balance after 1% TIJAR on deposits and 3% on sales (Corvi 1% comes from the 3%)"}
         </p>
         <div className="mt-5 grid grid-cols-2 gap-2">
           <Button

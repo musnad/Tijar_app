@@ -3,7 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import { createFileRoute } from "@tanstack/react-router";
 
 import { corvRequestLooksSigned, corvWebhookConfigSecret, corvWebhookOk, parseCorvCredit } from "@/lib/payments/corv";
-import { applyPlatformFee, findBusinessByReceivingAccount } from "@/lib/payments/shop-server";
+import { applyPlatformFee, creditCorvInbound, findBusinessByReceivingAccount } from "@/lib/payments/shop-server";
 import { flutterwaveWebhookOk } from "@/lib/payments/flutterwave";
 import { readEnvString, readSupabasePublicEnv } from "@/lib/supabase/runtime-env";
 
@@ -51,6 +51,8 @@ async function markPaid(
         sourceId: orderId,
         businessId,
         gross: amount,
+        processor: provider === "corv" ? "corv" : provider === "paystack" ? "paystack" : provider === "flutterwave" ? "flutterwave" : "other",
+        paymentReference: creditRef,
       });
     }
   }
@@ -79,31 +81,7 @@ export const Route = createFileRoute("/api/payments/webhook")({
           const supabase = createClient(env.VITE_SUPABASE_URL, service);
           const businessId = await findBusinessByReceivingAccount(supabase, credit.accountNumber);
           if (businessId && credit.reference) {
-            const once = await supabase.rpc("credit_seller_wallet_once", {
-              p_business_id: businessId,
-              p_amount: credit.amount,
-              p_provider: "corv",
-              p_reference: credit.reference,
-              p_account_number: credit.accountNumber,
-            });
-            if (once.error) {
-              const existing = await supabase
-                .from("wallet_credits")
-                .select("id")
-                .eq("provider", "corv")
-                .eq("provider_reference", credit.reference)
-                .maybeSingle();
-              if (!existing.data) {
-                await supabase.from("wallet_credits").insert({
-                  business_id: businessId,
-                  provider: "corv",
-                  provider_reference: credit.reference,
-                  amount_ngn: credit.amount,
-                  account_number: credit.accountNumber,
-                });
-                await supabase.rpc("credit_seller_wallet", { p_business_id: businessId, p_amount: credit.amount });
-              }
-            }
+            await creditCorvInbound(supabase, businessId, credit.amount, credit.reference, credit.accountNumber);
           }
           return Response.json({ ok: true });
         }

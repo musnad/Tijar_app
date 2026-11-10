@@ -15,7 +15,7 @@ export function SellerFeePreview({ price }: { price: number }) {
           <dd className="font-bold">{formatNgn(split.gross)}</dd>
         </div>
         <div className="flex justify-between gap-2">
-          <dt className="text-muted-foreground">Platform fee (3%, min ₦50)</dt>
+          <dt className="text-muted-foreground">Sale fee 3% (min ₦50, includes Corvi 1%)</dt>
           <dd className="font-bold">− {formatNgn(split.fee)}</dd>
         </div>
         <div className="flex justify-between gap-2 border-t border-[#1F7A4D]/15 pt-1">

@@ -62,13 +62,24 @@ export const Route = createFileRoute("/api/payments/virtual-account")({
             reference: row.reference ?? account?.reference,
           })),
         );
-        const { data: feeRows } = await ctx.admin
+        const feeSelect =
+          "id, business_id, platform_business_id, fee_ngn, gross_ngn, seller_net_ngn, source, created_at, voided_at";
+        let feeQuery = await ctx.admin
           .from("platform_fees")
-          .select("id, business_id, platform_business_id, fee_ngn, gross_ngn, seller_net_ngn, source, created_at")
+          .select(feeSelect)
           .or(`business_id.eq.${businessId},platform_business_id.eq.${businessId}`)
           .order("created_at", { ascending: false })
           .limit(40);
-        const feeActivity = (feeRows ?? []).map((row) => {
+        if (feeQuery.error) {
+          feeQuery = await ctx.admin
+            .from("platform_fees")
+            .select("id, business_id, platform_business_id, fee_ngn, gross_ngn, seller_net_ngn, source, created_at")
+            .or(`business_id.eq.${businessId},platform_business_id.eq.${businessId}`)
+            .order("created_at", { ascending: false })
+            .limit(40);
+        }
+        const feeRows = (feeQuery.data ?? []).filter((row) => !("voided_at" in row && row.voided_at));
+        const feeActivity = feeRows.map((row) => {
           const incoming = row.platform_business_id === businessId;
           return {
             amount: Number(row.fee_ngn),
@@ -77,8 +88,10 @@ export const Route = createFileRoute("/api/payments/virtual-account")({
             createdAt: row.created_at as string,
             direction: incoming ? ("in" as const) : ("out" as const),
             description: incoming
-              ? `Platform fee 3% on ₦${Number(row.gross_ngn).toLocaleString("en-NG")}`
-              : `TIJAR fee 3% · you keep ₦${Number(row.seller_net_ngn).toLocaleString("en-NG")}`,
+              ? `${row.source === "wallet" ? "Deposit fee 1%" : "Sale fee"} ₦${Number(row.fee_ngn).toLocaleString("en-NG")} on ₦${Number(row.gross_ngn).toLocaleString("en-NG")}`
+              : row.source === "wallet"
+                ? `TIJAR 1% on deposit · you keep ₦${Number(row.seller_net_ngn).toLocaleString("en-NG")}`
+                : `TIJAR sale fee · you keep ₦${Number(row.seller_net_ngn).toLocaleString("en-NG")}`,
           };
         });
         const activity = [...synced.activity, ...feeActivity];
