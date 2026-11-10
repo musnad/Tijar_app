@@ -169,7 +169,7 @@ export function PlaceOrderComposeScreen() {
 
   return (
     <MarketplaceShell hideTopBar variant="feed">
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-white">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-white in-[.native-shop]:bg-[var(--native-canvas,#F3F5F8)]">
         <header className="flex items-center gap-2 px-3 py-2 pt-[max(0.5rem,env(safe-area-inset-top))]">
           <button type="button" className="flex size-10 items-center justify-center" onClick={() => history.back()} aria-label="Back">
             <ArrowLeft className="size-5" />

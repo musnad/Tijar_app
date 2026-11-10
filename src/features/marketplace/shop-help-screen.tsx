@@ -1,9 +1,8 @@
 "use client";
 
-import { Link } from "@tanstack/react-router";
-import { ArrowLeft } from "lucide-react";
-
 import { MarketplaceShell } from "@/features/marketplace/marketplace-shell";
+import { NativePageHeader, nativeCanvasClass } from "@/features/marketplace/native-page-header";
+import { cn } from "@/lib/utils";
 
 const TOPICS = [
   {
@@ -31,18 +30,12 @@ const TOPICS = [
 export function ShopHelpScreen() {
   return (
     <MarketplaceShell hideTopBar variant="feed">
-      <div
-        className="min-h-0 flex-1 overflow-y-auto px-4 pb-8 pt-[max(0.5rem,env(safe-area-inset-top))]"
+      <div className={cn("flex min-h-0 flex-1 flex-col overflow-hidden", nativeCanvasClass())}>
+        <NativePageHeader title="Help" subtitle="How TIJAR works for shoppers and sellers." showBack />
+        <div
+        className="min-h-0 flex-1 overflow-y-auto px-4 pb-8"
         style={{ WebkitOverflowScrolling: "touch" }}
       >
-        <Link
-          to="/shop/profile"
-          className="inline-flex min-h-11 items-center gap-1 text-sm font-semibold text-muted-foreground"
-        >
-          <ArrowLeft className="size-4" /> Profile
-        </Link>
-        <h1 className="mt-2 text-[22px] font-extrabold tracking-tight text-[color:var(--brand-navy,#001B3A)]">Help</h1>
-        <p className="mt-1 text-sm text-muted-foreground">How TIJAR works for shoppers and sellers.</p>
         <ul className="mt-5 space-y-3">
           {TOPICS.map((topic) => (
             <li key={topic.title} className="rounded-2xl border border-border bg-white p-4">
@@ -51,6 +44,7 @@ export function ShopHelpScreen() {
             </li>
           ))}
         </ul>
+      </div>
       </div>
     </MarketplaceShell>
   );

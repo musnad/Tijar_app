@@ -6,6 +6,8 @@ import type { ReactNode } from "react";
 
 import { TijarLogo } from "@/components/brand-logo";
 import { useTranslation } from "@/lib/i18n/context";
+import { isTijarNativeApp } from "@/lib/tijar-native-app";
+import { cn } from "@/lib/utils";
 
 export function WebAuthLayout({
   mode,
@@ -23,7 +25,12 @@ export function WebAuthLayout({
   const { t } = useTranslation();
 
   return (
-    <div className="web-auth-root relative min-h-[100dvh] overflow-x-clip overflow-y-auto bg-[#F4F7FB] text-[#0B1F4D]">
+    <div
+      className={cn(
+        "web-auth-root relative min-h-[100dvh] overflow-x-clip overflow-y-auto text-[#0B1F4D]",
+        isTijarNativeApp() ? "native-shop bg-[var(--native-canvas,#F3F5F8)]" : "bg-[#F4F7FB]",
+      )}
+    >
       <div className="pointer-events-none absolute -left-24 top-[-6rem] size-[min(22rem,80vw)] rounded-full bg-[#1F7A4D]/12 blur-3xl" />
       <div className="pointer-events-none absolute -right-16 bottom-[-4rem] size-[min(20rem,70vw)] rounded-full bg-[#0B1F4D]/10 blur-3xl" />
       <div className="relative mx-auto flex min-h-[100dvh] w-full max-w-md flex-col justify-center px-4 py-8 sm:px-5 sm:py-10">

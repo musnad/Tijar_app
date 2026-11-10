@@ -16,6 +16,8 @@ import { AccountModeSwitch } from "@/features/marketplace/account-mode-switch";
 import { useAuth } from "@/features/auth/auth-context";
 import { isTijarSuperAdminEmail } from "@/lib/admin";
 import { useTranslation } from "@/lib/i18n/context";
+import { isTijarNativeApp } from "@/lib/tijar-native-app";
+import { cn } from "@/lib/utils";
 
 function initials(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -38,6 +40,10 @@ export function AppTopBar() {
   const name = profile?.full_name ?? "";
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const onProfileArea = pathname.startsWith("/app/profile");
+  const nativeApp = isTijarNativeApp();
+  const iconBtn = nativeApp
+    ? "flex size-10 items-center justify-center rounded-full bg-white text-foreground shadow-[0_4px_14px_rgba(11,31,58,0.08)]"
+    : "flex size-10 items-center justify-center rounded-full border border-border bg-card text-foreground";
 
   return (
     <header className="grid grid-cols-[auto_1fr_auto] items-center gap-2 pb-3">
@@ -45,7 +51,7 @@ export function AppTopBar() {
         <SheetTrigger asChild>
           <button
             type="button"
-            className="flex size-10 items-center justify-center rounded-full border border-border bg-card text-foreground"
+            className={iconBtn}
             aria-label={t("app.layout.openMenu")}
           >
             <Menu className="size-5" />
@@ -84,11 +90,11 @@ export function AppTopBar() {
       </div>
 
       <div className="flex items-center justify-end gap-1.5">
-        <AccountModeSwitch className="hidden md:inline-flex" />
-        <AppLanguageButton />
+        {nativeApp ? null : <AccountModeSwitch className="hidden md:inline-flex" />}
+        {nativeApp ? null : <AppLanguageButton />}
         <button
           type="button"
-          className="relative flex size-10 items-center justify-center rounded-full border border-border bg-card text-muted-foreground"
+          className={cn("relative", iconBtn, "text-muted-foreground")}
           aria-label={t("app.layout.notifications")}
         >
           <Bell className="size-5" />
@@ -97,7 +103,7 @@ export function AppTopBar() {
         {onProfileArea ? (
           <Link
             to="/app/profile/settings"
-            className="flex size-10 items-center justify-center rounded-full border border-border bg-card text-muted-foreground"
+            className={cn(iconBtn, "text-muted-foreground")}
             aria-label={t("app.profile.settingsTitle")}
           >
             <Settings className="size-5" />
@@ -105,7 +111,10 @@ export function AppTopBar() {
         ) : (
           <Link
             to="/app/profile"
-            className="flex items-center gap-0.5 rounded-full border border-border bg-card py-0.5 pl-0.5 pr-1"
+            className={cn(
+              "flex items-center gap-0.5 rounded-full py-0.5 pl-0.5 pr-1",
+              nativeApp ? "border-0 bg-white shadow-[0_4px_14px_rgba(11,31,58,0.08)]" : "border border-border bg-card",
+            )}
           >
             <span className="flex size-9 items-center justify-center rounded-full bg-primary/15 text-xs font-bold text-primary">
               {initials(name)}

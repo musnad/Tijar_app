@@ -7,6 +7,7 @@ import { useMemo, useState } from "react";
 
 import { Input } from "@/components/ui/input";
 import { MarketplaceShell } from "@/features/marketplace/marketplace-shell";
+import { NativePageHeader, nativeCanvasClass } from "@/features/marketplace/native-page-header";
 import { OrderTrackTimeline } from "@/features/marketplace/order-track-timeline";
 import { useAuth } from "@/features/auth/auth-context";
 import { fetchMyOrders } from "@/services/marketplace-service";
@@ -61,30 +62,30 @@ export function OrdersScreen() {
   ];
 
   return (
-    <MarketplaceShell>
-      <h1 className="text-xl font-extrabold">My orders</h1>
-      <p className="mt-1 text-sm text-muted-foreground">Track payment, preparation, and delivery.</p>
-
-      <div className="relative mt-4">
+    <MarketplaceShell hideTopBar variant="feed">
+      <div className={cn("flex min-h-0 flex-1 flex-col overflow-hidden", nativeCanvasClass())}>
+      <NativePageHeader title="My orders" subtitle="Track payment, preparation, and delivery." showBack />
+      <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-6">
+      <div className="relative mt-1">
         <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
         <Input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search order number…"
-          className="min-h-11 rounded-xl pl-9"
+          className="min-h-11 rounded-full pl-9"
           aria-label="Search orders"
         />
       </div>
 
-      <div className="mt-3 grid grid-cols-3 gap-1 rounded-xl border border-border bg-muted/40 p-1">
+      <div className="mt-3 grid grid-cols-3 gap-1 rounded-full border border-border bg-white p-1 shadow-[0_4px_14px_rgba(11,31,58,0.06)]">
         {tabs.map((t) => (
           <button
             key={t.id}
             type="button"
             onClick={() => setTab(t.id)}
             className={cn(
-              "rounded-lg py-2 text-xs font-bold",
-              tab === t.id ? "bg-card text-foreground shadow-sm" : "text-muted-foreground",
+              "rounded-full py-2 text-xs font-bold",
+              tab === t.id ? "bg-[#0B1F3A] text-white shadow-sm" : "text-muted-foreground",
             )}
           >
             {t.label}
@@ -146,6 +147,8 @@ export function OrdersScreen() {
           </li>
         ))}
       </ul>
+      </div>
+      </div>
     </MarketplaceShell>
   );
 }

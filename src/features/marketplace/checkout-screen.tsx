@@ -201,7 +201,7 @@ export function CheckoutScreen() {
 
   return (
     <MarketplaceShell hideTopBar hideNav variant="feed">
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-white">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-white in-[.native-shop]:bg-[var(--native-canvas,#F3F5F8)]">
         <header className="flex shrink-0 items-center justify-between gap-2 px-4 pb-1 pt-[max(0.45rem,env(safe-area-inset-top))]">
           <Link to="/shop" className="block w-[7.5rem]" aria-label="TIJAR home">
             <TijarLogo compact />

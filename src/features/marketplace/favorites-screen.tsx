@@ -6,6 +6,8 @@ import { Heart } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { MarketplaceShell } from "@/features/marketplace/marketplace-shell";
+import { NativePageHeader, nativeCanvasClass } from "@/features/marketplace/native-page-header";
+import { cn } from "@/lib/utils";
 import { ProductCard } from "@/features/marketplace/product-card";
 import { useAuth } from "@/features/auth/auth-context";
 import { fetchFavoriteProducts } from "@/services/marketplace-service";
@@ -23,9 +25,10 @@ export function FavoritesScreen() {
   });
 
   return (
-    <MarketplaceShell>
-      <h1 className="text-xl font-extrabold">Saved Products</h1>
-      <p className="mt-1 text-sm text-muted-foreground">Items you saved or added to cart.</p>
+    <MarketplaceShell hideTopBar variant="feed">
+      <div className={cn("flex min-h-0 flex-1 flex-col overflow-hidden", nativeCanvasClass())}>
+      <NativePageHeader title="Saved" subtitle="Items you saved or added to cart." showBack />
+      <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-6">
 
       <>
           {favQuery.isLoading && (
@@ -49,6 +52,8 @@ export function FavoritesScreen() {
             ))}
           </div>
       </>
+      </div>
+      </div>
     </MarketplaceShell>
   );
 }

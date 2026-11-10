@@ -5,6 +5,8 @@ import { Link } from "@tanstack/react-router";
 import { toast } from "sonner";
 
 import { MarketplaceShell } from "@/features/marketplace/marketplace-shell";
+import { NativePageHeader, nativeCanvasClass } from "@/features/marketplace/native-page-header";
+import { cn } from "@/lib/utils";
 import { useAuth } from "@/features/auth/auth-context";
 import { fetchNotificationPreferences, saveNotificationPreferences } from "@/services/marketplace-service";
 import type { NotificationPreferences } from "@/types/database";
@@ -58,13 +60,16 @@ export function NotificationPrefsScreen() {
 
   if (!session || !profile) {
     return (
-      <MarketplaceShell>
-        <p className="text-sm">
-          <Link to="/login" className="font-bold text-primary">
-            Sign in
-          </Link>{" "}
-          to set notification preferences.
-        </p>
+      <MarketplaceShell hideTopBar variant="feed">
+        <div className={cn("flex min-h-0 flex-1 flex-col overflow-hidden", nativeCanvasClass())}>
+          <NativePageHeader title="Notifications" showBack />
+          <p className="px-4 pt-2 text-sm">
+            <Link to="/login" className="font-bold text-primary">
+              Sign in
+            </Link>{" "}
+            to set notification preferences.
+          </p>
+        </div>
       </MarketplaceShell>
     );
   }
@@ -72,13 +77,16 @@ export function NotificationPrefsScreen() {
   const prefs = query.data;
 
   return (
-    <MarketplaceShell>
-      <h1 className="text-xl font-extrabold">Notification preferences</h1>
-      <p className="mt-1 text-sm text-muted-foreground">
-        These control in-app reminders. Push notifications are not enabled until a provider is configured.
-      </p>
+    <MarketplaceShell hideTopBar variant="feed">
+      <div className={cn("flex min-h-0 flex-1 flex-col overflow-hidden", nativeCanvasClass())}>
+        <NativePageHeader
+          title="Notification preferences"
+          subtitle="These control in-app reminders. Push is off until a provider is configured."
+          showBack
+        />
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-6" style={{ WebkitOverflowScrolling: "touch" }}>
       {prefs && (
-        <div className="mt-4 space-y-2">
+        <div className="mt-2 space-y-2">
           <Toggle
             label="Order updates"
             hint="When a seller accepts or updates an order request"
@@ -105,6 +113,8 @@ export function NotificationPrefsScreen() {
           />
         </div>
       )}
+        </div>
+      </div>
     </MarketplaceShell>
   );
 }

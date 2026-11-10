@@ -1201,6 +1201,61 @@ html.tijar-android-webview .native-shop-fab {
   color: #fff !important;
 }
 
+/* Every native page inherits the shop canvas, cards, and pills */
+html.tijar-android-webview .native-shop {
+  --background: #f3f5f8;
+  --card: #ffffff;
+  --radius: 1.25rem;
+}
+
+html.tijar-android-webview .native-shop header.sticky,
+html.tijar-android-webview .native-shop header.shrink-0 {
+  background: color-mix(in oklab, var(--native-canvas) 82%, #fff) !important;
+  border-bottom-color: transparent !important;
+  backdrop-filter: blur(16px);
+}
+
+html.tijar-android-webview .native-shop .rounded-2xl,
+html.tijar-android-webview .native-shop .rounded-xl {
+  border-color: transparent !important;
+}
+
+html.tijar-android-webview .native-shop .bg-card,
+html.tijar-android-webview .native-shop li.rounded-2xl,
+html.tijar-android-webview .native-shop section.rounded-2xl,
+html.tijar-android-webview .native-shop .rounded-2xl.border,
+html.tijar-android-webview .native-shop .rounded-xl.border {
+  background-color: #fff;
+  box-shadow: 0 10px 28px rgba(11, 31, 58, 0.08);
+}
+
+html.tijar-android-webview .native-shop input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="hidden"]),
+html.tijar-android-webview .native-shop select {
+  border: 0 !important;
+  background: #fff !important;
+  box-shadow: 0 6px 20px rgba(11, 31, 58, 0.06);
+}
+
+html.tijar-android-webview .native-shop textarea {
+  border: 0 !important;
+  border-radius: 20px !important;
+  background: #fff !important;
+  box-shadow: 0 6px 20px rgba(11, 31, 58, 0.06);
+}
+
+html.tijar-android-webview .native-shop [role="dialog"],
+html.tijar-android-webview .native-shop [data-radix-dialog-content] {
+  border-radius: 24px !important;
+  border: 0 !important;
+  box-shadow: 0 20px 50px rgba(11, 31, 58, 0.18) !important;
+}
+
+html.tijar-android-webview .native-shop .app-bottom-nav {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+
 html.tijar-android-webview button,
 html.tijar-android-webview a {
   -webkit-tap-highlight-color: transparent;

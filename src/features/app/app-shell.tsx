@@ -45,7 +45,12 @@ export function AppShell({
   const nativeApp = isTijarNativeApp();
 
   return (
-    <div className="flex min-h-screen flex-col bg-background">
+    <div
+      className={cn(
+        "flex min-h-screen flex-col",
+        nativeApp ? "native-shop bg-[var(--native-canvas,#F3F5F8)]" : "bg-background",
+      )}
+    >
       <main
         className={cn(
           "mx-auto w-full min-w-0 max-w-lg flex-1 px-4 pt-3 sm:px-5",
@@ -74,8 +79,20 @@ export function AppShell({
         />
       )}
 
-      <nav className="app-bottom-nav sticky bottom-0 border-t border-border bg-background/95 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-1 backdrop-blur-sm">
-        <div className={cn("mx-auto grid w-full max-w-lg grid-cols-5 gap-0 px-2", !nativeApp && "md:max-w-3xl lg:max-w-6xl xl:max-w-7xl")}>
+      <nav
+        className={cn(
+          nativeApp
+            ? "native-shop-dock relative z-40 shrink-0 border-0 bg-transparent px-3 pb-[max(0.45rem,env(safe-area-inset-bottom))] pt-4"
+            : "app-bottom-nav sticky bottom-0 border-t border-border bg-background/95 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-1 backdrop-blur-sm",
+        )}
+      >
+        <div
+          className={cn(
+            "mx-auto grid w-full max-w-lg grid-cols-5 gap-0",
+            nativeApp ? "native-shop-dock-inner px-1" : "px-2",
+            !nativeApp && "md:max-w-3xl lg:max-w-6xl xl:max-w-7xl",
+          )}
+        >
           {navItems.map((item) => {
             const Icon = item.icon;
             const active = isNavActive(pathname, item);
@@ -85,6 +102,7 @@ export function AppShell({
                 to={item.to}
                 className={cn(
                   "app-tab flex min-h-[3.5rem] flex-col items-center justify-center gap-0.5 text-[10px] font-semibold",
+                  nativeApp && "native-shop-tab min-h-14 text-[9px] font-bold tracking-wide",
                   active ? "app-tab-active text-primary" : "text-muted-foreground",
                 )}
               >

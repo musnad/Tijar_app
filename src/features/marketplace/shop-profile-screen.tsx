@@ -49,6 +49,7 @@ import { haptic } from "@/lib/haptics";
 import { invalidateBusinessQueries } from "@/lib/invalidate-business-queries";
 import { useTranslation } from "@/lib/i18n/context";
 import { isTijarNativeApp } from "@/lib/tijar-native-app";
+import { nativeIconBtnClass } from "@/features/marketplace/native-page-header";
 import { cn } from "@/lib/utils";
 import {
   fetchFollowedBusinesses,
@@ -306,7 +307,7 @@ export function ShopProfileScreen() {
 
   return (
     <Frame>
-      <header className="sticky top-0 z-20 shrink-0 border-b border-border/70 bg-white/95 px-4 pb-2 pt-[max(0.6rem,env(safe-area-inset-top))] backdrop-blur-md">
+      <header className="sticky top-0 z-20 shrink-0 border-b border-border/70 bg-white/95 px-4 pb-2 pt-[max(0.6rem,env(safe-area-inset-top))] backdrop-blur-md in-[.native-shop]:border-0 in-[.native-shop]:bg-transparent">
         <div className="flex items-center gap-1">
           <h1 className="flex min-w-0 flex-1 items-center gap-1.5 text-[17px] font-extrabold tracking-tight text-[color:var(--brand-navy,#001B3A)]">
             <span className="truncate">@{username}</span>
@@ -318,7 +319,10 @@ export function ShopProfileScreen() {
             type="button"
             onClick={() => void shareProfile()}
             aria-label={t("shop.profile.shareProfile")}
-            className="flex size-10 items-center justify-center rounded-full text-[color:var(--brand-navy,#001B3A)] transition active:bg-muted"
+            className={cn(
+              "flex size-10 items-center justify-center rounded-full text-[color:var(--brand-navy,#001B3A)] transition active:bg-muted",
+              isTijarNativeApp() && nativeIconBtnClass(),
+            )}
           >
             <Share2 className="size-5" strokeWidth={1.9} />
           </button>
@@ -329,7 +333,10 @@ export function ShopProfileScreen() {
               setMenuOpen(true);
             }}
             aria-label={t("shop.profile.menu")}
-            className="relative flex size-10 items-center justify-center rounded-full text-[color:var(--brand-navy,#001B3A)] transition active:bg-muted"
+            className={cn(
+              "relative flex size-10 items-center justify-center rounded-full text-[color:var(--brand-navy,#001B3A)] transition active:bg-muted",
+              isTijarNativeApp() && nativeIconBtnClass(),
+            )}
           >
             <Menu className="size-6" strokeWidth={1.9} />
             {notifBadge > 0 ? (
@@ -421,13 +428,13 @@ export function ShopProfileScreen() {
         <section className="mt-3.5 flex gap-2 px-5">
           {demo ? (
             <>
-              <Button asChild className="min-h-10 flex-1 rounded-lg font-extrabold">
+              <Button asChild className="min-h-10 flex-1 rounded-full font-extrabold">
                 <Link to="/login">{t("shop.signIn")}</Link>
               </Button>
               <Button
                 type="button"
                 variant="outline"
-                className="min-h-10 rounded-lg border-border px-3 font-extrabold"
+                className="min-h-10 rounded-full border-border px-3 font-extrabold"
                 onClick={() => void shareProfile()}
                 aria-label={t("shop.profile.shareProfile")}
               >
@@ -436,14 +443,14 @@ export function ShopProfileScreen() {
             </>
           ) : (
             <>
-              <Button asChild variant="outline" className="min-h-10 flex-1 rounded-lg border-border font-extrabold">
+              <Button asChild variant="outline" className="min-h-10 flex-1 rounded-full border-border font-extrabold bg-white">
                 <Link to="/shop/edit-profile">
                   <Pencil className="mr-1.5 size-4" />
                   {t("shop.profile.edit")}
                 </Link>
               </Button>
               {shopSlug ? (
-                <Button asChild variant="outline" className="min-h-10 rounded-lg border-border font-extrabold">
+                <Button asChild variant="outline" className="min-h-10 rounded-full border-border font-extrabold bg-white">
                   <Link to="/b/$slug" params={{ slug: shopSlug }}>
                     <Store className="mr-1.5 size-4" />
                     Shop
@@ -453,7 +460,7 @@ export function ShopProfileScreen() {
               <Button
                 type="button"
                 variant="outline"
-                className="min-h-10 flex-1 rounded-lg border-border font-extrabold"
+                className="min-h-10 flex-1 rounded-full border-border font-extrabold bg-white"
                 onClick={() => void shareProfile()}
               >
                 <Share2 className="mr-1.5 size-4" />
@@ -463,7 +470,7 @@ export function ShopProfileScreen() {
           )}
         </section>
 
-        <nav className="mt-4 grid grid-cols-2 border-b border-border">
+        <nav className="mx-4 mt-4 grid grid-cols-2 rounded-full bg-white p-1 shadow-[0_4px_14px_rgba(11,31,58,0.06)] in-[.native-shop]:border-0">
           {(
             [
               { id: "posts" as const, label: t("shop.profile.posts"), icon: Grid3x3, count: posts.length },
@@ -479,12 +486,14 @@ export function ShopProfileScreen() {
                 onClick={() => setTab(item.id)}
                 className={cn(
                   "relative flex min-h-11 items-center justify-center gap-1.5 text-[13px]",
-                  active ? "font-extrabold text-[color:var(--brand-navy,#001B3A)]" : "font-semibold text-muted-foreground",
+                  "rounded-full",
+                  active
+                    ? "font-extrabold text-[color:var(--brand-navy,#001B3A)] bg-white shadow-[0_4px_12px_rgba(11,31,58,0.08)]"
+                    : "font-semibold text-muted-foreground",
                 )}
               >
                 <Icon className="size-4" />
                 {item.label}
-                {active ? <span className="absolute inset-x-8 bottom-0 h-[2px] bg-[color:var(--brand-navy,#001B3A)]" /> : null}
               </button>
             );
           })}
@@ -494,11 +503,11 @@ export function ShopProfileScreen() {
           posts.length === 0 ? (
             <p className="px-5 py-10 text-center text-sm text-muted-foreground">{t("shop.profile.emptyPosts")}</p>
           ) : (
-            <ul className="grid grid-cols-3 gap-px bg-border md:grid-cols-4 lg:grid-cols-5">
+            <ul className="grid grid-cols-3 gap-2 px-4 pt-3 md:grid-cols-4 lg:grid-cols-5">
               {posts.map((post) => {
                 const cover = post.image_urls?.[0] || resolveCoverSrc(post.cover_path) || post.business_logo_url;
                 return (
-                  <li key={post.id} className="relative">
+                  <li key={post.id} className="relative overflow-hidden rounded-2xl bg-white shadow-[0_8px_22px_rgba(11,31,58,0.08)]">
                     <Link to="/shop" search={{ v: post.id }} className="block aspect-square bg-muted">
                       {cover ? (
                         // eslint-disable-next-line @next/next/no-img-element

@@ -55,8 +55,8 @@ export function PlaceOrderBoardScreen() {
 
   return (
     <MarketplaceShell hideTopBar variant="feed">
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-white">
-        <header className="shrink-0 border-b border-border px-4 pb-3 pt-[max(0.65rem,env(safe-area-inset-top))]">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-white in-[.native-shop]:bg-[var(--native-canvas,#F3F5F8)]">
+        <header className="shrink-0 border-b border-border px-4 pb-3 pt-[max(0.65rem,env(safe-area-inset-top))] in-[.native-shop]:border-0 in-[.native-shop]:bg-transparent">
           <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#1F7A4D]">Place your order</p>
           <h1 className="mt-1 text-[22px] font-extrabold tracking-tight text-[#0B1F4D]">What is cooking</h1>
           <p className="mt-1 text-[13px] text-muted-foreground">Same-day and next-day food, snacks, and meals from shops near you.</p>

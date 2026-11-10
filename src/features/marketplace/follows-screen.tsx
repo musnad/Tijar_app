@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { FeedImage } from "@/components/media/feed-image";
 import { MarketplaceShell } from "@/features/marketplace/marketplace-shell";
+import { NativePageHeader, nativeCanvasClass } from "@/features/marketplace/native-page-header";
 import { useAuth } from "@/features/auth/auth-context";
 import { usernameMatchesName } from "@/lib/shop-names";
 import { cn } from "@/lib/utils";
@@ -68,20 +69,21 @@ export function FollowsScreen() {
   }
 
   return (
-    <MarketplaceShell>
-      <h1 className="text-xl font-extrabold">Following</h1>
-      <p className="mt-1 text-sm text-muted-foreground">Shops and people you follow.</p>
-      <div className="mt-3 grid grid-cols-2 gap-1 rounded-xl border border-border bg-muted/40 p-1">
+    <MarketplaceShell hideTopBar variant="feed">
+      <div className={cn("flex min-h-0 flex-1 flex-col overflow-hidden", nativeCanvasClass())}>
+        <NativePageHeader title="Following" subtitle="Shops and people you follow." showBack />
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-6" style={{ WebkitOverflowScrolling: "touch" }}>
+      <div className="mt-1 grid grid-cols-2 gap-1 rounded-full bg-white p-1 shadow-[0_6px_20px_rgba(11,31,58,0.06)]">
         <button
           type="button"
-          className={cn("rounded-lg py-2 text-xs font-bold", tab === "shops" ? "bg-card shadow-sm" : "text-muted-foreground")}
+          className={cn("rounded-full py-2 text-xs font-bold", tab === "shops" ? "bg-[#0B1F3A] text-white" : "text-muted-foreground")}
           onClick={() => setTab("shops")}
         >
           Shops ({shopsQuery.data?.length ?? 0})
         </button>
         <button
           type="button"
-          className={cn("rounded-lg py-2 text-xs font-bold", tab === "people" ? "bg-card shadow-sm" : "text-muted-foreground")}
+          className={cn("rounded-full py-2 text-xs font-bold", tab === "people" ? "bg-[#0B1F3A] text-white" : "text-muted-foreground")}
           onClick={() => setTab("people")}
         >
           People ({peopleQuery.data?.length ?? 0})
@@ -221,6 +223,8 @@ export function FollowersScreen() {
           />
         ))}
       </ul>
+        </div>
+      </div>
     </MarketplaceShell>
   );
 }

@@ -83,7 +83,7 @@ export function CartScreen() {
 
   return (
     <MarketplaceShell hideTopBar hideNav variant="feed">
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-white">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-white in-[.native-shop]:bg-[var(--native-canvas,#F3F5F8)]">
         <header className="shrink-0 px-5 pb-1 pt-[max(0.55rem,env(safe-area-inset-top))]">
           <Link to="/shop" className="mx-auto block w-[9.5rem]" aria-label="TIJAR home">
             <TijarLogo compact className="mx-auto" />

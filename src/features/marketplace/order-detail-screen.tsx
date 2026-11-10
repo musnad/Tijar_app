@@ -2,11 +2,13 @@
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { ArrowLeft, MapPin, Phone } from "lucide-react";
+import { MapPin, Phone } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { MarketplaceShell } from "@/features/marketplace/marketplace-shell";
+import { NativePageHeader, nativeCanvasClass } from "@/features/marketplace/native-page-header";
+import { cn } from "@/lib/utils";
 import { OrderTrackTimeline } from "@/features/marketplace/order-track-timeline";
 import { ShopPayPanel } from "@/features/marketplace/shop-pay-panel";
 import { useAuth } from "@/features/auth/auth-context";
@@ -36,13 +38,10 @@ export function OrderDetailScreen({ orderId }: { orderId: string }) {
   const itemLabel = items.map((i) => `${i.quantity} × ${i.product_name}`).join(", ") || "an order";
 
   return (
-    <MarketplaceShell>
-      <Link
-        to="/shop/orders"
-        className="mb-3 inline-flex items-center gap-1 text-sm font-semibold text-muted-foreground"
-      >
-        <ArrowLeft className="size-4" /> All orders
-      </Link>
+    <MarketplaceShell hideTopBar variant="feed">
+      <div className={cn("flex min-h-0 flex-1 flex-col overflow-hidden", nativeCanvasClass())}>
+        <NativePageHeader title="Order" showBack />
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-6" style={{ WebkitOverflowScrolling: "touch" }}>
 
       {detailQuery.isLoading && <p className="text-sm text-muted-foreground">Loading…</p>}
       {detailQuery.isError && (
@@ -187,6 +186,8 @@ export function OrderDetailScreen({ orderId }: { orderId: string }) {
           </Button>
         </div>
       )}
+        </div>
+      </div>
     </MarketplaceShell>
   );
 }

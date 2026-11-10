@@ -2,12 +2,14 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { ArrowLeft, LogOut } from "lucide-react";
+import { LogOut } from "lucide-react";
 import { toast } from "sonner";
 
 import { LanguageSelect } from "@/components/site-preferences-controls";
 import { Button } from "@/components/ui/button";
 import { MarketplaceShell } from "@/features/marketplace/marketplace-shell";
+import { NativePageHeader, nativeCanvasClass } from "@/features/marketplace/native-page-header";
+import { cn } from "@/lib/utils";
 import { AccountModeSwitch } from "@/features/marketplace/account-mode-switch";
 import { useAuth } from "@/features/auth/auth-context";
 import { signOut } from "@/features/auth/auth-service";
@@ -49,22 +51,12 @@ export function ShopSettingsScreen() {
 
   return (
     <MarketplaceShell hideTopBar variant="feed">
+      <div className={cn("flex min-h-0 flex-1 flex-col overflow-hidden", nativeCanvasClass())}>
+        <NativePageHeader title={t("shop.settings.title")} subtitle={t("shop.settings.intro")} showBack />
       <div
-        className="min-h-0 flex-1 overflow-y-auto px-4 pb-8 pt-[max(0.5rem,env(safe-area-inset-top))]"
+        className="min-h-0 flex-1 overflow-y-auto px-4 pb-8"
         style={{ WebkitOverflowScrolling: "touch" }}
       >
-        <Link
-          to="/shop/profile"
-          className="inline-flex min-h-11 items-center gap-1 text-sm font-semibold text-muted-foreground"
-        >
-          <ArrowLeft className="size-4" /> {t("shop.settings.backProfile")}
-        </Link>
-        <h1 className="mt-2 text-[22px] font-extrabold tracking-tight text-[color:var(--brand-navy,#001B3A)]">
-          {t("shop.settings.title")}
-        </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {t("shop.settings.intro")}
-        </p>
 
         {!session || !profile ? (
           <Button className="mt-6 min-h-11 w-full rounded-full font-bold" asChild>
@@ -142,6 +134,7 @@ export function ShopSettingsScreen() {
             </Button>
           </div>
         )}
+      </div>
       </div>
     </MarketplaceShell>
   );

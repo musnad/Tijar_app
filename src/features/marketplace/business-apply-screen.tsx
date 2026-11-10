@@ -467,7 +467,7 @@ function ApplyShell({ children }: { children: ReactNode }) {
   return (
     <MarketplaceShell hideTopBar variant="feed">
       <div
-        className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-contain px-4 pb-8 pt-[max(0.75rem,env(safe-area-inset-top))] [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-contain bg-white px-4 pb-8 pt-[max(0.75rem,env(safe-area-inset-top))] in-[.native-shop]:bg-[var(--native-canvas,#F3F5F8)] [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         style={{ WebkitOverflowScrolling: "touch" }}
       >
         {children}

@@ -4,6 +4,8 @@ import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 
 import { MarketplaceShell } from "@/features/marketplace/marketplace-shell";
+import { NativePageHeader, nativeCanvasClass } from "@/features/marketplace/native-page-header";
+import { cn } from "@/lib/utils";
 import { useAuth } from "@/features/auth/auth-context";
 import { fetchMyEnquiries } from "@/services/marketplace-service";
 
@@ -21,21 +23,25 @@ export function EnquiriesScreen() {
 
   if (!session) {
     return (
-      <MarketplaceShell>
-        <p className="text-sm">
-          <Link to="/login" className="font-bold text-primary">
-            Sign in
-          </Link>{" "}
-          to see enquiry history.
-        </p>
+      <MarketplaceShell hideTopBar variant="feed">
+        <div className={cn("flex min-h-0 flex-1 flex-col overflow-hidden", nativeCanvasClass())}>
+          <NativePageHeader title="Enquiries" showBack />
+          <p className="px-4 pt-2 text-sm">
+            <Link to="/login" className="font-bold text-primary">
+              Sign in
+            </Link>{" "}
+            to see enquiry history.
+          </p>
+        </div>
       </MarketplaceShell>
     );
   }
 
   return (
-    <MarketplaceShell>
-      <h1 className="text-xl font-extrabold">Enquiry history</h1>
-      <p className="mt-1 text-sm text-muted-foreground">Messages you sent to shops. This is not a paid order.</p>
+    <MarketplaceShell hideTopBar variant="feed">
+      <div className={cn("flex min-h-0 flex-1 flex-col overflow-hidden", nativeCanvasClass())}>
+        <NativePageHeader title="Enquiry history" subtitle="Messages you sent to shops. This is not a paid order." showBack />
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-6" style={{ WebkitOverflowScrolling: "touch" }}>
       {query.isLoading && <p className="mt-4 text-sm text-muted-foreground">Loading…</p>}
       {!query.isLoading && (query.data?.length ?? 0) === 0 && (
         <p className="mt-4 text-sm text-muted-foreground">No enquiries yet.</p>
@@ -48,6 +54,8 @@ export function EnquiriesScreen() {
           </li>
         ))}
       </ul>
+        </div>
+      </div>
     </MarketplaceShell>
   );
 }

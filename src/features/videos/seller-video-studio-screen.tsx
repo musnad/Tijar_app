@@ -445,7 +445,7 @@ export function SellerVideoStudioScreen({
   }
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-white">
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-white in-[.native-shop]:bg-[var(--native-canvas,#F3F5F8)]">
       {!embedded ? (
         <header className="relative flex shrink-0 items-center justify-between px-3 pb-1 pt-[max(0.45rem,env(safe-area-inset-top))]">
           <button
@@ -1123,7 +1123,7 @@ function ReviewStep({
             <span className="font-extrabold">Save in Products</span>
             <span className="mt-0.5 block text-[13px] font-medium text-[#6B7280]">
               Keep name, price, and photo in your business dashboard so it stays in the shop.
-            </span>
+          </span>
         </span>
       </label>
       ) : product ? (

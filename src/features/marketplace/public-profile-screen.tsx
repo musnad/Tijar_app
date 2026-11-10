@@ -123,8 +123,8 @@ export function PublicProfileScreen({ profileId }: { profileId: string; postId?:
 
   return (
     <MarketplaceShell hideTopBar variant="feed">
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-white">
-        <header className="shrink-0 border-b border-border pt-[max(0.45rem,env(safe-area-inset-top))]">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-white in-[.native-shop]:bg-[var(--native-canvas,#F3F5F8)]">
+        <header className="shrink-0 border-b border-border pt-[max(0.45rem,env(safe-area-inset-top))] in-[.native-shop]:border-0 in-[.native-shop]:bg-transparent">
           <div className="flex items-center gap-2 px-3 pb-2">
             <button
               type="button"

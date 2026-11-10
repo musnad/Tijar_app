@@ -8,6 +8,7 @@ import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { MarketplaceShell } from "@/features/marketplace/marketplace-shell";
+import { NativePageHeader, nativeCanvasClass } from "@/features/marketplace/native-page-header";
 import { useAuth } from "@/features/auth/auth-context";
 import { useStartShopChat } from "@/features/marketplace/use-start-shop-chat";
 import { haptic } from "@/lib/haptics";
@@ -24,7 +25,7 @@ import {
 function MessagesFrame({ children }: { children: ReactNode }) {
   return (
     <MarketplaceShell hideTopBar variant="feed">
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-white">{children}</div>
+      <div className={cn("flex min-h-0 flex-1 flex-col overflow-hidden", nativeCanvasClass())}>{children}</div>
     </MarketplaceShell>
   );
 }
@@ -259,10 +260,10 @@ export function ShopChatThreadScreen({ conversationId }: { conversationId: strin
 
   return (
     <MessagesFrame>
-      <header className="flex shrink-0 items-center gap-2 border-b border-border px-2 py-2 pt-[max(0.5rem,env(safe-area-inset-top))]">
+      <header className="flex shrink-0 items-center gap-2 border-b border-border px-2 py-2 pt-[max(0.5rem,env(safe-area-inset-top))] in-[.native-shop]:border-0 in-[.native-shop]:bg-transparent">
         <button
           type="button"
-          className="flex size-11 items-center justify-center rounded-full"
+          className="flex size-11 items-center justify-center rounded-full in-[.native-shop]:size-10 in-[.native-shop]:bg-white in-[.native-shop]:shadow-[0_4px_14px_rgba(11,31,58,0.08)]"
           aria-label="Back to messages"
           onClick={() => void navigate({ to: "/shop/enquiries" })}
         >
@@ -345,12 +346,7 @@ function Bubble({ mine, body, at }: { mine: boolean; body: string; at: string })
 }
 
 function Header({ title, subtitle }: { title: string; subtitle?: string }) {
-  return (
-    <header className="shrink-0 border-b border-border px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
-      <h1 className="text-[22px] font-extrabold tracking-tight">{title}</h1>
-      {subtitle ? <p className="mt-0.5 text-[12px] font-medium text-muted-foreground">{subtitle}</p> : null}
-    </header>
-  );
+  return <NativePageHeader title={title} subtitle={subtitle} />;
 }
 
 function Avatar({ name, src }: { name: string; src: string | null }) {

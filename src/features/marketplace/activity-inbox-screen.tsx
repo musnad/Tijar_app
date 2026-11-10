@@ -8,6 +8,7 @@ import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { FeedImage } from "@/components/media/feed-image";
 import { MarketplaceShell } from "@/features/marketplace/marketplace-shell";
+import { NativePageHeader, nativeCanvasClass } from "@/features/marketplace/native-page-header";
 import { useAuth } from "@/features/auth/auth-context";
 import { cn } from "@/lib/utils";
 import {
@@ -126,14 +127,16 @@ export function ActivityInboxScreen() {
 
   if (!session || !profile) {
     return (
-      <MarketplaceShell>
-        <h1 className="text-xl font-extrabold">Notifications</h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          <Link to="/login" className="font-bold text-primary">
-            Sign in
-          </Link>{" "}
-          to see follows and comments.
-        </p>
+      <MarketplaceShell hideTopBar variant="feed">
+        <div className={cn("flex min-h-0 flex-1 flex-col overflow-hidden", nativeCanvasClass())}>
+          <NativePageHeader title="Notifications" showBack />
+          <p className="px-4 pt-2 text-sm text-muted-foreground">
+            <Link to="/login" className="font-bold text-primary">
+              Sign in
+            </Link>{" "}
+            to see follows and comments.
+          </p>
+        </div>
       </MarketplaceShell>
     );
   }
@@ -142,25 +145,27 @@ export function ActivityInboxScreen() {
   const unread = query.data?.unread ?? 0;
 
   return (
-    <MarketplaceShell>
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-extrabold">Notifications</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Tap a post to open it and buy or place your order.</p>
-        </div>
-        {unread > 0 ? (
-          <Button
-            size="sm"
-            variant="outline"
-            className="rounded-full font-bold"
-            onClick={() => markRead.mutate()}
-            disabled={markRead.isPending}
-          >
-            Mark read
-          </Button>
-        ) : null}
-      </div>
-
+    <MarketplaceShell hideTopBar variant="feed">
+      <div className={cn("flex min-h-0 flex-1 flex-col overflow-hidden", nativeCanvasClass())}>
+      <NativePageHeader
+        title="Notifications"
+        subtitle="Tap a post to open it and buy or place your order."
+        showBack
+        actions={
+          unread > 0 ? (
+            <Button
+              size="sm"
+              variant="outline"
+              className="rounded-full font-bold bg-white"
+              onClick={() => markRead.mutate()}
+              disabled={markRead.isPending}
+            >
+              Mark read
+            </Button>
+          ) : null
+        }
+      />
+      <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-6">
       {query.isLoading ? <p className="mt-6 text-sm text-muted-foreground">Loading…</p> : null}
       {!query.isLoading && items.length === 0 ? (
         <div className="mt-8 rounded-2xl border border-dashed border-border bg-card p-8 text-center">
@@ -210,6 +215,8 @@ export function ActivityInboxScreen() {
           Notification settings
         </Link>
       </p>
+      </div>
+      </div>
     </MarketplaceShell>
   );
 }
