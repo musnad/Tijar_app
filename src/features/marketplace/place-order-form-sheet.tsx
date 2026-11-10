@@ -7,7 +7,9 @@ import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DeliveryProviderPicker } from "@/features/marketplace/delivery-provider-picker";
 import { ShopPayPanel } from "@/features/marketplace/shop-pay-panel";
+import { fetchDeliveryProviders, type DeliveryProvider } from "@/services/delivery-providers";
 import { useAuth } from "@/features/auth/auth-context";
 import { cn } from "@/lib/utils";
 import {
@@ -36,8 +38,10 @@ export function PlaceOrderForm({ listing }: { listing: PlaceOrderListing }) {
   const [busy, setBusy] = useState(false);
   const [orderId, setOrderId] = useState<string | null>(null);
   const [paid, setPaid] = useState(false);
+  const [courier, setCourier] = useState<DeliveryProvider | null>(null);
 
-  const deliveryFee = fulfilment === "delivery" ? Math.max(0, Number(listing.delivery_fee ?? 0)) : 0;
+  const deliveryFee =
+    fulfilment === "delivery" ? Math.max(0, Number(courier?.fee ?? listing.delivery_fee ?? 0)) : 0;
   const total = listing.price * qty + deliveryFee;
   const dayOptions = useMemo(() => {
     const options: Array<"today" | "tomorrow"> = [];
@@ -82,6 +86,11 @@ export function PlaceOrderForm({ listing }: { listing: PlaceOrderListing }) {
       return;
     }
     if (fulfilment === "delivery") {
+      const listed = await fetchDeliveryProviders(listing.business_id);
+      if (listed.providers.length > 0 && !courier) {
+        toast.error("Choose a delivery business.");
+        return;
+      }
       if (pickupAddress.trim().length < 4) {
         toast.error("Add a pickup destination.");
         return;
@@ -107,7 +116,9 @@ export function PlaceOrderForm({ listing }: { listing: PlaceOrderListing }) {
       buyerNote: note,
       unitPrice: listing.price,
       listingTitle: listing.title,
-      deliveryFee: listing.delivery_fee,
+      deliveryFee,
+      deliveryBusinessId: courier?.id ?? null,
+      deliveryName: courier?.name ?? null,
     });
     setBusy(false);
     if (placed.error || !placed.order) {
@@ -169,12 +180,12 @@ export function PlaceOrderForm({ listing }: { listing: PlaceOrderListing }) {
             <p className="text-sm font-extrabold text-[#0B1F4D]">Pickup or delivery</p>
             <div className="mt-2 grid grid-cols-2 gap-2">
               <Choice active={fulfilment === "pickup"} onClick={() => setFulfilment("pickup")} label="Pickup" />
-              <Choice active={fulfilment === "delivery"} onClick={() => setFulfilment("delivery")} label="Dispatch rider" />
+              <Choice active={fulfilment === "delivery"} onClick={() => setFulfilment("delivery")} label="Delivery" />
             </div>
           </div>
         ) : (
           <p className="text-[13px] font-semibold text-muted-foreground">
-            {fulfilment === "delivery" ? "Dispatch rider" : listing.location_label ? `Pickup at ${listing.location_label}` : "Pickup"}
+            {fulfilment === "delivery" ? "Delivery" : listing.location_label ? `Pickup at ${listing.location_label}` : "Pickup"}
           </p>
         )}
 
@@ -213,6 +224,7 @@ export function PlaceOrderForm({ listing }: { listing: PlaceOrderListing }) {
         </div>
         {fulfilment === "delivery" ? (
           <div className="space-y-3">
+            <DeliveryProviderPicker includeShopId={listing.business_id} selectedId={courier?.id ?? null} onSelect={setCourier} />
             <label className="block text-sm font-extrabold text-[#0B1F4D]">
               Pickup destination
               <Input
@@ -238,9 +250,9 @@ export function PlaceOrderForm({ listing }: { listing: PlaceOrderListing }) {
           <Input className="mt-1 min-h-12 rounded-xl bg-white" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Spice, extra pack…" />
         </div>
 
-        {deliveryFee > 0 ? (
+        {fulfilment === "delivery" ? (
           <div className="flex items-center justify-between pt-1 text-sm">
-            <span className="text-muted-foreground">Dispatch rider</span>
+            <span className="text-muted-foreground">Delivery{courier ? ` · ${courier.name}` : ""}</span>
             <span className="font-bold">{formatNgn(deliveryFee)}</span>
           </div>
         ) : null}

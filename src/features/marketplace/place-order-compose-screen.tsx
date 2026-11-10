@@ -260,14 +260,14 @@ export function PlaceOrderComposeScreen() {
                   Pickup
                 </button>
                 <button type="button" onClick={() => setDelivery((v) => !v)} className={cn("min-h-11 rounded-xl border text-[13px] font-extrabold", delivery ? "border-[#1F7A4D] bg-[#1F7A4D] text-white" : "border-border")}>
-                  Dispatch rider
+                  Delivery
                 </button>
               </div>
               {delivery ? (
                 <>
-                  <label className="mt-3 block text-sm font-extrabold">Dispatch rider fee (₦)</label>
+                  <label className="mt-3 block text-sm font-extrabold">Delivery fee (₦)</label>
                   <Input className="mt-1 min-h-11 rounded-xl" inputMode="numeric" value={deliveryFee} onChange={(e) => setDeliveryFee(e.target.value)} placeholder="0" />
-                  <p className="mt-1 text-[11px] text-muted-foreground">This amount is added when the customer pays. Leave 0 if they pay the rider themselves.</p>
+                  <p className="mt-1 text-[11px] text-muted-foreground">Customers see this fee if they pick your shop to deliver. Leave 0 if you do not deliver.</p>
                 </>
               ) : null}
               <label className="mt-3 block text-sm font-extrabold">Location</label>

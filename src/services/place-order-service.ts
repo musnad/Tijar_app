@@ -397,6 +397,8 @@ export async function placeYourOrder(input: {
   unitPrice: number;
   listingTitle?: string;
   deliveryFee?: number;
+  deliveryBusinessId?: string | null;
+  deliveryName?: string | null;
 }): Promise<{ order: PlaceOrderRequest | null; error: string | null }> {
   const supabase = getSupabaseBrowserClient();
   const listingFee = Math.max(0, Number(input.deliveryFee ?? 0));
@@ -420,17 +422,21 @@ export async function placeYourOrder(input: {
     pickup_address: pickup,
     dropoff_address: dropoff,
     buyer_phone: input.buyerPhone?.trim() || null,
-    buyer_note: input.buyerNote?.trim() || null,
+    buyer_note: [input.buyerNote?.trim() || null, input.deliveryName ? `Delivery: ${input.deliveryName}` : null]
+      .filter(Boolean)
+      .join(" · "),
     unit_price: input.unitPrice,
     total,
     delivery_fee: deliveryFee,
+    delivery_business_id: input.deliveryBusinessId ?? null,
     status: "placed",
   };
   let { data, error } = await supabase.from("place_order_requests").insert(row).select("*").single();
-  if (error && /pickup_address|dropoff_address|delivery_fee|schema cache|column/i.test(error.message)) {
+  if (error && /pickup_address|dropoff_address|delivery_fee|delivery_business_id|schema cache|column/i.test(error.message)) {
     delete row.pickup_address;
     delete row.dropoff_address;
     if (/delivery_fee/i.test(error.message)) delete row.delivery_fee;
+    if (/delivery_business_id/i.test(error.message)) delete row.delivery_business_id;
     const retry = await supabase.from("place_order_requests").insert(row).select("*").single();
     data = retry.data;
     error = retry.error;

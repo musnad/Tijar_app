@@ -13,13 +13,13 @@ import { MarketplaceShell } from "@/features/marketplace/marketplace-shell";
 import { ShopPayPanel } from "@/features/marketplace/shop-pay-panel";
 import { isMockFeedId } from "@/features/marketplace/feed-mock";
 import { useAuth } from "@/features/auth/auth-context";
-import { shopDeliveryFee } from "@/lib/checkout/delivery-fee";
-import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import { DeliveryProviderPicker } from "@/features/marketplace/delivery-provider-picker";
 import {
   addToCart,
   fetchMarketplaceProduct,
   placeOrders,
 } from "@/services/marketplace-service";
+import { fetchDeliveryProviders, type DeliveryProvider } from "@/services/delivery-providers";
 import { formatPricePerUnit, formatUnitWord, lineTotal, normalizeQty, unitMinQty, unitStep } from "@/lib/catalogue/units";
 import { formatNgn } from "@/utils/money";
 import { useTranslation } from "@/lib/i18n/context";
@@ -38,6 +38,7 @@ export function BuyScreen({ productId, initialQty }: { productId?: string; initi
   const [busy, setBusy] = useState(false);
   const [orderId, setOrderId] = useState<string | null>(null);
   const [paidNow, setPaidNow] = useState(false);
+  const [courier, setCourier] = useState<DeliveryProvider | null>(null);
 
   const productQuery = useQuery({
     queryKey: ["marketplace-product", productId],
@@ -51,21 +52,9 @@ export function BuyScreen({ productId, initialQty }: { productId?: string; initi
   });
 
   const product = productQuery.data;
-  const feeQuery = useQuery({
-    queryKey: ["shop-delivery-fee", product?.business_id],
-    enabled: Boolean(product?.business_id),
-    queryFn: async () => {
-      const { data } = await getSupabaseBrowserClient()
-        .from("businesses")
-        .select("delivery_fee")
-        .eq("id", product!.business_id)
-        .maybeSingle();
-      return Number(data?.delivery_fee ?? 0);
-    },
-  });
   const unitPrice = product?.sale_price != null ? Number(product.sale_price) : 0;
   const goodsTotal = product?.sale_price != null ? lineTotal(unitPrice, qty) : 0;
-  const deliveryFee = shopDeliveryFee(fulfilment, feeQuery.data);
+  const deliveryFee = fulfilment === "seller_delivery" ? Math.max(0, Number(courier?.fee ?? 0)) : 0;
   const total = product?.sale_price != null ? goodsTotal + deliveryFee : 0;
   const unitWord = formatUnitWord(product?.unit, qty);
 
@@ -95,6 +84,11 @@ export function BuyScreen({ productId, initialQty }: { productId?: string; initi
       return;
     }
     if (fulfilment === "seller_delivery") {
+      const listed = await fetchDeliveryProviders(product.business_id);
+      if (listed.providers.length > 0 && !courier) {
+        toast.error("Choose a delivery business.");
+        return;
+      }
       if (pickupAddress.trim().length < 4) {
         toast.error("Add a pickup destination.");
         return;
@@ -125,6 +119,7 @@ export function BuyScreen({ productId, initialQty }: { productId?: string; initi
         "Pay: Transfer to shop",
         fulfilment === "seller_delivery" ? `Pickup: ${pickupAddress.trim()}` : null,
         fulfilment === "seller_delivery" ? `Drop-off: ${dropoffAddress.trim()}` : null,
+        courier ? `Delivery: ${courier.name}` : null,
         note,
       ]
         .filter(Boolean)
@@ -133,6 +128,9 @@ export function BuyScreen({ productId, initialQty }: { productId?: string; initi
       idempotencyKey: crypto.randomUUID(),
       paymentMethod: "transfer",
       paymentDestination: "seller",
+      deliveryBusinessId: courier?.id ?? null,
+      deliveryFee: courier?.fee ?? 0,
+      deliveryName: courier?.name ?? null,
     });
     if (placed.error || placed.orders.length === 0) {
       setBusy(false);
@@ -229,12 +227,13 @@ export function BuyScreen({ productId, initialQty }: { productId?: string; initi
                   {t("shop.buy.pickup")}
                 </Button>
                 <Button type="button" variant={fulfilment === "seller_delivery" ? "default" : "outline"} className="rounded-xl" onClick={() => setFulfilment("seller_delivery")}>
-                  Dispatch rider
+                  Delivery
                 </Button>
               </div>
 
               {fulfilment === "seller_delivery" ? (
                 <>
+                  <DeliveryProviderPicker includeShopId={product.business_id} selectedId={courier?.id ?? null} onSelect={setCourier} />
                   <label className="mt-4 block text-sm font-bold">Pickup destination</label>
                   <Input className="mt-1 min-h-11 rounded-xl" value={pickupAddress} onChange={(e) => setPickupAddress(e.target.value)} placeholder="Where should they collect from?" />
                   <label className="mt-3 block text-sm font-bold">Drop-off destination</label>
@@ -249,7 +248,7 @@ export function BuyScreen({ productId, initialQty }: { productId?: string; initi
 
               {deliveryFee > 0 ? (
                 <div className="mt-5 flex justify-between text-sm">
-                  <span className="text-muted-foreground">Dispatch rider</span>
+                  <span className="text-muted-foreground">Delivery</span>
                   <span className="font-bold">{formatNgn(deliveryFee)}</span>
                 </div>
               ) : null}

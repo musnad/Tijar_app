@@ -22,7 +22,7 @@ export const INFORMAL_BUSINESS_CATEGORIES: Array<{ name: string; slug: string; s
   { name: "Auto parts & spare", slug: "auto-parts", sort_order: 200 },
   { name: "Okada & bike transport", slug: "okada", sort_order: 210 },
   { name: "Keke, taxi & transport", slug: "transport", sort_order: 220 },
-  { name: "Dispatch & delivery", slug: "logistics", sort_order: 230 },
+  { name: "Delivery", slug: "logistics", sort_order: 230 },
   { name: "Laundry & cleaning", slug: "laundry", sort_order: 240 },
   { name: "Crafts & handmade", slug: "crafts", sort_order: 250 },
   { name: "Furniture & woodwork", slug: "furniture", sort_order: 260 },

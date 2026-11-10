@@ -65,6 +65,7 @@ export type MarketplaceOrder = {
   fulfilment: string;
   subtotal: number;
   delivery_fee: number;
+  delivery_business_id?: string | null;
   payment_fee?: number;
   total: number;
   platform_fee_ngn?: number | null;

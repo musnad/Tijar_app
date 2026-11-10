@@ -216,7 +216,7 @@ export function EditBusinessForm({ business }: { business: Business }) {
           placeholder="23480…"
           inputMode="tel"
         />
-        <label className="mt-3 block text-xs font-bold text-white/80">Dispatch rider fee (₦)</label>
+        <label className="mt-3 block text-xs font-bold text-white/80">Delivery fee (₦)</label>
         <Input
           className="mt-1 min-h-12 border-0 bg-white/10 text-sm text-white placeholder:text-white/40"
           value={deliveryFee}
@@ -224,7 +224,7 @@ export function EditBusinessForm({ business }: { business: Business }) {
           placeholder="0"
           inputMode="numeric"
         />
-        <p className="mt-1 text-[11px] text-white/70">Added to the order when a customer chooses dispatch rider. Leave 0 if they pay the rider themselves.</p>
+        <p className="mt-1 text-[11px] text-white/70">Shown when a customer picks your shop for delivery. Leave 0 if you do not offer delivery.</p>
       </div>
 
       <FormSection title={t("app.business.aboutSection")} hint={t("app.business.aboutHint")}>

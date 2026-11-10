@@ -17,6 +17,7 @@ import {
   fetchOrderDetail,
   transitionOrder,
 } from "@/services/marketplace-service";
+import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { formatNgn } from "@/utils/money";
 import { formatOrderWhen, orderStatusLabel } from "@/utils/order-tracking";
 
@@ -37,6 +38,21 @@ export function OrderDetailScreen({ orderId }: { orderId: string }) {
   const awaitingPay = order?.status === "pending_payment";
   const buyerSaidPaid = Boolean(order?.buyer_marked_paid_at);
   const itemLabel = items.map((i) => `${i.quantity} × ${i.product_name}`).join(", ") || "an order";
+  const courierQuery = useQuery({
+    queryKey: ["delivery-shop", order?.delivery_business_id],
+    enabled: Boolean(order?.delivery_business_id),
+    queryFn: async () => {
+      const { data } = await getSupabaseBrowserClient()
+        .from("businesses")
+        .select("business_name")
+        .eq("id", order!.delivery_business_id!)
+        .maybeSingle();
+      return String(data?.business_name ?? "");
+    },
+  });
+  const courierName =
+    courierQuery.data ||
+    (order?.buyer_note?.match(/Delivery:\s*([^·]+)/)?.[1]?.trim() ?? "");
 
   return (
     <MarketplaceShell hideTopBar variant="feed">
@@ -130,7 +146,7 @@ export function OrderDetailScreen({ orderId }: { orderId: string }) {
                 <span>{formatNgn(Number(order.subtotal))}</span>
               </div>
               <div className="flex justify-between text-muted-foreground">
-                <span>Dispatch rider</span>
+                <span>Delivery{courierName ? ` · ${courierName}` : ""}</span>
                 <span>{formatNgn(Number(order.delivery_fee))}</span>
               </div>
               <div className="flex justify-between text-muted-foreground">

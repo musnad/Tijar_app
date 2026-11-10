@@ -1016,6 +1016,8 @@ async function placeOrdersWithoutVariants(input: {
   buyerPhone?: string;
   paymentMethod?: string | null;
   paymentDestination?: string | null;
+  deliveryBusinessId?: string | null;
+  deliveryFee?: number | null;
 }): Promise<{ orders: MarketplaceOrder[]; error: string | null }> {
   const supabase = getSupabaseBrowserClient();
   const { data: auth } = await supabase.auth.getUser();
@@ -1053,27 +1055,37 @@ async function placeOrdersWithoutVariants(input: {
   const orders: MarketplaceOrder[] = [];
   for (const [businessId, lines] of byShop) {
     const shopFee = await supabase.from("businesses").select("delivery_fee").eq("id", businessId).maybeSingle();
-    const delivery = input.fulfilment === "pickup" ? 0 : Math.max(0, Number(shopFee.data?.delivery_fee ?? 0));
+    const chosen = input.fulfilment === "pickup" ? 0 : input.deliveryFee;
+    const delivery =
+      chosen != null
+        ? Math.max(0, Number(chosen))
+        : input.fulfilment === "pickup"
+          ? 0
+          : Math.max(0, Number(shopFee.data?.delivery_fee ?? 0));
     const subtotal = lines.reduce((sum, line) => sum + Number(line.quantity) * Number(line.unit_price), 0);
     const stamp = new Date().toISOString().slice(2, 10).replace(/-/g, "");
     const suffix = crypto.randomUUID().replace(/-/g, "").slice(0, 6).toUpperCase();
-    const { data: order, error } = await supabase
-      .from("orders")
-      .insert({
-        order_number: `TJ-${stamp}-${suffix}`,
-        buyer_profile_id: profileId,
-        business_id: businessId,
-        status: "pending_payment",
-        fulfilment: input.fulfilment ?? "pickup",
-        delivery_address_id: input.addressId ?? null,
-        subtotal,
-        delivery_fee: delivery,
-        total: subtotal + delivery,
-        buyer_phone: input.buyerPhone ?? null,
-        buyer_note: input.buyerNote ?? null,
-      })
-      .select("*")
-      .single();
+    const payload: Record<string, unknown> = {
+      order_number: `TJ-${stamp}-${suffix}`,
+      buyer_profile_id: profileId,
+      business_id: businessId,
+      status: "pending_payment",
+      fulfilment: input.fulfilment ?? "pickup",
+      delivery_address_id: input.addressId ?? null,
+      subtotal,
+      delivery_fee: delivery,
+      delivery_business_id: input.deliveryBusinessId ?? null,
+      total: subtotal + delivery,
+      buyer_phone: input.buyerPhone ?? null,
+      buyer_note: input.buyerNote ?? null,
+    };
+    let { data: order, error } = await supabase.from("orders").insert(payload).select("*").single();
+    if (error && /delivery_business_id/i.test(error.message)) {
+      delete payload.delivery_business_id;
+      const retry = await supabase.from("orders").insert(payload).select("*").single();
+      order = retry.data;
+      error = retry.error;
+    }
     if (error || !order) return { orders, error: error?.message ?? "Could not create the order." };
 
     const { error: itemError } = await supabase.from("order_items").insert(
@@ -1115,6 +1127,9 @@ export async function placeOrders(input: {
   idempotencyKey: string;
   paymentMethod?: string | null;
   paymentDestination?: string | null;
+  deliveryBusinessId?: string | null;
+  deliveryFee?: number | null;
+  deliveryName?: string | null;
 }): Promise<{ orders: MarketplaceOrder[]; error: string | null }> {
   const supabase = getSupabaseBrowserClient();
   const payload = {
@@ -1148,18 +1163,32 @@ export async function placeOrders(input: {
   }
   if (error) return { orders: [], error: error.message };
   const orders = (data ?? []) as MarketplaceOrder[];
-  if (input.paymentMethod && orders.length > 0) {
+  if (orders.length > 0) {
     const supabasePay = getSupabaseBrowserClient();
+    const deliveryFee = input.fulfilment === "pickup" ? 0 : Math.max(0, Number(input.deliveryFee ?? 0));
     await Promise.all(
-      orders.map((order) =>
-        supabasePay
-          .from("orders")
-          .update({
-            payment_method: input.paymentMethod,
-            payment_destination: input.paymentDestination ?? null,
-          })
-          .eq("id", order.id),
-      ),
+      orders.map(async (order) => {
+        const patch: Record<string, unknown> = {};
+        if (input.paymentMethod) {
+          patch.payment_method = input.paymentMethod;
+          patch.payment_destination = input.paymentDestination ?? null;
+        }
+        if (input.fulfilment && input.fulfilment !== "pickup") {
+          patch.delivery_fee = deliveryFee;
+          patch.total = Number(order.subtotal ?? 0) + deliveryFee;
+          if (input.deliveryBusinessId) patch.delivery_business_id = input.deliveryBusinessId;
+        }
+        if (Object.keys(patch).length === 0) return;
+        const updated = await supabasePay.from("orders").update(patch).eq("id", order.id).select("*").maybeSingle();
+        if (updated.error && /delivery_business_id/i.test(updated.error.message)) {
+          delete patch.delivery_business_id;
+          await supabasePay.from("orders").update(patch).eq("id", order.id);
+        } else if (updated.data) {
+          Object.assign(order, updated.data);
+        } else {
+          Object.assign(order, patch);
+        }
+      }),
     );
   }
   return { orders, error: null };

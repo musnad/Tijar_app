@@ -14,7 +14,8 @@ import { useAuth } from "@/features/auth/auth-context";
 import { isMockFeedId } from "@/features/marketplace/feed-mock";
 import { haptic } from "@/lib/haptics";
 import { clearLocalCart, listLocalCart } from "@/lib/local-cart";
-import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import { DeliveryProviderPicker } from "@/features/marketplace/delivery-provider-picker";
+import { fetchDeliveryProviders, type DeliveryProvider } from "@/services/delivery-providers";
 import {
   fetchCart,
   listAddresses,
@@ -54,6 +55,7 @@ export function CheckoutScreen() {
   const [error, setError] = useState<string | null>(null);
   const [localItems, setLocalItems] = useState<CartItem[]>([]);
   const [pickupStreet, setPickupStreet] = useState("");
+  const [courier, setCourier] = useState<DeliveryProvider | null>(null);
   const [addr, setAddr] = useState({
     full_name: profile?.full_name?.trim() || "",
     phone: profile?.phone?.trim() || "",
@@ -110,18 +112,16 @@ export function CheckoutScreen() {
   const shopAccounts = accountsQuery.data ?? [];
   const missingAccount = shopAccounts.some((r) => !r.account?.accountNumber);
   const goods = useMemo(() => items.reduce((s, i) => s + Number(i.quantity) * Number(i.unit_price), 0), [items]);
-  const feesQuery = useQuery({
-    queryKey: ["checkout-delivery-fees", shopIds.join(",")],
-    enabled: shopIds.length > 0,
+  const firstShopId = shopIds[0] ?? null;
+  const providersQuery = useQuery({
+    queryKey: ["delivery-providers", firstShopId ?? ""],
     queryFn: async () => {
-      const { data } = await getSupabaseBrowserClient().from("businesses").select("id, delivery_fee").in("id", shopIds);
-      return (data ?? []).reduce<Record<string, number>>((map, row) => {
-        map[String(row.id)] = Number(row.delivery_fee ?? 0);
-        return map;
-      }, {});
+      const r = await fetchDeliveryProviders(firstShopId);
+      if (r.error) throw new Error(r.error);
+      return r.providers;
     },
   });
-  const shipping = shopIds.reduce((sum, id) => sum + Math.max(0, Number(feesQuery.data?.[id] ?? 0)), 0);
+  const shipping = Math.max(0, Number(courier?.fee ?? 0));
   const total = goods + shipping;
 
   async function placeOrder() {
@@ -137,6 +137,11 @@ export function CheckoutScreen() {
       setEditing(true);
       return;
     }
+    if ((providersQuery.data?.length ?? 0) > 0 && !courier) {
+      setError("Choose a delivery business.");
+      toast.error("Choose a delivery business.");
+      return;
+    }
     if (pickupStreet.trim().length < 4) {
       setError("Add a pickup destination.");
       toast.error("Add a pickup destination.");
@@ -146,7 +151,14 @@ export function CheckoutScreen() {
     haptic("success");
     setBusy(true);
 
-    const note = `Pay: Transfer to shop · Pickup: ${pickupStreet.trim()} · Drop-off: ${addr.street}`;
+    const note = [
+      "Pay: Transfer to shop",
+      `Pickup: ${pickupStreet.trim()}`,
+      `Drop-off: ${addr.street}`,
+      courier ? `Delivery: ${courier.name}` : null,
+    ]
+      .filter(Boolean)
+      .join(" · ");
 
     if (!profile) {
       setBusy(false);
@@ -192,6 +204,9 @@ export function CheckoutScreen() {
       idempotencyKey: checkoutKey(),
       paymentMethod: "transfer",
       paymentDestination: "seller",
+      deliveryBusinessId: courier?.id ?? null,
+      deliveryFee: courier?.fee ?? 0,
+      deliveryName: courier?.name ?? null,
     });
     if (placed.error || placed.orders.length === 0) {
       setBusy(false);
@@ -244,6 +259,12 @@ export function CheckoutScreen() {
             </div>
           ) : (
             <>
+              <section className="mt-5" aria-labelledby="delivery-heading">
+                <h2 id="delivery-heading" className="flex items-center gap-1.5 text-[15px] font-extrabold text-[#1F7A4D]">
+                  Delivery
+                </h2>
+                <DeliveryProviderPicker includeShopId={firstShopId} selectedId={courier?.id ?? null} onSelect={setCourier} />
+              </section>
               <section className="mt-5" aria-labelledby="addr-heading">
                 <div className="flex items-center justify-between">
                   <h2 id="addr-heading" className="flex items-center gap-1.5 text-[15px] font-extrabold text-[#1F7A4D]">
@@ -343,8 +364,8 @@ export function CheckoutScreen() {
                     <dd className="font-semibold text-[#0B1F4D]">{money(goods)}</dd>
                   </div>
                   <div className="flex justify-between">
-                    <dt className="text-[#6B7280]">Dispatch rider</dt>
-                    <dd className="font-semibold text-[#0B1F4D]">{shipping > 0 ? money(shipping) : "Shop fee"}</dd>
+                    <dt className="text-[#6B7280]">Delivery{courier ? ` · ${courier.name}` : ""}</dt>
+                    <dd className="font-semibold text-[#0B1F4D]">{courier ? money(shipping) : "Choose"}</dd>
                   </div>
                   <div className="flex justify-between border-t border-[#EEF1F5] pt-2.5">
                     <dt className="font-extrabold text-[#0B1F4D]">Total</dt>
