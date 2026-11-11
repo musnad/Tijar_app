@@ -8,7 +8,7 @@ export const Route = createFileRoute("/api/ads/confirm")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        const body = (await request.json()) as { adId?: string };
+        const body = (await request.json()) as { adId?: string; watchedFrom?: string };
         const adId = body.adId?.trim();
         if (!adId) return Response.json({ error: "Missing ad." }, { status: 400 });
         const ctx = await signedInAdmin(request);
@@ -23,7 +23,7 @@ export const Route = createFileRoute("/api/ads/confirm")({
           return Response.json({ error: "This ad is not yours." }, { status: 403 });
         }
         if (String(ad.status) === "live") return Response.json({ paid: true });
-        if (String(ad.status) !== "pending_payment") {
+        if (!["pending_payment", "draft"].includes(String(ad.status))) {
           return Response.json({ error: "This campaign is not waiting for payment." }, { status: 400 });
         }
 
@@ -33,7 +33,11 @@ export const Route = createFileRoute("/api/ads/confirm")({
         if (!account) return Response.json({ error: "The TIJAR virtual account is not ready yet." }, { status: 503 });
         await syncCorvWallet(ctx.admin, platformId, [{ accountNumber: account.accountNumber, reference: null }]);
         const amount = Number(ad.amount_ngn ?? 0);
-        const credit = await findRecentShopCredit(platformId, amount, ad.created_at as string);
+        const since = body.watchedFrom || (ad.created_at as string) || new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString();
+        let credit = await findRecentShopCredit(platformId, amount, since);
+        if (!credit) {
+          credit = await findRecentShopCredit(platformId, amount, new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString());
+        }
         if (!credit) {
           return Response.json({
             paid: false,

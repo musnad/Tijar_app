@@ -1,8 +1,8 @@
 "use client";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Megaphone } from "lucide-react";
-import { useMemo, useState } from "react";
+import { Clock3, Copy, Headphones, Megaphone, Sparkles } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -21,6 +21,7 @@ import {
   fetchAdsPayAccount,
   fetchAllAdsAdmin,
   fetchMyAds,
+  markAdReadyToPay,
   publishAdAsAdmin,
   type SponsoredAd,
 } from "@/services/ads-service";
@@ -28,6 +29,45 @@ import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { fetchPostsForBusiness } from "@/services/video-feed-service";
 import { listProducts } from "@/services/product-service";
 import { formatNgn } from "@/utils/money";
+
+const WINDOW_MS = 15 * 60 * 1000;
+const SUPPORT_MAIL = "musababubakar123@gmail.com";
+const MISMATCH =
+  "No matching transfer on the TIJAR ads account yet. Send the exact amount, wait a moment, then tap I’ve paid.";
+
+function timerKey(adId: string) {
+  return `tijar-ads-pay-timer-${adId}`;
+}
+
+function remainingMs(adId: string): number {
+  if (typeof window === "undefined") return 0;
+  const raw = sessionStorage.getItem(timerKey(adId));
+  if (!raw) return 0;
+  const started = Number(raw);
+  if (!Number.isFinite(started)) return 0;
+  return Math.max(0, started + WINDOW_MS - Date.now());
+}
+
+function formatClock(ms: number) {
+  const total = Math.ceil(ms / 1000);
+  const m = Math.floor(total / 60);
+  const s = total % 60;
+  return `${m}:${String(s).padStart(2, "0")}`;
+}
+
+function startTimer(adId: string) {
+  if (!sessionStorage.getItem(timerKey(adId))) {
+    sessionStorage.setItem(timerKey(adId), String(Date.now()));
+  }
+}
+
+function supportHref(ad: SponsoredAd) {
+  const subject = encodeURIComponent(`Ads payment not matched · ${ad.id.slice(0, 8)}`);
+  const body = encodeURIComponent(
+    `Hello TIJAR support,\n\nI transferred ${formatNgn(ad.amount_ngn)} for ads campaign ${ad.id} (${ad.caption || "Paid ad"}).\nThe app still says no matching transfer.\n\nPlease check the TIJAR ads account.\n`,
+  );
+  return `mailto:${SUPPORT_MAIL}?subject=${subject}&body=${body}`;
+}
 
 export function AdsManagerScreen({ adminMode = false, embedded = false }: { adminMode?: boolean; embedded?: boolean }) {
   const { profile, session } = useAuth();
@@ -47,12 +87,14 @@ export function AdsManagerScreen({ adminMode = false, embedded = false }: { admi
   const [busy, setBusy] = useState(false);
   const [payAd, setPayAd] = useState<SponsoredAd | null>(null);
   const [adminShopId, setAdminShopId] = useState("");
+  const [tab, setTab] = useState<"pending" | "live" | "drafts" | "ended">("pending");
 
   const businessId = adminMode ? adminShopId || shop?.id || "" : shop?.id || "";
 
   const adsQuery = useQuery({
     queryKey: ["sponsored-ads", adminMode ? "admin" : businessId],
     enabled: adminMode || Boolean(businessId),
+    refetchInterval: adminMode ? 8_000 : 20_000,
     queryFn: async () => (adminMode ? fetchAllAdsAdmin() : fetchMyAds(businessId)),
   });
   const postsQuery = useQuery({
@@ -78,15 +120,13 @@ export function AdsManagerScreen({ adminMode = false, embedded = false }: { admi
       return data ?? [];
     },
   });
-  const payQuery = useQuery({
-    queryKey: ["ads-pay-account"],
-    enabled: Boolean(payAd),
-    queryFn: fetchAdsPayAccount,
-  });
 
   const pack = AD_PACKAGES.find((p) => p.hours === hours)!;
   const ads = adsQuery.data?.ads ?? [];
+  const pending = ads.filter((a) => a.status === "pending_payment");
+  const drafts = ads.filter((a) => a.status === "draft");
   const live = ads.filter((a) => a.status === "live");
+  const ended = ads.filter((a) => a.status === "ended" || a.status === "cancelled");
   const totals = useMemo(
     () =>
       ads.reduce(
@@ -103,7 +143,11 @@ export function AdsManagerScreen({ adminMode = false, embedded = false }: { admi
     [ads],
   );
 
-  async function submit() {
+  useEffect(() => {
+    if (adminMode && pending.length) setTab("pending");
+  }, [adminMode, pending.length]);
+
+  async function submit(asDraft: boolean) {
     if (!session || !profile) {
       toast.error("Sign in to run ads.");
       return;
@@ -125,6 +169,7 @@ export function AdsManagerScreen({ adminMode = false, embedded = false }: { admi
       productId: source === "product" ? productId : null,
       flyer: source === "flyer" ? flyer[0]?.file ?? null : null,
       createdByAdmin: isAdmin && adminMode,
+      asDraft,
     });
     setBusy(false);
     if (created.error || !created.ad) {
@@ -135,212 +180,259 @@ export function AdsManagerScreen({ adminMode = false, embedded = false }: { admi
     setCaption("");
     setFlyer([]);
     await queryClient.invalidateQueries({ queryKey: ["sponsored-ads"] });
-    if (adminMode) {
-      const liveNow = await publishAdAsAdmin(created.ad.id);
-      if (liveNow.error) {
-        setPayAd(created.ad);
-        toast.message("Pay to go live, or tap Publish if this is a platform ad.");
-        return;
-      }
-      toast.success("Ad is live on the feed.");
+    if (asDraft) {
+      setTab("drafts");
+      toast.success("Draft saved. Finish and pay whenever you are ready.");
       return;
     }
+    setTab("pending");
     setPayAd(created.ad);
+    toast.success(adminMode ? "Campaign is pending. Pay or publish it from the list." : "Transfer the exact amount to go live.");
   }
 
-  async function confirmPay() {
-    if (!payAd) return;
-    setBusy(true);
-    const result = await confirmAdPayment(payAd.id);
-    setBusy(false);
-    if (!result.paid) {
-      toast.error(result.error ?? "Payment not seen yet.");
+  async function openPay(ad: SponsoredAd) {
+    if (ad.status === "draft") {
+      const ready = await markAdReadyToPay(ad.id);
+      if (ready.error) {
+        toast.error(ready.error);
+        return;
+      }
+      await queryClient.invalidateQueries({ queryKey: ["sponsored-ads"] });
+      setPayAd({ ...ad, status: "pending_payment" });
+      setTab("pending");
       return;
     }
-    toast.success("Payment confirmed. Your paid ad is now on the feed.");
-    setPayAd(null);
-    await queryClient.invalidateQueries({ queryKey: ["sponsored-ads"] });
+    setPayAd(ad);
   }
+
+  const shown = tab === "pending" ? pending : tab === "live" ? live : tab === "drafts" ? drafts : ended;
 
   const body = (
     <>
-          <p className="mt-2 text-[13px] text-muted-foreground">
-            Promote a post, product, or flyer. Same prices for every category. Pay into the TIJAR virtual account — we go live after the transfer, and the ad stops on the date you pick.
-          </p>
+      <section className="relative mt-3 overflow-hidden rounded-[28px] bg-gradient-to-br from-[#0B1F4D] via-[#12356E] to-[#1F7A4D] p-5 text-white shadow-lg">
+        <Sparkles className="absolute -right-3 -top-3 size-24 text-white/10" />
+        <p className="text-[11px] font-extrabold uppercase tracking-[0.18em] text-white/70">
+          {adminMode ? "Platform ads" : "Grow the shop"}
+        </p>
+        <h2 className="mt-1 text-2xl font-extrabold tracking-tight">Ads manager</h2>
+        <p className="mt-2 max-w-[34ch] text-[13px] leading-relaxed text-white/85">
+          Promote a flyer, post, or product. Same prices for every category. Pay into the TIJAR virtual account — we go live after the transfer, and the ad stops on the date you pick.
+        </p>
+      </section>
 
-          <div className="mt-4 grid grid-cols-3 gap-2">
-            <Stat label="People shown" value={String(totals.people)} />
-            <Stat label="Views" value={String(totals.views)} />
-            <Stat label="Likes" value={String(totals.likes)} />
-            <Stat label="Follows" value={String(totals.follows)} />
-            <Stat label="Calls" value={String(totals.calls)} />
-            <Stat label="Buys" value={String(totals.buys)} />
-          </div>
+      <div className="mt-4 grid grid-cols-3 gap-2">
+        <Stat label="People shown" value={String(totals.people)} />
+        <Stat label="Views" value={String(totals.views)} />
+        <Stat label="Likes" value={String(totals.likes)} />
+        <Stat label="Follows" value={String(totals.follows)} />
+        <Stat label="Calls" value={String(totals.calls)} />
+        <Stat label="Buys" value={String(totals.buys)} />
+      </div>
 
-          {payAd ? (
-            <section className="mt-5 rounded-2xl border border-[#1F7A4D]/30 bg-[#F4FBF7] p-4">
-              <p className="text-sm font-extrabold text-[#0B1F4D]">Pay {formatNgn(payAd.amount_ngn)}</p>
-              <p className="mt-1 text-[12px] text-muted-foreground">
-                Transfer to musababubakar123@gmail.com’s TIJAR virtual account. Use the exact amount so we can match it.
-              </p>
-              {payQuery.data?.account ? (
-                <dl className="mt-3 space-y-1 text-[13px]">
-                  <Row k="Bank" v={payQuery.data.account.bankName} />
-                  <Row k="Name" v={payQuery.data.account.accountName} />
-                  <Row k="Account" v={payQuery.data.account.accountNumber} />
-                  <Row k="Amount" v={formatNgn(payAd.amount_ngn)} />
-                </dl>
-              ) : (
-                <p className="mt-2 text-[13px] text-muted-foreground">{payQuery.data?.error ?? "Loading account…"}</p>
-              )}
-              <Button className="mt-4 min-h-12 w-full rounded-xl bg-[#1F7A4D] font-extrabold" disabled={busy} onClick={() => void confirmPay()}>
-                {busy ? "Checking…" : "I’ve made the payment"}
-              </Button>
-              {adminMode ? (
-                <Button variant="outline" className="mt-2 min-h-11 w-full rounded-xl font-bold" disabled={busy} onClick={() => void publishAdAsAdmin(payAd.id).then((r) => {
-                  if (r.error) toast.error(r.error);
-                  else {
-                    toast.success("Published without waiting for transfer.");
-                    setPayAd(null);
-                    void queryClient.invalidateQueries({ queryKey: ["sponsored-ads"] });
-                  }
-                })}>
-                  Publish as admin
-                </Button>
-              ) : null}
-            </section>
+      {payAd ? (
+        <AdsPayPanel
+          ad={payAd}
+          adminMode={adminMode}
+          onClose={() => setPayAd(null)}
+          onPaid={async () => {
+            setPayAd(null);
+            await queryClient.invalidateQueries({ queryKey: ["sponsored-ads"] });
+          }}
+        />
+      ) : null}
+
+      {!creating ? (
+        <Button className="mt-5 min-h-12 w-full rounded-2xl bg-[#0B1F4D] text-[15px] font-extrabold shadow-md" onClick={() => setCreating(true)}>
+          <Megaphone className="mr-2 size-4" /> Create ad
+        </Button>
+      ) : (
+        <section className="mt-5 space-y-4 rounded-[28px] border border-white/60 bg-white/90 p-4 shadow-sm ring-1 ring-black/5">
+          {adminMode ? (
+            <label className="block text-sm font-extrabold">
+              Shop
+              <select className="mt-1 min-h-11 w-full rounded-xl border bg-background px-3 text-sm font-semibold" value={adminShopId} onChange={(e) => setAdminShopId(e.target.value)}>
+                <option value="">Pick a shop</option>
+                {(shopsQuery.data ?? []).map((s) => (
+                  <option key={String(s.id)} value={String(s.id)}>
+                    {String(s.business_name)}
+                  </option>
+                ))}
+              </select>
+            </label>
           ) : null}
 
-          {!creating ? (
-            <Button className="mt-5 min-h-12 w-full rounded-xl bg-[#0B1F4D] font-extrabold" onClick={() => setCreating(true)}>
-              <Megaphone className="mr-2 size-4" /> Create ad
-            </Button>
-          ) : (
-            <section className="mt-5 space-y-4 rounded-2xl border border-border bg-card p-4">
-              {adminMode ? (
-                <label className="block text-sm font-extrabold">
-                  Shop
-                  <select className="mt-1 min-h-11 w-full rounded-xl border bg-background px-3 text-sm font-semibold" value={adminShopId} onChange={(e) => setAdminShopId(e.target.value)}>
-                    <option value="">Pick a shop</option>
-                    {(shopsQuery.data ?? []).map((s) => (
-                      <option key={String(s.id)} value={String(s.id)}>
-                        {String(s.business_name)}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              ) : null}
-
-              <p className="text-sm font-extrabold">What should this ad get you?</p>
-              <div className="grid grid-cols-2 gap-2">
-                {AD_OBJECTIVES.map((item) => (
-                  <button key={item.id} type="button" onClick={() => setObjective(item.id)} className={cn("rounded-2xl border px-3 py-3 text-left", objective === item.id ? "border-[#1F7A4D] bg-[#F4FBF7]" : "border-border")}>
-                    <span className="block text-[13px] font-extrabold">{item.label}</span>
-                    <span className="mt-0.5 block text-[11px] text-muted-foreground">{item.hint}</span>
-                  </button>
-                ))}
-              </div>
-
-              <p className="text-sm font-extrabold">Promote</p>
-              <div className="grid grid-cols-3 gap-2">
-                {([
-                  ["flyer", "Flyer"],
-                  ["post", "Post"],
-                  ["product", "Product"],
-                ] as const).map(([id, label]) => (
-                  <button key={id} type="button" onClick={() => setSource(id)} className={cn("min-h-11 rounded-xl border text-[13px] font-extrabold", source === id ? "border-[#1F7A4D] bg-[#1F7A4D] text-white" : "border-border")}>
-                    {label}
-                  </button>
-                ))}
-              </div>
-              {source === "flyer" ? <ProductPhotosField photos={flyer} onChange={setFlyer} required /> : null}
-              {source === "post" ? (
-                <select className="min-h-11 w-full rounded-xl border px-3 text-sm" value={postId} onChange={(e) => setPostId(e.target.value)}>
-                  <option value="">Pick a post</option>
-                  {(postsQuery.data ?? []).map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {(p.caption || "Post").slice(0, 48)}
-                    </option>
-                  ))}
-                </select>
-              ) : null}
-              {source === "product" ? (
-                <select className="min-h-11 w-full rounded-xl border px-3 text-sm" value={productId} onChange={(e) => setProductId(e.target.value)}>
-                  <option value="">Pick a product</option>
-                  {(productsQuery.data ?? []).map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name}
-                    </option>
-                  ))}
-                </select>
-              ) : null}
-
-              <label className="block text-sm font-extrabold">
-                Caption
-                <Input className="mt-1 min-h-11 rounded-xl" value={caption} onChange={(e) => setCaption(e.target.value)} placeholder="What should people see?" />
-              </label>
-              <label className="block text-sm font-extrabold">
-                Click destination (optional)
-                <Input className="mt-1 min-h-11 rounded-xl" value={destination} onChange={(e) => setDestination(e.target.value)} placeholder="https://…" />
-              </label>
-
-              <p className="text-sm font-extrabold">How long — same fee for every category</p>
-              <div className="space-y-2">
-                {AD_PACKAGES.map((item) => (
-                  <button key={item.hours} type="button" onClick={() => setHours(item.hours)} className={cn("flex w-full items-center justify-between rounded-2xl border px-3 py-3 text-left", hours === item.hours ? "border-[#1F7A4D] bg-[#F4FBF7]" : "border-border")}>
-                    <span>
-                      <span className="block text-sm font-extrabold">{item.label}</span>
-                      <span className="text-[11px] text-muted-foreground">{item.blurb}</span>
-                    </span>
-                    <span className="text-sm font-extrabold text-[#1F7A4D]">{formatNgn(item.amount)}</span>
-                  </button>
-                ))}
-              </div>
-
-              <Button className="min-h-12 w-full rounded-xl bg-[#1F7A4D] font-extrabold" disabled={busy} onClick={() => void submit()}>
-                {busy ? "Saving…" : adminMode ? `Create · ${formatNgn(pack.amount)} or publish free` : `Continue · ${formatNgn(pack.amount)}`}
-              </Button>
-              <button type="button" className="w-full text-sm font-bold text-muted-foreground" onClick={() => setCreating(false)}>
-                Cancel
+          <p className="text-sm font-extrabold">What should this ad get you?</p>
+          <div className="grid grid-cols-2 gap-2">
+            {AD_OBJECTIVES.map((item) => (
+              <button key={item.id} type="button" onClick={() => setObjective(item.id)} className={cn("rounded-2xl border px-3 py-3 text-left transition", objective === item.id ? "border-[#1F7A4D] bg-[#F4FBF7] shadow-sm" : "border-border bg-card")}>
+                <span className="block text-[13px] font-extrabold">{item.label}</span>
+                <span className="mt-0.5 block text-[11px] text-muted-foreground">{item.hint}</span>
               </button>
-            </section>
-          )}
+            ))}
+          </div>
 
-          <h2 className="mt-8 text-sm font-extrabold">Campaigns {live.length ? `· ${live.length} live` : ""}</h2>
-          <ul className="mt-2 space-y-2">
-            {ads.map((ad) => (
-              <li key={ad.id} className="rounded-2xl border border-border bg-card p-3">
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <p className="text-sm font-extrabold">{ad.caption || "Paid ad"}</p>
-                    <p className="text-[11px] text-muted-foreground">
-                      {ad.shop_name ? `${ad.shop_name} · ` : ""}
-                      {ad.objective} · {ad.duration_hours / 24} day{ad.duration_hours === 24 ? "" : "s"} · {formatNgn(ad.amount_ngn)}
-                    </p>
-                  </div>
-                  <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-extrabold uppercase", ad.status === "live" ? "bg-[#1F7A4D] text-white" : ad.status === "pending_payment" ? "bg-amber-100 text-amber-800" : "bg-muted text-muted-foreground")}>
-                    {ad.status === "pending_payment" ? "Pay" : ad.status}
-                  </span>
-                </div>
-                <p className="mt-2 grid grid-cols-4 gap-1 text-center text-[10px] font-bold text-muted-foreground">
-                  <span>{ad.unique_viewers} people</span>
-                  <span>{ad.likes_count} likes</span>
-                  <span>{ad.follows_count} follows</span>
-                  <span>{ad.buys_count} buys</span>
+          <p className="text-sm font-extrabold">Promote</p>
+          <div className="grid grid-cols-3 gap-2">
+            {([
+              ["flyer", "Flyer"],
+              ["post", "Post"],
+              ["product", "Product"],
+            ] as const).map(([id, label]) => (
+              <button key={id} type="button" onClick={() => setSource(id)} className={cn("min-h-11 rounded-xl border text-[13px] font-extrabold", source === id ? "border-[#1F7A4D] bg-[#1F7A4D] text-white" : "border-border bg-card")}>
+                {label}
+              </button>
+            ))}
+          </div>
+          {source === "flyer" ? <ProductPhotosField photos={flyer} onChange={setFlyer} required={false} /> : null}
+          {source === "post" ? (
+            <select className="min-h-11 w-full rounded-xl border px-3 text-sm" value={postId} onChange={(e) => setPostId(e.target.value)}>
+              <option value="">Pick a post</option>
+              {(postsQuery.data ?? []).map((p) => (
+                <option key={p.id} value={p.id}>
+                  {(p.caption || "Post").slice(0, 48)}
+                </option>
+              ))}
+            </select>
+          ) : null}
+          {source === "product" ? (
+            <select className="min-h-11 w-full rounded-xl border px-3 text-sm" value={productId} onChange={(e) => setProductId(e.target.value)}>
+              <option value="">Pick a product</option>
+              {(productsQuery.data ?? []).map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+          ) : null}
+
+          <label className="block text-sm font-extrabold">
+            Caption
+            <Input className="mt-1 min-h-11 rounded-xl" value={caption} onChange={(e) => setCaption(e.target.value)} placeholder="What should people see?" />
+          </label>
+          <label className="block text-sm font-extrabold">
+            Click destination (optional)
+            <Input className="mt-1 min-h-11 rounded-xl" value={destination} onChange={(e) => setDestination(e.target.value)} placeholder="https://…" />
+          </label>
+
+          <p className="text-sm font-extrabold">How long — same fee for every category</p>
+          <div className="space-y-2">
+            {AD_PACKAGES.map((item) => (
+              <button key={item.hours} type="button" onClick={() => setHours(item.hours)} className={cn("flex w-full items-center justify-between rounded-2xl border px-3 py-3 text-left", hours === item.hours ? "border-[#1F7A4D] bg-[#F4FBF7]" : "border-border bg-card")}>
+                <span>
+                  <span className="block text-sm font-extrabold">{item.label}</span>
+                  <span className="text-[11px] text-muted-foreground">{item.blurb}</span>
+                </span>
+                <span className="text-sm font-extrabold text-[#1F7A4D]">{formatNgn(item.amount)}</span>
+              </button>
+            ))}
+          </div>
+
+          <Button className="min-h-12 w-full rounded-2xl bg-[#1F7A4D] font-extrabold" disabled={busy} onClick={() => void submit(false)}>
+            {busy ? "Saving…" : `Continue to pay · ${formatNgn(pack.amount)}`}
+          </Button>
+          <Button variant="outline" className="min-h-11 w-full rounded-2xl font-bold" disabled={busy} onClick={() => void submit(true)}>
+            Save as draft
+          </Button>
+          <button type="button" className="w-full text-sm font-bold text-muted-foreground" onClick={() => setCreating(false)}>
+            Cancel
+          </button>
+        </section>
+      )}
+
+      {adminMode && pending.length ? (
+        <p className="mt-6 rounded-2xl bg-amber-50 px-3 py-2 text-[12px] font-bold text-amber-900">
+          {pending.length} campaign{pending.length === 1 ? "" : "s"} waiting for payment — they appear here as soon as they are created.
+        </p>
+      ) : null}
+
+      <div className="mt-6 flex gap-1 overflow-x-auto pb-1">
+        {(
+          [
+            ["pending", `Pay · ${pending.length}`],
+            ["live", `Live · ${live.length}`],
+            ["drafts", `Drafts · ${drafts.length}`],
+            ["ended", `Ended · ${ended.length}`],
+          ] as const
+        ).map(([id, label]) => (
+          <button
+            key={id}
+            type="button"
+            onClick={() => setTab(id)}
+            className={cn(
+              "shrink-0 rounded-full px-3 py-1.5 text-[12px] font-extrabold",
+              tab === id ? "bg-[#0B1F4D] text-white" : "bg-muted text-muted-foreground",
+            )}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      <ul className="mt-3 space-y-2">
+        {shown.map((ad) => (
+          <li key={ad.id} className="rounded-[22px] border border-border/80 bg-white p-3.5 shadow-sm">
+            <div className="flex items-start justify-between gap-2">
+              <div>
+                <p className="text-sm font-extrabold">{ad.caption || "Paid ad"}</p>
+                <p className="text-[11px] text-muted-foreground">
+                  {ad.shop_name ? `${ad.shop_name} · ` : ""}
+                  {ad.objective} · {ad.duration_hours / 24} day{ad.duration_hours === 24 ? "" : "s"} · {formatNgn(ad.amount_ngn)}
                 </p>
-                {ad.status === "pending_payment" ? (
-                  <Button size="sm" className="mt-2 rounded-xl font-bold" onClick={() => setPayAd(ad)}>
-                    Pay to go live
+              </div>
+              <span
+                className={cn(
+                  "rounded-full px-2 py-0.5 text-[10px] font-extrabold uppercase",
+                  ad.status === "live"
+                    ? "bg-[#1F7A4D] text-white"
+                    : ad.status === "pending_payment"
+                      ? "bg-amber-100 text-amber-800"
+                      : ad.status === "draft"
+                        ? "bg-sky-100 text-sky-800"
+                        : "bg-muted text-muted-foreground",
+                )}
+              >
+                {ad.status === "pending_payment" ? "Pay" : ad.status}
+              </span>
+            </div>
+            <p className="mt-2 grid grid-cols-4 gap-1 text-center text-[10px] font-bold text-muted-foreground">
+              <span>{ad.unique_viewers} people</span>
+              <span>{ad.likes_count} likes</span>
+              <span>{ad.follows_count} follows</span>
+              <span>{ad.buys_count} buys</span>
+            </p>
+            {ad.status === "pending_payment" || ad.status === "draft" ? (
+              <div className="mt-2 flex gap-2">
+                <Button size="sm" className="rounded-xl font-bold" onClick={() => void openPay(ad)}>
+                  {ad.status === "draft" ? "Finish & pay" : "Pay to go live"}
+                </Button>
+                {adminMode ? (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="rounded-xl font-bold"
+                    onClick={() =>
+                      void publishAdAsAdmin(ad.id).then((r) => {
+                        if (r.error) toast.error(r.error);
+                        else {
+                          toast.success("Published.");
+                          void queryClient.invalidateQueries({ queryKey: ["sponsored-ads"] });
+                        }
+                      })
+                    }
+                  >
+                    Publish
                   </Button>
                 ) : null}
-              </li>
-            ))}
-          </ul>
-          {ads.length === 0 ? <p className="mt-3 text-[13px] text-muted-foreground">No campaigns yet.</p> : null}
+              </div>
+            ) : null}
+          </li>
+        ))}
+      </ul>
+      {shown.length === 0 ? <p className="mt-3 text-[13px] text-muted-foreground">Nothing in this list yet.</p> : null}
 
-          <p className="mt-6 text-[11px] text-muted-foreground">
-            Live ads look like normal posts with a Paid ads tag. They finish automatically at the end of the period you paid for.
-          </p>
+      <p className="mt-6 text-[11px] text-muted-foreground">
+        Live ads look like normal posts with a Paid ads tag. They finish automatically at the end of the period you paid for.
+      </p>
     </>
   );
 
@@ -358,10 +450,131 @@ export function AdsManagerScreen({ adminMode = false, embedded = false }: { admi
   );
 }
 
+function AdsPayPanel({
+  ad,
+  adminMode,
+  onClose,
+  onPaid,
+}: {
+  ad: SponsoredAd;
+  adminMode: boolean;
+  onClose: () => void;
+  onPaid: () => Promise<void>;
+}) {
+  const payQuery = useQuery({
+    queryKey: ["ads-pay-account"],
+    queryFn: fetchAdsPayAccount,
+  });
+  const [left, setLeft] = useState(0);
+  const [busy, setBusy] = useState(false);
+  const [mismatch, setMismatch] = useState(false);
+  const account = payQuery.data?.account;
+
+  useEffect(() => {
+    startTimer(ad.id);
+    setLeft(remainingMs(ad.id) || WINDOW_MS);
+    const id = window.setInterval(() => setLeft(remainingMs(ad.id)), 1000);
+    return () => window.clearInterval(id);
+  }, [ad.id]);
+
+  async function copyNumber() {
+    if (!account?.accountNumber) return;
+    await navigator.clipboard.writeText(account.accountNumber);
+    startTimer(ad.id);
+    setLeft(remainingMs(ad.id) || WINDOW_MS);
+    toast.success("Account number copied. Pay within 15 minutes.");
+  }
+
+  async function confirmPay() {
+    setBusy(true);
+    const started = sessionStorage.getItem(timerKey(ad.id));
+    const watchedFrom = started ? new Date(Number(started) - 2 * 60 * 1000).toISOString() : ad.created_at;
+    const result = await confirmAdPayment(ad.id, watchedFrom);
+    setBusy(false);
+    if (!result.paid) {
+      setMismatch(true);
+      toast.error(result.error ?? MISMATCH);
+      return;
+    }
+    setMismatch(false);
+    toast.success("Payment confirmed. Your paid ad is now on the feed.");
+    await onPaid();
+  }
+
+  return (
+    <section className="mt-5 overflow-hidden rounded-[28px] border border-[#1F7A4D]/25 bg-gradient-to-b from-[#F4FBF7] to-white p-4 shadow-md">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-sm font-extrabold text-[#0B1F4D]">Pay {formatNgn(ad.amount_ngn)}</p>
+          <p className="mt-1 text-[12px] text-muted-foreground">
+            Transfer the exact amount to musababubakar123@gmail.com’s TIJAR virtual account.
+          </p>
+        </div>
+        <div className="flex min-w-[4.6rem] flex-col items-center rounded-2xl bg-[#0B1F4D] px-3 py-2 text-white">
+          <Clock3 className="size-3.5 opacity-80" />
+          <p className="mt-0.5 font-mono text-lg font-extrabold leading-none">{left > 0 ? formatClock(left) : "0:00"}</p>
+          <p className="mt-1 text-[9px] font-bold uppercase tracking-wide text-white/70">minutes</p>
+        </div>
+      </div>
+      <p className="mt-2 text-[12px] font-semibold text-[#1F7A4D]">
+        {left > 0 ? `Pay within ${formatClock(left)}` : "15 minutes ended — you can still confirm if the transfer went through."}
+      </p>
+      {account ? (
+        <dl className="mt-3 space-y-1 rounded-2xl bg-white/80 p-3 text-[13px]">
+          <Row k="Bank" v={account.bankName} />
+          <Row k="Name" v={account.accountName} />
+          <Row k="Account" v={account.accountNumber} />
+          <Row k="Amount" v={formatNgn(ad.amount_ngn)} />
+        </dl>
+      ) : (
+        <p className="mt-2 text-[13px] text-muted-foreground">{payQuery.data?.error ?? "Loading account…"}</p>
+      )}
+      <Button variant="outline" className="mt-3 min-h-11 w-full rounded-xl font-bold" onClick={() => void copyNumber()} disabled={!account}>
+        <Copy className="mr-2 size-4" /> Copy account number
+      </Button>
+      <Button className="mt-2 min-h-12 w-full rounded-xl bg-[#1F7A4D] font-extrabold" disabled={busy} onClick={() => void confirmPay()}>
+        {busy ? "Checking…" : "I’ve made the payment"}
+      </Button>
+      {mismatch ? (
+        <div className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 p-3">
+          <p className="text-[12px] font-semibold leading-relaxed text-amber-950">{MISMATCH}</p>
+          <a
+            href={supportHref(ad)}
+            className="mt-3 inline-flex min-h-11 w-full items-center justify-center rounded-xl bg-[#0B1F4D] text-[13px] font-extrabold text-white"
+          >
+            <Headphones className="mr-2 size-4" /> Contact support
+          </a>
+        </div>
+      ) : null}
+      {adminMode ? (
+        <Button
+          variant="outline"
+          className="mt-2 min-h-11 w-full rounded-xl font-bold"
+          disabled={busy}
+          onClick={() =>
+            void publishAdAsAdmin(ad.id).then((r) => {
+              if (r.error) toast.error(r.error);
+              else {
+                toast.success("Published without waiting for transfer.");
+                void onPaid();
+              }
+            })
+          }
+        >
+          Publish as admin
+        </Button>
+      ) : null}
+      <button type="button" className="mt-3 w-full text-sm font-bold text-muted-foreground" onClick={onClose}>
+        Close
+      </button>
+    </section>
+  );
+}
+
 function Stat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-xl border border-border bg-card p-2.5">
-      <p className="text-[10px] font-bold uppercase text-muted-foreground">{label}</p>
+    <div className="rounded-2xl border border-white/70 bg-white p-2.5 shadow-sm">
+      <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">{label}</p>
       <p className="mt-0.5 text-lg font-extrabold text-[#0B1F4D]">{value}</p>
     </div>
   );

@@ -154,13 +154,16 @@ export async function createSponsoredAd(input: {
   productId?: string | null;
   flyer?: File | null;
   createdByAdmin?: boolean;
+  asDraft?: boolean;
 }): Promise<{ ad: SponsoredAd | null; error: string | null }> {
   const pack = packageForHours(input.durationHours);
   if (!pack) return { ad: null, error: "Pick a campaign length starting from 24 hours." };
   if (!input.caption.trim()) return { ad: null, error: "Write a short caption for the ad." };
-  if (input.sourceKind === "flyer" && !input.flyer) return { ad: null, error: "Upload a flyer photo." };
-  if (input.sourceKind === "post" && !input.videoPostId) return { ad: null, error: "Pick a post to promote." };
-  if (input.sourceKind === "product" && !input.productId) return { ad: null, error: "Pick a product to promote." };
+  if (!input.asDraft) {
+    if (input.sourceKind === "flyer" && !input.flyer) return { ad: null, error: "Upload a flyer photo." };
+    if (input.sourceKind === "post" && !input.videoPostId) return { ad: null, error: "Pick a post to promote." };
+    if (input.sourceKind === "product" && !input.productId) return { ad: null, error: "Pick a product to promote." };
+  }
 
   let flyerUrl: string | null = null;
   if (input.flyer) {
@@ -189,7 +192,7 @@ export async function createSponsoredAd(input: {
       objective: input.objective,
       duration_hours: pack.hours,
       amount_ngn: input.createdByAdmin ? 0 : pack.amount,
-      status: "pending_payment",
+      status: input.asDraft ? "draft" : "pending_payment",
     })
     .select("*")
     .single();
@@ -209,13 +212,25 @@ export async function fetchAdsPayAccount(): Promise<{
   return { account: json.account ?? null, error: null };
 }
 
-export async function confirmAdPayment(adId: string): Promise<{ paid: boolean; error: string | null }> {
+export async function markAdReadyToPay(adId: string): Promise<{ error: string | null }> {
+  const supabase = getSupabaseBrowserClient();
+  const { error } = await supabase
+    .from("sponsored_ads")
+    .update({ status: "pending_payment", updated_at: new Date().toISOString() })
+    .eq("id", adId);
+  return { error: error?.message ?? null };
+}
+
+export async function confirmAdPayment(
+  adId: string,
+  watchedFrom?: string,
+): Promise<{ paid: boolean; error: string | null }> {
   const auth = await authHeader();
   if (!auth) return { paid: false, error: "Sign in first." };
   const res = await fetch("/api/ads/confirm", {
     method: "POST",
     headers: { Authorization: auth, "Content-Type": "application/json" },
-    body: JSON.stringify({ adId }),
+    body: JSON.stringify({ adId, watchedFrom }),
   });
   const json = (await res.json()) as { paid?: boolean; error?: string };
   if (!res.ok) return { paid: false, error: json.error ?? "Could not confirm payment." };
