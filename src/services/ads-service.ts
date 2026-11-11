@@ -217,6 +217,35 @@ export async function fetchAdsPayAccount(): Promise<{
   return { account: json.account ?? null, error: null };
 }
 
+export type AdminAdShop = { id: string; name: string; logo: string | null; published: boolean; slug: string | null };
+export type AdminAdProduct = { id: string; name: string; image_url: string | null; sale_price: number | null };
+export type AdminAdPost = { id: string; caption: string | null; cover: string | null };
+
+export async function fetchAdminAdCatalog(shopId?: string): Promise<{
+  shops: AdminAdShop[];
+  products: AdminAdProduct[];
+  posts: AdminAdPost[];
+  error: string | null;
+}> {
+  const auth = await authHeader();
+  if (!auth) return { shops: [], products: [], posts: [], error: "Sign in first." };
+  const qs = shopId ? `?shopId=${encodeURIComponent(shopId)}` : "";
+  const res = await fetch(`/api/ads/catalog${qs}`, { headers: { Authorization: auth }, cache: "no-store" });
+  const json = (await res.json()) as {
+    shops?: AdminAdShop[];
+    products?: AdminAdProduct[];
+    posts?: AdminAdPost[];
+    error?: string;
+  };
+  if (!res.ok) return { shops: [], products: [], posts: [], error: json.error ?? "Could not load shops." };
+  return {
+    shops: json.shops ?? [],
+    products: json.products ?? [],
+    posts: json.posts ?? [],
+    error: null,
+  };
+}
+
 export async function controlSponsoredAd(
   adId: string,
   action: "pause" | "resume" | "stop" | "delete",

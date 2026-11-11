@@ -19,6 +19,7 @@ import {
   confirmAdPayment,
   controlSponsoredAd,
   createSponsoredAd,
+  fetchAdminAdCatalog,
   fetchAdsPayAccount,
   fetchAdSupportTickets,
   fetchAllAdsAdmin,
@@ -31,7 +32,6 @@ import {
   type SponsoredAd,
   type SponsoredAdTicket,
 } from "@/services/ads-service";
-import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { fetchPostsForBusiness } from "@/services/video-feed-service";
 import { listProducts } from "@/services/product-service";
 import { formatNgn } from "@/utils/money";
@@ -90,9 +90,10 @@ export function AdsManagerScreen({ adminMode = false, embedded = false }: { admi
   const [busy, setBusy] = useState(false);
   const [payAd, setPayAd] = useState<SponsoredAd | null>(null);
   const [adminShopId, setAdminShopId] = useState("");
+  const [shopSearch, setShopSearch] = useState("");
   const [tab, setTab] = useState<"pending" | "live" | "drafts" | "ended" | "support">("pending");
 
-  const businessId = adminMode ? adminShopId || shop?.id || "" : shop?.id || "";
+  const businessId = adminMode ? adminShopId : shop?.id || "";
 
   const adsQuery = useQuery({
     queryKey: ["sponsored-ads", adminMode ? "admin" : businessId],
@@ -102,27 +103,28 @@ export function AdsManagerScreen({ adminMode = false, embedded = false }: { admi
   });
   const postsQuery = useQuery({
     queryKey: ["ads-posts", businessId],
-    enabled: Boolean(businessId),
+    enabled: Boolean(businessId) && !adminMode,
     queryFn: async () => fetchPostsForBusiness(businessId),
   });
   const productsQuery = useQuery({
     queryKey: ["ads-products", businessId],
-    enabled: Boolean(businessId),
+    enabled: Boolean(businessId) && !adminMode,
     queryFn: async () => (await listProducts(businessId)).data.filter((p) => Boolean(p.image_url)),
   });
-  const shopsQuery = useQuery({
-    queryKey: ["ads-admin-shops"],
+  const catalogQuery = useQuery({
+    queryKey: ["ads-admin-catalog", adminShopId],
     enabled: adminMode,
-    queryFn: async () => {
-      const { data } = await getSupabaseBrowserClient()
-        .from("businesses")
-        .select("id, business_name")
-        .eq("is_published", true)
-        .order("business_name")
-        .limit(200);
-      return data ?? [];
-    },
+    queryFn: () => fetchAdminAdCatalog(adminShopId || undefined),
   });
+  const adminShops = catalogQuery.data?.shops ?? [];
+  const adminProducts = catalogQuery.data?.products ?? [];
+  const adminPosts = catalogQuery.data?.posts ?? [];
+  const filteredShops = useMemo(() => {
+    const needle = shopSearch.trim().toLowerCase();
+    if (!needle) return adminShops.slice(0, 80);
+    return adminShops.filter((s) => s.name.toLowerCase().includes(needle)).slice(0, 80);
+  }, [adminShops, shopSearch]);
+  const selectedShop = adminShops.find((s) => s.id === adminShopId) ?? null;
 
   const pack = AD_PACKAGES.find((p) => p.hours === hours)!;
   const ads = adsQuery.data?.ads ?? [];
@@ -163,7 +165,7 @@ export function AdsManagerScreen({ adminMode = false, embedded = false }: { admi
       return;
     }
     if (!businessId) {
-      toast.error(adminMode ? "Pick a shop." : "Create a shop first.");
+      toast.error(adminMode ? "Search and pick the shop you want to advertise." : "Create a shop first.");
       return;
     }
     setBusy(true);
@@ -308,17 +310,55 @@ export function AdsManagerScreen({ adminMode = false, embedded = false }: { admi
       ) : (
         <section className="mt-5 space-y-4 rounded-[28px] border border-white/60 bg-white/90 p-4 shadow-sm ring-1 ring-black/5">
           {adminMode ? (
-            <label className="block text-sm font-extrabold">
-              Shop
-              <select className="mt-1 min-h-11 w-full rounded-xl border bg-background px-3 text-sm font-semibold" value={adminShopId} onChange={(e) => setAdminShopId(e.target.value)}>
-                <option value="">Pick a shop</option>
-                {(shopsQuery.data ?? []).map((s) => (
-                  <option key={String(s.id)} value={String(s.id)}>
-                    {String(s.business_name)}
-                  </option>
+            <div className="space-y-2">
+              <p className="text-sm font-extrabold">Advertise this shop</p>
+              <Input
+                className="min-h-11 rounded-xl"
+                value={shopSearch}
+                onChange={(e) => setShopSearch(e.target.value)}
+                placeholder="Search shop name"
+              />
+              {selectedShop ? (
+                <p className="rounded-xl bg-[#F4FBF7] px-3 py-2 text-[12px] font-bold text-[#1F7A4D]">
+                  {selectedShop.name}
+                  {selectedShop.published ? "" : " · unpublished"} — pick a product or post from this account.
+                </p>
+              ) : (
+                <p className="text-[12px] text-muted-foreground">Pick the business. Then you can choose its products or posts.</p>
+              )}
+              <div className="max-h-44 space-y-1 overflow-y-auto rounded-2xl border border-border p-1">
+                {filteredShops.map((s) => (
+                  <button
+                    key={s.id}
+                    type="button"
+                    onClick={() => {
+                      setAdminShopId(s.id);
+                      setProductId("");
+                      setPostId("");
+                      setShopSearch(s.name);
+                    }}
+                    className={cn(
+                      "flex w-full items-center gap-2 rounded-xl px-2 py-2 text-left",
+                      adminShopId === s.id ? "bg-[#F4FBF7]" : "hover:bg-muted",
+                    )}
+                  >
+                    {s.logo ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={s.logo} alt="" className="size-8 rounded-lg object-cover" />
+                    ) : (
+                      <span className="flex size-8 items-center justify-center rounded-lg bg-[#0B1F4D] text-[11px] font-extrabold text-white">
+                        {s.name.slice(0, 1).toUpperCase()}
+                      </span>
+                    )}
+                    <span className="min-w-0">
+                      <span className="block truncate text-[13px] font-extrabold">{s.name}</span>
+                      <span className="text-[10px] text-muted-foreground">{s.published ? "Live shop" : "Unpublished"}</span>
+                    </span>
+                  </button>
                 ))}
-              </select>
-            </label>
+                {filteredShops.length === 0 ? <p className="px-2 py-3 text-[12px] text-muted-foreground">No shop matches that name.</p> : null}
+              </div>
+            </div>
           ) : null}
 
           <p className="text-sm font-extrabold">What should this ad get you?</p>
@@ -345,24 +385,69 @@ export function AdsManagerScreen({ adminMode = false, embedded = false }: { admi
           </div>
           {source === "flyer" ? <ProductPhotosField photos={flyer} onChange={setFlyer} required={false} /> : null}
           {source === "post" ? (
-            <select className="min-h-11 w-full rounded-xl border px-3 text-sm" value={postId} onChange={(e) => setPostId(e.target.value)}>
-              <option value="">Pick a post</option>
-              {(postsQuery.data ?? []).map((p) => (
-                <option key={p.id} value={p.id}>
-                  {(p.caption || "Post").slice(0, 48)}
-                </option>
-              ))}
-            </select>
+            adminMode && !adminShopId ? (
+              <p className="text-[12px] text-muted-foreground">Pick a shop first to load its posts.</p>
+            ) : (
+              <div className="grid grid-cols-2 gap-2">
+                {(adminMode ? adminPosts : (postsQuery.data ?? []).map((p) => ({ id: p.id, caption: p.caption, cover: p.cover_path || p.image_urls?.[0] || null }))).map((p) => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => {
+                      setPostId(p.id);
+                      if (!caption.trim()) setCaption((p.caption || selectedShop?.name || "Paid ad").slice(0, 80));
+                    }}
+                    className={cn("overflow-hidden rounded-2xl border text-left", postId === p.id ? "border-[#1F7A4D] ring-2 ring-[#1F7A4D]/30" : "border-border")}
+                  >
+                    {p.cover ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={p.cover} alt="" className="h-24 w-full object-cover" />
+                    ) : (
+                      <div className="h-24 bg-muted" />
+                    )}
+                    <span className="block truncate px-2 py-1.5 text-[11px] font-bold">{(p.caption || "Post").slice(0, 40)}</span>
+                  </button>
+                ))}
+                {(adminMode ? adminPosts : postsQuery.data ?? []).length === 0 ? (
+                  <p className="col-span-2 text-[12px] text-muted-foreground">No posts on this shop yet.</p>
+                ) : null}
+              </div>
+            )
           ) : null}
           {source === "product" ? (
-            <select className="min-h-11 w-full rounded-xl border px-3 text-sm" value={productId} onChange={(e) => setProductId(e.target.value)}>
-              <option value="">Pick a product</option>
-              {(productsQuery.data ?? []).map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
-                </option>
-              ))}
-            </select>
+            adminMode && !adminShopId ? (
+              <p className="text-[12px] text-muted-foreground">Pick a shop first to load its products.</p>
+            ) : (
+              <div className="grid grid-cols-2 gap-2">
+                {(adminMode ? adminProducts : (productsQuery.data ?? []).map((p) => ({ id: p.id, name: p.name, image_url: p.image_url, sale_price: p.sale_price }))).map((p) => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => {
+                      setProductId(p.id);
+                      setSource("product");
+                      if (!caption.trim()) setCaption(p.name);
+                      if (selectedShop?.slug && !destination.trim()) setDestination(`https://www.tijar.ng/b/${selectedShop.slug}`);
+                    }}
+                    className={cn("overflow-hidden rounded-2xl border text-left", productId === p.id ? "border-[#1F7A4D] ring-2 ring-[#1F7A4D]/30" : "border-border")}
+                  >
+                    {p.image_url ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={p.image_url} alt="" className="h-24 w-full object-cover" />
+                    ) : (
+                      <div className="flex h-24 items-center justify-center bg-muted text-[11px] font-bold text-muted-foreground">No photo</div>
+                    )}
+                    <span className="block truncate px-2 pt-1.5 text-[12px] font-extrabold">{p.name}</span>
+                    <span className="block px-2 pb-1.5 text-[10px] font-bold text-[#1F7A4D]">
+                      {p.sale_price != null ? formatNgn(Number(p.sale_price)) : "No price"}
+                    </span>
+                  </button>
+                ))}
+                {(adminMode ? adminProducts : productsQuery.data ?? []).length === 0 ? (
+                  <p className="col-span-2 text-[12px] text-muted-foreground">No products on this shop yet.</p>
+                ) : null}
+              </div>
+            )
           ) : null}
 
           <label className="block text-sm font-extrabold">
