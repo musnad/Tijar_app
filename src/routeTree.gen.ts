@@ -106,6 +106,7 @@ import { Route as ApiAdsConfirmRouteImport } from './routes/api.ads.confirm'
 import { Route as ApiAdsGoLiveRouteImport } from './routes/api.ads.go-live'
 import { Route as ApiAdsPayWalletRouteImport } from './routes/api.ads.pay-wallet'
 import { Route as ApiAuthForgotPasswordRouteImport } from './routes/api.auth.forgot-password'
+import { Route as ApiUssdAfricastalkingRouteImport } from './routes/api.ussd.africastalking'
 import { Route as ApiCronAdsRouteImport } from './routes/api.cron.ads'
 import { Route as ApiPaymentsFlutterwaveRouteImport } from './routes/api.payments.flutterwave'
 import { Route as ApiPaymentsPayoutRouteImport } from './routes/api.payments.payout'
@@ -637,6 +638,11 @@ const ApiAuthForgotPasswordRoute = ApiAuthForgotPasswordRouteImport.update({
   path: '/api/auth/forgot-password',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiUssdAfricastalkingRoute = ApiUssdAfricastalkingRouteImport.update({
+  id: '/api/ussd/africastalking',
+  path: '/api/ussd/africastalking',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiCronAdsRoute = ApiCronAdsRouteImport.update({
   id: '/api/cron/ads',
   path: '/api/cron/ads',
@@ -963,6 +969,7 @@ export interface FileRoutesByFullPath {
   '/api/ads/go-live': typeof ApiAdsGoLiveRoute
   '/api/ads/pay-wallet': typeof ApiAdsPayWalletRoute
   '/api/auth/forgot-password': typeof ApiAuthForgotPasswordRoute
+  '/api/ussd/africastalking': typeof ApiUssdAfricastalkingRoute
   '/api/cron/ads': typeof ApiCronAdsRoute
   '/api/payments/flutterwave': typeof ApiPaymentsFlutterwaveRoute
   '/api/payments/payout': typeof ApiPaymentsPayoutRoute
@@ -1100,6 +1107,7 @@ export interface FileRoutesByTo {
   '/api/ads/go-live': typeof ApiAdsGoLiveRoute
   '/api/ads/pay-wallet': typeof ApiAdsPayWalletRoute
   '/api/auth/forgot-password': typeof ApiAuthForgotPasswordRoute
+  '/api/ussd/africastalking': typeof ApiUssdAfricastalkingRoute
   '/api/cron/ads': typeof ApiCronAdsRoute
   '/api/payments/flutterwave': typeof ApiPaymentsFlutterwaveRoute
   '/api/payments/payout': typeof ApiPaymentsPayoutRoute
@@ -1245,6 +1253,7 @@ export interface FileRoutesById {
   '/api/ads/go-live': typeof ApiAdsGoLiveRoute
   '/api/ads/pay-wallet': typeof ApiAdsPayWalletRoute
   '/api/auth/forgot-password': typeof ApiAuthForgotPasswordRoute
+  '/api/ussd/africastalking': typeof ApiUssdAfricastalkingRoute
   '/api/cron/ads': typeof ApiCronAdsRoute
   '/api/payments/flutterwave': typeof ApiPaymentsFlutterwaveRoute
   '/api/payments/payout': typeof ApiPaymentsPayoutRoute
@@ -1391,6 +1400,7 @@ export interface FileRouteTypes {
     | '/api/ads/go-live'
     | '/api/ads/pay-wallet'
     | '/api/auth/forgot-password'
+    | '/api/ussd/africastalking'
     | '/api/cron/ads'
     | '/api/payments/flutterwave'
     | '/api/payments/payout'
@@ -1528,6 +1538,7 @@ export interface FileRouteTypes {
     | '/api/ads/go-live'
     | '/api/ads/pay-wallet'
     | '/api/auth/forgot-password'
+    | '/api/ussd/africastalking'
     | '/api/cron/ads'
     | '/api/payments/flutterwave'
     | '/api/payments/payout'
@@ -1672,6 +1683,7 @@ export interface FileRouteTypes {
     | '/api/ads/go-live'
     | '/api/ads/pay-wallet'
     | '/api/auth/forgot-password'
+    | '/api/ussd/africastalking'
     | '/api/cron/ads'
     | '/api/payments/flutterwave'
     | '/api/payments/payout'
@@ -1765,6 +1777,7 @@ export interface RootRouteChildren {
   ApiAdsGoLiveRoute: typeof ApiAdsGoLiveRoute
   ApiAdsPayWalletRoute: typeof ApiAdsPayWalletRoute
   ApiAuthForgotPasswordRoute: typeof ApiAuthForgotPasswordRoute
+  ApiUssdAfricastalkingRoute: typeof ApiUssdAfricastalkingRoute
   ApiCronAdsRoute: typeof ApiCronAdsRoute
   ApiPaymentsFlutterwaveRoute: typeof ApiPaymentsFlutterwaveRoute
   ApiPaymentsPayoutRoute: typeof ApiPaymentsPayoutRoute
@@ -2461,6 +2474,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAuthForgotPasswordRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/ussd/africastalking': {
+      id: '/api/ussd/africastalking'
+      path: '/api/ussd/africastalking'
+      fullPath: '/api/ussd/africastalking'
+      preLoaderRoute: typeof ApiUssdAfricastalkingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/cron/ads': {
       id: '/api/cron/ads'
       path: '/api/cron/ads'
@@ -3120,6 +3140,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiAdsGoLiveRoute: ApiAdsGoLiveRoute,
   ApiAdsPayWalletRoute: ApiAdsPayWalletRoute,
   ApiAuthForgotPasswordRoute: ApiAuthForgotPasswordRoute,
+  ApiUssdAfricastalkingRoute: ApiUssdAfricastalkingRoute,
   ApiCronAdsRoute: ApiCronAdsRoute,
   ApiPaymentsFlutterwaveRoute: ApiPaymentsFlutterwaveRoute,
   ApiPaymentsPayoutRoute: ApiPaymentsPayoutRoute,

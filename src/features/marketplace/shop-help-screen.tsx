@@ -9,6 +9,7 @@ const TOPICS = [
   "profile",
   "privacy",
   "orders",
+  "ussd",
   "selling",
   "ads",
   "shops",
