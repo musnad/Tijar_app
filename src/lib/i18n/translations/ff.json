@@ -1185,5 +1185,9 @@
  "app.shopScan.categories.electronics": "Kaɓirɗe",
  "app.shopScan.categories.fashion": "Comci",
  "app.shopScan.categories.pharmacy": "Lekki",
- "app.shopScan.categories.other": "Goɗɗe"
+ "app.shopScan.categories.other": "Goɗɗe",
+ "auth.forgotCheckInbox": "Uddit iimeel e ndee telefon, tap jokkol ngam suɓaade finnde hesere. Ƴeew spam so a yiyaani.",
+ "auth.resetWorking": "Nana uddita jokkol hesɗitinngol…",
+ "app.products.units.yard": "Yaardi",
+ "app.products.units.metre": "Meetir"
 }

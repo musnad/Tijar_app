@@ -14,6 +14,7 @@ import { usePrimaryBusiness } from "@/hooks/use-primary-business";
 import { haptic } from "@/lib/haptics";
 import { invalidateBusinessQueries } from "@/lib/invalidate-business-queries";
 import { deleteVideoPost, fetchVideoPostById, updateVideoPost } from "@/services/bid-service";
+import { PRODUCTION_ORIGIN } from "@/lib/site-url";
 import { formatNgn } from "@/utils/money";
 
 /** ISO timestamp → value for <input type="datetime-local">. */
@@ -65,11 +66,11 @@ export function EditPostScreen({ postId }: { postId: string }) {
   }, [post]);
 
   const isOwner = Boolean(profile?.id && post && businessQuery.data?.business?.id === post.business_id);
-
   const fromProfile =
     (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("from") === "profile") ||
     (typeof window !== "undefined" && sessionStorage.getItem("tijar-edit-return") === "profile");
   const afterEdit = fromProfile ? "/shop/profile" : "/shop";
+  const shareUrl = `${PRODUCTION_ORIGIN}/shop`;
 
   async function refresh() {
     await queryClient.invalidateQueries({ queryKey: ["bid-post", postId] });
@@ -133,10 +134,8 @@ export function EditPostScreen({ postId }: { postId: string }) {
     void navigate({ to: afterEdit });
   }
 
-  const shareUrl = isBid && post ? `${window.location.origin}/shop/bid/${post.id}` : `${window.location.origin}/shop?v=${postId}`;
-
   if (postQuery.isLoading) {
-    return <p className="mt-8 text-center text-sm text-muted-foreground">Loading post…</p>;
+    return <p className="mt-10 text-center text-sm font-bold text-foreground">Loading…</p>;
   }
   if (!post) {
     return <p className="mt-10 text-center text-sm font-bold text-foreground">This post is no longer available.</p>;

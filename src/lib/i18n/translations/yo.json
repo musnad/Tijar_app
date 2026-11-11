@@ -850,5 +850,9 @@
  "app.shopScan.categories.electronics": "Ẹ̀rọ",
  "app.shopScan.categories.fashion": "Aṣọ",
  "app.shopScan.categories.pharmacy": "Oògùn",
- "app.shopScan.categories.other": "Òmíràn"
+ "app.shopScan.categories.other": "Òmíràn",
+ "auth.forgotCheckInbox": "Ṣí ímeèlì lórí ẹ̀rọ yìí kí o tẹ ìjápọ̀ láti yan ọ̀rọ̀ aṣínà tuntun. Wo spam tí o kò bá rí i.",
+ "auth.resetWorking": "Ń ṣí ìjápọ̀ àtúntò…",
+ "app.products.units.yard": "Yáàdì",
+ "app.products.units.metre": "Mítà"
 }

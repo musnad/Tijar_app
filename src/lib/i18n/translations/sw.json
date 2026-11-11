@@ -850,5 +850,9 @@
  "app.shopScan.categories.electronics": "Vifaa",
  "app.shopScan.categories.fashion": "Mitindo",
  "app.shopScan.categories.pharmacy": "Dawa",
- "app.shopScan.categories.other": "Nyingine"
+ "app.shopScan.categories.other": "Nyingine",
+ "auth.forgotCheckInbox": "Fungua barua pepe kwenye simu hii kisha gusa kiungo kuchagua nenosiri jipya. Angalia spam usipoiona.",
+ "auth.resetWorking": "Inafungua kiungo cha kuweka upya…",
+ "app.products.units.yard": "Yadi",
+ "app.products.units.metre": "Mita"
 }

@@ -850,5 +850,9 @@
  "app.shopScan.categories.electronics": "Na'urori",
  "app.shopScan.categories.fashion": "Tufafi",
  "app.shopScan.categories.pharmacy": "Magunguna",
- "app.shopScan.categories.other": "Sauran"
+ "app.shopScan.categories.other": "Sauran",
+ "auth.forgotCheckInbox": "Buɗe imel ɗin a wannan waya ko kwamfuta, sa'an nan ka taɓa hanyar don zaɓar sabuwar kalmar sirri. Duba spam idan ba ka gan shi ba.",
+ "auth.resetWorking": "Ana buɗe hanyar sake saita…",
+ "app.products.units.yard": "Yadi",
+ "app.products.units.metre": "Mita"
 }

@@ -850,5 +850,9 @@
  "app.shopScan.categories.electronics": "Ngwa eletrọnịkị",
  "app.shopScan.categories.fashion": "Ejiji",
  "app.shopScan.categories.pharmacy": "Ọgwụ",
- "app.shopScan.categories.other": "Ndị ọzọ"
+ "app.shopScan.categories.other": "Ndị ọzọ",
+ "auth.forgotCheckInbox": "Mepee email n'ekwentị a, pịa njikọ ahụ iji họrọ okwuntughe ọhụrụ. Lelee spam ma ịhụghị ya.",
+ "auth.resetWorking": "Na-emepe njikọ nrụpụta…",
+ "app.products.units.yard": "Yad",
+ "app.products.units.metre": "Mita"
 }

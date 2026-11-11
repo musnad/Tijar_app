@@ -850,5 +850,9 @@
  "app.shopScan.categories.electronics": "إلكترونيات",
  "app.shopScan.categories.fashion": "أزياء",
  "app.shopScan.categories.pharmacy": "صيدلية",
- "app.shopScan.categories.other": "أخرى"
+ "app.shopScan.categories.other": "أخرى",
+ "auth.forgotCheckInbox": "افتح البريد على هذا الهاتف أو الحاسوب ثم اضغط الرابط لاختيار كلمة مرور جديدة. تحقق من البريد المزعج إن لم تجده.",
+ "auth.resetWorking": "جاري فتح رابط إعادة التعيين…",
+ "app.products.units.yard": "ياردة",
+ "app.products.units.metre": "متر"
 }
