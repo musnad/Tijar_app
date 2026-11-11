@@ -39,7 +39,8 @@ async function uniqueSlug(admin: SupabaseClient, name: string, phone: string): P
 
 export async function findShopByPhone(phone: string): Promise<string | null> {
   const admin = ussdAdmin();
-  if (!admin) return null;
+  if (!admin || !phone.trim()) return null;
+  try {
   const keys = phoneLookupKeys(phone);
   for (const key of keys) {
     let byShop = await admin
@@ -74,6 +75,9 @@ export async function findShopByPhone(phone: string): Promise<string | null> {
     }
   }
   return null;
+  } catch {
+    return null;
+  }
 }
 
 export async function createShopFromUssd(
