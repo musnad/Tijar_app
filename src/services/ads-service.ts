@@ -16,10 +16,11 @@ export type SponsoredAd = {
   objective: AdObjective;
   duration_hours: number;
   amount_ngn: number;
-  status: "pending_payment" | "live" | "ended" | "cancelled" | string;
+  status: "pending_payment" | "live" | "paused" | "ended" | "cancelled" | "draft" | string;
   starts_at: string | null;
   ends_at: string | null;
   paid_at: string | null;
+  remaining_seconds?: number | null;
   views_count: number;
   unique_viewers: number;
   likes_count: number;
@@ -65,6 +66,7 @@ function mapAd(row: Record<string, unknown>): SponsoredAd {
     starts_at: (row.starts_at as string | null) ?? null,
     ends_at: (row.ends_at as string | null) ?? null,
     paid_at: (row.paid_at as string | null) ?? null,
+    remaining_seconds: row.remaining_seconds == null ? null : Number(row.remaining_seconds),
     views_count: Number(row.views_count ?? 0),
     unique_viewers: Number(row.unique_viewers ?? 0),
     likes_count: Number(row.likes_count ?? 0),
@@ -210,6 +212,18 @@ export async function fetchAdsPayAccount(): Promise<{
   const json = (await res.json()) as { account?: { accountNumber: string; accountName: string; bankName: string }; error?: string };
   if (!res.ok) return { account: null, error: json.error ?? "Could not load the TIJAR ads account." };
   return { account: json.account ?? null, error: null };
+}
+
+export async function controlSponsoredAd(
+  adId: string,
+  action: "pause" | "resume" | "stop" | "delete",
+): Promise<{ error: string | null; status?: string }> {
+  const supabase = getSupabaseBrowserClient();
+  const { data, error } = await supabase.rpc("control_sponsored_ad", { p_ad_id: adId, p_action: action });
+  if (error) return { error: error.message };
+  const row = (data ?? {}) as { error?: string; ok?: boolean; status?: string };
+  if (row.error) return { error: row.error };
+  return { error: null, status: row.status };
 }
 
 export async function markAdReadyToPay(adId: string): Promise<{ error: string | null }> {

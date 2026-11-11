@@ -17,6 +17,7 @@ import { isTijarSuperAdminEmail } from "@/lib/admin";
 import { cn } from "@/lib/utils";
 import {
   confirmAdPayment,
+  controlSponsoredAd,
   createSponsoredAd,
   fetchAdsPayAccount,
   fetchAdSupportTickets,
@@ -127,7 +128,7 @@ export function AdsManagerScreen({ adminMode = false, embedded = false }: { admi
   const ads = adsQuery.data?.ads ?? [];
   const pending = ads.filter((a) => a.status === "pending_payment");
   const drafts = ads.filter((a) => a.status === "draft");
-  const live = ads.filter((a) => a.status === "live");
+  const live = ads.filter((a) => a.status === "live" || a.status === "paused");
   const ended = ads.filter((a) => a.status === "ended" || a.status === "cancelled");
   const totals = useMemo(
     () =>
@@ -211,6 +212,26 @@ export function AdsManagerScreen({ adminMode = false, embedded = false }: { admi
       return;
     }
     setPayAd(ad);
+  }
+
+  async function control(ad: SponsoredAd, action: "pause" | "resume" | "stop" | "delete") {
+    const confirmMsg =
+      action === "delete"
+        ? "Delete this campaign? It will leave the ads list."
+        : action === "stop"
+          ? "Stop this campaign now? It will leave the feed."
+          : action === "pause"
+            ? "Pause this ad? It leaves the feed until you resume."
+            : "Put this ad back on the feed?";
+    if (typeof window !== "undefined" && !window.confirm(confirmMsg)) return;
+    const result = await controlSponsoredAd(ad.id, action);
+    if (result.error) {
+      toast.error(result.error);
+      return;
+    }
+    if (payAd?.id === ad.id) setPayAd(null);
+    toast.success(action === "delete" ? "Deleted." : action === "stop" ? "Stopped." : action === "pause" ? "Paused." : "Live again.");
+    await queryClient.invalidateQueries({ queryKey: ["sponsored-ads"] });
   }
 
   const shown = tab === "pending" ? pending : tab === "live" ? live : tab === "drafts" ? drafts : ended;
@@ -413,7 +434,9 @@ export function AdsManagerScreen({ adminMode = false, embedded = false }: { admi
                   "rounded-full px-2 py-0.5 text-[10px] font-extrabold uppercase",
                   ad.status === "live"
                     ? "bg-[#1F7A4D] text-white"
-                    : ad.status === "pending_payment"
+                    : ad.status === "paused"
+                      ? "bg-orange-100 text-orange-800"
+                      : ad.status === "pending_payment"
                       ? "bg-amber-100 text-amber-800"
                       : ad.status === "draft"
                         ? "bg-sky-100 text-sky-800"
@@ -429,31 +452,49 @@ export function AdsManagerScreen({ adminMode = false, embedded = false }: { admi
               <span>{ad.follows_count} follows</span>
               <span>{ad.buys_count} buys</span>
             </p>
-            {ad.status === "pending_payment" || ad.status === "draft" ? (
-              <div className="mt-2 flex gap-2">
+            <div className="mt-2 flex flex-wrap gap-2">
+              {ad.status === "pending_payment" || ad.status === "draft" ? (
                 <Button size="sm" className="rounded-xl font-bold" onClick={() => void openPay(ad)}>
                   {ad.status === "draft" ? "Finish & pay" : "Pay to go live"}
                 </Button>
-                {adminMode ? (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="rounded-xl font-bold"
-                    onClick={() =>
-                      void publishAdAsAdmin(ad.id).then((r) => {
-                        if (r.error) toast.error(r.error);
-                        else {
-                          toast.success("Published.");
-                          void queryClient.invalidateQueries({ queryKey: ["sponsored-ads"] });
-                        }
-                      })
-                    }
-                  >
-                    Publish
-                  </Button>
-                ) : null}
-              </div>
-            ) : null}
+              ) : null}
+              {ad.status === "live" ? (
+                <Button size="sm" variant="outline" className="rounded-xl font-bold" onClick={() => void control(ad, "pause")}>
+                  Pause
+                </Button>
+              ) : null}
+              {ad.status === "paused" ? (
+                <Button size="sm" className="rounded-xl font-bold" onClick={() => void control(ad, "resume")}>
+                  Resume
+                </Button>
+              ) : null}
+              {ad.status === "live" || ad.status === "paused" || ad.status === "draft" || ad.status === "pending_payment" ? (
+                <Button size="sm" variant="outline" className="rounded-xl font-bold" onClick={() => void control(ad, "stop")}>
+                  Stop
+                </Button>
+              ) : null}
+              <Button size="sm" variant="outline" className="rounded-xl font-bold text-red-700" onClick={() => void control(ad, "delete")}>
+                Delete
+              </Button>
+              {adminMode && (ad.status === "pending_payment" || ad.status === "draft") ? (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="rounded-xl font-bold"
+                  onClick={() =>
+                    void publishAdAsAdmin(ad.id).then((r) => {
+                      if (r.error) toast.error(r.error);
+                      else {
+                        toast.success("Published.");
+                        void queryClient.invalidateQueries({ queryKey: ["sponsored-ads"] });
+                      }
+                    })
+                  }
+                >
+                  Publish
+                </Button>
+              ) : null}
+            </div>
           </li>
         ))}
       </ul>
