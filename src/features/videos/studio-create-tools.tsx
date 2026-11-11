@@ -57,7 +57,7 @@ export function StudioCreateTools({
 }) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [tab, setTab] = useState<"flyer" | "video" | "record">("flyer");
+  const tab = "flyer" as const;
   const [designOn, setDesignOn] = useState(false);
   const [prompt, setPrompt] = useState(seedPrompt ?? "");
   const [postCaption, setPostCaption] = useState("");
@@ -137,6 +137,10 @@ export function StudioCreateTools({
   async function postFile(file: File) {
     if (!product) {
       toast.error("Select a product first.");
+      return;
+    }
+    if (file.type.startsWith("video/") || preview?.kind === "video") {
+      toast.error("Photos only. You can add up to 10 images.");
       return;
     }
     setBusy(true);
@@ -327,18 +331,18 @@ export function StudioCreateTools({
       cam.getAudioTracks().forEach((t) => {
         t.enabled = true;
       });
-      const audioCtx = new AudioContext();
+    const audioCtx = new AudioContext();
       await audioCtx.resume().catch(() => undefined);
-      const dest = audioCtx.createMediaStreamDestination();
-      try {
-        audioCtx.createMediaStreamSource(cam).connect(dest);
-      } catch {
-        /* video-only devices */
-      }
-      const pad = audioCtx.createGain();
-      pad.gain.value = bgLevel;
+    const dest = audioCtx.createMediaStreamDestination();
+    try {
+      audioCtx.createMediaStreamSource(cam).connect(dest);
+    } catch {
+      /* video-only devices */
+    }
+    const pad = audioCtx.createGain();
+    pad.gain.value = bgLevel;
       startCutePad(audioCtx, pad);
-      pad.connect(dest);
+    pad.connect(dest);
       const audioTracks = dest.stream.getAudioTracks().length ? dest.stream.getAudioTracks() : cam.getAudioTracks();
       if (!audioTracks.length) {
         await audioCtx.close().catch(() => undefined);
@@ -348,19 +352,19 @@ export function StudioCreateTools({
       const mixed = new MediaStream([...cam.getVideoTracks(), ...audioTracks]);
       const mime = pickVideoRecorderMime();
       const rec = mime ? new MediaRecorder(mixed, { mimeType: mime }) : new MediaRecorder(mixed);
-      const chunks: Blob[] = [];
-      rec.ondataavailable = (ev) => {
-        if (ev.data.size) chunks.push(ev.data);
-      };
-      rec.onstop = () => {
-        void audioCtx.close();
-        setRecording(false);
+    const chunks: Blob[] = [];
+    rec.ondataavailable = (ev) => {
+      if (ev.data.size) chunks.push(ev.data);
+    };
+    rec.onstop = () => {
+      void audioCtx.close();
+      setRecording(false);
         const elapsed = performance.now() - recStarted.current;
         if (elapsed < MIN_VIDEO_MS) {
           toast.error(`Hold at least ${MIN_VIDEO_SEC} seconds so the clip can post.`);
           return;
         }
-        const blob = new Blob(chunks, { type: rec.mimeType || "video/webm" });
+      const blob = new Blob(chunks, { type: rec.mimeType || "video/webm" });
         const file = videoFileFromRecording(blob, rec.mimeType || blob.type, "tijar-self");
         setPreview({
           kind: "video",
@@ -368,15 +372,15 @@ export function StudioCreateTools({
           file,
           durationHintMs: Math.min(MAX_VIDEO_MS, Math.round(elapsed)),
         });
-        stopCam();
-        toast.success("Recording ready.");
-      };
-      recRef.current = rec;
+      stopCam();
+      toast.success("Recording ready.");
+    };
+    recRef.current = rec;
       recStarted.current = performance.now();
-      rec.start(200);
-      setRecording(true);
-      window.setTimeout(() => {
-        if (rec.state !== "inactive") rec.stop();
+    rec.start(200);
+    setRecording(true);
+    window.setTimeout(() => {
+      if (rec.state !== "inactive") rec.stop();
       }, MAX_VIDEO_MS);
     })();
   }
@@ -405,26 +409,10 @@ export function StudioCreateTools({
           : "Write your prompt. TIJAR still designs locally if Grok is offline."}
       </p>
 
-      <div className="mt-3 grid grid-cols-3 gap-1 rounded-2xl bg-white/10 p-1">
-        {(
-          [
-            ["flyer", "Flyer"],
-            ["video", "Video"],
-            ["record", "Record"],
-          ] as const
-        ).map(([id, label]) => (
-          <button
-            key={id}
-            type="button"
-            className={cn(
-              "min-h-10 rounded-xl text-[12px] font-extrabold",
-              tab === id ? "bg-white text-[#0B1F4D]" : "text-white/70",
-            )}
-            onClick={() => setTab(id)}
-          >
-            {label}
-          </button>
-        ))}
+      <div className="mt-3 grid grid-cols-1 gap-1 rounded-2xl bg-white/10 p-1">
+        <button type="button" className="min-h-10 rounded-xl bg-white text-[12px] font-extrabold text-[#0B1F4D]">
+          Flyer photo
+        </button>
       </div>
 
       <div className="mt-3 flex flex-wrap gap-1.5">
@@ -444,8 +432,8 @@ export function StudioCreateTools({
       </div>
 
       <div className="mt-3 flex items-start gap-2">
-        <textarea
-          value={prompt}
+      <textarea
+        value={prompt}
           onChange={(e) => {
             setPrompt(e.target.value);
             setPostCaption("");
@@ -577,17 +565,14 @@ export function StudioCreateTools({
 
       {preview ? (
         <div className="mt-4 space-y-2">
-          {preview.kind === "video" ? (
-            // eslint-disable-next-line jsx-a11y/media-has-caption
-            <video src={preview.url} controls playsInline className="w-full rounded-2xl bg-black" />
-          ) : (
+          {preview.kind === "image" ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={preview.url} alt="Flyer preview" className="w-full rounded-2xl" />
-          )}
+          ) : null}
           <div className="grid grid-cols-2 gap-2">
             <Button
               className="min-h-11 rounded-xl bg-[#00B86B] font-extrabold text-[#0B1F4D] hover:bg-[#00B86B]/90"
-              disabled={busy || !product}
+              disabled={busy || !product || preview.kind !== "image"}
               onClick={() => void postFile(preview.file)}
             >
               Post to For You

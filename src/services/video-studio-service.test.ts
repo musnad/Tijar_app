@@ -28,14 +28,7 @@ vi.mock("@/lib/video/file-guard", async (importOriginal) => {
     ...actual,
     inspectShoppingMedia: vi.fn(async (file: File) => {
       if (file.type.startsWith("video/")) {
-        return {
-          ok: true as const,
-          media: "video" as const,
-          kind: "mp4" as const,
-          durationMs: 4000,
-          width: 720,
-          height: 1280,
-        };
+        return { ok: false as const, error: "Photos only. Upload JPEG, PNG, or WebP — up to 10 images." };
       }
       const kind =
         file.type === "image/png"

@@ -63,6 +63,10 @@ export function CreateStoryScreen() {
   const ctaLabel = offerKind === "place_order" ? "Place your order" : "Buy now";
 
   function onFile(next: File | null) {
+    if (next && (next.type.startsWith("video/") || /\.(mp4|webm|mov|m4v)$/i.test(next.name))) {
+      toast.error("Stories are photos only.");
+      return;
+    }
     setFile(next);
     if (preview) URL.revokeObjectURL(preview);
     setPreview(next ? URL.createObjectURL(next) : null);
@@ -134,16 +138,11 @@ export function CreateStoryScreen() {
         <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-8 pt-3">
           <label className="relative flex aspect-[9/16] w-full cursor-pointer items-center justify-center overflow-hidden rounded-3xl bg-black/35">
             {preview ? (
-              file?.type.startsWith("video/") ? (
-                // eslint-disable-next-line jsx-a11y/media-has-caption
-                <video src={preview} className="h-full w-full object-cover" muted playsInline />
-              ) : (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={preview} alt="" className="h-full w-full object-cover" />
-              )
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={preview} alt="" className="h-full w-full object-cover" />
             ) : (
               <span className="px-6 text-center text-sm font-semibold text-white/80">
-                Tap to add a photo or a short video. This also becomes a product shoppers can order.
+                Tap to add a photo. This also becomes a product shoppers can order.
               </span>
             )}
             {preview ? (
@@ -158,7 +157,7 @@ export function CreateStoryScreen() {
             ) : null}
             <input
               type="file"
-              accept="image/*,video/*"
+              accept="image/*"
               className="hidden"
               onChange={(e) => onFile(e.target.files?.[0] ?? null)}
             />

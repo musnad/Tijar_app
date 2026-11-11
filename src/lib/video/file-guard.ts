@@ -218,22 +218,13 @@ export async function inspectShoppingMedia(
   file: File,
   opts?: { durationHintMs?: number },
 ): Promise<ShoppingMedia> {
-  const header = new Uint8Array(await file.slice(0, 32).arrayBuffer());
+  const header = await headerBytes(file);
   if (sniffImageKind(header)) {
     const img = await inspectImageFile(file);
     if (!img.ok) return img;
     return { ok: true, media: "image", kind: img.kind, width: img.width, height: img.height };
   }
-  const video = await inspectVideoFile(file, opts);
-  if (!video.ok) return video;
-  return {
-    ok: true,
-    media: "video",
-    kind: video.kind,
-    durationMs: video.durationMs,
-    width: video.width,
-    height: video.height,
-  };
+  return { ok: false, error: "Photos only. Upload JPEG, PNG, or WebP — up to 10 images." };
 }
 
 /** MediaRecorder WebM often reports Infinity; that is not a 10s clip. */

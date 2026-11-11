@@ -256,7 +256,7 @@ export function BranchShopsScreen() {
         form.set("lng", String(hits[0].lng));
       }
       if (logo) form.set("logo", await compressImageFile(logo, 640));
-      for (const photo of photos.slice(0, 5)) {
+      for (const photo of photos.slice(0, 10)) {
         form.append("photos", await compressImageFile(photo, 1280));
       }
       const res = await fetch("/api/shop/branches", {
@@ -523,10 +523,10 @@ export function BranchShopsScreen() {
           <FileWell label="Logo" hint={logo ? logo.name : "Add a shop logo"} preview={logoPreview ? [logoPreview] : []} onFiles={(files) => setLogo(files[0] ?? null)} />
           <FileWell
             label="Pictures"
-            hint={photos.length ? `${photos.length} of 5 selected` : "Up to 5 shop pictures"}
+            hint={photos.length ? `${photos.length} of 10 selected` : "Up to 10 shop pictures"}
             preview={photoPreviews}
             multiple
-            onFiles={(files) => setPhotos(files.slice(0, 5))}
+            onFiles={(files) => setPhotos(files.filter((f) => f.type.startsWith("image/")).slice(0, 10))}
           />
 
           <div>

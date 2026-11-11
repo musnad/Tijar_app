@@ -5,7 +5,7 @@ import { useRef } from "react";
 
 import { cn } from "@/lib/utils";
 
-export const MAX_PRODUCT_PHOTOS = 5;
+export const MAX_PRODUCT_PHOTOS = 10;
 
 export type ProductPhotoItem = {
   url: string;
@@ -58,22 +58,16 @@ export function ProductPhotosField({
             </button>
           </div>
         ))}
-        {remaining > 0
-          ? Array.from({ length: remaining }).map((_, i) => (
-              <button
-                key={`empty-${i}`}
-                type="button"
-                onClick={() => libraryRef.current?.click()}
-                className={cn(
-                  "flex aspect-square items-center justify-center rounded-xl border-2 border-dashed border-border bg-background",
-                  i === 0 && photos.length === 0 && "col-span-1",
-                )}
-                aria-label="Upload photo"
-              >
-                <ImagePlus className="size-5 text-muted-foreground" />
-              </button>
-            ))
-          : null}
+        {remaining > 0 ? (
+          <button
+            type="button"
+            onClick={() => libraryRef.current?.click()}
+            className="flex aspect-square items-center justify-center rounded-xl border-2 border-dashed border-border bg-background"
+            aria-label="Upload photo"
+          >
+            <ImagePlus className="size-5 text-muted-foreground" />
+          </button>
+        ) : null}
       </div>
       <div className="mt-3 grid grid-cols-2 gap-2">
         <button

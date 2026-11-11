@@ -375,7 +375,7 @@ export const Route = createFileRoute("/api/shop/branches")({
         );
 
         const logo = form.get("logo");
-        const galleryFiles = form.getAll("photos").filter((item): item is File => item instanceof File && item.size > 0).slice(0, 5);
+        const galleryFiles = form.getAll("photos").filter((item): item is File => item instanceof File && item.size > 0 && item.type.startsWith("image/")).slice(0, 10);
         let logoUrl: string | null = null;
         if (logo instanceof File && logo.size > 0) {
           logoUrl = await uploadPublic(ctx.admin, "business-logos", `${businessId}/logo.jpg`, logo);

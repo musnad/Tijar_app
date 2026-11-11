@@ -213,7 +213,10 @@ export async function publishBusinessStory(input: {
   const blocked = await requireVerifiedShop(input.businessId);
   if (blocked) return { error: blocked };
   const supabase = getSupabaseBrowserClient();
-  const isVideo = await isVideoFile(input.file);
+  if (await isVideoFile(input.file) || input.file.type.startsWith("video/")) {
+    return { error: "Stories are photos only." };
+  }
+  const isVideo = false;
   let uploadFile = input.file;
   if (!isVideo) {
     const packed = await prepareImageForUpload(input.file, { maxBytes: MAX_IMAGE_BYTES, maxEdge: 1280 });

@@ -6,6 +6,7 @@ import {
   usableVideoDurationMs,
   validateVideoFileMeta,
   postVideoNeedsClip,
+  inspectShoppingMedia,
   MAX_VIDEO_BYTES,
   MAX_VIDEO_MS,
   MAX_VIDEO_SEC,
@@ -70,5 +71,17 @@ describe("validateVideoFileMeta", () => {
     expect(validateVideoFileMeta({ size: 0 } as File).ok).toBe(false);
     expect(validateVideoFileMeta({ size: MAX_VIDEO_BYTES + 1 } as File).ok).toBe(false);
     expect(validateVideoFileMeta({ size: 1024 } as File).ok).toBe(true);
+  });
+});
+
+describe("inspectShoppingMedia", () => {
+  it("rejects video uploads", async () => {
+    const header = [0, 0, 0, 24, 0x66, 0x74, 0x79, 0x70, 0x69, 0x73, 0x6f, 0x6d];
+    const file = new File([Uint8Array.from(header.concat(Array.from({ length: 40 }, () => 0)))], "clip.mp4", {
+      type: "video/mp4",
+    });
+    const result = await inspectShoppingMedia(file);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error).toMatch(/photos only/i);
   });
 });

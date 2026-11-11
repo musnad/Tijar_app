@@ -32,7 +32,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { haptic } from "@/lib/haptics";
 import {
-  clipVideoToMaxDuration,
   inspectShoppingMedia,
   MAX_VIDEO_SEC,
   MIN_VIDEO_SEC,
@@ -189,6 +188,10 @@ export function SellerVideoStudioScreen({
   }
 
   async function onFile(next: File | null) {
+    if (next && (next.type.startsWith("video/") || /\.(mp4|webm|mov|m4v)$/i.test(next.name))) {
+      toast.error("Photos only. You can add up to 10 images.");
+      return;
+    }
     setFile(null);
     setKind(null);
     setDurationSec(0);
@@ -196,28 +199,25 @@ export function SellerVideoStudioScreen({
     setErrors((e) => ({ ...e, media: undefined }));
     if (!next) return;
     setInspecting(true);
-    const clipped = await clipVideoToMaxDuration(next);
-    const hint =
-      recordSecRef.current > 0
-        ? Math.min(recordSecRef.current * 1000, MAX_VIDEO_SEC * 1000)
-        : undefined;
-    const result = await inspectShoppingMedia(clipped, { durationHintMs: hint });
+    const result = await inspectShoppingMedia(next);
     setInspecting(false);
     if (!result.ok) {
       setErrors((e) => ({ ...e, media: result.error }));
       toast.error(result.error);
       return;
     }
+    if (result.media !== "image") {
+      const msg = "Photos only. You can add up to 10 images.";
+      setErrors((e) => ({ ...e, media: msg }));
+      toast.error(msg);
+      return;
+    }
     streamRef.current?.getTracks().forEach((t) => t.stop());
     streamRef.current = null;
     if (liveRef.current) liveRef.current.srcObject = null;
     setCamLive(false);
-    setFile(clipped);
-    setKind(result.media);
-    if (result.media === "video") {
-      setExtraImages([]);
-      setDurationSec(result.durationMs / 1000);
-    }
+    setFile(next);
+    setKind("image");
     haptic("light");
   }
 
@@ -398,7 +398,7 @@ export function SellerVideoStudioScreen({
   useEffect(() => {
     if (!autoCamera || autoStarted.current) return;
     autoStarted.current = true;
-    void openCamera();
+    cameraInputRef.current?.click();
   }, [autoCamera]);
 
   async function publish() {
@@ -781,7 +781,7 @@ export function SellerVideoStudioScreen({
                 className="flex items-center gap-1.5 text-[15px] font-extrabold text-[#0B1F4D]"
               >
                 <Video className="size-4 text-[#1F7A4D]" />
-                Photo or video
+                Photos
               </h2>
               <div
                 className={cn(
@@ -893,22 +893,20 @@ export function SellerVideoStudioScreen({
                   <button
                     type="button"
                     className="flex aspect-[16/9] w-full flex-col items-center justify-center bg-gradient-to-br from-[#1F2937] to-[#111827] text-white"
-                    onClick={() => void openCamera()}
+                    onClick={() => cameraInputRef.current?.click()}
                   >
                     <Camera className="size-10 opacity-90" />
                     <p className="mt-2 text-sm font-semibold">
-                      {inspecting ? "Checking video…" : "Open camera"}
+                      {inspecting ? "Checking photo…" : "Add a photo"}
                     </p>
-                    <p className="mt-1 text-[11px] text-white/70">
-                      {MIN_VIDEO_SEC}–{MAX_VIDEO_SEC} seconds
-                    </p>
+                    <p className="mt-1 text-[11px] text-white/70">Up to 10 photos</p>
                   </button>
                 )}
                 <input
                   ref={fileInputRef}
                   type="file"
                   multiple
-                  accept="video/mp4,video/webm,image/jpeg,image/png,image/webp"
+                  accept="image/jpeg,image/png,image/webp"
                   className="sr-only"
                   onChange={(e) => void onFiles(e.target.files)}
                 />
@@ -923,7 +921,7 @@ export function SellerVideoStudioScreen({
                 <input
                   ref={cameraInputRef}
                   type="file"
-                  accept="video/*,image/*"
+                  accept="image/*"
                   capture="environment"
                   className="sr-only"
                   onChange={(e) => void onFile(e.target.files?.[0] ?? null)}
@@ -951,8 +949,7 @@ export function SellerVideoStudioScreen({
                 <span className="text-[#1F7A4D]" aria-hidden>
                   ↻
                 </span>
-                Photo, or a video of {MIN_VIDEO_SEC} to {MAX_VIDEO_SEC} seconds. Add up to{" "}
-                {MAX_POST_IMAGES} photos — shoppers swipe the rest.
+                Photos only — add up to {MAX_POST_IMAGES}. Shoppers swipe the rest.
               </p>
               {kind === "image" && file ? (
                 <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
@@ -990,65 +987,25 @@ export function SellerVideoStudioScreen({
                 </div>
               ) : null}
               <div className="mt-2 grid grid-cols-2 gap-2">
-                {camLive ? (
-                  <>
-                    <Button
-                      type="button"
-                      className="min-h-11 rounded-xl bg-[#1F7A4D] font-bold text-white hover:bg-[#1F7A4D]/90"
-                      onClick={() => (recording ? stopRecord() : startClip())}
-                      disabled={inspecting}
-                    >
-                      {recording
-                        ? recordSec < MIN_VIDEO_SEC
-                          ? `Record ${MIN_VIDEO_SEC - recordSec}s more`
-                          : "Stop"
-                        : "Record clip"}
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="min-h-11 rounded-xl border-[#D1D5DB] font-bold text-[#0B1F4D]"
-                      onClick={() =>
-                        void openCamera(facing === "environment" ? "user" : "environment")
-                      }
-                      disabled={recording || inspecting}
-                    >
-                      <SwitchCamera className="size-4" />
-                      Flip
-                    </Button>
-                  </>
-                ) : (
-                  <>
-                    <Button
-                      type="button"
-                      className="min-h-11 rounded-xl bg-[#1F7A4D] font-bold text-white hover:bg-[#1F7A4D]/90"
-                      onClick={() => void openCamera()}
-                      disabled={inspecting}
-                    >
-                      <Camera className="size-4" />
-                      Camera
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="min-h-11 rounded-xl border-[#D1D5DB] font-bold text-[#0B1F4D]"
-                      onClick={() => fileInputRef.current?.click()}
-                      disabled={inspecting}
-                    >
-                      Upload
-                    </Button>
-                  </>
-                )}
-              </div>
-              {camLive ? (
-                <button
+                <Button
                   type="button"
-                  className="mt-2 text-[12px] font-semibold text-[#6B7280]"
+                  className="min-h-11 rounded-xl bg-[#1F7A4D] font-bold text-white hover:bg-[#1F7A4D]/90"
                   onClick={() => cameraInputRef.current?.click()}
+                  disabled={inspecting}
                 >
-                  Use device camera app
-                </button>
-              ) : null}
+                  <Camera className="size-4" />
+                  Camera
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="min-h-11 rounded-xl border-[#D1D5DB] font-bold text-[#0B1F4D]"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={inspecting}
+                >
+                  Upload
+                </Button>
+              </div>
               {permNote ? (
                 <p className="mt-2 text-[12px] font-semibold text-amber-800">{permNote}</p>
               ) : null}

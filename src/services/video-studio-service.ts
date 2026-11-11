@@ -2,20 +2,14 @@ import { requireVerifiedShop } from "@/lib/kyc/require-shop-verified";
 import type { VideoAttribution } from "@/lib/feed/rank-video-feed";
 import { assertProductsBelongToBusiness, requireShoppingTags } from "@/lib/feed/video-tag-guard";
 import { extraPhotoError, preparePostImages } from "@/lib/media/compress-upload";
-import {
-  captureVideoThumbnail,
-  clipVideoToMaxDuration,
-  inspectShoppingMedia,
-  MAX_IMAGE_BYTES,
-  MAX_VIDEO_MS,
-} from "@/lib/video/file-guard";
+import { inspectShoppingMedia, MAX_IMAGE_BYTES } from "@/lib/video/file-guard";
 import { videoPublicStatus } from "@/lib/video/publish-status";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { updateProductImages } from "@/services/product-service";
 
 export { videoPublicStatus };
 
-export const MAX_POST_IMAGES = 6;
+export const MAX_POST_IMAGES = 10;
 
 export type StudioSubmitInput = {
   businessId: string;
@@ -56,14 +50,12 @@ export async function submitStudioVideo(
     if (!guard.ok) return { error: guard.error };
   }
 
-  const sourceFile = await clipVideoToMaxDuration(input.file);
-  const inspected = await inspectShoppingMedia(sourceFile, {
-    durationHintMs:
-      input.durationHintMs != null ? Math.min(input.durationHintMs, MAX_VIDEO_MS) : undefined,
-  });
+  const inspected = await inspectShoppingMedia(input.file);
   if (!inspected.ok) return { error: inspected.error };
+  if (inspected.media !== "image") return { error: "Photos only. You can add up to 10 images." };
 
-  const isImage = inspected.media === "image";
+  const isImage = true;
+  const sourceFile = input.file;
   let uploadFile = sourceFile;
   let imageMeta = inspected;
   const extraReady: { file: File; ext: string; type: string }[] = [];
@@ -101,13 +93,9 @@ export async function submitStudioVideo(
 
   const supabase = getSupabaseBrowserClient();
   const id = crypto.randomUUID();
-  const fileMeta =
-    isImage && imageMeta.media === "image"
-      ? IMAGE_EXT[imageMeta.kind]!
-      : {
-          ext: inspected.kind === "webm" ? "webm" : "mp4",
-          type: inspected.kind === "webm" ? "video/webm" : "video/mp4",
-        };
+  if (imageMeta.media !== "image") return { error: "Photos only. You can add up to 10 images." };
+  const fileMeta = IMAGE_EXT[imageMeta.kind];
+  if (!fileMeta) return { error: "Use a JPEG, PNG, or WebP photo." };
   const storagePath = `${input.businessId}/${id}.${fileMeta.ext}`;
   report(28, "Uploading to TIJAR…");
   const { error: upErr } = await supabase.storage
@@ -119,19 +107,7 @@ export async function submitStudioVideo(
   if (upErr) return { error: upErr.message };
   report(62, "Saving your post…");
 
-  let coverPath: string | null = isImage ? storagePath : null;
-  if (!isImage) {
-    const thumb =
-      input.thumbnail ?? (await blobToFile(await captureVideoThumbnail(uploadFile), `${id}.jpg`));
-    if (thumb) {
-      const thumbPath = `${input.businessId}/${id}.jpg`;
-      const t = await supabase.storage.from("business-videos").upload(thumbPath, thumb, {
-        contentType: "image/jpeg",
-        upsert: true,
-      });
-      if (!t.error) coverPath = thumbPath;
-    }
-  }
+  const coverPath: string | null = storagePath;
   if (!coverPath) {
     return { error: "Add a photo. You cannot post without an image." };
   }
