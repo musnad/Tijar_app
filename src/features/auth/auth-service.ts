@@ -47,12 +47,27 @@ export async function signOut() {
   return supabase.auth.signOut();
 }
 
-export async function sendPasswordReset(email: string) {
-  const supabase = getSupabaseBrowserClient();
-  const redirectTo = absoluteAuthUrl("/reset-password");
-  return supabase.auth.resetPasswordForEmail(email.trim(), {
-    redirectTo: redirectTo.startsWith("http") ? redirectTo : undefined,
-  });
+export async function sendPasswordReset(email: string): Promise<{ error: { message: string } | null }> {
+  const trimmed = email.trim();
+  try {
+    const res = await fetch("/api/auth/forgot-password", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: trimmed }),
+    });
+    const body = (await res.json().catch(() => null)) as { error?: string } | null;
+    if (!res.ok) {
+      return { error: { message: body?.error || "Could not send the reset email. Try again." } };
+    }
+    return { error: null };
+  } catch {
+    const supabase = getSupabaseBrowserClient();
+    const redirectTo = absoluteAuthUrl("/reset-password");
+    const { error } = await supabase.auth.resetPasswordForEmail(trimmed, {
+      redirectTo: redirectTo.startsWith("http") ? redirectTo : undefined,
+    });
+    return { error: error ? { message: error.message } : null };
+  }
 }
 
 export async function updateAccountPassword(password: string) {

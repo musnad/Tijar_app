@@ -49,7 +49,10 @@ export function ForgotPasswordScreen() {
       }
     >
       {sent ? (
-        <p className="rounded-2xl bg-[#F3FBF6] px-4 py-3 text-sm font-semibold text-[#1F7A4D]">{t("app.login.resetSent")}</p>
+        <div className="space-y-3 rounded-2xl bg-[#F3FBF6] px-4 py-3 text-sm text-[#1F7A4D]">
+          <p className="font-semibold">{t("app.login.resetSent")}</p>
+          <p className="font-medium text-[#0B1F4D]">{t("auth.forgotCheckInbox")}</p>
+        </div>
       ) : (
         <form className="space-y-4" onSubmit={onSubmit}>
           <WebAuthField

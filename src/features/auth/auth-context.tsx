@@ -11,6 +11,7 @@ import {
   type ReactNode,
 } from "react";
 
+import { completePasswordRecovery } from "@/lib/auth/complete-recovery-session";
 import { markPasswordRecovery } from "@/lib/auth-recovery";
 import { ensureSupabasePublicEnv } from "@/lib/supabase/bootstrap-env";
 import { getSupabaseBrowserClient, primeSupabaseBrowserClient } from "@/lib/supabase/client";
@@ -76,20 +77,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     setLoading(true);
     const supabase = getSupabaseBrowserClient();
-    const failSafe = window.setTimeout(() => setLoading(false), 4000);
-
-    void supabase.auth
-      .getSession()
-      .then(({ data }) => {
-        setSession(data.session);
-      })
-      .catch(() => {
-        setSession(null);
-      })
-      .finally(() => {
-        window.clearTimeout(failSafe);
-        setLoading(false);
-      });
+    let cancelled = false;
+    const failSafe = window.setTimeout(() => {
+      if (!cancelled) setLoading(false);
+    }, 4000);
 
     const {
       data: { subscription },
@@ -104,7 +95,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false);
     });
 
+    void completePasswordRecovery(supabase)
+      .then(async (result) => {
+        if (cancelled) return;
+        if (result.session) {
+          setSession(result.session);
+          return;
+        }
+        const { data } = await supabase.auth.getSession();
+        if (!cancelled) setSession(data.session);
+      })
+      .catch(() => {
+        if (!cancelled) setSession(null);
+      })
+      .finally(() => {
+        window.clearTimeout(failSafe);
+        if (!cancelled) setLoading(false);
+      });
+
     return () => {
+      cancelled = true;
       window.clearTimeout(failSafe);
       subscription.unsubscribe();
     };

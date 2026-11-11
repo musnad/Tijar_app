@@ -1,20 +1,20 @@
 "use client";
 
 import { Link, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { authIcons, PasswordToggle } from "@/features/auth/auth-ui";
 import { PasswordStrengthHints } from "@/features/auth/password-strength-hints";
-import { updateAccountPassword } from "@/features/auth/auth-service";
+import { signOut, updateAccountPassword } from "@/features/auth/auth-service";
 import { passwordRequirementIssue } from "@/lib/auth/password-strength";
-import { resolveAppEntry } from "@/features/auth/route-guards";
 import { WebAuthField, WebPrimaryButton } from "@/features/auth/web-auth-fields";
 import { WebAuthLayout } from "@/features/auth/web-auth-layout";
 import { useAuth } from "@/features/auth/auth-context";
-import { clearPasswordRecovery } from "@/lib/auth-recovery";
+import { completePasswordRecovery } from "@/lib/auth/complete-recovery-session";
+import { clearPasswordRecovery, isPasswordRecovery } from "@/lib/auth-recovery";
 import { useTranslation } from "@/lib/i18n/context";
-import { fetchCurrentProfile } from "@/services/profile-service";
+import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 
 export function ResetPasswordScreen() {
   const { t } = useTranslation();
@@ -24,6 +24,31 @@ export function ResetPasswordScreen() {
   const [confirm, setConfirm] = useState("");
   const [visible, setVisible] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [ready, setReady] = useState(false);
+  const [checked, setChecked] = useState(false);
+  const [linkError, setLinkError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const supabase = getSupabaseBrowserClient();
+      const result = await completePasswordRecovery(supabase);
+      if (cancelled) return;
+      if (result.error) {
+        setLinkError(result.error);
+        setReady(false);
+        setChecked(true);
+        return;
+      }
+      setReady(Boolean(result.session) || isPasswordRecovery());
+      setChecked(true);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const canReset = Boolean(session) || ready;
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -44,10 +69,12 @@ export function ResetPasswordScreen() {
       return;
     }
     clearPasswordRecovery();
+    await signOut();
     toast.success(t("auth.resetSaved"));
-    const { profile } = await fetchCurrentProfile();
-    void navigate({ to: resolveAppEntry(profile, true) });
+    void navigate({ to: "/login" });
   }
+
+  const waiting = !checked || (loading && !session && !linkError && !ready);
 
   return (
     <WebAuthLayout
@@ -56,16 +83,28 @@ export function ResetPasswordScreen() {
       subtitle={t("auth.resetSubtitle")}
       footer={
         <p className="mt-5 text-center text-sm text-[#6B7280]">
+          <Link to="/forgot-password" className="font-semibold text-[#1F7A4D] hover:underline">
+            {t("auth.forgotTitle")}
+          </Link>
+          {" · "}
           <Link to="/login" className="font-semibold text-[#1F7A4D] hover:underline">
             {t("auth.forgotBack")}
           </Link>
         </p>
       }
     >
-      {loading ? (
-        <p className="text-sm text-[#6B7280]">…</p>
-      ) : !session ? (
-        <p className="text-sm font-semibold text-[#0B1F4D]">{t("auth.resetNeedLink")}</p>
+      {waiting ? (
+        <p className="text-sm text-[#6B7280]">{t("auth.resetWorking")}</p>
+      ) : !canReset ? (
+        <div className="space-y-3">
+          <p className="text-sm font-semibold text-[#0B1F4D]">{linkError || t("auth.resetNeedLink")}</p>
+          <Link
+            to="/forgot-password"
+            className="inline-flex min-h-11 items-center justify-center rounded-2xl bg-[#0B1F4D] px-4 text-sm font-bold text-white"
+          >
+            {t("auth.forgotSubmit")}
+          </Link>
+        </div>
       ) : (
         <form className="space-y-4" onSubmit={onSubmit}>
           <WebAuthField

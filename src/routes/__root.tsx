@@ -144,7 +144,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   errorComponent: ErrorComponent,
 });
 
-const NATIVE_APP_BOOT = `(function(){if(!/TijarApp\\//i.test(navigator.userAgent))return;document.documentElement.classList.add('tijar-android-webview');var p=location.pathname;if(location.hostname==='localhost'||p==='/'||p===''||p==='/index.html'){location.replace('https://www.tijar.ng/shop');return;}document.querySelectorAll('link[rel=modulepreload]').forEach(function(el){var h=el.getAttribute('href')||'';if(/charts|pdf-|jspdf|leaflet|maps-/.test(h))el.remove();});})();`
+const NATIVE_APP_BOOT = `(function(){if(!/TijarApp\\//i.test(navigator.userAgent))return;document.documentElement.classList.add('tijar-android-webview');var p=location.pathname;if(/^\\/(reset-password|forgot-password|auth\\/)/.test(p))return;if(location.hostname==='localhost'||p==='/'||p===''||p==='/index.html'){location.replace('https://www.tijar.ng/shop');return;}document.querySelectorAll('link[rel=modulepreload]').forEach(function(el){var h=el.getAttribute('href')||'';if(/charts|pdf-|jspdf|leaflet|maps-/.test(h))el.remove();});})();`
 
 function RootShell({ children }: { children: ReactNode }) {
   return (

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 
 import { hardRedirect, resolveAppEntry } from "@/features/auth/route-guards";
 import { WebAuthLayout } from "@/features/auth/web-auth-layout";
+import { completePasswordRecovery } from "@/lib/auth/complete-recovery-session";
 import { isPasswordRecovery, readGoogleAccountMode, readOAuthNext } from "@/lib/auth-recovery";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { fetchCurrentProfile, updateProfile } from "@/services/profile-service";
@@ -15,25 +16,23 @@ export function AuthCallbackScreen() {
     let cancelled = false;
     void (async () => {
       const supabase = getSupabaseBrowserClient();
-      const url = new URL(window.location.href);
-      const code = url.searchParams.get("code");
-      const existing = await supabase.auth.getSession();
-      if (!existing.data.session && code) {
-        const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
-        if (exchangeError && !cancelled) {
-          setError(exchangeError.message);
+      const recovered = await completePasswordRecovery(supabase);
+      if (cancelled) return;
+      if (recovered.recovery || isPasswordRecovery()) {
+        if (recovered.error) {
+          setError(recovered.error);
           return;
         }
-      }
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      if (!session) {
-        if (!cancelled) setError("Could not finish Google sign-in.");
+        hardRedirect("/reset-password");
         return;
       }
-      if (isPasswordRecovery()) {
-        hardRedirect("/reset-password");
+      if (recovered.error && !cancelled) {
+        setError(recovered.error);
+        return;
+      }
+      const session = recovered.session ?? (await supabase.auth.getSession()).data.session;
+      if (!session) {
+        if (!cancelled) setError("Could not finish Google sign-in.");
         return;
       }
       const mode = readGoogleAccountMode();

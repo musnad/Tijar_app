@@ -4,7 +4,8 @@ import { useNavigate, useRouterState } from "@tanstack/react-router";
 import { useEffect, type ReactNode } from "react";
 
 import { useAuth } from "@/features/auth/auth-context";
-import { isPasswordRecovery } from "@/lib/auth-recovery";
+import { isRecoveryCallback, parseAuthCallbackParams } from "@/lib/auth/recovery-params";
+import { isPasswordRecovery, markPasswordRecovery } from "@/lib/auth-recovery";
 import { SupabaseSetupNotice } from "@/features/auth/supabase-setup-notice";
 import { hardRedirect, resolveAppEntry } from "@/features/auth/route-guards";
 import { canUseBusinessMode, isCustomerOnly } from "@/lib/account-mode";
@@ -104,6 +105,16 @@ export function RedirectIfAuthed({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (loading || !userId) return;
+    if (typeof window !== "undefined") {
+      const params = parseAuthCallbackParams(window.location.href);
+      if (isRecoveryCallback(params, window.location.pathname)) {
+        markPasswordRecovery();
+        if (window.location.pathname !== "/reset-password") {
+          hardRedirect("/reset-password");
+          return;
+        }
+      }
+    }
     if (isPasswordRecovery()) {
       hardRedirect("/reset-password");
       return;
