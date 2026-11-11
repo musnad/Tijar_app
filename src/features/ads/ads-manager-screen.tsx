@@ -140,8 +140,9 @@ export function AdsManagerScreen({ adminMode = false, embedded = false }: { admi
           follows: n.follows + a.follows_count,
           buys: n.buys + a.buys_count,
           calls: n.calls + a.calls_count,
+          profiles: n.profiles + (a.profile_views_count ?? 0),
         }),
-        { views: 0, people: 0, likes: 0, follows: 0, buys: 0, calls: 0 },
+        { views: 0, people: 0, likes: 0, follows: 0, buys: 0, calls: 0, profiles: 0 },
       ),
     [ads],
   );
@@ -255,6 +256,7 @@ export function AdsManagerScreen({ adminMode = false, embedded = false }: { admi
         <Stat label="Likes" value={String(totals.likes)} />
         <Stat label="Follows" value={String(totals.follows)} />
         <Stat label="Calls" value={String(totals.calls)} />
+        <Stat label="Profile views" value={String(totals.profiles)} />
         <Stat label="Buys" value={String(totals.buys)} />
       </div>
 
@@ -371,8 +373,13 @@ export function AdsManagerScreen({ adminMode = false, embedded = false }: { admi
         </section>
       )}
 
+      {adminMode ? (
+        <p className="mt-6 rounded-2xl bg-[#F4FBF7] px-3 py-2 text-[12px] font-bold text-[#1F7A4D]">
+          You can pause, resume, stop, or delete any campaign on this list.
+        </p>
+      ) : null}
       {adminMode && pending.length ? (
-        <p className="mt-6 rounded-2xl bg-amber-50 px-3 py-2 text-[12px] font-bold text-amber-900">
+        <p className="mt-2 rounded-2xl bg-amber-50 px-3 py-2 text-[12px] font-bold text-amber-900">
           {pending.length} campaign{pending.length === 1 ? "" : "s"} waiting for payment — they appear here as soon as they are created.
         </p>
       ) : null}
@@ -446,10 +453,11 @@ export function AdsManagerScreen({ adminMode = false, embedded = false }: { admi
                 {ad.status === "pending_payment" ? "Pay" : ad.status}
               </span>
             </div>
-            <p className="mt-2 grid grid-cols-4 gap-1 text-center text-[10px] font-bold text-muted-foreground">
+            <p className="mt-2 grid grid-cols-5 gap-1 text-center text-[10px] font-bold text-muted-foreground">
               <span>{ad.unique_viewers} people</span>
               <span>{ad.likes_count} likes</span>
               <span>{ad.follows_count} follows</span>
+              <span>{ad.profile_views_count ?? 0} shop views</span>
               <span>{ad.buys_count} buys</span>
             </p>
             <div className="mt-2 flex flex-wrap gap-2">

@@ -1164,6 +1164,8 @@ export async function placeOrders(input: {
   if (error) return { orders: [], error: error.message };
   const orders = (data ?? []) as MarketplaceOrder[];
   if (orders.length > 0) {
+    const { recordAdBuyForBusiness } = await import("@/services/ads-service");
+    await Promise.all(orders.map((order) => recordAdBuyForBusiness(String(order.business_id))));
     const supabasePay = getSupabaseBrowserClient();
     const deliveryFee = input.fulfilment === "pickup" ? 0 : Math.max(0, Number(input.deliveryFee ?? 0));
     await Promise.all(
@@ -1221,6 +1223,8 @@ export async function placeBuyNowOrder(input: {
   const raw = data as MarketplaceOrder | MarketplaceOrder[] | null;
   const order = Array.isArray(raw) ? (raw[0] ?? null) : raw;
   if (!order) return { order: null, error: "Could not place the order." };
+  const { recordAdBuyForBusiness } = await import("@/services/ads-service");
+  await recordAdBuyForBusiness(String(order.business_id));
   return { order, error: null };
 }
 

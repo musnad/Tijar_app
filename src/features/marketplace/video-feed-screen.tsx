@@ -113,6 +113,7 @@ import {
   type VideoComment,
 } from "@/services/video-feed-service";
 import { adCtaLabel } from "@/lib/ads/packages";
+import { rememberSponsoredAd } from "@/lib/ads/attribution";
 import { trackAdEvent } from "@/services/ads-service";
 import type { PublicProduct } from "@/types/database";
 import { ensureSavedProduct, listFollowedShopIds, loadUserSocial } from "@/lib/shop-social";
@@ -1891,7 +1892,10 @@ const VideoSlide = memo(function VideoSlide({
               unit={featured?.unit}
               host="tijar.ng"
               onPay={() => {
-                if (video.sponsored_ad_id) void trackAdEvent(video.sponsored_ad_id, "buy");
+                if (video.sponsored_ad_id) {
+                  rememberSponsoredAd(video.sponsored_ad_id, video.business_id);
+                  void trackAdEvent(video.sponsored_ad_id, "click");
+                }
                 if (featured) {
                   void navigate({ to: "/shop/buy", search: { productId: featured.id } });
                   return;
@@ -2035,12 +2039,15 @@ function PaidAdCta({
 }) {
   const navigate = useNavigate();
   const goal = video.ad_objective;
-  const label = adCtaLabel(goal);
+  const hasPrice = Number(featured?.sale_price ?? video.price ?? 0) > 0;
+  const label = !hasPrice && (goal === "sales" || !goal) ? "View shop" : adCtaLabel(goal);
   function run() {
     if (video.sponsored_ad_id) {
+      rememberSponsoredAd(video.sponsored_ad_id, video.business_id);
       if (goal === "calls") void trackAdEvent(video.sponsored_ad_id, "call");
-      else if (goal === "sales") void trackAdEvent(video.sponsored_ad_id, "buy");
-      else void trackAdEvent(video.sponsored_ad_id, "click");
+      else if (goal === "followers") void trackAdEvent(video.sponsored_ad_id, "follow");
+      else if (hasPrice) void trackAdEvent(video.sponsored_ad_id, "click");
+      else void trackAdEvent(video.sponsored_ad_id, "profile_view");
     }
     if (goal === "calls" && video.shop_phone) {
       window.location.href = `tel:${video.shop_phone.replace(/\s+/g, "")}`;
@@ -2054,7 +2061,7 @@ function PaidAdCta({
       window.open(video.destination_url, "_blank", "noopener,noreferrer");
       return;
     }
-    if (featured) {
+    if (hasPrice && featured) {
       void navigate({ to: "/shop/buy", search: { productId: featured.id } });
       return;
     }

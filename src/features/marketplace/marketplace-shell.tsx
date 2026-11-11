@@ -14,6 +14,7 @@ import { isTijarNativeApp } from "@/lib/tijar-native-app";
 import { useTranslation } from "@/lib/i18n/context";
 import { cn } from "@/lib/utils";
 import { HOME_REFRESH_EVENT, markHomeRefreshPending } from "@/lib/feed/feed-session";
+import { QuietAdRail, shouldShowQuietAd } from "@/features/ads/quiet-ad-rail";
 import { countUnreadShopChats, fetchMyBusinessIds } from "@/services/shop-chat-service";
 
 function initials(name: string): string {
@@ -175,6 +176,12 @@ export function MarketplaceShell({
         {!hideTopBar && !feed && <MarketplaceTopBar leftSlot={leftSlot} />}
         {children}
       </main>
+
+      {shouldShowQuietAd(pathname, { feed, hideNav, mapLayout }) ? (
+        <div className={cn("mx-auto w-full", canvasWidth)}>
+          <QuietAdRail pathname={pathname} />
+        </div>
+      ) : null}
 
       {!hideNav && <nav
         className={cn(

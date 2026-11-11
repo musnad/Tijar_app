@@ -1,3 +1,4 @@
+import { takeSponsoredAdForBusiness } from "@/lib/ads/attribution";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { packageForHours, type AdObjective, type AdSourceKind } from "@/lib/ads/packages";
 import { uploadProductImage } from "@/services/product-image-service";
@@ -28,6 +29,7 @@ export type SponsoredAd = {
   calls_count: number;
   clicks_count: number;
   buys_count: number;
+  profile_views_count: number;
   created_at: string;
   shop_name?: string;
 };
@@ -74,6 +76,7 @@ function mapAd(row: Record<string, unknown>): SponsoredAd {
     calls_count: Number(row.calls_count ?? 0),
     clicks_count: Number(row.clicks_count ?? 0),
     buys_count: Number(row.buys_count ?? 0),
+    profile_views_count: Number(row.profile_views_count ?? 0),
     created_at: String(row.created_at ?? ""),
     shop_name: (row.shop_name as string | undefined) ?? undefined,
   };
@@ -368,9 +371,17 @@ export async function updateAdSupportTicket(
   return { error: error?.message ?? null };
 }
 
-export async function trackAdEvent(adId: string, kind: "impression" | "view" | "like" | "follow" | "call" | "click" | "buy"): Promise<void> {
+export async function trackAdEvent(
+  adId: string,
+  kind: "impression" | "view" | "like" | "follow" | "call" | "click" | "buy" | "profile_view",
+): Promise<void> {
   const supabase = getSupabaseBrowserClient();
   await supabase.rpc("record_sponsored_ad_event", { p_ad_id: adId, p_kind: kind });
+}
+
+export async function recordAdBuyForBusiness(businessId: string): Promise<void> {
+  const adId = takeSponsoredAdForBusiness(businessId);
+  if (adId) await trackAdEvent(adId, "buy");
 }
 
 function markPaidAd<T extends { id: string }>(row: T, ad: LiveAdCard): T {
