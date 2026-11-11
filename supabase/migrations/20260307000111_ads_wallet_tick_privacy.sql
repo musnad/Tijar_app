@@ -11,9 +11,9 @@ do $$ begin
 exception when duplicate_object then null;
 end $$;
 
-update public.businesses
-set is_verified = coalesce(verified_badge, false)
-where is_verified is distinct from coalesce(verified_badge, false);
+alter table public.businesses
+  add column if not exists verified_badge boolean not null default false,
+  add column if not exists deleted_at timestamptz;
 
 create or replace view public.public_marketplace_businesses as
 select
