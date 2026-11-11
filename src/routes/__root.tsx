@@ -7,12 +7,13 @@ import {
   Scripts,
   type ErrorComponentProps,
 } from "@tanstack/react-router";
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { SpeedInsights } from "@vercel/speed-insights/react";
 import { Toaster } from "@/components/ui/sonner";
 import { AppShell } from "@/features/mobile/AppShell";
 import { TijarLogo } from "@/components/brand-logo";
 import { isTijarNativeApp } from "@/lib/tijar-native-app";
+import { markNativeDetectionReady } from "@/utils/isMobile";
 import { supabaseStorageOrigin } from "@/lib/media/optimize";
 
 import appCss from "../styles.css?url";
@@ -56,7 +57,20 @@ function ErrorContent({ error, reset }: ErrorComponentProps) {
   console.error(error);
   const router = useRouter();
   const copy = enMessages.errors;
-  const home = isTijarNativeApp() ? "https://www.tijar.ng/shop" : "/";
+  const nativeShell =
+    typeof window !== "undefined" && /TijarApp\//i.test(navigator.userAgent);
+  const home = nativeShell || isTijarNativeApp() ? "https://www.tijar.ng/shop" : "/";
+
+  useEffect(() => {
+    if (!nativeShell) return;
+    const key = "tijar-native-error-retry";
+    if (sessionStorage.getItem(key) === "1") return;
+    sessionStorage.setItem(key, "1");
+    const timer = window.setTimeout(() => {
+      window.location.replace("https://www.tijar.ng/shop");
+    }, 350);
+    return () => window.clearTimeout(timer);
+  }, [nativeShell]);
 
   return (
     <div className="flex min-h-dvh flex-col items-center justify-center bg-[#F4F7FB] px-6">
@@ -68,7 +82,7 @@ function ErrorContent({ error, reset }: ErrorComponentProps) {
           <button
             type="button"
             onClick={() => {
-              if (isTijarNativeApp()) {
+              if (nativeShell) {
                 window.location.replace("https://www.tijar.ng/shop");
                 return;
               }
@@ -83,7 +97,7 @@ function ErrorContent({ error, reset }: ErrorComponentProps) {
             href={home}
             className="inline-flex min-h-12 items-center justify-center rounded-full border border-border bg-white px-5 text-sm font-extrabold text-[#001B3A]"
           >
-            {isTijarNativeApp() ? "Open shop" : copy.goHome}
+            {nativeShell ? "Open shop" : copy.goHome}
           </a>
         </div>
       </div>
@@ -167,8 +181,16 @@ function RootLayout() {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  const [, setHydrated] = useState(false);
 
   useEffect(() => {
+    markNativeDetectionReady();
+    setHydrated(true);
+    try {
+      sessionStorage.removeItem("tijar-native-error-retry");
+    } catch {
+      // ignore private-mode storage
+    }
     void clearServiceWorkers();
   }, []);
 
