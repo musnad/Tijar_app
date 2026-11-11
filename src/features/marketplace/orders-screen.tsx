@@ -2,47 +2,28 @@
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { ChevronRight, Package, Search } from "lucide-react";
+import { Package, Search, ShoppingCart } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { Input } from "@/components/ui/input";
 import { MarketplaceShell } from "@/features/marketplace/marketplace-shell";
 import { NativePageHeader, nativeCanvasClass } from "@/features/marketplace/native-page-header";
-import { OrderTrackTimeline } from "@/features/marketplace/order-track-timeline";
+import { BuyerOrderCard } from "@/features/marketplace/buyer-order-card";
 import { useAuth } from "@/features/auth/auth-context";
 import { Button } from "@/components/ui/button";
 import { canBuyerMarkPlaceOrderReceived, canBuyerMarkReceived } from "@/lib/checkout/delivery-fee";
 import { fetchMyOrders, transitionOrder } from "@/services/marketplace-service";
-import {
-  fetchMyPlaceOrders,
-  markPlaceOrderReceived,
-  placeOrderStatusLabel,
-} from "@/services/place-order-service";
+import { fetchMyPlaceOrders, markPlaceOrderReceived } from "@/services/place-order-service";
 import { toast } from "sonner";
-import { formatNgn } from "@/utils/money";
-import {
-  formatOrderWhen,
-  isActiveOrder,
-  isDoneOrder,
-  orderStatusLabel,
-  orderStatusTone,
-} from "@/utils/order-tracking";
+import { isActiveOrder, isDoneOrder, placeOrderTrackStatus } from "@/utils/order-tracking";
 import { cn } from "@/lib/utils";
 
 type Tab = "active" | "completed" | "all";
 
-function statusBadgeClass(status: string): string {
-  const tone = orderStatusTone(status);
-  if (tone === "active") return "bg-primary/15 text-primary";
-  if (tone === "done") return "bg-primary/15 text-primary";
-  if (tone === "warn") return "bg-destructive/10 text-destructive";
-  return "bg-muted text-muted-foreground";
-}
-
 export function OrdersScreen() {
   const { profile } = useAuth();
   const queryClient = useQueryClient();
-  const [tab, setTab] = useState<Tab>("active");
+  const [tab, setTab] = useState<Tab>("all");
   const [query, setQuery] = useState("");
 
   const ordersQuery = useQuery({
@@ -60,7 +41,7 @@ export function OrdersScreen() {
     queryFn: async () => (await fetchMyPlaceOrders(profile!.id)).orders,
   });
 
-  const filtered = useMemo(() => {
+  const marketRows = useMemo(() => {
     const q = query.trim().toLowerCase();
     return (ordersQuery.data ?? []).filter((o) => {
       if (tab === "active" && !isActiveOrder(o.status)) return false;
@@ -70,153 +51,146 @@ export function OrdersScreen() {
     });
   }, [ordersQuery.data, tab, query]);
 
+  const placeRows = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return (placeQuery.data ?? []).filter((order) => {
+      const mapped = placeOrderTrackStatus(order.status);
+      if (tab === "active" && !isActiveOrder(mapped)) return false;
+      if (tab === "completed" && !isDoneOrder(mapped)) return false;
+      if (!q) return true;
+      return (
+        (order.listing_title ?? "").toLowerCase().includes(q) ||
+        (order.shop_name ?? "").toLowerCase().includes(q) ||
+        order.status.toLowerCase().includes(q)
+      );
+    });
+  }, [placeQuery.data, tab, query]);
+
+  const empty = marketRows.length === 0 && placeRows.length === 0;
   const tabs: { id: Tab; label: string }[] = [
-    { id: "active", label: "Active" },
-    { id: "completed", label: "Done" },
     { id: "all", label: "All" },
+    { id: "active", label: "On the way" },
+    { id: "completed", label: "Done" },
   ];
 
   return (
     <MarketplaceShell hideTopBar variant="feed">
       <div className={cn("flex min-h-0 flex-1 flex-col overflow-hidden", nativeCanvasClass())}>
-      <NativePageHeader title="My orders" subtitle="Track payment, preparation, and delivery." showBack />
-      <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-6">
-      <div className="relative mt-1">
-        <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search order number…"
-          className="min-h-11 rounded-full pl-9"
-          aria-label="Search orders"
-        />
-      </div>
+        <NativePageHeader title="My orders" subtitle="Every order, with a simple tracker." showBack />
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-6">
+          <div className="relative mt-1">
+            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search shop or order number…"
+              className="min-h-11 rounded-full pl-9"
+              aria-label="Search orders"
+            />
+          </div>
 
-      <div className="mt-3 grid grid-cols-3 gap-1 rounded-full border border-border bg-white p-1 shadow-[0_4px_14px_rgba(11,31,58,0.06)]">
-        {tabs.map((t) => (
-          <button
-            key={t.id}
-            type="button"
-            onClick={() => setTab(t.id)}
-            className={cn(
-              "rounded-full py-2 text-xs font-bold",
-              tab === t.id ? "bg-[#0B1F3A] text-white shadow-sm" : "text-muted-foreground",
-            )}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
-
-      {ordersQuery.isLoading && <p className="mt-4 text-sm text-muted-foreground">Loading…</p>}
-      {ordersQuery.isError && (
-        <p className="mt-4 text-sm text-destructive">
-          Could not load orders. Apply the marketplace migration in Supabase.
-        </p>
-      )}
-      {!ordersQuery.isLoading && filtered.length === 0 && (
-        <div className="mt-4 rounded-2xl border border-dashed border-border bg-card p-6 text-center">
-          <Package className="mx-auto size-8 text-muted-foreground" />
-          <p className="mt-2 font-semibold">
-            {tab === "active" ? "No active orders" : "No orders here"}
-          </p>
-          <Link to="/shop" className="mt-3 inline-block text-sm font-bold text-primary">
-            Browse marketplace
-          </Link>
-        </div>
-      )}
-
-      {(placeQuery.data ?? [])
-        .filter((order) => {
-          if (tab === "active") return !["completed", "cancelled"].includes(order.status);
-          if (tab === "completed") return order.status === "completed";
-          return true;
-        })
-        .map((order) => (
-          <li key={`place-${order.id}`} className="rounded-2xl border border-border bg-card p-4 shadow-sm">
-            <div className="flex items-start justify-between gap-2">
-              <div className="min-w-0">
-                <p className="font-bold">{order.listing_title ?? "Place your order"}</p>
-                <p className="text-xs text-muted-foreground">{order.shop_name}</p>
-              </div>
-              <span className={cn("shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold", statusBadgeClass(order.status === "completed" ? "delivered" : "processing"))}>
-                {placeOrderStatusLabel(order.status)}
-              </span>
-            </div>
-            <p className="mt-2 text-sm font-extrabold text-primary">{formatNgn(Number(order.total))}</p>
-            {canBuyerMarkPlaceOrderReceived(order.status) ? (
-              <Button
+          <div className="mt-3 grid grid-cols-3 gap-1 rounded-full border border-border bg-white p-1 shadow-[0_4px_14px_rgba(11,31,58,0.06)]">
+            {tabs.map((t) => (
+              <button
+                key={t.id}
                 type="button"
-                className="mt-3 min-h-10 w-full rounded-xl bg-[#1F7A4D] text-xs font-extrabold text-white"
-                onClick={async (e) => {
-                  e.preventDefault();
-                  const r = await markPlaceOrderReceived(order.id);
-                  if (r.error) toast.error(r.error);
-                  else {
-                    toast.success("Marked as received.");
-                    await queryClient.invalidateQueries({ queryKey: ["place-order-mine"] });
-                  }
-                }}
+                onClick={() => setTab(t.id)}
+                className={cn(
+                  "rounded-full py-2 text-xs font-bold",
+                  tab === t.id ? "bg-[#0B1F3A] text-white shadow-sm" : "text-muted-foreground",
+                )}
               >
-                I received this
-              </Button>
-            ) : null}
-          </li>
-        ))}
+                {t.label}
+              </button>
+            ))}
+          </div>
 
-      <ul className="mt-4 space-y-3">
-        {filtered.map((o) => (
-          <li key={o.id} className="rounded-2xl border border-border bg-card p-4 shadow-sm transition hover:border-primary/30">
-            <Link
-              to="/shop/orders/$orderId"
-              params={{ orderId: o.id }}
-              className="block"
-            >
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <p className="font-bold">{o.order_number}</p>
-                  <p className="text-xs text-muted-foreground">{formatOrderWhen(o.created_at)}</p>
-                  <p className="mt-0.5 text-[11px] capitalize text-muted-foreground">
-                    {o.fulfilment.replace(/_/g, " ")}
-                  </p>
-                </div>
-                <span
-                  className={cn(
-                    "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold",
-                    statusBadgeClass(o.status),
-                  )}
-                >
-                  {orderStatusLabel(o.status)}
-                </span>
+          {ordersQuery.isLoading && <p className="mt-4 text-sm text-muted-foreground">Loading…</p>}
+          {ordersQuery.isError && (
+            <p className="mt-4 text-sm text-destructive">Could not load orders. Try again in a moment.</p>
+          )}
+          {!ordersQuery.isLoading && empty && (
+            <div className="mt-4 rounded-2xl border border-dashed border-border bg-card p-6 text-center">
+              <Package className="mx-auto size-8 text-muted-foreground" />
+              <p className="mt-2 font-semibold">{tab === "active" ? "Nothing on the way" : "No orders here"}</p>
+              <p className="mt-1 text-sm text-muted-foreground">Add items to cart, then check out — they land on this page.</p>
+              <div className="mt-3 flex justify-center gap-2">
+                <Link to="/shop" className="text-sm font-bold text-primary">
+                  Browse marketplace
+                </Link>
+                <Link to="/shop/cart" className="inline-flex items-center gap-1 text-sm font-bold text-primary">
+                  <ShoppingCart className="size-3.5" /> Cart
+                </Link>
               </div>
-              <OrderTrackTimeline status={o.status} fulfilment={o.fulfilment} compact />
-              <div className="mt-2 flex items-center justify-between">
-                <p className="text-sm font-extrabold text-primary">{formatNgn(Number(o.total))}</p>
-                <span className="inline-flex items-center gap-0.5 text-xs font-bold text-primary">
-                  Details <ChevronRight className="size-3.5" />
-                </span>
-              </div>
-            </Link>
-              {canBuyerMarkReceived(o.status) ? (
-                <Button
-                  type="button"
-                  className="mt-3 min-h-10 w-full rounded-xl bg-[#1F7A4D] text-xs font-extrabold text-white"
-                  onClick={async () => {
-                    const r = await transitionOrder(o.id, "delivered");
-                    if (r.error) toast.error(r.error);
-                    else {
-                      toast.success("Marked as received.");
-                      await queryClient.invalidateQueries({ queryKey: ["marketplace-orders"] });
-                    }
-                  }}
-                >
-                  I received this
-                </Button>
-              ) : null}
-          </li>
-        ))}
-      </ul>
-      </div>
+            </div>
+          )}
+
+          <ul className="mt-4 space-y-3">
+            {placeRows.map((order) => (
+              <BuyerOrderCard
+                key={`place-${order.id}`}
+                listingId={order.listing_id}
+                title={order.listing_title ?? "Place your order"}
+                subtitle={order.shop_name}
+                total={Number(order.total)}
+                status={order.status}
+                fulfilment={order.fulfilment}
+                createdAt={order.created_at}
+                imageUrl={order.listing_image}
+                footer={
+                  canBuyerMarkPlaceOrderReceived(order.status) ? (
+                    <Button
+                      type="button"
+                      className="mt-3 min-h-10 w-full rounded-xl bg-[#1F7A4D] text-xs font-extrabold text-white"
+                      onClick={async (e) => {
+                        e.preventDefault();
+                        const r = await markPlaceOrderReceived(order.id);
+                        if (r.error) toast.error(r.error);
+                        else {
+                          toast.success("Marked as received.");
+                          await queryClient.invalidateQueries({ queryKey: ["place-order-mine"] });
+                          await queryClient.invalidateQueries({ queryKey: ["marketplace-orders"] });
+                        }
+                      }}
+                    >
+                      I received this
+                    </Button>
+                  ) : null
+                }
+              />
+            ))}
+            {marketRows.map((o) => (
+              <BuyerOrderCard
+                key={o.id}
+                orderId={o.id}
+                title={o.order_number}
+                subtitle={o.fulfilment.replace(/_/g, " ")}
+                total={Number(o.total)}
+                status={o.status}
+                fulfilment={o.fulfilment}
+                createdAt={o.created_at}
+                footer={
+                  canBuyerMarkReceived(o.status) ? (
+                    <Button
+                      type="button"
+                      className="mt-3 min-h-10 w-full rounded-xl bg-[#1F7A4D] text-xs font-extrabold text-white"
+                      onClick={async () => {
+                        const r = await transitionOrder(o.id, "delivered");
+                        if (r.error) toast.error(r.error);
+                        else {
+                          toast.success("Marked as received.");
+                          await queryClient.invalidateQueries({ queryKey: ["marketplace-orders"] });
+                        }
+                      }}
+                    >
+                      I received this
+                    </Button>
+                  ) : null
+                }
+              />
+            ))}
+          </ul>
+        </div>
       </div>
     </MarketplaceShell>
   );

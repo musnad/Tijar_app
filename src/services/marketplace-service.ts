@@ -884,11 +884,11 @@ export async function addToCart(
   if (isMockFeedId(input.productId)) {
     return { error: "This listing is not available." };
   }
-  if (!profileId || profileId === "guest") {
-    return { error: "Sign in to add items to your cart." };
-  }
   addLocalCartItem(profileId, input);
   rememberSavedFromCart(profileId, input);
+  if (!profileId || profileId === "guest") {
+    return { error: null };
+  }
   const supabase = getSupabaseBrowserClient();
   const qty = input.quantity ?? 1;
   const rpcArgs: { p_product_id: string; p_quantity: number; p_variant_id?: string } = {

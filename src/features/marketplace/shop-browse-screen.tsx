@@ -28,9 +28,8 @@ export function ShopBrowseScreen() {
     },
   });
   const cartQuery = useQuery({
-    queryKey: ["marketplace-cart", profile?.id],
-    enabled: Boolean(profile?.id),
-    queryFn: async () => (await fetchCart(profile!.id)).items,
+    queryKey: ["marketplace-cart", profile?.id ?? "guest"],
+    queryFn: async () => (await fetchCart(profile?.id ?? "guest")).items,
   });
 
   const filtered = useMemo(() => {

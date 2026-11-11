@@ -9,7 +9,10 @@ import { TijarLogo } from "@/components/brand-logo";
 import { Button } from "@/components/ui/button";
 import { AppLanguageButton } from "@/features/app-layout/app-language-button";
 import { AccountModeSwitch } from "@/features/marketplace/account-mode-switch";
+import { CartIconLink } from "@/features/marketplace/cart-icon-link";
 import { useAuth } from "@/features/auth/auth-context";
+import { CART_QUERY_KEY, cartActorId } from "@/lib/cart-actions";
+import { fetchCart } from "@/services/marketplace-service";
 import { isTijarNativeApp } from "@/lib/tijar-native-app";
 import { useTranslation } from "@/lib/i18n/context";
 import { cn } from "@/lib/utils";
@@ -24,7 +27,7 @@ function initials(name: string): string {
   return `${parts[0]![0] ?? ""}${parts[1]![0] ?? ""}`.toUpperCase();
 }
 
-function MarketplaceTopBar({ leftSlot }: { leftSlot?: ReactNode }) {
+function MarketplaceTopBar({ leftSlot, cartCount }: { leftSlot?: ReactNode; cartCount: number }) {
   const { profile, session } = useAuth();
   const { t } = useTranslation();
   const nativeApp = isTijarNativeApp();
@@ -41,15 +44,8 @@ function MarketplaceTopBar({ leftSlot }: { leftSlot?: ReactNode }) {
       </div>
 
       <div className="flex items-center justify-end gap-1.5">
-        {nativeApp ? (
-          <Link
-            to="/shop/browse"
-            className="flex size-10 items-center justify-center rounded-full bg-white text-foreground shadow-[0_4px_14px_rgba(11,31,58,0.08)]"
-            aria-label={t("shop.nav.shop")}
-          >
-            <ShoppingBag className="size-5" />
-          </Link>
-        ) : (
+        <CartIconLink count={cartCount} native={nativeApp} />
+        {nativeApp ? null : (
           <>
             <AccountModeSwitch className="hidden min-[420px]:inline-flex" />
             <AppLanguageButton />
@@ -96,6 +92,13 @@ export function MarketplaceShell({
   const { profile } = useAuth();
   const { t } = useTranslation();
   const nativeApp = isTijarNativeApp();
+  const actorId = cartActorId(profile?.id);
+  const liveCartQuery = useQuery({
+    queryKey: [CART_QUERY_KEY, actorId],
+    queryFn: async () => (await fetchCart(actorId)).items,
+  });
+  const liveCartCount = liveCartQuery.data?.reduce((n, i) => n + Number(i.quantity), 0) ?? 0;
+  const badgeCount = Math.max(cartCount, liveCartCount);
   const unreadQuery = useQuery({
     queryKey: ["shop-inbox-unread", profile?.id],
     enabled: Boolean(profile?.id),
@@ -137,7 +140,7 @@ export function MarketplaceShell({
           { to: "/shop" as const, label: t("shop.nav.forYou"), icon: Clapperboard, exact: true },
           { to: "/shop/discover" as const, label: t("shop.nav.discover"), icon: Compass },
           { to: "/shop/create" as const, label: t("shop.nav.sell"), icon: PlusSquare, forceActive: sellActive },
-          { to: "/shop/browse" as const, label: t("shop.nav.shop"), icon: ShoppingBag, badge: cartCount },
+          { to: "/shop/browse" as const, label: t("shop.nav.shop"), icon: ShoppingBag, badge: badgeCount },
           { to: "/shop/profile" as const, label: t("shop.nav.profile"), icon: UserRound },
         ];
 
@@ -173,7 +176,7 @@ export function MarketplaceShell({
         )}
         style={pageScroll ? { WebkitOverflowScrolling: "touch" } : undefined}
       >
-        {!hideTopBar && !feed && <MarketplaceTopBar leftSlot={leftSlot} />}
+        {!hideTopBar && !feed && <MarketplaceTopBar leftSlot={leftSlot} cartCount={badgeCount} />}
         {children}
       </main>
 

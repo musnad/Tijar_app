@@ -19,7 +19,7 @@ import {
 } from "@/services/marketplace-service";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { formatNgn } from "@/utils/money";
-import { formatOrderWhen, orderStatusLabel } from "@/utils/order-tracking";
+import { formatOrderWhen, orderStatusHint, orderStatusLabel } from "@/utils/order-tracking";
 
 export function OrderDetailScreen({ orderId }: { orderId: string }) {
   const { profile } = useAuth();
@@ -85,6 +85,7 @@ export function OrderDetailScreen({ orderId }: { orderId: string }) {
                 ? "Order request — not paid"
                 : orderStatusLabel(order.status)}
             </p>
+            <p className="mt-1 text-xs text-white/75">{orderStatusHint(order.status)}</p>
             <p className="mt-3 text-2xl font-extrabold">{formatNgn(Number(order.total))}</p>
             <p className="mt-1 text-xs text-white/75">{formatOrderWhen(order.created_at)}</p>
           </div>

@@ -46,6 +46,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { MarketplaceShell } from "@/features/marketplace/marketplace-shell";
+import { CartIconLink } from "@/features/marketplace/cart-icon-link";
 import { ShopPayPanel } from "@/features/marketplace/shop-pay-panel";
 import { useAuth } from "@/features/auth/auth-context";
 import { useAccountGate } from "@/features/auth/account-gate";
@@ -72,7 +73,8 @@ import { fetchActiveBusinessOfTheWeek, isPromotionLive } from "@/services/busine
 import { fetchLiveStoryRings, type StoryRing } from "@/services/story-service";
 import { formatDistance, haversineKm } from "@/utils/discover";
 import { cn } from "@/lib/utils";
-import { addToCart, fetchCart, fetchMarketplaceProducts, toggleFavoriteProduct } from "@/services/marketplace-service";
+import { CART_QUERY_KEY, addProductToBuyerCart, cartActorId, toastAddedToCart } from "@/lib/cart-actions";
+import { fetchCart, fetchMarketplaceProducts, toggleFavoriteProduct } from "@/services/marketplace-service";
 import { formatPricePerUnit } from "@/lib/catalogue/units";
 import { formatServiceDates, serviceLabel } from "@/lib/catalogue/service-schedule";
 import { parseVariantList } from "@/lib/catalogue/variants";
@@ -116,7 +118,7 @@ import { adCtaLabel } from "@/lib/ads/packages";
 import { rememberSponsoredAd } from "@/lib/ads/attribution";
 import { trackAdEvent } from "@/services/ads-service";
 import type { PublicProduct } from "@/types/database";
-import { ensureSavedProduct, listFollowedShopIds, loadUserSocial } from "@/lib/shop-social";
+import { listFollowedShopIds, loadUserSocial } from "@/lib/shop-social";
 import { useDoubleTap } from "@/lib/use-double-tap";
 import { haptic } from "@/lib/haptics";
 import { formatNgn } from "@/utils/money";
@@ -495,9 +497,8 @@ export function VideoFeedScreen({ initialVideoId }: { initialVideoId?: string })
     staleTime: 60_000,
   });
   const cartQuery = useQuery({
-    queryKey: ["marketplace-cart", profile?.id],
-    enabled: Boolean(profile?.id),
-    queryFn: async () => (await fetchCart(profile!.id)).items,
+    queryKey: [CART_QUERY_KEY, cartActorId(profile?.id)],
+    queryFn: async () => (await fetchCart(cartActorId(profile?.id))).items,
   });
 
   const productsById = useMemo(() => {
@@ -794,36 +795,19 @@ export function VideoFeedScreen({ initialVideoId }: { initialVideoId?: string })
       },
       onAddProduct: (video, product) => {
         void (async () => {
-          if (!requireUser()) return;
           haptic("success");
-          ensureSavedProduct(profile?.id ?? "guest", product);
-          if (isMockFeedId(product.id) || !profile) {
-            toast.message("This listing is no longer available.");
-            return;
-          }
-          if (product.sale_price == null) {
-            toast.message("This listing has no price yet.");
-            return;
-          }
-          const { error } = await addToCart(profile.id, {
-            businessId: product.business_id,
-            productId: product.id,
-            productName: product.name,
-            unit: product.unit,
-            unitPrice: Number(product.sale_price),
-            imageUrl: product.image_url,
-          });
+          const { error } = await addProductToBuyerCart(cartActorId(profile?.id), product);
           if (error) toast.error(error);
           else {
-            toast.success("Added to cart and Saved Products");
-            void queryClient.invalidateQueries({ queryKey: ["marketplace-cart"] });
+            toastAddedToCart();
+            void queryClient.invalidateQueries({ queryKey: [CART_QUERY_KEY] });
             void queryClient.invalidateQueries({ queryKey: ["marketplace-favorites"] });
             if (video && !isMockFeedId(video.id)) void recordFeedSignal(video.id, "add_to_cart");
           }
         })();
       },
     }),
-    [patchFeedLike, patchFeedStat, profile, queryClient, session],
+    [patchFeedLike, patchFeedStat, profile, queryClient],
   );
 
   const fetchNextPage = feedQuery.fetchNextPage;
@@ -1014,7 +998,7 @@ export function VideoFeedScreen({ initialVideoId }: { initialVideoId?: string })
             pullStartY.current = 0;
           }}
         >
-          <FeedTopBar tab={feedTab} onTab={setFeedTab} />
+          <FeedTopBar tab={feedTab} onTab={setFeedTab} cartCount={cartCount} />
           {pull > 10 || (feedQuery.isFetching && Boolean(feedQuery.data)) ? (
             <p
               className="text-center text-[11px] font-semibold text-[#1F7A4D]"
@@ -1173,7 +1157,7 @@ export function VideoFeedScreen({ initialVideoId }: { initialVideoId?: string })
                 .filter(Boolean) as PublicProduct[]}
               onAdded={() => {
                 void recordFeedSignal(active.id, "add_to_cart");
-                void queryClient.invalidateQueries({ queryKey: ["marketplace-cart"] });
+                void queryClient.invalidateQueries({ queryKey: [CART_QUERY_KEY] });
               }}
             />
           ) : null}
@@ -1348,7 +1332,7 @@ export function VideoFeedScreen({ initialVideoId }: { initialVideoId?: string })
   );
 }
 
-function FeedTopBar({ tab, onTab }: { tab: FeedTab; onTab: (t: FeedTab) => void }) {
+function FeedTopBar({ tab, onTab, cartCount }: { tab: FeedTab; onTab: (t: FeedTab) => void; cartCount: number }) {
   const { profile } = useAuth();
   const { requireAccount } = useAccountGate();
   const { t } = useTranslation();
@@ -1409,17 +1393,8 @@ function FeedTopBar({ tab, onTab }: { tab: FeedTab; onTab: (t: FeedTab) => void 
             </p>
           )}
         </Link>
-        {nativeApp ? (
-          <Link
-            to="/shop/browse"
-            aria-label={t("shop.nav.shop")}
-            className="flex size-10 items-center justify-center rounded-full bg-white/90 text-foreground shadow-[0_4px_14px_rgba(11,31,58,0.08)]"
-          >
-            <ShoppingBag className="size-[18px]" />
-          </Link>
-        ) : (
-          <AppLanguageButton />
-        )}
+        {nativeApp ? null : <AppLanguageButton />}
+        <CartIconLink count={cartCount} native={nativeApp} />
         <Link
           to="/shop/favorites"
           aria-label={t("shop.feed.saved")}
@@ -1835,7 +1810,7 @@ const VideoSlide = memo(function VideoSlide({
             muted={muted}
             playsInline
             loop
-            preload={active ? "auto" : "metadata"}
+            preload={active ? "metadata" : "none"}
             onCanPlay={() => {
               if (active && !paused) void ref.current?.play().catch(() => undefined);
             }}
@@ -2181,7 +2156,7 @@ function FeedProductCard({ product, onAdd }: { product: PublicProduct; onAdd: ()
             onAdd();
           }}
           disabled={!inStock || product.sale_price == null}
-          className="inline-flex min-h-11 items-center justify-center gap-1 rounded-full border border-primary px-3 text-xs font-extrabold text-primary disabled:opacity-50"
+          className="inline-flex min-h-11 items-center justify-center gap-1 rounded-full bg-[#0B1F4D] px-3 text-xs font-extrabold text-white disabled:opacity-50"
         >
           <ShoppingCart className="size-3.5" />
           {t("shop.feed.addToCart")}
@@ -2464,30 +2439,14 @@ function ProductList({
               </Button>
               <Button
                 size="sm"
-                variant="outline"
-                className="rounded-lg"
+                className="rounded-lg bg-[#0B1F4D] font-extrabold"
                 disabled={product.sale_price == null || product.is_available === false}
                 onClick={async () => {
                   haptic("success");
-                  ensureSavedProduct(profile?.id ?? "guest", product);
-                  if (isMockFeedId(product.id)) {
-                    toast.error("This listing is not available.");
-                    return;
-                  }
-                  if (!requireAccount("cart") || !profile) {
-                    return;
-                  }
-                  const { error } = await addToCart(profile.id, {
-                    businessId: product.business_id,
-                    productId: product.id,
-                    productName: product.name,
-                    unit: product.unit,
-                    unitPrice: Number(product.sale_price),
-                    imageUrl: product.image_url,
-                  });
+                  const { error } = await addProductToBuyerCart(cartActorId(profile?.id), product);
                   if (error) toast.error(error);
                   else {
-                    toast.success("Added to cart and Saved Products");
+                    toastAddedToCart(() => void navigate({ to: "/shop/cart" }));
                     onAdded();
                   }
                 }}

@@ -260,6 +260,8 @@ const FLAT: Record<string, L7> = {
   "shop.profile.saved": row("Saved", "An adana", "المحفوظ", "Tí a fi pamọ́", "Echedoro", "Imehifadhiwa", "Danndaama"),
   "shop.profile.edit": row("Edit Profile", "Gyara bayananka", "تعديل الملف", "Ṣàtúnṣe prófáìlì", "Dezie profaịlụ", "Hariri wasifu", "Taƴtu heenor"),
   "shop.profile.orders": row("My Orders", "Odina", "طلباتي", "Àwọn òòlé mi", "Iwu m", "Oda zangu", "Ɗaɓɓaande am"),
+  "shop.profile.cart": row("Cart", "Kati", "السلة", "Àpò", "Ụgbọ", "Kikapu", "Cart"),
+  "shop.profile.emptyOrders": row("No orders yet. Anything you buy shows up here so you can track it.", "Babu oda tukuna. Duk abin da ka saya zai bayyana nan.", "لا طلبات بعد. كل ما تشتريه يظهر هنا لتتبعه.", "Kò sí òòlé síbẹ̀. Ohun tí o rà yóò hàn níbí.", "Onwebeghị iwu. Ihe ị zụrụ ga-egosi ebe a.", "Hakuna oda bado. Unachonunua kitaonekana hapa.", "Alaa ɗaɓɓaande tawo. Kala ko soodaa maa holliraa ɗoo."),
   "shop.profile.savedProducts": row("Saved Products", "Kayayyakin da aka adana", "المنتجات المحفوظة", "Àwọn ọjà tí a fi pamọ́", "Ngwaahịa echedoro", "Bidhaa zilizohifadhiwa", "Ngalu danndaaɗe"),
   "shop.profile.settings": row("Settings", "Saiti", "الإعدادات", "Àwọn ìṣètò", "Ntọala", "Mipangilio", "Teelte"),
   "shop.profile.help": row("Help", "Taimako", "مساعدة", "Ìrànlọ́wọ́", "Enyemaka", "Msaada", "Ballal"),

@@ -18,6 +18,7 @@ import { formatPricePerUnit, formatUnitWord, lineTotal, normalizeQty, unitMinQty
 import { formatServiceDates, serviceLabel } from "@/lib/catalogue/service-schedule";
 import { parseVariantList } from "@/lib/catalogue/variants";
 import { haptic } from "@/lib/haptics";
+import { CART_QUERY_KEY, cartActorId, toastAddedToCart } from "@/lib/cart-actions";
 import { useTranslation } from "@/lib/i18n/context";
 import { displayShopName, shopLinkSlug } from "@/lib/shop-names";
 import { cn } from "@/lib/utils";
@@ -75,9 +76,8 @@ export function ProductDetailScreen({ productId }: { productId: string }) {
   });
 
   const cartQuery = useQuery({
-    queryKey: ["marketplace-cart", profile?.id],
-    enabled: Boolean(profile?.id),
-    queryFn: async () => (await fetchCart(profile!.id)).items,
+    queryKey: [CART_QUERY_KEY, cartActorId(profile?.id)],
+    queryFn: async () => (await fetchCart(cartActorId(profile?.id))).items,
   });
 
   const likesQuery = useQuery({
@@ -201,13 +201,8 @@ export function ProductDetailScreen({ productId }: { productId: string }) {
       void navigate({ to: "/shop/buy", search: { productId: product.id, qty } });
       return;
     }
-    if (!session || !profile) {
-      toast.message("Sign in to add items to your cart.");
-      void navigate({ to: "/login" });
-      return;
-    }
     setBusy("cart");
-    const { error } = await addToCart(profile.id, {
+    const { error } = await addToCart(cartActorId(profile?.id), {
       businessId: product.business_id,
       productId: product.id,
       productName: product.name,
@@ -224,9 +219,9 @@ export function ProductDetailScreen({ productId }: { productId: string }) {
       return;
     }
     setSaved(true);
-    await queryClient.invalidateQueries({ queryKey: ["marketplace-cart"] });
+    await queryClient.invalidateQueries({ queryKey: [CART_QUERY_KEY] });
     await queryClient.invalidateQueries({ queryKey: ["marketplace-favorites"] });
-    toast.success("Added to cart and Saved Products");
+    toastAddedToCart(() => void navigate({ to: "/shop/cart" }));
   }
 
   async function favorite() {

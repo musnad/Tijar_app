@@ -23,6 +23,7 @@ import {
   Pencil,
   Phone,
   Plus,
+  ShoppingCart,
   Settings,
   Share2,
   Trash2,
@@ -43,6 +44,8 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Switch } from "@/components/ui/switch";
 import { ShopAvatarSwitch } from "@/features/business/shop-avatar-switch";
 import { MarketplaceShell } from "@/features/marketplace/marketplace-shell";
+import { BuyerOrderCard } from "@/features/marketplace/buyer-order-card";
+import { CartIconLink } from "@/features/marketplace/cart-icon-link";
 import { useAuth } from "@/features/auth/auth-context";
 import { useAccountGate } from "@/features/auth/account-gate";
 import { signOut } from "@/features/auth/auth-service";
@@ -56,11 +59,15 @@ import { isTijarNativeApp } from "@/lib/tijar-native-app";
 import { nativeIconBtnClass } from "@/features/marketplace/native-page-header";
 import { cn } from "@/lib/utils";
 import {
+  fetchCart,
   fetchFollowedBusinesses,
+  fetchMyOrders,
   fetchNotificationPreferences,
   listAddresses,
   saveNotificationPreferences,
 } from "@/services/marketplace-service";
+import { fetchMyPlaceOrders } from "@/services/place-order-service";
+import { CART_QUERY_KEY, cartActorId } from "@/lib/cart-actions";
 import { fetchProfilePosts, fetchProfileProducts } from "@/services/public-profile-service";
 import { deactivateProduct } from "@/services/product-service";
 import { deleteVideoPost } from "@/services/bid-service";
@@ -98,7 +105,7 @@ export function ShopProfileScreen() {
   const shopQuery = usePrimaryBusiness(profile?.id);
   const [menuOpen, setMenuOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
-  const [tab, setTab] = useState<"posts" | "products">("posts");
+  const [tab, setTab] = useState<"posts" | "products" | "orders">("posts");
   const [busyId, setBusyId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -171,6 +178,24 @@ export function ShopProfileScreen() {
     enabled: Boolean(profile?.id),
     queryFn: async () => (await fetchNotificationPreferences(profile!.id)).prefs,
   });
+  const ordersQuery = useQuery({
+    queryKey: ["marketplace-orders", profile?.id ?? "guest"],
+    queryFn: async () => {
+      const res = await fetchMyOrders(profile?.id ?? "guest");
+      return res.orders;
+    },
+  });
+  const placeOrdersQuery = useQuery({
+    queryKey: ["place-order-mine", profile?.id],
+    enabled: Boolean(profile?.id),
+    queryFn: async () => (await fetchMyPlaceOrders(profile!.id)).orders,
+  });
+  const cartQuery = useQuery({
+    queryKey: [CART_QUERY_KEY, cartActorId(profile?.id)],
+    queryFn: async () => (await fetchCart(cartActorId(profile?.id))).items,
+  });
+  const cartCount = cartQuery.data?.reduce((n, i) => n + Number(i.quantity), 0) ?? 0;
+  const allOrdersCount = (ordersQuery.data?.length ?? 0) + (placeOrdersQuery.data?.length ?? 0);
 
   const savePrefs = useMutation({
     mutationFn: (prefs: NotificationPreferences) => saveNotificationPreferences(prefs),
@@ -277,7 +302,8 @@ export function ShopProfileScreen() {
     ...(!demo ? [{ to: "/shop/agent", label: "Set up a business (agent)", icon: Store }] : []),
     { to: "/app/learn", label: t("shop.profile.learn"), icon: BookOpen },
     { to: "/translate", label: t("shop.profile.translate"), icon: Languages },
-    { to: "/shop/orders", label: t("shop.profile.orders"), icon: Package },
+    { to: "/shop/cart", label: t("shop.profile.cart"), icon: ShoppingCart, badge: cartCount },
+    { to: "/shop/orders", label: t("shop.profile.orders"), icon: Package, badge: allOrdersCount },
     { to: "/shop/favorites", label: t("shop.profile.savedProducts"), icon: Heart },
     { to: "/shop/follows", label: t("shop.profile.following"), icon: Building2 },
     { to: "/shop/followers", label: t("shop.profile.followers"), icon: UserRound },
@@ -338,6 +364,7 @@ export function ShopProfileScreen() {
               <BadgeCheck className="size-4 shrink-0 fill-primary text-white" aria-label={t("shop.profile.verified")} />
             ) : null}
           </h1>
+          <CartIconLink count={cartCount} className={cn(isTijarNativeApp() && nativeIconBtnClass())} native={isTijarNativeApp()} />
           <button
             type="button"
             onClick={() => setShareOpen(true)}
@@ -461,7 +488,7 @@ export function ShopProfileScreen() {
           </ul>
         </section>
 
-        <section className="mt-3.5 flex gap-2 px-5">
+        <section className="mt-3.5 flex flex-wrap gap-2 px-5">
           {demo ? (
             <>
               <Button asChild className="min-h-10 flex-1 rounded-full font-extrabold">
@@ -485,6 +512,18 @@ export function ShopProfileScreen() {
                   {t("shop.profile.edit")}
                 </Link>
               </Button>
+              <Button asChild variant="outline" className="min-h-10 rounded-full border-border font-extrabold bg-white">
+                <Link to="/shop/orders">
+                  <Package className="mr-1.5 size-4" />
+                  {allOrdersCount > 0 ? allOrdersCount : t("shop.profile.orders")}
+                </Link>
+              </Button>
+              <Button asChild variant="outline" className="min-h-10 rounded-full border-border font-extrabold bg-white">
+                <Link to="/shop/cart">
+                  <ShoppingCart className="mr-1.5 size-4" />
+                  {t("shop.profile.cart")}
+                </Link>
+              </Button>
               {shopSlug ? (
                 <Button asChild variant="outline" className="min-h-10 rounded-full border-border font-extrabold bg-white">
                   <Link to="/b/$slug" params={{ slug: shopSlug }}>
@@ -497,11 +536,12 @@ export function ShopProfileScreen() {
           )}
         </section>
 
-        <nav className="mx-4 mt-4 grid grid-cols-2 rounded-full bg-white p-1 shadow-[0_4px_14px_rgba(11,31,58,0.06)] in-[.native-shop]:border-0">
+        <nav className="mx-4 mt-4 grid grid-cols-3 rounded-full bg-white p-1 shadow-[0_4px_14px_rgba(11,31,58,0.06)] in-[.native-shop]:border-0">
           {(
             [
               { id: "posts" as const, label: t("shop.profile.posts"), icon: Grid3x3, count: posts.length },
               { id: "products" as const, label: t("shop.profile.products"), icon: Package, count: products.length },
+              { id: "orders" as const, label: t("shop.profile.orders"), icon: ShoppingCart, count: allOrdersCount },
             ]
           ).map((item) => {
             const active = tab === item.id;
@@ -526,7 +566,44 @@ export function ShopProfileScreen() {
           })}
         </nav>
 
-        {tab === "posts" ? (
+        {tab === "orders" ? (
+          (ordersQuery.data ?? []).length === 0 && (placeOrdersQuery.data ?? []).length === 0 ? (
+            <div className="px-5 py-10 text-center">
+              <p className="text-sm text-muted-foreground">{t("shop.profile.emptyOrders")}</p>
+              <Link to="/shop" className="mt-3 inline-block text-sm font-extrabold text-primary">
+                Browse marketplace
+              </Link>
+            </div>
+          ) : (
+            <ul className="space-y-3 px-4 py-4">
+              {(placeOrdersQuery.data ?? []).map((order) => (
+                <BuyerOrderCard
+                  key={`place-${order.id}`}
+                  listingId={order.listing_id}
+                  title={order.listing_title ?? "Place your order"}
+                  subtitle={order.shop_name}
+                  total={Number(order.total)}
+                  status={order.status}
+                  fulfilment={order.fulfilment}
+                  createdAt={order.created_at}
+                  imageUrl={order.listing_image}
+                />
+              ))}
+              {(ordersQuery.data ?? []).map((order) => (
+                <BuyerOrderCard
+                  key={order.id}
+                  orderId={order.id}
+                  title={order.order_number}
+                  subtitle={order.fulfilment.replace(/_/g, " ")}
+                  total={Number(order.total)}
+                  status={order.status}
+                  fulfilment={order.fulfilment}
+                  createdAt={order.created_at}
+                />
+              ))}
+            </ul>
+          )
+        ) : tab === "posts" ? (
           posts.length === 0 ? (
             <p className="px-5 py-10 text-center text-sm text-muted-foreground">{t("shop.profile.emptyPosts")}</p>
           ) : (
