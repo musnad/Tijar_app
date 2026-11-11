@@ -192,15 +192,39 @@ export function AdsManagerScreen({ adminMode = false, embedded = false }: { admi
     await queryClient.invalidateQueries({ queryKey: ["sponsored-ads"] });
     if (asDraft) {
       setTab("drafts");
-      toast.success("Draft saved. Finish and pay whenever you are ready.");
+      toast.success(adminMode ? "Draft saved. Publish it when you are ready — no payment." : "Draft saved. Finish and pay whenever you are ready.");
+      return;
+    }
+    if (adminMode) {
+      const liveNow = await publishAdAsAdmin(created.ad.id);
+      if (liveNow.error) {
+        toast.error(liveNow.error);
+        setTab("pending");
+        return;
+      }
+      setTab("live");
+      toast.success("Ad is live. Admin campaigns do not need payment.");
+      await queryClient.invalidateQueries({ queryKey: ["sponsored-ads"] });
       return;
     }
     setTab("pending");
     setPayAd(created.ad);
-    toast.success(adminMode ? "Campaign is pending. Pay or publish it from the list." : "Transfer the exact amount to go live.");
+    toast.success("Transfer the exact amount to go live.");
   }
 
   async function openPay(ad: SponsoredAd) {
+    if (adminMode) {
+      const liveNow = await publishAdAsAdmin(ad.id);
+      if (liveNow.error) {
+        toast.error(liveNow.error);
+        return;
+      }
+      toast.success("Published. No payment needed.");
+      setPayAd(null);
+      setTab("live");
+      await queryClient.invalidateQueries({ queryKey: ["sponsored-ads"] });
+      return;
+    }
     if (ad.status === "draft") {
       const ready = await markAdReadyToPay(ad.id);
       if (ready.error) {
@@ -356,13 +380,13 @@ export function AdsManagerScreen({ adminMode = false, embedded = false }: { admi
                   <span className="block text-sm font-extrabold">{item.label}</span>
                   <span className="text-[11px] text-muted-foreground">{item.blurb}</span>
                 </span>
-                <span className="text-sm font-extrabold text-[#1F7A4D]">{formatNgn(item.amount)}</span>
+                    <span className="text-sm font-extrabold text-[#1F7A4D]">{adminMode ? "Free" : formatNgn(item.amount)}</span>
               </button>
             ))}
           </div>
 
           <Button className="min-h-12 w-full rounded-2xl bg-[#1F7A4D] font-extrabold" disabled={busy} onClick={() => void submit(false)}>
-            {busy ? "Saving…" : `Continue to pay · ${formatNgn(pack.amount)}`}
+            {busy ? "Saving…" : adminMode ? "Publish now · no payment" : `Continue to pay · ${formatNgn(pack.amount)}`}
           </Button>
           <Button variant="outline" className="min-h-11 w-full rounded-2xl font-bold" disabled={busy} onClick={() => void submit(true)}>
             Save as draft
@@ -463,7 +487,7 @@ export function AdsManagerScreen({ adminMode = false, embedded = false }: { admi
             <div className="mt-2 flex flex-wrap gap-2">
               {ad.status === "pending_payment" || ad.status === "draft" ? (
                 <Button size="sm" className="rounded-xl font-bold" onClick={() => void openPay(ad)}>
-                  {ad.status === "draft" ? "Finish & pay" : "Pay to go live"}
+                  {adminMode ? (ad.status === "draft" ? "Finish & publish" : "Publish free") : ad.status === "draft" ? "Finish & pay" : "Pay to go live"}
                 </Button>
               ) : null}
               {ad.status === "live" ? (
@@ -510,7 +534,7 @@ export function AdsManagerScreen({ adminMode = false, embedded = false }: { admi
       {tab !== "support" && shown.length === 0 ? <p className="mt-3 text-[13px] text-muted-foreground">Nothing in this list yet.</p> : null}
 
       <p className="mt-6 text-[11px] text-muted-foreground">
-        Live ads look like normal posts with a Paid ads tag. They finish automatically at the end of the period you paid for.
+        Live ads look like normal posts with a Paid ads tag. Shop campaigns go live after payment. Ads you publish from the admin dashboard skip payment.
       </p>
     </>
   );
