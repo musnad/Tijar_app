@@ -7,7 +7,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { FeedImage } from "@/components/media/feed-image";
-import { TijarLogo } from "@/components/brand-logo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { MarketplaceShell } from "@/features/marketplace/marketplace-shell";
@@ -248,8 +247,12 @@ export function ProductDetailScreen({ productId }: { productId: string }) {
     <MarketplaceShell hideTopBar hideNav variant="feed">
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-white in-[.native-shop]:bg-[var(--native-canvas,#F3F5F8)]">
         <header className="grid shrink-0 grid-cols-[1fr_auto_1fr] items-center px-4 pb-1 pt-[max(0.5rem,env(safe-area-inset-top))]">
-          <Link to="/shop" className="justify-self-start" aria-label="TIJAR home">
-            <TijarLogo variant="mark" className="h-8 w-auto" />
+          <Link
+            to="/shop"
+            className="justify-self-start text-[13px] font-extrabold tracking-[0.16em] text-[color:var(--brand-navy,#001B3A)]"
+            aria-label="TIJAR home"
+          >
+            TIJAR
           </Link>
           <div className="text-center">
             <h1 className="text-[15px] font-extrabold text-[color:var(--brand-navy,#001B3A)]">{t("shop.product.details")}</h1>

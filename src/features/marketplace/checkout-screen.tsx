@@ -6,7 +6,6 @@ import { Landmark, Lock, MapPin, ShieldCheck, WalletCards } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
-import { TijarLogo } from "@/components/brand-logo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { MarketplaceShell } from "@/features/marketplace/marketplace-shell";
@@ -227,8 +226,12 @@ export function CheckoutScreen() {
     <MarketplaceShell hideTopBar hideNav variant="feed">
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-white in-[.native-shop]:bg-[var(--native-canvas,#F3F5F8)]">
         <header className="flex shrink-0 items-center justify-between gap-2 px-4 pb-1 pt-[max(0.45rem,env(safe-area-inset-top))]">
-          <Link to="/shop" className="block w-[7.5rem]" aria-label="TIJAR home">
-            <TijarLogo compact />
+          <Link
+            to="/shop"
+            className="text-[15px] font-extrabold tracking-[0.18em] text-[#0B1F4D]"
+            aria-label="TIJAR home"
+          >
+            TIJAR
           </Link>
           <p className="flex items-center gap-1 text-[12px] font-semibold text-[#1F7A4D]">
             <ShieldCheck className="size-4" aria-hidden />

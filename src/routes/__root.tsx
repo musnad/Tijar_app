@@ -11,7 +11,6 @@ import { useEffect, useState, type ReactNode } from "react";
 import { SpeedInsights } from "@vercel/speed-insights/react";
 import { Toaster } from "@/components/ui/sonner";
 import { AppShell } from "@/features/mobile/AppShell";
-import { TijarLogo } from "@/components/brand-logo";
 import { isTijarNativeApp } from "@/lib/tijar-native-app";
 import { markNativeDetectionReady } from "@/utils/isMobile";
 import { supabaseStorageOrigin } from "@/lib/media/optimize";
@@ -74,7 +73,7 @@ function ErrorContent({ error, reset }: ErrorComponentProps) {
 
   return (
     <div className="flex min-h-dvh flex-col items-center justify-center bg-[#F4F7FB] px-6">
-      <TijarLogo compact className="mb-8 max-w-[140px]" />
+      <p className="mb-8 text-center text-[22px] font-extrabold tracking-[0.18em] text-[#001B3A]">TIJAR</p>
       <div className="max-w-sm text-center">
         <h1 className="text-xl font-extrabold tracking-tight text-[#001B3A]">{copy.errorTitle}</h1>
         <p className="mt-2 text-sm leading-6 text-[#5a6578]">{copy.errorDesc}</p>
@@ -158,7 +157,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   errorComponent: ErrorComponent,
 });
 
-const NATIVE_APP_BOOT = `(function(){if(!/TijarApp\\//i.test(navigator.userAgent))return;document.documentElement.classList.add('tijar-android-webview');var p=location.pathname;if(/^\\/(reset-password|forgot-password|auth\\/)/.test(p))return;if(location.hostname==='localhost'||p==='/'||p===''||p==='/index.html'){location.replace('https://www.tijar.ng/shop');return;}document.querySelectorAll('link[rel=modulepreload]').forEach(function(el){var h=el.getAttribute('href')||'';if(/charts|pdf-|jspdf|leaflet|maps-/.test(h))el.remove();});})();`
+const NATIVE_APP_BOOT = `(function(){if(!/TijarApp\\//i.test(navigator.userAgent))return;document.documentElement.classList.add('tijar-android-webview');var p=location.pathname;if(/^\\/(reset-password|forgot-password|auth\\/)/.test(p))return;if(location.hostname==='localhost'||p==='/'||p===''||p==='/index.html'){location.replace('https://www.tijar.ng/shop');return;}document.querySelectorAll('link[rel=preload][as=image],link[rel=modulepreload]').forEach(function(el){var h=el.getAttribute('href')||'';if(el.rel==='preload'||/charts|pdf-|jspdf|leaflet|maps-|tijar-logo/.test(h))el.remove();});})();`
 
 function RootShell({ children }: { children: ReactNode }) {
   return (
@@ -181,7 +180,7 @@ function RootLayout() {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
-  const [, setHydrated] = useState(false);
+  const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
     markNativeDetectionReady();
@@ -201,7 +200,9 @@ function RootComponent() {
           <AccountGateProvider>
             <RootLayout />
             <Toaster richColors position="top-center" />
-            <SpeedInsights />
+            {hydrated && typeof navigator !== "undefined" && !/TijarApp\//i.test(navigator.userAgent) ? (
+              <SpeedInsights />
+            ) : null}
           </AccountGateProvider>
         </AuthProvider>
       </SitePreferencesProvider>

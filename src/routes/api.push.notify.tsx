@@ -76,26 +76,16 @@ export const Route = createFileRoute("/api/push/notify")({
         const subscriptions = (subs ?? []) as SubscriptionRow[];
         if (subscriptions.length === 0) return Response.json({ ok: true, sent: 0 });
 
-        const webSubs = subscriptions.filter((sub) => !sub.endpoint.startsWith("fcm:"));
-        const webPush =
-          webSubs.length > 0 && publicKey && privateKey
-            ? (await import("web-push")).default
-            : null;
-        if (webPush) {
-          webPush.setVapidDetails(
-            readEnvString("PUSH_VAPID_SUBJECT") ?? "mailto:hello@tijar.ng",
-            publicKey,
-            privateKey,
-          );
-        }
-
         const title = row.title ?? "Tijar";
         const bodyText = row.body ?? "";
         const url = absoluteAppUrl(targetFor(row));
         const sale = row.kind === "purchase" || row.kind === "place_order" || row.kind === "place_order_paid";
+        const headline = sale ? "You made a sale" : title;
+        const line = bodyText.trim() || "Open Tijar to see it.";
+        const channel = sale ? "tijar-sales" : "tijar-general";
         const payload = JSON.stringify({
-          title: sale ? "You made a sale" : title,
-          body: bodyText,
+          title: headline,
+          body: line,
           url,
           tag: row.id ? `tijar-${row.id}` : undefined,
           sound: sale ? "sale" : "default",
@@ -107,12 +97,8 @@ export const Route = createFileRoute("/api/push/notify")({
           subscriptions.map(async (sub) => {
             try {
               if (sub.endpoint.startsWith("fcm:")) {
-                const token = sub.endpoint.slice(4);
-                const headline = sale ? "You made a sale" : title;
-                const line = bodyText.trim() || "Open Tijar to see it.";
-                const channel = sale ? "tijar-sales" : "tijar-general";
                 const result = await sendFcm({
-                  token,
+                  token: sub.endpoint.slice(4),
                   title: headline,
                   body: line,
                   url,
@@ -124,14 +110,20 @@ export const Route = createFileRoute("/api/push/notify")({
                 else if (result.ok) sent += 1;
                 return;
               }
-              if (!webPush) return;
+              if (!publicKey || !privateKey) return;
+              const webPush = (await import("web-push")).default;
+              webPush.setVapidDetails(
+                readEnvString("PUSH_VAPID_SUBJECT") ?? "mailto:hello@tijar.ng",
+                publicKey,
+                privateKey,
+              );
               await webPush.sendNotification(
                 { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
                 payload,
               );
               sent += 1;
             } catch (err) {
-              const status = (err as { statusCode?: number }).statusCode;
+              const status = Number((err as { statusCode?: number })?.statusCode ?? 0);
               if (status === 404 || status === 410) stale.push(sub.id);
             }
           }),

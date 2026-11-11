@@ -7,7 +7,6 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { FeedImage } from "@/components/media/feed-image";
-import { TijarLogo } from "@/components/brand-logo";
 import { Button } from "@/components/ui/button";
 import { MarketplaceShell } from "@/features/marketplace/marketplace-shell";
 import { useAuth } from "@/features/auth/auth-context";
@@ -87,10 +86,14 @@ export function CartScreen() {
     <MarketplaceShell hideTopBar hideNav variant="feed">
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-white in-[.native-shop]:bg-[var(--native-canvas,#F3F5F8)]">
         <header className="shrink-0 px-5 pb-1 pt-[max(0.55rem,env(safe-area-inset-top))]">
-          <Link to="/shop" className="mx-auto block w-[9.5rem]" aria-label="TIJAR home">
-            <TijarLogo compact className="mx-auto" />
+          <Link
+            to="/shop"
+            className="mx-auto block text-center text-[15px] font-extrabold tracking-[0.18em] text-[#0B1F4D]"
+            aria-label="TIJAR home"
+          >
+            TIJAR
           </Link>
-          <p className="-mt-0.5 text-center text-[9px] font-extrabold uppercase tracking-[0.22em] text-[#0B1F4D]/55">
+          <p className="mt-0.5 text-center text-[9px] font-extrabold uppercase tracking-[0.22em] text-[#0B1F4D]/55">
             Shop smart. Live well.
           </p>
         </header>

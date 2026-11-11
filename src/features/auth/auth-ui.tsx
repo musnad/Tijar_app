@@ -17,7 +17,6 @@ import {
 import type { LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 
-import { TijarLogo } from "@/components/brand-logo";
 import { GoogleGIcon } from "@/features/auth/google-g-icon";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
@@ -47,7 +46,7 @@ export function LoginTopHeader() {
   return (
     <div className="relative mb-6 flex items-start justify-between gap-4">
       <div className="relative z-10 max-w-[210px] shrink-0 bg-transparent">
-        <TijarLogo compact className="max-h-[76px] w-[210px]" />
+        <p className="text-[22px] font-extrabold tracking-[0.18em] text-[#001B3A]">TIJAR</p>
       </div>
       <div className="max-w-[130px] shrink-0 pt-1 text-right">
         <p className="text-[11px] leading-snug" style={{ color: TIJAR_NAVY }}>
@@ -77,9 +76,7 @@ export function RegisterTopHeader() {
           background: `radial-gradient(circle at 30% 30%, ${TIJAR_GREEN}55, transparent 70%)`,
         }}
       />
-      <div className="mx-auto max-w-[280px] bg-transparent">
-        <TijarLogo className="mx-auto max-h-[88px] w-full object-center" />
-      </div>
+      <p className="text-[22px] font-extrabold tracking-[0.18em] text-[#001B3A]">TIJAR</p>
       <div
         className="mx-auto mt-4 h-1 w-16 rounded-full"
         style={{ backgroundColor: TIJAR_GREEN }}

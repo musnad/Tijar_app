@@ -1,6 +1,5 @@
 import { createFileRoute, type ErrorComponentProps } from "@tanstack/react-router";
 
-import { TijarLogo } from "@/components/brand-logo";
 import { VideoFeedScreen } from "@/features/marketplace/video-feed-screen";
 
 type ShopSearch = { v?: string };
@@ -8,7 +7,7 @@ type ShopSearch = { v?: string };
 function ShopLoadError({ reset }: ErrorComponentProps) {
   return (
     <div className="flex min-h-dvh flex-col items-center justify-center bg-white px-6">
-      <TijarLogo compact className="mb-8 max-w-[150px]" />
+      <p className="mb-8 text-center text-[22px] font-extrabold tracking-[0.18em] text-[#001B3A]">TIJAR</p>
       <p className="text-center text-sm font-semibold text-[#5a6578]">The feed did not open. Check your connection and try again.</p>
       <button
         type="button"

@@ -5,7 +5,6 @@ import { Link, useRouterState } from "@tanstack/react-router";
 import { Compass, Home, MessageCircle, Plus, PlusSquare, ShoppingBag, UserRound, Clapperboard } from "lucide-react";
 import type { ReactNode } from "react";
 
-import { TijarLogo } from "@/components/brand-logo";
 import { Button } from "@/components/ui/button";
 import { AppLanguageButton } from "@/features/app-layout/app-language-button";
 import { AccountModeSwitch } from "@/features/marketplace/account-mode-switch";
@@ -37,11 +36,12 @@ function MarketplaceTopBar({ leftSlot, cartCount }: { leftSlot?: ReactNode; cart
     <header className={cn("grid grid-cols-[auto_1fr_auto] items-center gap-2", nativeApp ? "pb-2 pt-1" : "pb-3")}>
       {leftSlot ?? <div className="size-10" />}
 
-      <div className="flex justify-center px-1">
-        <Link to="/shop" className="block max-w-[140px]">
-          <TijarLogo compact className="mx-auto max-w-[140px]" />
-        </Link>
-      </div>
+      <Link
+        to="/shop"
+        className="min-w-0 justify-self-center text-center text-[13px] font-extrabold tracking-[0.18em] text-[#001B3A]"
+      >
+        TIJAR
+      </Link>
 
       <div className="flex items-center justify-end gap-1.5">
         <CartIconLink count={cartCount} native={nativeApp} />

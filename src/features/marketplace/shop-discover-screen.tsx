@@ -17,7 +17,6 @@ import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { FeedImage } from "@/components/media/feed-image";
-import { TijarLogo } from "@/components/brand-logo";
 import { isTijarNativeApp } from "@/lib/tijar-native-app";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -288,7 +287,9 @@ export function ShopDiscoverScreen() {
         <header className={cn("shrink-0 pt-[max(0.35rem,env(safe-area-inset-top))]", nativeApp ? "border-0" : "border-b border-border")}>
           <div className="flex flex-wrap items-center justify-between gap-2 px-4 pb-2 pt-2">
             <div className="flex min-w-0 flex-1 items-center gap-2.5">
-              {nativeApp ? null : <TijarLogo variant="mark" className="h-8 w-auto shrink-0" />}
+              {nativeApp ? null : (
+                <span className="shrink-0 text-[13px] font-extrabold tracking-[0.16em] text-[#001B3A]">TIJAR</span>
+              )}
               <div className="min-w-0">
                 <h1 className="truncate text-[20px] font-extrabold leading-none tracking-tight text-foreground sm:text-[22px]">{t("shop.explore.title")}</h1>
                 <p className="mt-1 truncate text-[11px] font-medium text-muted-foreground">

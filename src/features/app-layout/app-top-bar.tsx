@@ -3,7 +3,6 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import { Bell, ChevronDown, Menu, Settings } from "lucide-react";
 
-import { TijarLogo } from "@/components/brand-logo";
 import {
   Sheet,
   SheetContent,
@@ -85,11 +84,12 @@ export function AppTopBar() {
         </SheetContent>
       </Sheet>
 
-      <div className="flex justify-center px-1">
-        <Link to="/app" className="block max-w-[150px]">
-          <TijarLogo compact className="mx-auto max-w-[150px]" />
-        </Link>
-      </div>
+      <Link
+        to="/app"
+        className="min-w-0 justify-self-center text-center text-[13px] font-extrabold tracking-[0.18em] text-[#001B3A]"
+      >
+        TIJAR
+      </Link>
 
       <div className="flex items-center justify-end gap-1.5">
         {nativeApp ? null : <AccountModeSwitch className="hidden md:inline-flex" />}

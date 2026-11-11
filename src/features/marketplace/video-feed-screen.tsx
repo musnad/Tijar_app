@@ -78,7 +78,6 @@ import { fetchCart, fetchMarketplaceProducts, toggleFavoriteProduct } from "@/se
 import { formatPricePerUnit } from "@/lib/catalogue/units";
 import { formatServiceDates, serviceLabel } from "@/lib/catalogue/service-schedule";
 import { parseVariantList } from "@/lib/catalogue/variants";
-import { TijarLogo } from "@/components/brand-logo";
 import { isTijarNativeApp } from "@/lib/tijar-native-app";
 import { FeedImage } from "@/components/media/feed-image";
 import { optimizedImageUrl, prefetchOptimizedImages } from "@/lib/media/optimize";
@@ -1386,7 +1385,9 @@ function FeedTopBar({ tab, onTab, cartCount }: { tab: FeedTab; onTab: (t: FeedTa
             window.dispatchEvent(new Event(HOME_REFRESH_EVENT));
           }}
         >
-          <TijarLogo compact className={cn("object-left", nativeApp ? "h-7 max-w-[128px]" : "h-8 max-w-[148px]")} />
+          <span className={cn("font-extrabold tracking-[0.16em] text-[#001B3A]", nativeApp ? "text-[15px]" : "text-[16px]")}>
+            TIJAR
+          </span>
           {nativeApp ? null : (
             <p className="mt-0.5 text-[9px] font-extrabold uppercase tracking-[0.16em] text-primary">
               {t("shop.feed.brand")}

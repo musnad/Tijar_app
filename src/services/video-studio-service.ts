@@ -241,18 +241,14 @@ export async function retryVideoJob(
   videoId: string,
   businessId: string,
 ): Promise<{ error: string | null }> {
+  const blocked = await requireVerifiedShop(businessId);
+  if (blocked) return { error: blocked };
   const supabase = getSupabaseBrowserClient();
-  await supabase.from("video_processing_jobs").insert({
-    video_post_id: videoId,
-    business_id: businessId,
-    kind: "prepare",
-    status: "queued",
-    attempts: 0,
-  });
+  const { error } = await supabase
+    .from("video_posts")
+    .update({ status: "processing", processing_error: null })
+    .eq("id", videoId)
+    .eq("business_id", businessId);
+  if (error) return { error: error.message };
   return finishPrepareJob(videoId, businessId);
-}
-
-function blobToFile(blob: Blob | null, name: string): File | null {
-  if (!blob) return null;
-  return new File([blob], name, { type: blob.type || "image/jpeg" });
 }

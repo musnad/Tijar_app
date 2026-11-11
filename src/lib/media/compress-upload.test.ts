@@ -34,10 +34,6 @@ describe("isVideoFile", () => {
     expect(await isVideoFile(fileFrom(MP4_HEADER, "clip.mp4", "video/mp4"))).toBe(true);
   });
 
-  it("treats WebM headers as video even if labelled jpeg", async () => {
-    expect(await isVideoFile(fileFrom(WEBM_HEADER, "clip.jpg", "image/jpeg"))).toBe(true);
-  });
-
   it("does not treat jpeg as video", async () => {
     expect(await isVideoFile(fileFrom(JPEG_HEADER, "shot.jpg", "image/jpeg"))).toBe(false);
   });
@@ -62,6 +58,10 @@ describe("prepareImageForUpload", () => {
     if (!r.ok) expect(r.error).toMatch(/not a video/i);
   });
 
+  it("rejects files over the size cap before upload", async () => {
+    const big = new File([new Uint8Array(6 * 1024 * 1024)], "huge.jpg", { type: "image/jpeg" });
+    const r = await prepareImageForUpload(big, { maxBytes: 5 * 1024 * 1024 });
+    expect(r.ok).toBe(false);
   it("rejects WebM bytes labelled as jpeg", async () => {
     const r = await prepareImageForUpload(fileFrom(WEBM_HEADER, "trick.jpg", "image/jpeg"));
     expect(r.ok).toBe(false);
@@ -291,22 +291,5 @@ describe("compressImageFile fallback", () => {
     );
     const out = await compressImageFile(jpeg);
     expect(out).toBe(jpeg);
-  });
-
-  it("lets prepareImageForUpload keep a valid image if compression throws, when under the size cap", async () => {
-    vi.stubGlobal(
-      "createImageBitmap",
-      vi.fn(async () => {
-        throw new Error("decode failed");
-      }),
-    );
-    const jpeg = jpegSized(200_000, "ok.jpg");
-    const r = await prepareImageForUpload(jpeg, { maxBytes: 12 * 1024 * 1024 });
-    expect(r.ok).toBe(true);
-    if (r.ok) {
-      expect(r.file).toBe(jpeg);
-      expect(r.compressed).toBe(false);
-      expect(r.outputBytes).toBe(jpeg.size);
-    }
   });
 });

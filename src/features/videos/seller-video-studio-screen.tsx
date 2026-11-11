@@ -27,7 +27,6 @@ import {
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
-import { TijarLogo } from "@/components/brand-logo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { haptic } from "@/lib/haptics";
@@ -509,7 +508,7 @@ export function SellerVideoStudioScreen({
             <Menu className="size-6" />
           </button>
           <div className="flex max-w-[11.5rem] flex-col items-center">
-            <TijarLogo compact className="mx-auto" />
+            <p className="text-[15px] font-extrabold tracking-[0.18em] text-[#0B1F4D]">TIJAR</p>
             <p className="mt-0.5 text-center text-[8px] font-extrabold tracking-[0.16em] text-[#0B1F4D]">
               SELL GLOBAL. GROW FASTER.
             </p>
@@ -1309,7 +1308,6 @@ function ReviewStep({
           disabled={busy}
           onClick={onBack}
         >
-          Back
         </Button>
         <Button
           type="button"

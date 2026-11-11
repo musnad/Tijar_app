@@ -5,7 +5,6 @@ import { Link } from "@tanstack/react-router";
 import { Check, ChevronDown, ChevronRight, Globe, Package, Sparkles } from "lucide-react";
 import { useEffect, useState } from "react";
 
-import { TijarLogo } from "@/components/brand-logo";
 import { Button } from "@/components/ui/button";
 import { StudioCreateTools } from "@/features/videos/studio-create-tools";
 import { LOCALES, LOCALE_LABELS, type Locale } from "@/lib/i18n/types";
@@ -57,8 +56,12 @@ export function MarketingStudioScreen({
     <div className={cn("bg-white", shopChrome && "flex min-h-0 flex-1 flex-col overflow-hidden")}>
       {shopChrome ? (
         <header className="flex shrink-0 items-center justify-between px-4 pb-1 pt-[max(0.45rem,env(safe-area-inset-top))]">
-          <Link to="/shop" className="block w-[8.5rem]" aria-label="TIJAR home">
-            <TijarLogo compact />
+          <Link
+            to="/shop"
+            className="text-[15px] font-extrabold tracking-[0.18em] text-[#0B1F4D]"
+            aria-label="TIJAR home"
+          >
+            TIJAR
           </Link>
           <Sparkles className="size-4 text-[#1F7A4D]" />
         </header>
@@ -109,7 +112,7 @@ export function MarketingStudioScreen({
               <p className="text-sm font-bold text-[#0B1F4D]">Add a product first</p>
               <Button className="mt-3 min-h-10 rounded-xl bg-[#0B1F4D] text-white" asChild>
                 <Link to="/app/products/new">New product</Link>
-              </Button>
+      </Button>
             </div>
           ) : picking || !product ? (
             <ul className="space-y-2">
