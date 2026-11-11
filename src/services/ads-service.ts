@@ -126,7 +126,7 @@ export async function fetchLiveAds(): Promise<{ ads: LiveAdCard[]; error: string
   const shops = ids.length
     ? await supabase
         .from("businesses")
-        .select("id, business_name, logo_url, public_slug, public_phone, is_verified, public_location_label, location")
+        .select("id, business_name, logo_url, public_slug, public_phone, verified_badge, is_verified, public_location_label, location")
         .in("id", ids)
     : { data: [] };
   const byId = new Map((shops.data ?? []).map((s) => [String(s.id), s]));
@@ -139,7 +139,7 @@ export async function fetchLiveAds(): Promise<{ ads: LiveAdCard[]; error: string
         shop_logo: (shop?.logo_url as string | null) ?? null,
         shop_slug: (shop?.public_slug as string | null) ?? null,
         shop_phone: (shop?.public_phone as string | null) ?? null,
-        shop_verified: Boolean(shop?.is_verified),
+        shop_verified: Boolean((shop as { verified_badge?: boolean })?.verified_badge),
         location_label: ((shop?.public_location_label as string | null) || (shop?.location as string | null)) ?? null,
       };
     }),
@@ -265,6 +265,21 @@ export async function markAdReadyToPay(adId: string): Promise<{ error: string | 
     .update({ status: "pending_payment", updated_at: new Date().toISOString() })
     .eq("id", adId);
   return { error: error?.message ?? null };
+}
+
+export async function payAdFromWallet(
+  adId: string,
+): Promise<{ paid: boolean; error: string | null; available?: number }> {
+  const auth = await authHeader();
+  if (!auth) return { paid: false, error: "Sign in first." };
+  const res = await fetch("/api/ads/pay-wallet", {
+    method: "POST",
+    headers: { Authorization: auth, "Content-Type": "application/json" },
+    body: JSON.stringify({ adId }),
+  });
+  const json = (await res.json()) as { paid?: boolean; error?: string; available?: number };
+  if (!res.ok) return { paid: false, error: json.error ?? "Could not pay from wallet.", available: json.available };
+  return { paid: Boolean(json.paid), error: json.error ?? null, available: json.available };
 }
 
 export async function confirmAdPayment(

@@ -104,6 +104,7 @@ import { Route as ApiPaymentsConfirmOrderRouteImport } from './routes/api.paymen
 import { Route as ApiAdsAccountRouteImport } from './routes/api.ads.account'
 import { Route as ApiAdsConfirmRouteImport } from './routes/api.ads.confirm'
 import { Route as ApiAdsGoLiveRouteImport } from './routes/api.ads.go-live'
+import { Route as ApiAdsPayWalletRouteImport } from './routes/api.ads.pay-wallet'
 import { Route as ApiCronAdsRouteImport } from './routes/api.cron.ads'
 import { Route as ApiPaymentsFlutterwaveRouteImport } from './routes/api.payments.flutterwave'
 import { Route as ApiPaymentsPayoutRouteImport } from './routes/api.payments.payout'
@@ -625,6 +626,11 @@ const ApiAdsGoLiveRoute = ApiAdsGoLiveRouteImport.update({
   path: '/api/ads/go-live',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiAdsPayWalletRoute = ApiAdsPayWalletRouteImport.update({
+  id: '/api/ads/pay-wallet',
+  path: '/api/ads/pay-wallet',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiCronAdsRoute = ApiCronAdsRouteImport.update({
   id: '/api/cron/ads',
   path: '/api/cron/ads',
@@ -949,6 +955,7 @@ export interface FileRoutesByFullPath {
   '/api/ads/account': typeof ApiAdsAccountRoute
   '/api/ads/confirm': typeof ApiAdsConfirmRoute
   '/api/ads/go-live': typeof ApiAdsGoLiveRoute
+  '/api/ads/pay-wallet': typeof ApiAdsPayWalletRoute
   '/api/cron/ads': typeof ApiCronAdsRoute
   '/api/payments/flutterwave': typeof ApiPaymentsFlutterwaveRoute
   '/api/payments/payout': typeof ApiPaymentsPayoutRoute
@@ -1084,6 +1091,7 @@ export interface FileRoutesByTo {
   '/api/ads/account': typeof ApiAdsAccountRoute
   '/api/ads/confirm': typeof ApiAdsConfirmRoute
   '/api/ads/go-live': typeof ApiAdsGoLiveRoute
+  '/api/ads/pay-wallet': typeof ApiAdsPayWalletRoute
   '/api/cron/ads': typeof ApiCronAdsRoute
   '/api/payments/flutterwave': typeof ApiPaymentsFlutterwaveRoute
   '/api/payments/payout': typeof ApiPaymentsPayoutRoute
@@ -1227,6 +1235,7 @@ export interface FileRoutesById {
   '/api/ads/account': typeof ApiAdsAccountRoute
   '/api/ads/confirm': typeof ApiAdsConfirmRoute
   '/api/ads/go-live': typeof ApiAdsGoLiveRoute
+  '/api/ads/pay-wallet': typeof ApiAdsPayWalletRoute
   '/api/cron/ads': typeof ApiCronAdsRoute
   '/api/payments/flutterwave': typeof ApiPaymentsFlutterwaveRoute
   '/api/payments/payout': typeof ApiPaymentsPayoutRoute
@@ -1371,6 +1380,7 @@ export interface FileRouteTypes {
     | '/api/ads/account'
     | '/api/ads/confirm'
     | '/api/ads/go-live'
+    | '/api/ads/pay-wallet'
     | '/api/cron/ads'
     | '/api/payments/flutterwave'
     | '/api/payments/payout'
@@ -1506,6 +1516,7 @@ export interface FileRouteTypes {
     | '/api/ads/account'
     | '/api/ads/confirm'
     | '/api/ads/go-live'
+    | '/api/ads/pay-wallet'
     | '/api/cron/ads'
     | '/api/payments/flutterwave'
     | '/api/payments/payout'
@@ -1648,6 +1659,7 @@ export interface FileRouteTypes {
     | '/api/ads/account'
     | '/api/ads/confirm'
     | '/api/ads/go-live'
+    | '/api/ads/pay-wallet'
     | '/api/cron/ads'
     | '/api/payments/flutterwave'
     | '/api/payments/payout'
@@ -1739,6 +1751,7 @@ export interface RootRouteChildren {
   ApiAdsAccountRoute: typeof ApiAdsAccountRoute
   ApiAdsConfirmRoute: typeof ApiAdsConfirmRoute
   ApiAdsGoLiveRoute: typeof ApiAdsGoLiveRoute
+  ApiAdsPayWalletRoute: typeof ApiAdsPayWalletRoute
   ApiCronAdsRoute: typeof ApiCronAdsRoute
   ApiPaymentsFlutterwaveRoute: typeof ApiPaymentsFlutterwaveRoute
   ApiPaymentsPayoutRoute: typeof ApiPaymentsPayoutRoute
@@ -2421,6 +2434,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAdsGoLiveRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/ads/pay-wallet': {
+      id: '/api/ads/pay-wallet'
+      path: '/api/ads/pay-wallet'
+      fullPath: '/api/ads/pay-wallet'
+      preLoaderRoute: typeof ApiAdsPayWalletRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/cron/ads': {
       id: '/api/cron/ads'
       path: '/api/cron/ads'
@@ -3078,6 +3098,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiAdsAccountRoute: ApiAdsAccountRoute,
   ApiAdsConfirmRoute: ApiAdsConfirmRoute,
   ApiAdsGoLiveRoute: ApiAdsGoLiveRoute,
+  ApiAdsPayWalletRoute: ApiAdsPayWalletRoute,
   ApiCronAdsRoute: ApiCronAdsRoute,
   ApiPaymentsFlutterwaveRoute: ApiPaymentsFlutterwaveRoute,
   ApiPaymentsPayoutRoute: ApiPaymentsPayoutRoute,

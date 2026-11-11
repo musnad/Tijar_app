@@ -22,6 +22,7 @@ import {
   Package,
   Pencil,
   Phone,
+  Plus,
   Settings,
   Share2,
   Trash2,
@@ -40,6 +41,7 @@ import { FeedImage } from "@/components/media/feed-image";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Switch } from "@/components/ui/switch";
+import { ShopAvatarSwitch } from "@/features/business/shop-avatar-switch";
 import { MarketplaceShell } from "@/features/marketplace/marketplace-shell";
 import { useAuth } from "@/features/auth/auth-context";
 import { useAccountGate } from "@/features/auth/account-gate";
@@ -95,6 +97,7 @@ export function ShopProfileScreen() {
   const navigate = useNavigate();
   const shopQuery = usePrimaryBusiness(profile?.id);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
   const [tab, setTab] = useState<"posts" | "products">("posts");
   const [busyId, setBusyId] = useState<string | null>(null);
 
@@ -179,25 +182,40 @@ export function ShopProfileScreen() {
     onError: (err: Error) => toast.error(err.message),
   });
 
-  async function shareProfile() {
+  function shopShareUrl() {
     const shop = shopQuery.data?.business;
     const slug = shop
       ? shopLinkSlug(shopUsername(shop.business_name, shop.public_slug), shop.id)
       : "";
-    const url = profile?.id
-      ? `${window.location.origin}/shop/u/${profile.id}`
-      : slug
-        ? `${window.location.origin}/b/${slug}`
-        : `${window.location.origin}/shop/profile`;
+    if (slug) return `${window.location.origin}/b/${slug}`;
+    if (profile?.id) return `${window.location.origin}/shop/u/${profile.id}`;
+    return `${window.location.origin}/shop/profile`;
+  }
+
+  async function shareProfile() {
+    setShareOpen(true);
+  }
+
+  async function copyShareLink() {
+    const url = shopShareUrl();
     try {
-      if (typeof navigator !== "undefined" && navigator.share) {
-        await navigator.share({ title: profile?.full_name ?? "TIJAR profile", url });
-      } else if (typeof navigator !== "undefined" && navigator.clipboard) {
-        await navigator.clipboard.writeText(url);
-        toast.success(t("shop.profile.linkCopied"));
+      await navigator.clipboard.writeText(url);
+      toast.success(t("shop.profile.linkCopied"));
+    } catch {
+      toast.error("Could not copy the link.");
+    }
+  }
+
+  async function nativeShare() {
+    const url = shopShareUrl();
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: profile?.full_name ?? "TIJAR shop", url });
+      } else {
+        await copyShareLink();
       }
     } catch {
-      /* share cancelled */
+      /* cancelled */
     }
   }
 
@@ -322,7 +340,7 @@ export function ShopProfileScreen() {
           </h1>
           <button
             type="button"
-            onClick={() => void shareProfile()}
+            onClick={() => setShareOpen(true)}
             aria-label={t("shop.profile.shareProfile")}
             className={cn(
               "flex size-10 items-center justify-center rounded-full text-[color:var(--brand-navy,#001B3A)] transition active:bg-muted",
@@ -358,27 +376,39 @@ export function ShopProfileScreen() {
         style={{ WebkitOverflowScrolling: "touch" }}
       >
         <section className="flex items-center gap-5 px-5 pt-4" aria-label={t("shop.nav.profile")}>
-          {photo ? (
-            <FeedImage
-              src={photo}
-              alt=""
-              eager
-              width={168}
-              className="size-[5.25rem] shrink-0 rounded-full object-cover ring-2 ring-primary/25"
-            />
-          ) : (
-            <span
-              className="flex size-[5.25rem] shrink-0 items-center justify-center rounded-full bg-muted text-xl font-extrabold text-[color:var(--brand-navy,#001B3A)] ring-2 ring-primary/25"
-              aria-hidden
-            >
-              {name
-                .split(/\s+/)
-                .slice(0, 2)
-                .map((p) => p[0])
-                .join("")
-                .toUpperCase()}
-            </span>
-          )}
+          <ShopAvatarSwitch className="relative shrink-0">
+            {photo ? (
+              <FeedImage
+                src={photo}
+                alt=""
+                eager
+                width={168}
+                className="size-[5.25rem] rounded-full object-cover ring-2 ring-primary/25"
+              />
+            ) : (
+              <span
+                className="flex size-[5.25rem] items-center justify-center rounded-full bg-muted text-xl font-extrabold text-[color:var(--brand-navy,#001B3A)] ring-2 ring-primary/25"
+                aria-hidden
+              >
+                {name
+                  .split(/\s+/)
+                  .slice(0, 2)
+                  .map((p) => p[0])
+                  .join("")
+                  .toUpperCase()}
+              </span>
+            )}
+            {!demo ? (
+              <Link
+                to="/shop/create-story"
+                onClick={(e) => e.stopPropagation()}
+                className="absolute -bottom-0.5 -right-0.5 flex size-8 items-center justify-center rounded-full bg-[#1F7A4D] text-white shadow-md ring-2 ring-white"
+                aria-label="Add status"
+              >
+                <Plus className="size-4" strokeWidth={2.6} />
+              </Link>
+            ) : null}
+          </ShopAvatarSwitch>
           <div className="grid min-w-0 flex-1 grid-cols-3" role="group" aria-label={t("shop.nav.profile")}>
             <Stat
               value={posts.length}
@@ -441,7 +471,7 @@ export function ShopProfileScreen() {
                 type="button"
                 variant="outline"
                 className="min-h-10 rounded-full border-border px-3 font-extrabold"
-                onClick={() => void shareProfile()}
+                onClick={() => setShareOpen(true)}
                 aria-label={t("shop.profile.shareProfile")}
               >
                 <Share2 className="size-4" />
@@ -463,15 +493,6 @@ export function ShopProfileScreen() {
                   </Link>
                 </Button>
               ) : null}
-              <Button
-                type="button"
-                variant="outline"
-                className="min-h-10 flex-1 rounded-full border-border font-extrabold bg-white"
-                onClick={() => void shareProfile()}
-              >
-                <Share2 className="mr-1.5 size-4" />
-                {t("shop.profile.shareProfile")}
-              </Button>
             </>
           )}
         </section>
@@ -716,6 +737,35 @@ export function ShopProfileScreen() {
                 {t("shop.settings.logOut")}
               </button>
             ) : null}
+          </div>
+        </SheetContent>
+      </Sheet>
+      <Sheet open={shareOpen} onOpenChange={setShareOpen}>
+        <SheetContent side="bottom" className="rounded-t-3xl pb-8">
+          <SheetHeader>
+            <SheetTitle>{t("shop.profile.shareProfile")}</SheetTitle>
+          </SheetHeader>
+          <div className="mt-4 overflow-hidden rounded-[28px] bg-gradient-to-br from-[#0B1F4D] via-[#12356E] to-[#1F7A4D] p-5 text-white shadow-lg">
+            <p className="text-[11px] font-extrabold uppercase tracking-[0.2em] text-white/70">TIJAR</p>
+            <p className="mt-2 text-2xl font-extrabold leading-tight">{name}</p>
+            <p className="mt-1 text-sm text-white/80">@{username}</p>
+            <div className="mt-4 flex justify-center rounded-2xl bg-white p-3">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={`https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(shopShareUrl())}`}
+                alt="Shop barcode"
+                className="size-44"
+              />
+            </div>
+            <p className="mt-3 text-center text-[12px] text-white/80">Scan to open this shop on TIJAR</p>
+          </div>
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            <Button className="min-h-11 rounded-full font-extrabold" onClick={() => void nativeShare()}>
+              Share
+            </Button>
+            <Button variant="outline" className="min-h-11 rounded-full font-extrabold" onClick={() => void copyShareLink()}>
+              Copy
+            </Button>
           </div>
         </SheetContent>
       </Sheet>

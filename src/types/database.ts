@@ -24,6 +24,7 @@ export type Profile = {
   state?: string | null;
   lga?: string | null;
   location_text?: string | null;
+  who_can_message?: "everyone" | "following" | "shops_only";
   created_at: string;
   updated_at: string;
 };

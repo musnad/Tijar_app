@@ -435,3 +435,10 @@ export async function markNotificationsRead(profileId: string): Promise<{ error:
     .is("read_at", null);
   return { error: error?.message ?? null };
 }
+
+export async function clearNotifications(profileId: string): Promise<{ error: string | null }> {
+  const supabase = getSupabaseBrowserClient();
+  const del = await supabase.from("activity_notifications").delete().eq("recipient_id", profileId);
+  if (!del.error) return { error: null };
+  return markNotificationsRead(profileId);
+}

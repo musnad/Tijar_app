@@ -675,6 +675,51 @@ export function BranchShopsScreen() {
                           >
                             Open shop
                           </Link>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="h-10 rounded-2xl px-4 text-xs font-extrabold"
+                            onClick={async () => {
+                              const nextName = window.prompt("Shop name", String(shop.business_name ?? ""));
+                              if (!nextName) return;
+                              const phone = window.prompt("Phone", String(shop.public_phone ?? "")) ?? "";
+                              const location = window.prompt("Area, street, landmark", String(shop.public_location_label ?? "")) ?? "";
+                              const res = await fetch("/api/shop/branches", {
+                                method: "PATCH",
+                                headers: { "Content-Type": "application/json", ...(await authHeader()) },
+                                body: JSON.stringify({ shopId: shop.id, businessName: nextName, phone, location }),
+                              });
+                              const json = (await res.json()) as { error?: string };
+                              if (!res.ok) toast.error(json.error ?? "Could not save.");
+                              else {
+                                toast.success("Shop updated.");
+                                await shopsQuery.refetch();
+                              }
+                            }}
+                          >
+                            Edit
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="h-10 rounded-2xl px-4 text-xs font-extrabold text-destructive"
+                            onClick={async () => {
+                              if (!window.confirm("Delete this shop? It leaves the marketplace.")) return;
+                              const res = await fetch("/api/shop/branches", {
+                                method: "DELETE",
+                                headers: { "Content-Type": "application/json", ...(await authHeader()) },
+                                body: JSON.stringify({ shopId: shop.id }),
+                              });
+                              const json = (await res.json()) as { error?: string };
+                              if (!res.ok) toast.error(json.error ?? "Could not delete.");
+                              else {
+                                toast.success("Shop deleted.");
+                                await shopsQuery.refetch();
+                              }
+                            }}
+                          >
+                            Delete
+                          </Button>
                         </div>
                       </div>
                     ) : null}

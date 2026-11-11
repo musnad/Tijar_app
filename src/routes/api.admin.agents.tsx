@@ -61,7 +61,11 @@ export const Route = createFileRoute("/api/admin/agents")({
           if (rpc.error) {
             await ctx.admin
               .from("businesses")
-              .update({ is_published: false, moderation_status: "suspended" })
+              .update({
+                is_published: false,
+                moderation_status: "suspended",
+                deleted_at: new Date().toISOString(),
+              })
               .eq("id", businessId);
           }
           return Response.json({ ok: true });

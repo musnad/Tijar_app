@@ -25,7 +25,7 @@ import {
 function MessagesFrame({ children }: { children: ReactNode }) {
   return (
     <MarketplaceShell hideTopBar variant="feed">
-      <div className={cn("flex min-h-0 flex-1 flex-col overflow-hidden", nativeCanvasClass())}>{children}</div>
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-white">{children}</div>
     </MarketplaceShell>
   );
 }
@@ -271,8 +271,26 @@ export function ShopChatThreadScreen({ conversationId }: { conversationId: strin
         </button>
         <Avatar name={title} src={asSeller ? null : inbox?.logo_url ?? null} />
         <div className="min-w-0">
-          <p className="truncate font-extrabold leading-tight">{title}</p>
-          <p className="text-[11px] text-muted-foreground">{asSeller ? "Customer on TIJAR" : "Usually replies here"}</p>
+          {asSeller ? (
+            <Link to="/shop/u/$profileId" params={{ profileId: inbox?.customer_id ?? "" }} className="block min-w-0">
+              <p className="truncate font-extrabold leading-tight text-[#1F7A4D]">{title}</p>
+              <p className="text-[11px] text-muted-foreground">Open profile</p>
+            </Link>
+          ) : inbox?.business_slug || inbox?.business_id ? (
+            <Link
+              to="/b/$slug"
+              params={{ slug: inbox.business_slug || inbox.business_id }}
+              className="block min-w-0"
+            >
+              <p className="truncate font-extrabold leading-tight text-[#1F7A4D]">{title}</p>
+              <p className="text-[11px] text-muted-foreground">Open shop profile</p>
+            </Link>
+          ) : (
+            <>
+              <p className="truncate font-extrabold leading-tight">{title}</p>
+              <p className="text-[11px] text-muted-foreground">Usually replies here</p>
+            </>
+          )}
         </div>
       </header>
 
@@ -346,7 +364,12 @@ function Bubble({ mine, body, at }: { mine: boolean; body: string; at: string })
 }
 
 function Header({ title, subtitle }: { title: string; subtitle?: string }) {
-  return <NativePageHeader title={title} subtitle={subtitle} />;
+  return (
+    <header className="shrink-0 border-b border-border px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
+      <h1 className="text-[22px] font-extrabold tracking-tight">{title}</h1>
+      {subtitle ? <p className="mt-0.5 text-[12px] font-medium text-muted-foreground">{subtitle}</p> : null}
+    </header>
+  );
 }
 
 function Avatar({ name, src }: { name: string; src: string | null }) {

@@ -13,6 +13,7 @@ import { useAuth } from "@/features/auth/auth-context";
 import { cn } from "@/lib/utils";
 import {
   fetchActivityNotifications,
+  clearNotifications,
   markNotificationsRead,
   type ActivityNotification,
 } from "@/services/social-service";
@@ -124,6 +125,12 @@ export function ActivityInboxScreen() {
       void queryClient.invalidateQueries({ queryKey: ["activity-inbox"] });
     },
   });
+  const clearAll = useMutation({
+    mutationFn: () => clearNotifications(profile!.id),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["activity-inbox"] });
+    },
+  });
 
   if (!session || !profile) {
     return (
@@ -152,16 +159,29 @@ export function ActivityInboxScreen() {
         subtitle="Tap a post to open it and buy or place your order."
         showBack
         actions={
-          unread > 0 ? (
-            <Button
-              size="sm"
-              variant="outline"
-              className="rounded-full font-bold bg-white"
-              onClick={() => markRead.mutate()}
-              disabled={markRead.isPending}
-            >
-              Mark read
-            </Button>
+          items.length > 0 ? (
+            <div className="flex gap-1">
+              {unread > 0 ? (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="rounded-full font-bold bg-white"
+                  onClick={() => markRead.mutate()}
+                  disabled={markRead.isPending}
+                >
+                  Read
+                </Button>
+              ) : null}
+              <Button
+                size="sm"
+                variant="outline"
+                className="rounded-full font-bold bg-white"
+                onClick={() => clearAll.mutate()}
+                disabled={clearAll.isPending}
+              >
+                Clear
+              </Button>
+            </div>
           ) : null
         }
       />

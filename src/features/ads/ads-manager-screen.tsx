@@ -17,6 +17,7 @@ import { isTijarSuperAdminEmail } from "@/lib/admin";
 import { cn } from "@/lib/utils";
 import {
   confirmAdPayment,
+  payAdFromWallet,
   controlSponsoredAd,
   createSponsoredAd,
   fetchAdminAdCatalog,
@@ -34,6 +35,7 @@ import {
 } from "@/services/ads-service";
 import { fetchPostsForBusiness } from "@/services/video-feed-service";
 import { listProducts } from "@/services/product-service";
+import { fetchSellerWallet } from "@/services/marketplace-service";
 import { formatNgn } from "@/utils/money";
 
 const WINDOW_MS = 15 * 60 * 1000;
@@ -274,7 +276,7 @@ export function AdsManagerScreen({ adminMode = false, embedded = false }: { admi
         <p className="mt-2 max-w-[34ch] text-[13px] leading-relaxed text-white/85">
           {adminMode
             ? "Create a flyer, post, or product campaign for any shop. Publish from this dashboard with no payment. The ad stops on the date you pick."
-            : "Promote a flyer, post, or product. Same prices for every category. Pay into the TIJAR virtual account — we go live after the transfer, and the ad stops on the date you pick."}
+            : "Promote a flyer, post, or product. Pay from your shop wallet, or deposit into the TIJAR account. The ad stops on the date you pick."}
         </p>
       </section>
 
@@ -292,6 +294,7 @@ export function AdsManagerScreen({ adminMode = false, embedded = false }: { admi
         <AdsPayPanel
           ad={payAd}
           adminMode={adminMode}
+          businessId={payAd.business_id || businessId}
           profileId={profile?.id ?? ""}
           defaultName={profile?.full_name ?? ""}
           defaultPhone={profile?.phone ?? ""}
@@ -643,6 +646,7 @@ export function AdsManagerScreen({ adminMode = false, embedded = false }: { admi
 function AdsPayPanel({
   ad,
   adminMode,
+  businessId,
   profileId,
   defaultName,
   defaultPhone,
@@ -651,6 +655,7 @@ function AdsPayPanel({
 }: {
   ad: SponsoredAd;
   adminMode: boolean;
+  businessId: string;
   profileId: string;
   defaultName: string;
   defaultPhone: string;
@@ -661,12 +666,20 @@ function AdsPayPanel({
     queryKey: ["ads-pay-account"],
     queryFn: fetchAdsPayAccount,
   });
+  const walletQuery = useQuery({
+    queryKey: ["seller-wallet", businessId],
+    enabled: Boolean(businessId),
+    queryFn: async () => (await fetchSellerWallet(businessId)).wallet,
+  });
+  const [method, setMethod] = useState<"wallet" | "deposit">("wallet");
   const [left, setLeft] = useState(0);
   const [busy, setBusy] = useState(false);
   const [mismatch, setMismatch] = useState(false);
   const [supportOpen, setSupportOpen] = useState(false);
   const [sent, setSent] = useState(false);
   const account = payQuery.data?.account;
+  const wallet = walletQuery.data ?? { available_ngn: 0, pending_ngn: 0 };
+  const canWallet = wallet.available_ngn >= Number(ad.amount_ngn ?? 0);
 
   useEffect(() => {
     startTimer(ad.id);
@@ -699,6 +712,19 @@ function AdsPayPanel({
     await onPaid();
   }
 
+  async function payWallet() {
+    setBusy(true);
+    const result = await payAdFromWallet(ad.id);
+    setBusy(false);
+    if (!result.paid) {
+      toast.error(result.error ?? "Could not pay from wallet.");
+      setMethod("deposit");
+      return;
+    }
+    toast.success("Paid from your wallet. The ad is live.");
+    await onPaid();
+  }
+
   return (
     <section className="mt-5 overflow-hidden rounded-[28px] border border-[#1F7A4D]/25 bg-gradient-to-b from-[#F4FBF7] to-white p-4 shadow-md">
       <div className="flex items-start justify-between gap-3">
@@ -714,6 +740,45 @@ function AdsPayPanel({
           <p className="mt-1 text-[9px] font-bold uppercase tracking-wide text-white/70">minutes</p>
         </div>
       </div>
+      <p className="mt-2 text-[12px] font-semibold text-[#1F7A4D]">
+        Wallet {formatNgn(wallet.available_ngn)} · or deposit the exact amount.
+      </p>
+      <div className="mt-3 grid grid-cols-2 gap-2">
+        <button
+          type="button"
+          className={cn(
+            "min-h-11 rounded-xl text-[13px] font-extrabold",
+            method === "wallet" ? "bg-[#1F7A4D] text-white" : "bg-white text-[#0B1F4D]",
+          )}
+          onClick={() => setMethod("wallet")}
+        >
+          Wallet
+        </button>
+        <button
+          type="button"
+          className={cn(
+            "min-h-11 rounded-xl text-[13px] font-extrabold",
+            method === "deposit" ? "bg-[#1F7A4D] text-white" : "bg-white text-[#0B1F4D]",
+          )}
+          onClick={() => setMethod("deposit")}
+        >
+          Deposit
+        </button>
+      </div>
+      {method === "wallet" ? (
+        <>
+          <p className="mt-3 text-[13px] text-muted-foreground">
+            {canWallet
+              ? `Deduct ${formatNgn(ad.amount_ngn)} from this shop’s wallet.`
+              : "Not enough in the wallet. Deposit, then come back, or top up first."}
+          </p>
+          <Button className="mt-2 min-h-12 w-full rounded-xl bg-[#1F7A4D] font-extrabold" disabled={busy || !canWallet} onClick={() => void payWallet()}>
+            {busy ? "Paying…" : `Pay ${formatNgn(ad.amount_ngn)} from wallet`}
+          </Button>
+        </>
+      ) : null}
+      {method === "deposit" ? (
+        <>
       <p className="mt-2 text-[12px] font-semibold text-[#1F7A4D]">
         {left > 0 ? `Pay within ${formatClock(left)}` : "15 minutes ended — you can still confirm if the transfer went through."}
       </p>
@@ -733,6 +798,8 @@ function AdsPayPanel({
       <Button className="mt-2 min-h-12 w-full rounded-xl bg-[#1F7A4D] font-extrabold" disabled={busy} onClick={() => void confirmPay()}>
         {busy ? "Checking…" : "I’ve made the payment"}
       </Button>
+        </>
+      ) : null}
       {mismatch ? (
         <div className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 p-3">
           <button type="button" className="text-left text-[12px] font-semibold leading-relaxed text-amber-950" onClick={() => setSupportOpen(true)}>

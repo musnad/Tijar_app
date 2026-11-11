@@ -396,6 +396,8 @@ export function AssistantScreen() {
 
   return (
     <div className="mx-auto flex max-w-md flex-col pb-8">
+      <h1 className="text-2xl font-extrabold tracking-tight text-[#0B1F4D]">Talk to TIJAR</h1>
+      <p className="mt-1 text-sm text-muted-foreground">Say a sale or an expense. Confirm, then save. That is the whole page.</p>
       <div className="mt-3 grid grid-cols-2 rounded-full bg-muted p-1">
         <button
           type="button"

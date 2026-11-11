@@ -109,11 +109,6 @@ function AppHomeContent() {
           {sellerDash && (
             <SellerCommerceCard
               business={business}
-              completeness={sellerDash.overview.completeness}
-              publishedProducts={sellerDash.overview.publishedProducts}
-              videoCounts={sellerDash.analytics.video_counts}
-              analytics={sellerDash.analytics}
-              analyticsReady={sellerDash.analyticsReady}
               recentOrderCount={sellerDash.orders.length}
               enquiryCount={sellerDash.enquiries.length}
             />

@@ -104,11 +104,13 @@ export function TranslatorScreen() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-md px-4 py-6">
-      <h1 className="text-2xl font-extrabold tracking-tight">{t("app.translator.title")}</h1>
+    <div className="mx-auto w-full max-w-md px-4 pb-10 pt-[max(0.8rem,env(safe-area-inset-top))]">
+      <p className="text-[11px] font-extrabold uppercase tracking-[0.18em] text-[#1F7A4D]">TIJAR</p>
+      <h1 className="mt-1 text-[28px] font-extrabold tracking-tight text-[#0B1F4D]">{t("app.translator.title")}</h1>
       <p className="mt-1 text-sm text-muted-foreground">{t("app.translator.simpleSubtitle")}</p>
+      <div className="mt-5 rounded-[28px] border border-border bg-white p-4 shadow-[0_12px_32px_rgba(11,31,58,0.08)]">
 
-      <div className="mt-5 flex items-center gap-2">
+      <div className="flex items-center gap-2">
         <select
           value={fromLang}
           onChange={(e) => setFromLang(e.target.value)}
@@ -221,6 +223,7 @@ export function TranslatorScreen() {
       {!result && !error && (
         <p className="mt-8 text-center text-sm text-muted-foreground">{t("app.translator.emptySimple")}</p>
       )}
+      </div>
     </div>
   );
 }

@@ -424,6 +424,52 @@ export const Route = createFileRoute("/api/shop/branches")({
           },
         });
       },
+      PATCH: async ({ request }) => {
+        const ctx = await signedShopUser(request);
+        if ("error" in ctx) return ctx.error;
+        const body = (await request.json()) as {
+          shopId?: string;
+          businessName?: string;
+          phone?: string;
+          location?: string;
+        };
+        const shopId = body.shopId?.trim();
+        if (!shopId) return Response.json({ error: "Missing shop." }, { status: 400 });
+        if (!(await canMonitor(ctx.admin, ctx.profileId, shopId))) {
+          return Response.json({ error: "Not your shop." }, { status: 403 });
+        }
+        const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
+        if (body.businessName?.trim()) patch.business_name = body.businessName.trim();
+        if (body.phone?.trim()) patch.public_phone = body.phone.trim();
+        if (body.location?.trim()) {
+          patch.location = body.location.trim();
+          patch.public_location_label = body.location.trim();
+        }
+        const { error } = await ctx.admin.from("businesses").update(patch).eq("id", shopId);
+        if (error) return Response.json({ error: error.message }, { status: 400 });
+        return Response.json({ ok: true });
+      },
+      DELETE: async ({ request }) => {
+        const ctx = await signedShopUser(request);
+        if ("error" in ctx) return ctx.error;
+        const body = (await request.json()) as { shopId?: string };
+        const shopId = body.shopId?.trim();
+        if (!shopId) return Response.json({ error: "Missing shop." }, { status: 400 });
+        if (!(await canMonitor(ctx.admin, ctx.profileId, shopId))) {
+          return Response.json({ error: "Not your shop." }, { status: 403 });
+        }
+        const { error } = await ctx.admin
+          .from("businesses")
+          .update({
+            is_published: false,
+            moderation_status: "suspended",
+            deleted_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", shopId);
+        if (error) return Response.json({ error: error.message }, { status: 400 });
+        return Response.json({ ok: true });
+      },
     },
   },
 });

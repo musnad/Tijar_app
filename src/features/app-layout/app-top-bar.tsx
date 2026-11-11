@@ -12,6 +12,7 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { AppLanguageButton } from "@/features/app-layout/app-language-button";
+import { ShopAvatarSwitch } from "@/features/business/shop-avatar-switch";
 import { AccountModeSwitch } from "@/features/marketplace/account-mode-switch";
 import { useAuth } from "@/features/auth/auth-context";
 import { isTijarSuperAdminEmail } from "@/lib/admin";
@@ -93,14 +94,13 @@ export function AppTopBar() {
       <div className="flex items-center justify-end gap-1.5">
         {nativeApp ? null : <AccountModeSwitch className="hidden md:inline-flex" />}
         {nativeApp ? null : <AppLanguageButton />}
-        <button
-          type="button"
+        <Link
+          to="/shop/notifications"
           className={cn("relative", iconBtn, "text-muted-foreground")}
           aria-label={t("app.layout.notifications")}
         >
           <Bell className="size-5" />
-          <span className="absolute right-2 top-2 size-2 rounded-full bg-destructive" aria-hidden />
-        </button>
+        </Link>
         {onProfileArea ? (
           <Link
             to="/app/profile/settings"
@@ -110,8 +110,7 @@ export function AppTopBar() {
             <Settings className="size-5" />
           </Link>
         ) : (
-          <Link
-            to="/app/profile"
+          <ShopAvatarSwitch
             className={cn(
               "flex items-center gap-0.5 rounded-full py-0.5 pl-0.5 pr-1",
               nativeApp ? "border-0 bg-white shadow-[0_4px_14px_rgba(11,31,58,0.08)]" : "border border-border bg-card",
@@ -121,7 +120,7 @@ export function AppTopBar() {
               {initials(name)}
             </span>
             <ChevronDown className="size-4 text-muted-foreground" aria-hidden />
-          </Link>
+          </ShopAvatarSwitch>
         )}
       </div>
     </header>

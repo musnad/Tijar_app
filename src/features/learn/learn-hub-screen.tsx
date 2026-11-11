@@ -83,7 +83,7 @@ export function LearnHubScreen({
   const dailyDone = state.lastActivityDate === today;
 
   return (
-    <div className="learn-hub pb-8">
+    <div className="learn-hub min-h-0 pb-8">
       <LearnHubHero totalXp={state.totalXp} />
 
       <div className="mt-4">

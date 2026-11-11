@@ -47,16 +47,17 @@ export function AppShell({
   return (
     <div
       className={cn(
-        "flex min-h-screen flex-col",
-        nativeApp ? "native-shop bg-[var(--native-canvas,#F3F5F8)]" : "bg-background",
+        "flex min-h-[100dvh] flex-col",
+        nativeApp ? "native-shop h-[100dvh] overflow-hidden bg-[var(--native-canvas,#F3F5F8)]" : "bg-background",
       )}
     >
       <main
         className={cn(
-          "mx-auto w-full min-w-0 max-w-lg flex-1 px-4 pt-3 sm:px-5",
+          "mx-auto w-full min-w-0 max-w-lg min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-4 pt-3 sm:px-5",
           !nativeApp && "md:max-w-3xl lg:max-w-6xl xl:max-w-7xl",
           fab ? "pb-28" : "pb-4",
         )}
+        style={{ WebkitOverflowScrolling: "touch" }}
       >
         <AppTopBar />
         {children}

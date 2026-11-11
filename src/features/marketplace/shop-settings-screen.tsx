@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils";
 import { AccountModeSwitch } from "@/features/marketplace/account-mode-switch";
 import { useAuth } from "@/features/auth/auth-context";
 import { signOut } from "@/features/auth/auth-service";
+import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { canUseBusinessMode } from "@/lib/account-mode";
 import { isTijarSuperAdminEmail } from "@/lib/admin";
 import {
@@ -48,6 +49,20 @@ export function ShopSettingsScreen() {
   });
 
   const prefs = query.data;
+  const who = (profile as { who_can_message?: string } | null)?.who_can_message ?? "everyone";
+
+  async function setWhoCanMessage(next: "everyone" | "following" | "shops_only") {
+    if (!profile) return;
+    const { error } = await getSupabaseBrowserClient()
+      .from("profiles")
+      .update({ who_can_message: next })
+      .eq("id", profile.id);
+    if (error) toast.error(error.message);
+    else {
+      toast.success(t("shop.settings.saved"));
+      await refreshProfile();
+    }
+  }
 
   return (
     <MarketplaceShell hideTopBar variant="feed">
@@ -87,6 +102,32 @@ export function ShopSettingsScreen() {
                   <Link to="/app/admin">{t("shop.settings.admin")}</Link>
                 </Button>
               )}
+            </section>
+
+            <section className="rounded-2xl border border-border p-4">
+              <p className="text-sm font-extrabold">{t("shop.settings.whoCanContact")}</p>
+              <p className="mt-1 text-xs text-muted-foreground">{t("shop.settings.whoCanContactCopy")}</p>
+              <div className="mt-3 grid gap-2">
+                {(
+                  [
+                    ["everyone", "shop.settings.contactEveryone"],
+                    ["following", "shop.settings.contactFollowing"],
+                    ["shops_only", "shop.settings.contactShops"],
+                  ] as const
+                ).map(([id, key]) => (
+                  <button
+                    key={id}
+                    type="button"
+                    className={cn(
+                      "min-h-11 rounded-xl border px-3 text-left text-sm font-bold",
+                      who === id ? "border-[#1F7A4D] bg-[#F4FBF7] text-[#0B1F4D]" : "border-border",
+                    )}
+                    onClick={() => void setWhoCanMessage(id)}
+                  >
+                    {t(key)}
+                  </button>
+                ))}
+              </div>
             </section>
 
             <section className="rounded-2xl border border-border p-4">

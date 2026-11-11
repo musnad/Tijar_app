@@ -34,6 +34,7 @@ import {
   type PlaceOrderSlot,
 } from "@/services/place-order-service";
 import { SellerFeePreview, SellerFeeResult } from "@/features/marketplace/seller-fee-preview";
+import { readDeviceCoords, reverseAreaStreetLandmark } from "@/lib/maps/device-location";
 import { formatNgn } from "@/utils/money";
 
 export function PlaceOrderComposeScreen() {
@@ -48,6 +49,9 @@ export function PlaceOrderComposeScreen() {
   const [price, setPrice] = useState("");
   const [photos, setPhotos] = useState<ProductPhotoItem[]>([]);
   const [location, setLocation] = useState("");
+  const [area, setArea] = useState("");
+  const [street, setStreet] = useState("");
+  const [landmark, setLandmark] = useState("");
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [availableOn, setAvailableOn] = useState<PlaceOrderDay>("today");
   const [pickup, setPickup] = useState(true);
@@ -73,20 +77,25 @@ export function PlaceOrderComposeScreen() {
 
   const canSell = Boolean(session && profile && canUseBusinessMode(profile) && business);
 
-  function useMyLocation() {
-    if (!navigator.geolocation) {
-      toast.error("Location is not available on this device.");
+  function syncLocationLabel(nextArea: string, nextStreet: string, nextLandmark: string) {
+    const label = [nextStreet, nextLandmark, nextArea].filter(Boolean).join(", ");
+    setLocation(label);
+  }
+
+  async function useMyLocation() {
+    toast.message("Finding your location…");
+    const pos = await readDeviceCoords();
+    if (!pos) {
+      toast.error("Turn on location for this app, then try again.");
       return;
     }
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude });
-        if (!location.trim()) setLocation("Current location");
-        toast.success("Location added.");
-      },
-      () => toast.error("Could not read your location."),
-      { enableHighAccuracy: true, timeout: 12_000 },
-    );
+    setCoords(pos);
+    const parts = await reverseAreaStreetLandmark(pos.lat, pos.lng);
+    setArea(parts.area);
+    setStreet(parts.street);
+    setLandmark(parts.landmark);
+    setLocation(parts.label);
+    toast.success("Location filled from GPS.");
   }
 
   async function publish() {
@@ -275,8 +284,34 @@ export function PlaceOrderComposeScreen() {
                 </>
               ) : null}
               <label className="mt-3 block text-sm font-extrabold">Location</label>
-              <Input className="mt-1 min-h-11 rounded-xl" value={location} onChange={(e) => setLocation(e.target.value)} placeholder="Area, street, landmark" />
-              <Button type="button" variant="outline" className="mt-2 min-h-11 w-full rounded-xl font-bold" onClick={useMyLocation}>
+              <Input
+                className="mt-1 min-h-11 rounded-xl"
+                value={area}
+                onChange={(e) => {
+                  setArea(e.target.value);
+                  syncLocationLabel(e.target.value, street, landmark);
+                }}
+                placeholder="Area"
+              />
+              <Input
+                className="mt-2 min-h-11 rounded-xl"
+                value={street}
+                onChange={(e) => {
+                  setStreet(e.target.value);
+                  syncLocationLabel(area, e.target.value, landmark);
+                }}
+                placeholder="Street"
+              />
+              <Input
+                className="mt-2 min-h-11 rounded-xl"
+                value={landmark}
+                onChange={(e) => {
+                  setLandmark(e.target.value);
+                  syncLocationLabel(area, street, e.target.value);
+                }}
+                placeholder="Landmark"
+              />
+              <Button type="button" variant="outline" className="mt-2 min-h-11 w-full rounded-xl font-bold" onClick={() => void useMyLocation()}>
                 <MapPin className="mr-1.5 size-4" />
                 Use my location
               </Button>
