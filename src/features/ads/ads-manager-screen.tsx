@@ -19,11 +19,16 @@ import {
   confirmAdPayment,
   createSponsoredAd,
   fetchAdsPayAccount,
+  fetchAdSupportTickets,
   fetchAllAdsAdmin,
   fetchMyAds,
   markAdReadyToPay,
   publishAdAsAdmin,
+  submitAdSupportTicket,
+  updateAdSupportTicket,
+  type AdsTicketStatus,
   type SponsoredAd,
+  type SponsoredAdTicket,
 } from "@/services/ads-service";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { fetchPostsForBusiness } from "@/services/video-feed-service";
@@ -31,9 +36,14 @@ import { listProducts } from "@/services/product-service";
 import { formatNgn } from "@/utils/money";
 
 const WINDOW_MS = 15 * 60 * 1000;
-const SUPPORT_MAIL = "musababubakar123@gmail.com";
 const MISMATCH =
   "No matching transfer on the TIJAR ads account yet. Send the exact amount, wait a moment, then tap I’ve paid.";
+const TICKET_STATUSES: { id: AdsTicketStatus; label: string }[] = [
+  { id: "open", label: "Open" },
+  { id: "attended", label: "Attended" },
+  { id: "resolved", label: "Resolved" },
+  { id: "closed", label: "Closed" },
+];
 
 function timerKey(adId: string) {
   return `tijar-ads-pay-timer-${adId}`;
@@ -61,14 +71,6 @@ function startTimer(adId: string) {
   }
 }
 
-function supportHref(ad: SponsoredAd) {
-  const subject = encodeURIComponent(`Ads payment not matched · ${ad.id.slice(0, 8)}`);
-  const body = encodeURIComponent(
-    `Hello TIJAR support,\n\nI transferred ${formatNgn(ad.amount_ngn)} for ads campaign ${ad.id} (${ad.caption || "Paid ad"}).\nThe app still says no matching transfer.\n\nPlease check the TIJAR ads account.\n`,
-  );
-  return `mailto:${SUPPORT_MAIL}?subject=${subject}&body=${body}`;
-}
-
 export function AdsManagerScreen({ adminMode = false, embedded = false }: { adminMode?: boolean; embedded?: boolean }) {
   const { profile, session } = useAuth();
   const shopQuery = usePrimaryBusiness(profile?.id);
@@ -87,7 +89,7 @@ export function AdsManagerScreen({ adminMode = false, embedded = false }: { admi
   const [busy, setBusy] = useState(false);
   const [payAd, setPayAd] = useState<SponsoredAd | null>(null);
   const [adminShopId, setAdminShopId] = useState("");
-  const [tab, setTab] = useState<"pending" | "live" | "drafts" | "ended">("pending");
+  const [tab, setTab] = useState<"pending" | "live" | "drafts" | "ended" | "support">("pending");
 
   const businessId = adminMode ? adminShopId || shop?.id || "" : shop?.id || "";
 
@@ -143,9 +145,15 @@ export function AdsManagerScreen({ adminMode = false, embedded = false }: { admi
     [ads],
   );
 
-  useEffect(() => {
-    if (adminMode && pending.length) setTab("pending");
-  }, [adminMode, pending.length]);
+  const ticketsQuery = useQuery({
+    queryKey: ["sponsored-ad-tickets"],
+    enabled: adminMode,
+    refetchInterval: 8_000,
+    queryFn: fetchAdSupportTickets,
+  });
+  const tickets = ticketsQuery.data?.tickets ?? [];
+  const openTickets = tickets.filter((t) => t.status === "open" || t.status === "attended").length;
+
 
   async function submit(asDraft: boolean) {
     if (!session || !profile) {
@@ -233,6 +241,9 @@ export function AdsManagerScreen({ adminMode = false, embedded = false }: { admi
         <AdsPayPanel
           ad={payAd}
           adminMode={adminMode}
+          profileId={profile?.id ?? ""}
+          defaultName={profile?.full_name ?? ""}
+          defaultPhone={profile?.phone ?? ""}
           onClose={() => setPayAd(null)}
           onPaid={async () => {
             setPayAd(null);
@@ -344,16 +355,24 @@ export function AdsManagerScreen({ adminMode = false, embedded = false }: { admi
           {pending.length} campaign{pending.length === 1 ? "" : "s"} waiting for payment — they appear here as soon as they are created.
         </p>
       ) : null}
+      {adminMode && openTickets ? (
+        <button
+          type="button"
+          className="mt-2 w-full rounded-2xl bg-[#0B1F4D] px-3 py-2 text-left text-[12px] font-bold text-white"
+          onClick={() => setTab("support")}
+        >
+          {openTickets} payment complaint{openTickets === 1 ? "" : "s"} waiting for you.
+        </button>
+      ) : null}
 
       <div className="mt-6 flex gap-1 overflow-x-auto pb-1">
-        {(
-          [
-            ["pending", `Pay · ${pending.length}`],
-            ["live", `Live · ${live.length}`],
-            ["drafts", `Drafts · ${drafts.length}`],
-            ["ended", `Ended · ${ended.length}`],
-          ] as const
-        ).map(([id, label]) => (
+        {([
+          ["pending", `Pay · ${pending.length}`],
+          ["live", `Live · ${live.length}`],
+          ["drafts", `Drafts · ${drafts.length}`],
+          ["ended", `Ended · ${ended.length}`],
+          ...(adminMode ? [["support", `Support · ${tickets.length}`]] : []),
+        ] as [typeof tab, string][]).map(([id, label]) => (
           <button
             key={id}
             type="button"
@@ -368,6 +387,16 @@ export function AdsManagerScreen({ adminMode = false, embedded = false }: { admi
         ))}
       </div>
 
+      {tab === "support" && adminMode ? (
+        <AdminTicketsList
+          tickets={tickets}
+          onStatus={async (id, status) => {
+            const result = await updateAdSupportTicket(id, status);
+            if (result.error) toast.error(result.error);
+            else await queryClient.invalidateQueries({ queryKey: ["sponsored-ad-tickets"] });
+          }}
+        />
+      ) : (
       <ul className="mt-3 space-y-2">
         {shown.map((ad) => (
           <li key={ad.id} className="rounded-[22px] border border-border/80 bg-white p-3.5 shadow-sm">
@@ -428,7 +457,8 @@ export function AdsManagerScreen({ adminMode = false, embedded = false }: { admi
           </li>
         ))}
       </ul>
-      {shown.length === 0 ? <p className="mt-3 text-[13px] text-muted-foreground">Nothing in this list yet.</p> : null}
+      )}
+      {tab !== "support" && shown.length === 0 ? <p className="mt-3 text-[13px] text-muted-foreground">Nothing in this list yet.</p> : null}
 
       <p className="mt-6 text-[11px] text-muted-foreground">
         Live ads look like normal posts with a Paid ads tag. They finish automatically at the end of the period you paid for.
@@ -453,11 +483,17 @@ export function AdsManagerScreen({ adminMode = false, embedded = false }: { admi
 function AdsPayPanel({
   ad,
   adminMode,
+  profileId,
+  defaultName,
+  defaultPhone,
   onClose,
   onPaid,
 }: {
   ad: SponsoredAd;
   adminMode: boolean;
+  profileId: string;
+  defaultName: string;
+  defaultPhone: string;
   onClose: () => void;
   onPaid: () => Promise<void>;
 }) {
@@ -468,6 +504,8 @@ function AdsPayPanel({
   const [left, setLeft] = useState(0);
   const [busy, setBusy] = useState(false);
   const [mismatch, setMismatch] = useState(false);
+  const [supportOpen, setSupportOpen] = useState(false);
+  const [sent, setSent] = useState(false);
   const account = payQuery.data?.account;
 
   useEffect(() => {
@@ -537,14 +575,27 @@ function AdsPayPanel({
       </Button>
       {mismatch ? (
         <div className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 p-3">
-          <p className="text-[12px] font-semibold leading-relaxed text-amber-950">{MISMATCH}</p>
-          <a
-            href={supportHref(ad)}
-            className="mt-3 inline-flex min-h-11 w-full items-center justify-center rounded-xl bg-[#0B1F4D] text-[13px] font-extrabold text-white"
-          >
+          <button type="button" className="text-left text-[12px] font-semibold leading-relaxed text-amber-950" onClick={() => setSupportOpen(true)}>
+            {MISMATCH}
+          </button>
+          <Button className="mt-3 min-h-11 w-full rounded-xl bg-[#0B1F4D] text-[13px] font-extrabold" onClick={() => setSupportOpen(true)}>
             <Headphones className="mr-2 size-4" /> Contact support
-          </a>
+          </Button>
+          {sent ? <p className="mt-2 text-center text-[12px] font-bold text-[#1F7A4D]">Sent to TIJAR admin. We will treat it.</p> : null}
         </div>
+      ) : null}
+      {supportOpen ? (
+        <AdsSupportBox
+          ad={ad}
+          profileId={profileId}
+          defaultName={defaultName}
+          defaultPhone={defaultPhone}
+          onClose={() => setSupportOpen(false)}
+          onSent={() => {
+            setSent(true);
+            setSupportOpen(false);
+          }}
+        />
       ) : null}
       {adminMode ? (
         <Button
@@ -586,5 +637,143 @@ function Row({ k, v }: { k: string; v: string }) {
       <dt className="text-muted-foreground">{k}</dt>
       <dd className="font-extrabold tracking-wide">{v}</dd>
     </div>
+  );
+}
+
+function AdsSupportBox({
+  ad,
+  profileId,
+  defaultName,
+  defaultPhone,
+  onClose,
+  onSent,
+}: {
+  ad: SponsoredAd;
+  profileId: string;
+  defaultName: string;
+  defaultPhone: string;
+  onClose: () => void;
+  onSent: () => void;
+}) {
+  const [name, setName] = useState(defaultName);
+  const [phone, setPhone] = useState(defaultPhone);
+  const [message, setMessage] = useState(
+    `I transferred ${formatNgn(ad.amount_ngn)} for this ad, but the app still says no matching transfer.`,
+  );
+  const [busy, setBusy] = useState(false);
+
+  async function send() {
+    if (!profileId) {
+      toast.error("Sign in first.");
+      return;
+    }
+    setBusy(true);
+    const result = await submitAdSupportTicket({
+      ad,
+      profileId,
+      fullName: name,
+      phone,
+      message,
+    });
+    setBusy(false);
+    if (result.error || !result.ticket) {
+      toast.error(result.error ?? "Could not send.");
+      return;
+    }
+    toast.success("Complaint sent to TIJAR admin.");
+    onSent();
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/45 p-4 sm:items-center">
+      <div className="w-full max-w-md rounded-[28px] bg-white p-4 shadow-2xl">
+        <p className="text-sm font-extrabold text-[#0B1F4D]">Contact support</p>
+        <p className="mt-1 text-[12px] text-muted-foreground">Write your name, phone and what happened. Admin sees this immediately on the Ads page.</p>
+        <label className="mt-3 block text-[12px] font-extrabold">
+          Name
+          <Input className="mt-1 min-h-11 rounded-xl" value={name} onChange={(e) => setName(e.target.value)} placeholder="Your name" />
+        </label>
+        <label className="mt-3 block text-[12px] font-extrabold">
+          Phone number
+          <Input className="mt-1 min-h-11 rounded-xl" type="tel" inputMode="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="080…" />
+        </label>
+        <label className="mt-3 block text-[12px] font-extrabold">
+          Complaint
+          <textarea
+            className="mt-1 min-h-28 w-full rounded-xl border bg-background px-3 py-2 text-sm"
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+            placeholder="What happened?"
+          />
+        </label>
+        <Button className="mt-3 min-h-12 w-full rounded-xl bg-[#1F7A4D] font-extrabold" disabled={busy} onClick={() => void send()}>
+          {busy ? "Sending…" : "Send to admin"}
+        </Button>
+        <button type="button" className="mt-2 w-full text-sm font-bold text-muted-foreground" onClick={onClose}>
+          Cancel
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function AdminTicketsList({
+  tickets,
+  onStatus,
+}: {
+  tickets: SponsoredAdTicket[];
+  onStatus: (id: string, status: AdsTicketStatus) => Promise<void>;
+}) {
+  if (tickets.length === 0) {
+    return <p className="mt-3 text-[13px] text-muted-foreground">No payment complaints yet.</p>;
+  }
+  return (
+    <ul className="mt-3 space-y-2">
+      {tickets.map((ticket) => (
+        <li key={ticket.id} className="rounded-[22px] border border-border/80 bg-white p-3.5 shadow-sm">
+          <div className="flex items-start justify-between gap-2">
+            <div>
+              <p className="text-sm font-extrabold">{ticket.full_name}</p>
+              <p className="text-[11px] text-muted-foreground">
+                {ticket.phone}
+                {ticket.shop_name ? ` · ${ticket.shop_name}` : ""} · {formatNgn(ticket.amount_ngn)}
+              </p>
+            </div>
+            <span
+              className={cn(
+                "rounded-full px-2 py-0.5 text-[10px] font-extrabold uppercase",
+                ticket.status === "open"
+                  ? "bg-amber-100 text-amber-800"
+                  : ticket.status === "attended"
+                    ? "bg-sky-100 text-sky-800"
+                    : ticket.status === "resolved"
+                      ? "bg-[#1F7A4D] text-white"
+                      : "bg-muted text-muted-foreground",
+              )}
+            >
+              {ticket.status}
+            </span>
+          </div>
+          <p className="mt-2 text-[13px] leading-relaxed">{ticket.message}</p>
+          <p className="mt-1 text-[11px] text-muted-foreground">{ticket.ad_caption || "Paid ad"}</p>
+          <div className="mt-3 grid grid-cols-2 gap-1.5">
+            {TICKET_STATUSES.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                disabled={ticket.status === item.id}
+                onClick={() => void onStatus(ticket.id, item.id)}
+                className={cn(
+                  "min-h-9 rounded-xl border text-[11px] font-extrabold",
+                  ticket.status === item.id ? "border-[#1F7A4D] bg-[#F4FBF7] text-[#1F7A4D]" : "border-border bg-card",
+                )}
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
+        </li>
+      ))}
+    </ul>
   );
 }

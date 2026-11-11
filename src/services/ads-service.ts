@@ -250,6 +250,110 @@ export async function publishAdAsAdmin(adId: string): Promise<{ error: string | 
   return { error: json.error ?? null };
 }
 
+export type AdsTicketStatus = "open" | "attended" | "resolved" | "closed";
+
+export type SponsoredAdTicket = {
+  id: string;
+  ad_id: string;
+  business_id: string;
+  profile_id: string;
+  full_name: string;
+  phone: string;
+  message: string;
+  amount_ngn: number;
+  status: AdsTicketStatus;
+  admin_note: string | null;
+  created_at: string;
+  shop_name?: string;
+  ad_caption?: string;
+};
+
+function mapTicket(row: Record<string, unknown>): SponsoredAdTicket {
+  return {
+    id: String(row.id),
+    ad_id: String(row.ad_id),
+    business_id: String(row.business_id),
+    profile_id: String(row.profile_id),
+    full_name: String(row.full_name ?? ""),
+    phone: String(row.phone ?? ""),
+    message: String(row.message ?? ""),
+    amount_ngn: Number(row.amount_ngn ?? 0),
+    status: (row.status as AdsTicketStatus) ?? "open",
+    admin_note: (row.admin_note as string | null) ?? null,
+    created_at: String(row.created_at ?? ""),
+    shop_name: (row.shop_name as string | undefined) ?? undefined,
+    ad_caption: (row.ad_caption as string | undefined) ?? undefined,
+  };
+}
+
+export async function submitAdSupportTicket(input: {
+  ad: SponsoredAd;
+  profileId: string;
+  fullName: string;
+  phone: string;
+  message: string;
+}): Promise<{ ticket: SponsoredAdTicket | null; error: string | null }> {
+  const name = input.fullName.trim();
+  const phone = input.phone.trim();
+  const message = input.message.trim();
+  if (!name) return { ticket: null, error: "Write your name." };
+  if (phone.replace(/\D/g, "").length < 10) return { ticket: null, error: "Write a valid phone number." };
+  if (message.length < 8) return { ticket: null, error: "Write what happened so we can treat it." };
+  const supabase = getSupabaseBrowserClient();
+  const { data, error } = await supabase
+    .from("sponsored_ad_tickets")
+    .insert({
+      ad_id: input.ad.id,
+      business_id: input.ad.business_id,
+      profile_id: input.profileId,
+      full_name: name.slice(0, 80),
+      phone: phone.slice(0, 24),
+      message: message.slice(0, 1000),
+      amount_ngn: input.ad.amount_ngn,
+      status: "open",
+    })
+    .select("*")
+    .single();
+  if (error || !data) return { ticket: null, error: error?.message ?? "Could not send your complaint." };
+  return { ticket: mapTicket(data as Record<string, unknown>), error: null };
+}
+
+export async function fetchAdSupportTickets(): Promise<{ tickets: SponsoredAdTicket[]; error: string | null }> {
+  const supabase = getSupabaseBrowserClient();
+  const { data, error } = await supabase
+    .from("sponsored_ad_tickets")
+    .select("*")
+    .order("created_at", { ascending: false })
+    .limit(200);
+  if (error) return { tickets: [], error: error.message };
+  const tickets = (data ?? []).map((row) => mapTicket(row as Record<string, unknown>));
+  const shopIds = [...new Set(tickets.map((t) => t.business_id))];
+  const adIds = [...new Set(tickets.map((t) => t.ad_id))];
+  if (shopIds.length) {
+    const shops = await supabase.from("businesses").select("id, business_name").in("id", shopIds);
+    const names = new Map((shops.data ?? []).map((s) => [String(s.id), String(s.business_name ?? "")]));
+    for (const ticket of tickets) ticket.shop_name = names.get(ticket.business_id) || ticket.shop_name;
+  }
+  if (adIds.length) {
+    const ads = await supabase.from("sponsored_ads").select("id, caption").in("id", adIds);
+    const caps = new Map((ads.data ?? []).map((a) => [String(a.id), String(a.caption ?? "")]));
+    for (const ticket of tickets) ticket.ad_caption = caps.get(ticket.ad_id) || ticket.ad_caption;
+  }
+  return { tickets, error: null };
+}
+
+export async function updateAdSupportTicket(
+  ticketId: string,
+  status: AdsTicketStatus,
+  adminNote?: string,
+): Promise<{ error: string | null }> {
+  const supabase = getSupabaseBrowserClient();
+  const patch: Record<string, unknown> = { status, updated_at: new Date().toISOString() };
+  if (adminNote !== undefined) patch.admin_note = adminNote;
+  const { error } = await supabase.from("sponsored_ad_tickets").update(patch).eq("id", ticketId);
+  return { error: error?.message ?? null };
+}
+
 export async function trackAdEvent(adId: string, kind: "impression" | "view" | "like" | "follow" | "call" | "click" | "buy"): Promise<void> {
   const supabase = getSupabaseBrowserClient();
   await supabase.rpc("record_sponsored_ad_event", { p_ad_id: adId, p_kind: kind });
