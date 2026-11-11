@@ -270,7 +270,9 @@ export function AdsManagerScreen({ adminMode = false, embedded = false }: { admi
         </p>
         <h2 className="mt-1 text-2xl font-extrabold tracking-tight">Ads manager</h2>
         <p className="mt-2 max-w-[34ch] text-[13px] leading-relaxed text-white/85">
-          Promote a flyer, post, or product. Same prices for every category. Pay into the TIJAR virtual account — we go live after the transfer, and the ad stops on the date you pick.
+          {adminMode
+            ? "Create a flyer, post, or product campaign for any shop. Publish from this dashboard with no payment. The ad stops on the date you pick."
+            : "Promote a flyer, post, or product. Same prices for every category. Pay into the TIJAR virtual account — we go live after the transfer, and the ad stops on the date you pick."}
         </p>
       </section>
 
