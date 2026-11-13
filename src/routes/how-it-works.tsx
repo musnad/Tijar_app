@@ -3,18 +3,10 @@ import { BadgeCheck, BookOpen, Eye, NotebookPen } from "lucide-react";
 import { FeatureCard, FinalCta, PageHero, PhoneMockup, SectionIntro } from "@/components/tijar-ui";
 import { useTranslation } from "@/lib/i18n/context";
 import { enMessages } from "@/lib/i18n/messages/en";
+import { marketingSeo } from "@/lib/seo/catalog";
 
 export const Route = createFileRoute("/how-it-works")({
-  head: () => ({
-    meta: [
-      { title: enMessages.meta.howItWorks.title },
-      { name: "description", content: enMessages.meta.howItWorks.description },
-      { property: "og:title", content: enMessages.meta.howItWorks.ogTitle },
-      { property: "og:description", content: enMessages.meta.howItWorks.ogDescription },
-      { property: "og:type", content: "website" },
-      { name: "twitter:card", content: "summary_large_image" },
-    ],
-  }),
+  head: () => marketingSeo(enMessages.meta.howItWorks.title, enMessages.meta.howItWorks.description, "/how-it-works"),
   component: Page,
 });
 

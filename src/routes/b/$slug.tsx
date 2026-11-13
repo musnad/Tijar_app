@@ -10,6 +10,7 @@ import {
   shopSeoDescription,
   shopSeoTitle,
 } from "@/lib/seo/public-shop";
+import { organizationJsonLd, websiteJsonLd } from "@/lib/seo/catalog";
 
 export const Route = createFileRoute("/b/$slug")({
   loader: async ({ params, context }) => {
@@ -40,7 +41,7 @@ export const Route = createFileRoute("/b/$slug")({
       description: shopSeoDescription(shop, loaderData.products ?? []),
       url: shopPageUrl(shop.slug || params.slug),
       image: absoluteSeoImage(shop.cover_image_url || shop.logo_url),
-      jsonLd: shopJsonLd(shop, loaderData.products ?? []),
+      jsonLd: [organizationJsonLd(), websiteJsonLd(), shopJsonLd(shop, loaderData.products ?? [])],
     });
   },
   component: Page,

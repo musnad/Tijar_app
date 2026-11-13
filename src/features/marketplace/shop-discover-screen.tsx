@@ -29,6 +29,7 @@ import { useTranslation } from "@/lib/i18n/context";
 import { useUserArea } from "@/hooks/use-user-area";
 import { AREA_PRESETS } from "@/lib/maps/provider";
 import { areaRank } from "@/lib/nigeria-locations";
+import { categorySlug } from "@/lib/seo/catalog";
 import { shopUsername } from "@/lib/shop-names";
 import { cn } from "@/lib/utils";
 import { listBusinessCategories } from "@/services/business-service";
@@ -61,14 +62,22 @@ const PRICE_CHIPS = [
   { id: "premium" as const, labelKey: "shop.explore.premium", min: "30000", max: "" },
 ];
 
-export function ShopDiscoverScreen() {
+export function ShopDiscoverScreen({
+  initialQuery,
+  initialCategory,
+  initialProducts,
+}: {
+  initialQuery?: string;
+  initialCategory?: string;
+  initialProducts?: PublicProduct[];
+} = {}) {
   const { t } = useTranslation();
   const { profile } = useAuth();
   const { area, coords: areaCoords, label: areaLabel } = useUserArea(profile);
   const viewer = useViewerLocation(true);
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(initialQuery ?? "");
   const [tab, setTab] = useState<Tab>("products");
-  const [category, setCategory] = useState("");
+  const [category, setCategory] = useState(initialCategory ?? "");
   const [minPrice, setMinPrice] = useState("");
   const [maxPrice, setMaxPrice] = useState("");
   const [availableOnly, setAvailableOnly] = useState(false);
@@ -155,6 +164,11 @@ export function ShopDiscoverScreen() {
     const pages = productsQuery.data?.pages ?? [];
     const seen = new Set<string>();
     const out: PublicProduct[] = [];
+    for (const product of initialProducts ?? []) {
+      if (seen.has(product.id)) continue;
+      seen.add(product.id);
+      out.push(product);
+    }
     for (const page of pages) {
       for (const product of page.data) {
         if (seen.has(product.id)) continue;
@@ -168,7 +182,7 @@ export function ShopDiscoverScreen() {
       out.push(product);
     }
     return out;
-  }, [productsQuery.data, productSearchQuery.data]);
+  }, [initialProducts, productsQuery.data, productSearchQuery.data]);
   const shops = useMemo(() => {
     const merged = new Map<string, MarketplaceShop>();
     for (const shop of shopsQuery.data ?? []) merged.set(shop.id, shop);
@@ -300,7 +314,9 @@ export function ShopDiscoverScreen() {
                 <span className="shrink-0 text-[13px] font-extrabold tracking-[0.16em] text-[#001B3A]">TIJAR</span>
               )}
               <div className="min-w-0">
-                <h1 className="truncate text-[20px] font-extrabold leading-none tracking-tight text-foreground sm:text-[22px]">{t("shop.explore.title")}</h1>
+                <h1 className="truncate text-[20px] font-extrabold leading-none tracking-tight text-foreground sm:text-[22px]">
+                  {query.trim() ? `${query} on TIJAR` : t("shop.explore.title")}
+                </h1>
                 <p className="mt-1 truncate text-[11px] font-medium text-muted-foreground">
                   {areaLabel ? `Nearby first · ${areaLabel}` : t("shop.explore.find")}
                 </p>
@@ -687,14 +703,11 @@ export function ShopDiscoverScreen() {
             <ul className="grid grid-cols-2 gap-2.5 px-4 pb-6 sm:grid-cols-3 lg:grid-cols-4">
               {categoryNames.map((c) => (
                 <li key={c}>
-                  <button
-                    type="button"
+                  <Link
+                    to="/shop/c/$category"
+                    params={{ category: categorySlug(c) }}
                     className="flex min-h-[4.75rem] w-full flex-col justify-center rounded-2xl border border-border bg-card px-3.5 text-left shadow-sm"
-                    onClick={() => {
-                      haptic();
-                      setCategory(c);
-                      setTab("products");
-                    }}
+                    onClick={() => haptic()}
                   >
                     <span className="flex items-center justify-between gap-2">
                       <span className="font-extrabold leading-snug">{c}</span>
@@ -704,7 +717,7 @@ export function ShopDiscoverScreen() {
                       {categoryCounts.get(c) ?? 0}{" "}
                       {(categoryCounts.get(c) ?? 0) === 1 ? t("shop.explore.listing") : t("shop.explore.listings")}
                     </span>
-                  </button>
+                  </Link>
                 </li>
               ))}
             </ul>

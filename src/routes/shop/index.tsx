@@ -1,6 +1,7 @@
 import { createFileRoute, type ErrorComponentProps } from "@tanstack/react-router";
 
 import { VideoFeedScreen } from "@/features/marketplace/video-feed-screen";
+import { marketingSeo } from "@/lib/seo/catalog";
 
 type ShopSearch = { v?: string };
 
@@ -24,6 +25,13 @@ function ShopLoadError({ reset }: ErrorComponentProps) {
 }
 
 export const Route = createFileRoute("/shop/")({
+  head: () =>
+    marketingSeo(
+      "Shop on TIJAR — Buy from local Nigerian sellers",
+      "Watch shops, follow sellers, and buy products across Nigeria on TIJAR. Search anything and order on tijar.ng.",
+      "/shop",
+      "buy Nigeria, Nigerian marketplace, TIJAR shop, tijar.ng",
+    ),
   validateSearch: (search: Record<string, unknown>): ShopSearch => {
     if (typeof search.v === "string" && search.v.length > 0) return { v: search.v };
     return {};

@@ -62,6 +62,9 @@ describe("public shop SEO", () => {
   it("names products for Google", () => {
     expect(productSeoTitle(product)).toContain("Tomatoes");
     expect(productSeoTitle(product)).toContain("TIJAR");
+    expect(productSeoTitle({ ...product, business_public_location_label: "Kano, Nigeria" })).toBe(
+      "Tomatoes in Kano, Nigeria | Buy on TIJAR",
+    );
   });
 
   it("writes a sitemap of shop URLs", () => {

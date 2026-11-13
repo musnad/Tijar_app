@@ -1,19 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-import { buildSitemapXml, listPublicProductIds, listPublicShopSlugs } from "@/lib/seo/public-shop";
+import { collectSitemapPaths } from "@/lib/seo/catalog";
+import { buildSitemapXml } from "@/lib/seo/public-shop";
 
 async function sitemapResponse() {
-  const [slugs, productIds] = await Promise.all([listPublicShopSlugs(), listPublicProductIds()]);
-  const paths = [
-    "/",
-    "/discover",
-    "/about",
-    "/how-it-works",
-    "/learn",
-    "/shop/discover",
-    ...slugs.map((slug) => `/b/${encodeURIComponent(slug)}`),
-    ...productIds.map((id) => `/shop/p/${encodeURIComponent(id)}`),
-  ];
+  const paths = await collectSitemapPaths();
   return new Response(buildSitemapXml(paths), {
     status: 200,
     headers: {

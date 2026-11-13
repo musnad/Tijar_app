@@ -1,20 +1,51 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 import { PlaceOrderDetailScreen } from "@/features/marketplace/place-order-detail-screen";
+import {
+  fetchPublicListing,
+  listingPageUrl,
+  listingSeoDescription,
+  listingSeoTitle,
+  organizationJsonLd,
+} from "@/lib/seo/catalog";
+import { absoluteSeoImage, seoHead } from "@/lib/seo/public-shop";
 
 export const Route = createFileRoute("/shop/order-now/$listingId")({
-  head: ({ params }) => ({
-    meta: [
-      { title: "Place your order on TIJAR" },
-      { name: "description", content: "Open this post on tijar.ng to place your order." },
-      { property: "og:type", content: "website" },
-      { property: "og:title", content: "Place your order on TIJAR" },
-      { property: "og:description", content: "Tap to order this post on tijar.ng" },
-      { property: "og:url", content: `https://www.tijar.ng/shop/order-now/${params.listingId}` },
-      { property: "og:image", content: "https://www.tijar.ng/tijar-logo.png" },
-      { name: "twitter:card", content: "summary_large_image" },
-    ],
-  }),
+  loader: async ({ params }) => {
+    const listing = await fetchPublicListing(params.listingId);
+    return { listing };
+  },
+  head: ({ loaderData, params }) => {
+    const listing = loaderData?.listing;
+    if (!listing) {
+      return seoHead({
+        title: "Place your order on TIJAR",
+        description: "Order food and goods from local shops on tijar.ng.",
+        url: listingPageUrl(params.listingId),
+        image: absoluteSeoImage(null),
+        noIndex: true,
+      });
+    }
+    return seoHead({
+      title: listingSeoTitle(listing),
+      description: listingSeoDescription(listing),
+      url: listingPageUrl(listing.id),
+      image: absoluteSeoImage(listing.image_urls[0]),
+      keywords: `${listing.title}, ${listing.shop_name}, order ${listing.title}, TIJAR`,
+      jsonLd: [
+        organizationJsonLd(),
+        {
+          "@context": "https://schema.org",
+          "@type": "Offer",
+          name: listing.title,
+          url: listingPageUrl(listing.id),
+          price: String(listing.price),
+          priceCurrency: "NGN",
+          availability: listing.is_open ? "https://schema.org/InStock" : "https://schema.org/SoldOut",
+        },
+      ],
+    });
+  },
   component: Page,
 });
 

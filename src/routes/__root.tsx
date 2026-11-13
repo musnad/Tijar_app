@@ -126,8 +126,13 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { title: enMessages.meta.siteName },
       { name: "description", content: enMessages.meta.defaultDescription },
       { name: "author", content: enMessages.meta.author },
+      { name: "theme-color", content: "#0B1F4D" },
+      { name: "geo.region", content: "NG" },
       { property: "og:type", content: "website" },
+      { property: "og:site_name", content: "TIJAR" },
+      { property: "og:image", content: "https://www.tijar.ng/tijar-logo.png" },
       { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:image", content: "https://www.tijar.ng/tijar-logo.png" },
     ],
     links: [
       {
@@ -161,7 +166,7 @@ const NATIVE_APP_BOOT = `(function(){if(!/TijarApp\\//i.test(navigator.userAgent
 
 function RootShell({ children }: { children: ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en-NG">
       <head>
         <HeadContent />
         <script dangerouslySetInnerHTML={{ __html: NATIVE_APP_BOOT }} />

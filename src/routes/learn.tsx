@@ -4,18 +4,10 @@ import { Button } from "@/components/ui/button";
 import { FeatureCard, LessonCard, PageHero, PhoneMockup, SectionIntro } from "@/components/tijar-ui";
 import { useTranslation } from "@/lib/i18n/context";
 import { enMessages } from "@/lib/i18n/messages/en";
+import { marketingSeo } from "@/lib/seo/catalog";
 
 export const Route = createFileRoute("/learn")({
-  head: () => ({
-    meta: [
-      { title: enMessages.meta.learn.title },
-      { name: "description", content: enMessages.meta.learn.description },
-      { property: "og:title", content: enMessages.meta.learn.ogTitle },
-      { property: "og:description", content: enMessages.meta.learn.ogDescription },
-      { property: "og:type", content: "website" },
-      { name: "twitter:card", content: "summary_large_image" },
-    ],
-  }),
+  head: () => marketingSeo(enMessages.meta.learn.title, enMessages.meta.learn.description, "/learn"),
   component: Page,
 });
 

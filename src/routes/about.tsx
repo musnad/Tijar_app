@@ -3,18 +3,10 @@ import { Eye, HeartHandshake, Lightbulb, Users } from "lucide-react";
 import { FeatureCard, FinalCta, PageHero, SectionIntro } from "@/components/tijar-ui";
 import { useTranslation } from "@/lib/i18n/context";
 import { enMessages } from "@/lib/i18n/messages/en";
+import { marketingSeo } from "@/lib/seo/catalog";
 
 export const Route = createFileRoute("/about")({
-  head: () => ({
-    meta: [
-      { title: enMessages.meta.about.title },
-      { name: "description", content: enMessages.meta.about.description },
-      { property: "og:title", content: enMessages.meta.about.ogTitle },
-      { property: "og:description", content: enMessages.meta.about.ogDescription },
-      { property: "og:type", content: "website" },
-      { name: "twitter:card", content: "summary_large_image" },
-    ],
-  }),
+  head: () => marketingSeo(enMessages.meta.about.title, enMessages.meta.about.description, "/about"),
   component: Page,
 });
 

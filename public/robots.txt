@@ -1,8 +1,15 @@
 User-agent: *
 Allow: /
 Allow: /b/
+Allow: /shop/
 Allow: /shop/p/
+Allow: /shop/c/
+Allow: /shop/search/
 Allow: /shop/discover
+Allow: /shop/browse
+Allow: /shop/nearby
+Allow: /shop/services
+Allow: /shop/order-now
 Allow: /discover
 Disallow: /app/
 Disallow: /api/
@@ -10,11 +17,15 @@ Disallow: /shop/cart
 Disallow: /shop/checkout
 Disallow: /shop/orders
 Disallow: /shop/settings
+Disallow: /shop/ads
+Disallow: /shop/agent
 Disallow: /login
 Disallow: /register
+Disallow: /forgot-password
+Disallow: /reset-password
 
 User-agent: Googlebot
 Allow: /
 
-Sitemap: https://www.tijar.ng/api/sitemap
 Sitemap: https://www.tijar.ng/sitemap.xml
+Sitemap: https://www.tijar.ng/api/sitemap

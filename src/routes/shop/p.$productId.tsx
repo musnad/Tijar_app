@@ -7,9 +7,11 @@ import {
   productJsonLd,
   productPageUrl,
   productSeoDescription,
+  productSeoKeywords,
   productSeoTitle,
   seoHead,
 } from "@/lib/seo/public-shop";
+import { organizationJsonLd, websiteJsonLd } from "@/lib/seo/catalog";
 
 export const Route = createFileRoute("/shop/p/$productId")({
   loader: async ({ params, context }) => {
@@ -35,7 +37,8 @@ export const Route = createFileRoute("/shop/p/$productId")({
       description: productSeoDescription(product),
       url: productPageUrl(product.id),
       image: absoluteSeoImage(product.image_url),
-      jsonLd: productJsonLd(product),
+      keywords: productSeoKeywords(product),
+      jsonLd: [organizationJsonLd(), websiteJsonLd(), productJsonLd(product)],
     });
   },
   component: ProductDetailPage,

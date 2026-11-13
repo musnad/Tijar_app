@@ -122,17 +122,43 @@ export function shopJsonLd(shop: PublicBusiness, products: PublicProduct[]): Rec
   };
 }
 
+export function productPlace(product: PublicProduct): string {
+  return (product.business_public_location_label || product.business_location_text || "").trim();
+}
+
 export function productSeoTitle(product: PublicProduct): string {
   const shop = displayShopName(product.business_name);
-  return `${product.name} from ${shop} | TIJAR`;
+  const place = productPlace(product);
+  if (place) return `${product.name} in ${place} | Buy on TIJAR`;
+  return `${product.name} from ${shop} | Buy on TIJAR`;
 }
 
 export function productSeoDescription(product: PublicProduct): string {
   const shop = displayShopName(product.business_name);
+  const place = productPlace(product);
   const fromBody = product.description?.replace(/\s+/g, " ").trim();
   if (fromBody) return fromBody.slice(0, 300);
   const price = product.sale_price != null ? ` ₦${Number(product.sale_price).toLocaleString("en-NG")}.` : "";
-  return `Buy ${product.name} from ${shop} on TIJAR.${price} Order on tijar.ng.`.slice(0, 300);
+  const where = place ? ` in ${place}` : " in Nigeria";
+  return `Buy ${product.name}${where} from ${shop} on TIJAR.${price} Order online at tijar.ng.`.slice(0, 300);
+}
+
+export function productSeoKeywords(product: PublicProduct): string {
+  const shop = displayShopName(product.business_name);
+  const place = productPlace(product);
+  return [
+    product.name,
+    `buy ${product.name}`,
+    `${product.name} Nigeria`,
+    `${product.name} price`,
+    shop,
+    place,
+    product.category_name,
+    "TIJAR",
+    "tijar.ng",
+  ]
+    .filter(Boolean)
+    .join(", ");
 }
 
 export function productJsonLd(product: PublicProduct): Record<string, unknown> {
@@ -164,14 +190,18 @@ export function seoHead(input: {
   description: string;
   url: string;
   image: string;
-  jsonLd?: Record<string, unknown>;
+  jsonLd?: Record<string, unknown> | Record<string, unknown>[];
+  keywords?: string;
   noIndex?: boolean;
 }) {
+  const graphs = input.jsonLd ? (Array.isArray(input.jsonLd) ? input.jsonLd : [input.jsonLd]) : [];
   return {
     meta: [
       { title: input.title },
       { name: "description", content: input.description },
+      ...(input.keywords ? [{ name: "keywords", content: input.keywords }] : []),
       { name: "robots", content: input.noIndex ? "noindex, nofollow" : "index, follow, max-image-preview:large" },
+      { name: "googlebot", content: input.noIndex ? "noindex, nofollow" : "index, follow, max-image-preview:large" },
       { property: "og:type", content: "website" },
       { property: "og:site_name", content: "TIJAR" },
       { property: "og:title", content: input.title },
@@ -185,9 +215,7 @@ export function seoHead(input: {
       { name: "twitter:image", content: input.image },
     ],
     links: [{ rel: "canonical", href: input.url }],
-    scripts: input.jsonLd
-      ? [{ type: "application/ld+json", children: JSON.stringify(input.jsonLd) }]
-      : [],
+    scripts: graphs.map((graph) => ({ type: "application/ld+json", children: JSON.stringify(graph) })),
   };
 }
 

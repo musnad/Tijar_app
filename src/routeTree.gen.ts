@@ -147,6 +147,7 @@ import { Route as AppProfileSettingsRouteImport } from './routes/app/profile/set
 import { Route as AppVideosNewRouteImport } from './routes/app/videos/new'
 import { Route as ShopAgentShopIdRouteImport } from './routes/shop/agent.$shopId'
 import { Route as ShopBidPostIdRouteImport } from './routes/shop/bid.$postId'
+import { Route as ShopCCategoryRouteImport } from './routes/shop/c.$category'
 import { Route as ShopEnquiriesIndexRouteImport } from './routes/shop/enquiries.index'
 import { Route as ShopEnquiriesConversationIdRouteImport } from './routes/shop/enquiries.$conversationId'
 import { Route as ShopOrderNowIndexRouteImport } from './routes/shop/order-now.index'
@@ -154,6 +155,7 @@ import { Route as ShopOrderNowListingIdRouteImport } from './routes/shop/order-n
 import { Route as ShopOrdersIndexRouteImport } from './routes/shop/orders.index'
 import { Route as ShopOrdersOrderIdRouteImport } from './routes/shop/orders.$orderId'
 import { Route as ShopPProductIdRouteImport } from './routes/shop/p.$productId'
+import { Route as ShopSearchQueryRouteImport } from './routes/shop/search.$query'
 import { Route as ShopUProfileIdRouteImport } from './routes/shop/u.$profileId'
 import { Route as ApiAgentShopShopIdRouteImport } from './routes/api.agent.shop.$shopId'
 import { Route as ApiStudioVideoRequestIdRouteImport } from './routes/api.studio.video.$requestId'
@@ -851,6 +853,11 @@ const ShopBidPostIdRoute = ShopBidPostIdRouteImport.update({
   path: '/bid/$postId',
   getParentRoute: () => ShopRoute,
 } as any)
+const ShopCCategoryRoute = ShopCCategoryRouteImport.update({
+  id: '/c/$category',
+  path: '/c/$category',
+  getParentRoute: () => ShopRoute,
+} as any)
 const ShopEnquiriesIndexRoute = ShopEnquiriesIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -885,6 +892,11 @@ const ShopOrdersOrderIdRoute = ShopOrdersOrderIdRouteImport.update({
 const ShopPProductIdRoute = ShopPProductIdRouteImport.update({
   id: '/p/$productId',
   path: '/p/$productId',
+  getParentRoute: () => ShopRoute,
+} as any)
+const ShopSearchQueryRoute = ShopSearchQueryRouteImport.update({
+  id: '/search/$query',
+  path: '/search/$query',
   getParentRoute: () => ShopRoute,
 } as any)
 const ShopUProfileIdRoute = ShopUProfileIdRouteImport.update({
@@ -1049,10 +1061,12 @@ export interface FileRoutesByFullPath {
   '/app/videos/new': typeof AppVideosNewRoute
   '/shop/agent/$shopId': typeof ShopAgentShopIdRoute
   '/shop/bid/$postId': typeof ShopBidPostIdRoute
+  '/shop/c/$category': typeof ShopCCategoryRoute
   '/shop/enquiries/$conversationId': typeof ShopEnquiriesConversationIdRoute
   '/shop/order-now/$listingId': typeof ShopOrderNowListingIdRoute
   '/shop/orders/$orderId': typeof ShopOrdersOrderIdRoute
   '/shop/p/$productId': typeof ShopPProductIdRoute
+  '/shop/search/$query': typeof ShopSearchQueryRoute
   '/shop/u/$profileId': typeof ShopUProfileIdRoute
   '/app/admin/': typeof AppAdminIndexRoute
   '/app/customers/': typeof AppCustomersIndexRoute
@@ -1194,10 +1208,12 @@ export interface FileRoutesByTo {
   '/app/videos/new': typeof AppVideosNewRoute
   '/shop/agent/$shopId': typeof ShopAgentShopIdRoute
   '/shop/bid/$postId': typeof ShopBidPostIdRoute
+  '/shop/c/$category': typeof ShopCCategoryRoute
   '/shop/enquiries/$conversationId': typeof ShopEnquiriesConversationIdRoute
   '/shop/order-now/$listingId': typeof ShopOrderNowListingIdRoute
   '/shop/orders/$orderId': typeof ShopOrdersOrderIdRoute
   '/shop/p/$productId': typeof ShopPProductIdRoute
+  '/shop/search/$query': typeof ShopSearchQueryRoute
   '/shop/u/$profileId': typeof ShopUProfileIdRoute
   '/app/admin': typeof AppAdminIndexRoute
   '/app/customers': typeof AppCustomersIndexRoute
@@ -1347,10 +1363,12 @@ export interface FileRoutesById {
   '/app/videos/new': typeof AppVideosNewRoute
   '/shop/agent/$shopId': typeof ShopAgentShopIdRoute
   '/shop/bid/$postId': typeof ShopBidPostIdRoute
+  '/shop/c/$category': typeof ShopCCategoryRoute
   '/shop/enquiries/$conversationId': typeof ShopEnquiriesConversationIdRoute
   '/shop/order-now/$listingId': typeof ShopOrderNowListingIdRoute
   '/shop/orders/$orderId': typeof ShopOrdersOrderIdRoute
   '/shop/p/$productId': typeof ShopPProductIdRoute
+  '/shop/search/$query': typeof ShopSearchQueryRoute
   '/shop/u/$profileId': typeof ShopUProfileIdRoute
   '/app/admin/': typeof AppAdminIndexRoute
   '/app/customers/': typeof AppCustomersIndexRoute
@@ -1501,10 +1519,12 @@ export interface FileRouteTypes {
     | '/app/videos/new'
     | '/shop/agent/$shopId'
     | '/shop/bid/$postId'
+    | '/shop/c/$category'
     | '/shop/enquiries/$conversationId'
     | '/shop/order-now/$listingId'
     | '/shop/orders/$orderId'
     | '/shop/p/$productId'
+    | '/shop/search/$query'
     | '/shop/u/$profileId'
     | '/app/admin/'
     | '/app/customers/'
@@ -1646,10 +1666,12 @@ export interface FileRouteTypes {
     | '/app/videos/new'
     | '/shop/agent/$shopId'
     | '/shop/bid/$postId'
+    | '/shop/c/$category'
     | '/shop/enquiries/$conversationId'
     | '/shop/order-now/$listingId'
     | '/shop/orders/$orderId'
     | '/shop/p/$productId'
+    | '/shop/search/$query'
     | '/shop/u/$profileId'
     | '/app/admin'
     | '/app/customers'
@@ -1798,10 +1820,12 @@ export interface FileRouteTypes {
     | '/app/videos/new'
     | '/shop/agent/$shopId'
     | '/shop/bid/$postId'
+    | '/shop/c/$category'
     | '/shop/enquiries/$conversationId'
     | '/shop/order-now/$listingId'
     | '/shop/orders/$orderId'
     | '/shop/p/$productId'
+    | '/shop/search/$query'
     | '/shop/u/$profileId'
     | '/app/admin/'
     | '/app/customers/'
@@ -2850,6 +2874,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ShopBidPostIdRouteImport
       parentRoute: typeof ShopRoute
     }
+    '/shop/c/$category': {
+      id: '/shop/c/$category'
+      path: '/c/$category'
+      fullPath: '/shop/c/$category'
+      preLoaderRoute: typeof ShopCCategoryRouteImport
+      parentRoute: typeof ShopRoute
+    }
     '/shop/enquiries/': {
       id: '/shop/enquiries/'
       path: '/'
@@ -2897,6 +2928,13 @@ declare module '@tanstack/react-router' {
       path: '/p/$productId'
       fullPath: '/shop/p/$productId'
       preLoaderRoute: typeof ShopPProductIdRouteImport
+      parentRoute: typeof ShopRoute
+    }
+    '/shop/search/$query': {
+      id: '/shop/search/$query'
+      path: '/search/$query'
+      fullPath: '/shop/search/$query'
+      preLoaderRoute: typeof ShopSearchQueryRouteImport
       parentRoute: typeof ShopRoute
     }
     '/shop/u/$profileId': {
@@ -3189,7 +3227,9 @@ interface ShopRouteChildren {
   ShopStudioRoute: typeof ShopStudioRoute
   ShopIndexRoute: typeof ShopIndexRoute
   ShopBidPostIdRoute: typeof ShopBidPostIdRoute
+  ShopCCategoryRoute: typeof ShopCCategoryRoute
   ShopPProductIdRoute: typeof ShopPProductIdRoute
+  ShopSearchQueryRoute: typeof ShopSearchQueryRoute
   ShopUProfileIdRoute: typeof ShopUProfileIdRoute
   ShopPostPostIdEditRoute: typeof ShopPostPostIdEditRoute
 }
@@ -3225,7 +3265,9 @@ const ShopRouteChildren: ShopRouteChildren = {
   ShopStudioRoute: ShopStudioRoute,
   ShopIndexRoute: ShopIndexRoute,
   ShopBidPostIdRoute: ShopBidPostIdRoute,
+  ShopCCategoryRoute: ShopCCategoryRoute,
   ShopPProductIdRoute: ShopPProductIdRoute,
+  ShopSearchQueryRoute: ShopSearchQueryRoute,
   ShopUProfileIdRoute: ShopUProfileIdRoute,
   ShopPostPostIdEditRoute: ShopPostPostIdEditRoute,
 }

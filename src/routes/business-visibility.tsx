@@ -11,18 +11,11 @@ import {
 } from "@/components/tijar-ui";
 import { useTranslation } from "@/lib/i18n/context";
 import { enMessages } from "@/lib/i18n/messages/en";
+import { marketingSeo } from "@/lib/seo/catalog";
 
 export const Route = createFileRoute("/business-visibility")({
-  head: () => ({
-    meta: [
-      { title: enMessages.meta.businessVisibility.title },
-      { name: "description", content: enMessages.meta.businessVisibility.description },
-      { property: "og:title", content: enMessages.meta.businessVisibility.ogTitle },
-      { property: "og:description", content: enMessages.meta.businessVisibility.ogDescription },
-      { property: "og:type", content: "website" },
-      { name: "twitter:card", content: "summary_large_image" },
-    ],
-  }),
+  head: () =>
+    marketingSeo(enMessages.meta.businessVisibility.title, enMessages.meta.businessVisibility.description, "/business-visibility"),
   component: Page,
 });
 
