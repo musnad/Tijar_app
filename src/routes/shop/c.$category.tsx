@@ -16,9 +16,13 @@ import { absoluteSeoImage, productPageUrl, seoHead, shopPageUrl } from "@/lib/se
 
 export const Route = createFileRoute("/shop/c/$category")({
   loader: async ({ params }) => {
-    const name = await resolveCategoryName(params.category);
-    const catalog = await fetchPublicCatalog({ category: name ?? params.category, limit: 60 });
-    return { name: name ?? params.category.replace(/-/g, " "), catalog };
+    try {
+      const name = await resolveCategoryName(params.category);
+      const catalog = await fetchPublicCatalog({ category: name ?? params.category, limit: 60 });
+      return { name: name ?? params.category.replace(/-/g, " "), catalog };
+    } catch {
+      return { name: params.category.replace(/-/g, " "), catalog: { products: [], shops: [], categories: [] } };
+    }
   },
   head: ({ loaderData, params }) => {
     const name = loaderData?.name ?? params.category;

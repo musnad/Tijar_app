@@ -37,6 +37,9 @@ import { BusinessOfTheWeekAdmin } from "@/features/admin/business-of-the-week-ad
 const AdminAdsManager = lazy(() =>
   import("@/features/ads/ads-manager-screen").then((m) => ({ default: m.AdsManagerScreen })),
 );
+const SeoAdminPanel = lazy(() =>
+  import("@/features/admin/seo-admin-panel").then((m) => ({ default: m.SeoAdminPanel })),
+);
 import {
   accountCategory,
   businessGross,
@@ -102,7 +105,8 @@ type Tab =
   | "orders"
   | "ticks"
   | "week"
-  | "ads";
+  | "ads"
+  | "seo";
 
 const KYC_QUEUE: KycStatus[] = ["submitted", "under_review", "in_progress", "requires_update"];
 
@@ -676,6 +680,7 @@ export function AdminConsoleScreen() {
     { id: "transactions", label: "Transactions" },
     { id: "orders", label: "Orders" },
     { id: "ads", label: "Ads" },
+    { id: "seo", label: "SEO" },
   ];
 
   function exportUsers() {
@@ -902,7 +907,7 @@ export function AdminConsoleScreen() {
         </Button>
       </div>
 
-      {tab !== "overview" && tab !== "finance" && tab !== "week" && (
+      {tab !== "overview" && tab !== "finance" && tab !== "week" && tab !== "seo" && (
         <div className="relative mt-4">
           <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
@@ -1535,6 +1540,11 @@ export function AdminConsoleScreen() {
       {tab === "ads" && (
         <Suspense fallback={<p className="mt-4 text-sm text-muted-foreground">Loading ads…</p>}>
           <AdminAdsManager adminMode embedded />
+        </Suspense>
+      )}
+      {tab === "seo" && (
+        <Suspense fallback={<p className="mt-4 text-sm text-muted-foreground">Loading SEO…</p>}>
+          <SeoAdminPanel businesses={businesses} />
         </Suspense>
       )}
 

@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 
 import { StorefrontScreen } from "@/features/discover/storefront-screen";
 import {
@@ -10,13 +10,18 @@ import {
   shopSeoDescription,
   shopSeoTitle,
 } from "@/lib/seo/public-shop";
-import { organizationJsonLd, websiteJsonLd } from "@/lib/seo/catalog";
+import { breadcrumbJsonLd, organizationJsonLd, websiteJsonLd } from "@/lib/seo/catalog";
+import { parsedShopPlace } from "@/lib/seo/eligibility";
+import { PRODUCTION_ORIGIN } from "@/lib/site-url";
 
 export const Route = createFileRoute("/b/$slug")({
   loader: async ({ params, context }) => {
     const page = await fetchPublicShopPage(params.slug);
+    if (page.redirectTo) {
+      throw redirect({ to: "/b/$slug", params: { slug: page.redirectTo } });
+    }
     if (page.business) {
-      context.queryClient.setQueryData(["storefront", params.slug], {
+      context?.queryClient?.setQueryData(["storefront", params.slug], {
         business: page.business,
         products: page.products,
         videos: [],
@@ -36,12 +41,26 @@ export const Route = createFileRoute("/b/$slug")({
         noIndex: true,
       });
     }
+    const url = shopPageUrl(shop.slug || params.slug);
+    const place = parsedShopPlace(shop);
+    const crumbs = [
+      { name: "Tijar", url: PRODUCTION_ORIGIN },
+      { name: "Nigeria", url: `${PRODUCTION_ORIGIN}/nigeria` },
+    ];
+    if (place.state) crumbs.push({ name: place.state, url: `${PRODUCTION_ORIGIN}/nigeria/${encodeURIComponent(place.state.toLowerCase().replace(/\s+/g, "-"))}` });
+    crumbs.push({ name: shop.business_name, url });
     return seoHead({
       title: shopSeoTitle(shop),
       description: shopSeoDescription(shop, loaderData.products ?? []),
-      url: shopPageUrl(shop.slug || params.slug),
+      url,
       image: absoluteSeoImage(shop.cover_image_url || shop.logo_url),
-      jsonLd: [organizationJsonLd(), websiteJsonLd(), shopJsonLd(shop, loaderData.products ?? [])],
+      noIndex: loaderData.indexable === false,
+      jsonLd: [
+        organizationJsonLd(),
+        websiteJsonLd(),
+        breadcrumbJsonLd(crumbs),
+        shopJsonLd(shop, loaderData.products ?? []),
+      ],
     });
   },
   component: Page,

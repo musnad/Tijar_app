@@ -9,6 +9,7 @@ import {
 } from "@/lib/seo/public-shop";
 import { PRODUCTION_ORIGIN } from "@/lib/site-url";
 import { getSupabasePublicServerClient } from "@/lib/supabase/public-server";
+import { collectLocationSitemapPaths } from "@/lib/seo/location-directory";
 import { slugifyBusinessName } from "@/utils/discover";
 import type { PublicBusiness, PublicProduct } from "@/types/database";
 
@@ -73,6 +74,14 @@ export const SEO_SEARCH_SEEDS = [
   "cement",
   "jollof",
   "suya",
+  "dan wake",
+  "mai faci",
+  "kayan miya",
+  "mai shayi",
+  "kayan masarufi",
+  "mai gyaran waya",
+  "tailor kano",
+  "vegetable seller kano",
 ];
 
 export function categorySlug(name: string): string {
@@ -118,6 +127,19 @@ export function websiteJsonLd(): Record<string, unknown> {
       target: `${PRODUCTION_ORIGIN}/shop/search/{search_term_string}`,
       "query-input": "required name=search_term_string",
     },
+  };
+}
+
+export function breadcrumbJsonLd(items: Array<{ name: string; url: string }>): Record<string, unknown> {
+  return {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: items.map((item, i) => ({
+      "@type": "ListItem",
+      position: i + 1,
+      name: item.name,
+      item: item.url,
+    })),
   };
 }
 
@@ -213,6 +235,7 @@ export async function resolveCategoryName(slug: string): Promise<string | null> 
 }
 
 export async function fetchPublicCatalog(input?: { query?: string; category?: string; limit?: number }): Promise<PublicCatalog> {
+  try {
   const supabase = getSupabasePublicServerClient();
   if (!supabase) return { products: [], shops: [], categories: [] };
   const limit = input?.limit ?? 48;
@@ -250,6 +273,9 @@ export async function fetchPublicCatalog(input?: { query?: string; category?: st
   }
 
   return { products, shops, categories: await listPublicCategories() };
+  } catch {
+    return { products: [], shops: [], categories: [] };
+  }
 }
 
 export async function fetchPublicListing(id: string): Promise<SeoListing | null> {
@@ -294,11 +320,12 @@ export async function listPublicListingIds(limit = 2000): Promise<string[]> {
 }
 
 export async function collectSitemapPaths(): Promise<string[]> {
-  const [slugs, productIds, categories, listingIds] = await Promise.all([
-    listPublicShopSlugs(),
-    listPublicProductIds(),
-    listPublicCategories(),
-    listPublicListingIds(),
+  const [slugs, productIds, categories, listingIds, locationPaths] = await Promise.all([
+    listPublicShopSlugs().catch(() => [] as string[]),
+    listPublicProductIds().catch(() => [] as string[]),
+    listPublicCategories().catch(() => [] as string[]),
+    listPublicListingIds().catch(() => [] as string[]),
+    collectLocationSitemapPaths().catch(() => [] as string[]),
   ]);
   return [
     ...SEO_STATIC_PATHS,
@@ -307,6 +334,7 @@ export async function collectSitemapPaths(): Promise<string[]> {
     ...productIds.map((id) => `/shop/p/${encodeURIComponent(id)}`),
     ...categories.map((name) => `/shop/c/${encodeURIComponent(categorySlug(name))}`),
     ...listingIds.map((id) => `/shop/order-now/${encodeURIComponent(id)}`),
+    ...locationPaths,
   ];
 }
 

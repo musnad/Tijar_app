@@ -46,7 +46,7 @@ const product = {
 describe("public shop SEO", () => {
   it("builds a unique shop title and description", () => {
     expect(shopSeoTitle(shop)).toContain("Musnad Market");
-    expect(shopSeoTitle(shop)).toContain("TIJAR");
+    expect(shopSeoTitle(shop)).toContain("Tijar.ng");
     expect(shopSeoDescription(shop, [product])).toContain("Fresh produce");
     expect(shopPageUrl(shop.slug)).toBe("https://www.tijar.ng/b/musnad-market");
   });

@@ -61,6 +61,8 @@ import { Route as AppTransactionsRouteImport } from './routes/app/transactions'
 import { Route as AppVideosRouteImport } from './routes/app/videos'
 import { Route as AuthCallbackRouteImport } from './routes/auth.callback'
 import { Route as BSlugRouteImport } from './routes/b/$slug'
+import { Route as NigeriaIndexRouteImport } from './routes/nigeria.index'
+import { Route as NigeriaStateRouteImport } from './routes/nigeria.$state'
 import { Route as ShopIndexRouteImport } from './routes/shop/index'
 import { Route as ShopAdsRouteImport } from './routes/shop/ads'
 import { Route as ShopAgentRouteImport } from './routes/shop/agent'
@@ -90,6 +92,7 @@ import { Route as ShopSellItemRouteImport } from './routes/shop/sell-item'
 import { Route as ShopServicesRouteImport } from './routes/shop/services'
 import { Route as ShopSettingsRouteImport } from './routes/shop/settings'
 import { Route as ShopStudioRouteImport } from './routes/shop/studio'
+import { Route as VendorSlugRouteImport } from './routes/vendor/$slug'
 import { Route as ApiAdminAgentsRouteImport } from './routes/api.admin.agents'
 import { Route as ApiAdminExpensesRouteImport } from './routes/api.admin.expenses'
 import { Route as ApiAdminVerifiedBadgeRouteImport } from './routes/api.admin.verified-badge'
@@ -145,6 +148,8 @@ import { Route as AppProductsScanShopRouteImport } from './routes/app/products/s
 import { Route as AppProfileEditRouteImport } from './routes/app/profile/edit'
 import { Route as AppProfileSettingsRouteImport } from './routes/app/profile/settings'
 import { Route as AppVideosNewRouteImport } from './routes/app/videos/new'
+import { Route as NigeriaStateIndexRouteImport } from './routes/nigeria.$state.index'
+import { Route as NigeriaStateCategoryRouteImport } from './routes/nigeria.$state.$category'
 import { Route as ShopAgentShopIdRouteImport } from './routes/shop/agent.$shopId'
 import { Route as ShopBidPostIdRouteImport } from './routes/shop/bid.$postId'
 import { Route as ShopCCategoryRouteImport } from './routes/shop/c.$category'
@@ -160,6 +165,7 @@ import { Route as ShopUProfileIdRouteImport } from './routes/shop/u.$profileId'
 import { Route as ApiAgentShopShopIdRouteImport } from './routes/api.agent.shop.$shopId'
 import { Route as ApiStudioVideoRequestIdRouteImport } from './routes/api.studio.video.$requestId'
 import { Route as AppCustomersCreditNewRouteImport } from './routes/app/customers/credit/new'
+import { Route as NigeriaStateAreaCategoryRouteImport } from './routes/nigeria.$state.$area.$category'
 import { Route as ShopPostPostIdEditRouteImport } from './routes/shop/post.$postId.edit'
 
 const IndexRoute = IndexRouteImport.update({
@@ -422,6 +428,16 @@ const BSlugRoute = BSlugRouteImport.update({
   path: '/b/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
+const NigeriaIndexRoute = NigeriaIndexRouteImport.update({
+  id: '/nigeria/',
+  path: '/nigeria/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const NigeriaStateRoute = NigeriaStateRouteImport.update({
+  id: '/nigeria/$state',
+  path: '/nigeria/$state',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ShopIndexRoute = ShopIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -566,6 +582,11 @@ const ShopStudioRoute = ShopStudioRouteImport.update({
   id: '/studio',
   path: '/studio',
   getParentRoute: () => ShopRoute,
+} as any)
+const VendorSlugRoute = VendorSlugRouteImport.update({
+  id: '/vendor/$slug',
+  path: '/vendor/$slug',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const ApiAdminAgentsRoute = ApiAdminAgentsRouteImport.update({
   id: '/api/admin/agents',
@@ -843,6 +864,16 @@ const AppVideosNewRoute = AppVideosNewRouteImport.update({
   path: '/new',
   getParentRoute: () => AppVideosRoute,
 } as any)
+const NigeriaStateIndexRoute = NigeriaStateIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => NigeriaStateRoute,
+} as any)
+const NigeriaStateCategoryRoute = NigeriaStateCategoryRouteImport.update({
+  id: '/$category',
+  path: '/$category',
+  getParentRoute: () => NigeriaStateRoute,
+} as any)
 const ShopAgentShopIdRoute = ShopAgentShopIdRouteImport.update({
   id: '/$shopId',
   path: '/$shopId',
@@ -919,6 +950,12 @@ const AppCustomersCreditNewRoute = AppCustomersCreditNewRouteImport.update({
   path: '/credit/new',
   getParentRoute: () => AppCustomersRouteRoute,
 } as any)
+const NigeriaStateAreaCategoryRoute =
+  NigeriaStateAreaCategoryRouteImport.update({
+    id: '/$area/$category',
+    path: '/$area/$category',
+    getParentRoute: () => NigeriaStateRoute,
+  } as any)
 const ShopPostPostIdEditRoute = ShopPostPostIdEditRouteImport.update({
   id: '/post/$postId/edit',
   path: '/post/$postId/edit',
@@ -977,6 +1014,7 @@ export interface FileRoutesByFullPath {
   '/app/videos': typeof AppVideosRouteWithChildren
   '/auth/callback': typeof AuthCallbackRoute
   '/b/$slug': typeof BSlugRoute
+  '/nigeria/$state': typeof NigeriaStateRouteWithChildren
   '/shop/ads': typeof ShopAdsRoute
   '/shop/agent': typeof ShopAgentRouteWithChildren
   '/shop/branches': typeof ShopBranchesRoute
@@ -1005,7 +1043,9 @@ export interface FileRoutesByFullPath {
   '/shop/services': typeof ShopServicesRoute
   '/shop/settings': typeof ShopSettingsRoute
   '/shop/studio': typeof ShopStudioRoute
+  '/vendor/$slug': typeof VendorSlugRoute
   '/app/': typeof AppIndexRoute
+  '/nigeria/': typeof NigeriaIndexRoute
   '/shop/': typeof ShopIndexRoute
   '/api/admin/agents': typeof ApiAdminAgentsRoute
   '/api/admin/expenses': typeof ApiAdminExpensesRoute
@@ -1059,6 +1099,7 @@ export interface FileRoutesByFullPath {
   '/app/profile/edit': typeof AppProfileEditRoute
   '/app/profile/settings': typeof AppProfileSettingsRoute
   '/app/videos/new': typeof AppVideosNewRoute
+  '/nigeria/$state/$category': typeof NigeriaStateCategoryRoute
   '/shop/agent/$shopId': typeof ShopAgentShopIdRoute
   '/shop/bid/$postId': typeof ShopBidPostIdRoute
   '/shop/c/$category': typeof ShopCCategoryRoute
@@ -1071,12 +1112,14 @@ export interface FileRoutesByFullPath {
   '/app/admin/': typeof AppAdminIndexRoute
   '/app/customers/': typeof AppCustomersIndexRoute
   '/app/learn/': typeof AppLearnIndexRoute
+  '/nigeria/$state/': typeof NigeriaStateIndexRoute
   '/shop/enquiries/': typeof ShopEnquiriesIndexRoute
   '/shop/order-now/': typeof ShopOrderNowIndexRoute
   '/shop/orders/': typeof ShopOrdersIndexRoute
   '/api/agent/shop/$shopId': typeof ApiAgentShopShopIdRoute
   '/api/studio/video/$requestId': typeof ApiStudioVideoRequestIdRoute
   '/app/customers/credit/new': typeof AppCustomersCreditNewRoute
+  '/nigeria/$state/$area/$category': typeof NigeriaStateAreaCategoryRoute
   '/shop/post/$postId/edit': typeof ShopPostPostIdEditRoute
 }
 export interface FileRoutesByTo {
@@ -1152,7 +1195,9 @@ export interface FileRoutesByTo {
   '/shop/services': typeof ShopServicesRoute
   '/shop/settings': typeof ShopSettingsRoute
   '/shop/studio': typeof ShopStudioRoute
+  '/vendor/$slug': typeof VendorSlugRoute
   '/app': typeof AppIndexRoute
+  '/nigeria': typeof NigeriaIndexRoute
   '/shop': typeof ShopIndexRoute
   '/api/admin/agents': typeof ApiAdminAgentsRoute
   '/api/admin/expenses': typeof ApiAdminExpensesRoute
@@ -1206,6 +1251,7 @@ export interface FileRoutesByTo {
   '/app/profile/edit': typeof AppProfileEditRoute
   '/app/profile/settings': typeof AppProfileSettingsRoute
   '/app/videos/new': typeof AppVideosNewRoute
+  '/nigeria/$state/$category': typeof NigeriaStateCategoryRoute
   '/shop/agent/$shopId': typeof ShopAgentShopIdRoute
   '/shop/bid/$postId': typeof ShopBidPostIdRoute
   '/shop/c/$category': typeof ShopCCategoryRoute
@@ -1218,12 +1264,14 @@ export interface FileRoutesByTo {
   '/app/admin': typeof AppAdminIndexRoute
   '/app/customers': typeof AppCustomersIndexRoute
   '/app/learn': typeof AppLearnIndexRoute
+  '/nigeria/$state': typeof NigeriaStateIndexRoute
   '/shop/enquiries': typeof ShopEnquiriesIndexRoute
   '/shop/order-now': typeof ShopOrderNowIndexRoute
   '/shop/orders': typeof ShopOrdersIndexRoute
   '/api/agent/shop/$shopId': typeof ApiAgentShopShopIdRoute
   '/api/studio/video/$requestId': typeof ApiStudioVideoRequestIdRoute
   '/app/customers/credit/new': typeof AppCustomersCreditNewRoute
+  '/nigeria/$state/$area/$category': typeof NigeriaStateAreaCategoryRoute
   '/shop/post/$postId/edit': typeof ShopPostPostIdEditRoute
 }
 export interface FileRoutesById {
@@ -1279,6 +1327,7 @@ export interface FileRoutesById {
   '/app/videos': typeof AppVideosRouteWithChildren
   '/auth/callback': typeof AuthCallbackRoute
   '/b/$slug': typeof BSlugRoute
+  '/nigeria/$state': typeof NigeriaStateRouteWithChildren
   '/shop/ads': typeof ShopAdsRoute
   '/shop/agent': typeof ShopAgentRouteWithChildren
   '/shop/branches': typeof ShopBranchesRoute
@@ -1307,7 +1356,9 @@ export interface FileRoutesById {
   '/shop/services': typeof ShopServicesRoute
   '/shop/settings': typeof ShopSettingsRoute
   '/shop/studio': typeof ShopStudioRoute
+  '/vendor/$slug': typeof VendorSlugRoute
   '/app/': typeof AppIndexRoute
+  '/nigeria/': typeof NigeriaIndexRoute
   '/shop/': typeof ShopIndexRoute
   '/api/admin/agents': typeof ApiAdminAgentsRoute
   '/api/admin/expenses': typeof ApiAdminExpensesRoute
@@ -1361,6 +1412,7 @@ export interface FileRoutesById {
   '/app/profile/edit': typeof AppProfileEditRoute
   '/app/profile/settings': typeof AppProfileSettingsRoute
   '/app/videos/new': typeof AppVideosNewRoute
+  '/nigeria/$state/$category': typeof NigeriaStateCategoryRoute
   '/shop/agent/$shopId': typeof ShopAgentShopIdRoute
   '/shop/bid/$postId': typeof ShopBidPostIdRoute
   '/shop/c/$category': typeof ShopCCategoryRoute
@@ -1373,12 +1425,14 @@ export interface FileRoutesById {
   '/app/admin/': typeof AppAdminIndexRoute
   '/app/customers/': typeof AppCustomersIndexRoute
   '/app/learn/': typeof AppLearnIndexRoute
+  '/nigeria/$state/': typeof NigeriaStateIndexRoute
   '/shop/enquiries/': typeof ShopEnquiriesIndexRoute
   '/shop/order-now/': typeof ShopOrderNowIndexRoute
   '/shop/orders/': typeof ShopOrdersIndexRoute
   '/api/agent/shop/$shopId': typeof ApiAgentShopShopIdRoute
   '/api/studio/video/$requestId': typeof ApiStudioVideoRequestIdRoute
   '/app/customers/credit/new': typeof AppCustomersCreditNewRoute
+  '/nigeria/$state/$area/$category': typeof NigeriaStateAreaCategoryRoute
   '/shop/post/$postId/edit': typeof ShopPostPostIdEditRoute
 }
 export interface FileRouteTypes {
@@ -1435,6 +1489,7 @@ export interface FileRouteTypes {
     | '/app/videos'
     | '/auth/callback'
     | '/b/$slug'
+    | '/nigeria/$state'
     | '/shop/ads'
     | '/shop/agent'
     | '/shop/branches'
@@ -1463,7 +1518,9 @@ export interface FileRouteTypes {
     | '/shop/services'
     | '/shop/settings'
     | '/shop/studio'
+    | '/vendor/$slug'
     | '/app/'
+    | '/nigeria/'
     | '/shop/'
     | '/api/admin/agents'
     | '/api/admin/expenses'
@@ -1517,6 +1574,7 @@ export interface FileRouteTypes {
     | '/app/profile/edit'
     | '/app/profile/settings'
     | '/app/videos/new'
+    | '/nigeria/$state/$category'
     | '/shop/agent/$shopId'
     | '/shop/bid/$postId'
     | '/shop/c/$category'
@@ -1529,12 +1587,14 @@ export interface FileRouteTypes {
     | '/app/admin/'
     | '/app/customers/'
     | '/app/learn/'
+    | '/nigeria/$state/'
     | '/shop/enquiries/'
     | '/shop/order-now/'
     | '/shop/orders/'
     | '/api/agent/shop/$shopId'
     | '/api/studio/video/$requestId'
     | '/app/customers/credit/new'
+    | '/nigeria/$state/$area/$category'
     | '/shop/post/$postId/edit'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -1610,7 +1670,9 @@ export interface FileRouteTypes {
     | '/shop/services'
     | '/shop/settings'
     | '/shop/studio'
+    | '/vendor/$slug'
     | '/app'
+    | '/nigeria'
     | '/shop'
     | '/api/admin/agents'
     | '/api/admin/expenses'
@@ -1664,6 +1726,7 @@ export interface FileRouteTypes {
     | '/app/profile/edit'
     | '/app/profile/settings'
     | '/app/videos/new'
+    | '/nigeria/$state/$category'
     | '/shop/agent/$shopId'
     | '/shop/bid/$postId'
     | '/shop/c/$category'
@@ -1676,12 +1739,14 @@ export interface FileRouteTypes {
     | '/app/admin'
     | '/app/customers'
     | '/app/learn'
+    | '/nigeria/$state'
     | '/shop/enquiries'
     | '/shop/order-now'
     | '/shop/orders'
     | '/api/agent/shop/$shopId'
     | '/api/studio/video/$requestId'
     | '/app/customers/credit/new'
+    | '/nigeria/$state/$area/$category'
     | '/shop/post/$postId/edit'
   id:
     | '__root__'
@@ -1736,6 +1801,7 @@ export interface FileRouteTypes {
     | '/app/videos'
     | '/auth/callback'
     | '/b/$slug'
+    | '/nigeria/$state'
     | '/shop/ads'
     | '/shop/agent'
     | '/shop/branches'
@@ -1764,7 +1830,9 @@ export interface FileRouteTypes {
     | '/shop/services'
     | '/shop/settings'
     | '/shop/studio'
+    | '/vendor/$slug'
     | '/app/'
+    | '/nigeria/'
     | '/shop/'
     | '/api/admin/agents'
     | '/api/admin/expenses'
@@ -1818,6 +1886,7 @@ export interface FileRouteTypes {
     | '/app/profile/edit'
     | '/app/profile/settings'
     | '/app/videos/new'
+    | '/nigeria/$state/$category'
     | '/shop/agent/$shopId'
     | '/shop/bid/$postId'
     | '/shop/c/$category'
@@ -1830,12 +1899,14 @@ export interface FileRouteTypes {
     | '/app/admin/'
     | '/app/customers/'
     | '/app/learn/'
+    | '/nigeria/$state/'
     | '/shop/enquiries/'
     | '/shop/order-now/'
     | '/shop/orders/'
     | '/api/agent/shop/$shopId'
     | '/api/studio/video/$requestId'
     | '/app/customers/credit/new'
+    | '/nigeria/$state/$area/$category'
     | '/shop/post/$postId/edit'
   fileRoutesById: FileRoutesById
 }
@@ -1869,6 +1940,9 @@ export interface RootRouteChildren {
   ApiVoiceEnrollRoute: typeof ApiVoiceEnrollRoute
   AuthCallbackRoute: typeof AuthCallbackRoute
   BSlugRoute: typeof BSlugRoute
+  NigeriaStateRoute: typeof NigeriaStateRouteWithChildren
+  VendorSlugRoute: typeof VendorSlugRoute
+  NigeriaIndexRoute: typeof NigeriaIndexRoute
   ApiAdminAgentsRoute: typeof ApiAdminAgentsRoute
   ApiAdminExpensesRoute: typeof ApiAdminExpensesRoute
   ApiAdminVerifiedBadgeRoute: typeof ApiAdminVerifiedBadgeRoute
@@ -2272,6 +2346,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof BSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/nigeria/': {
+      id: '/nigeria/'
+      path: '/nigeria'
+      fullPath: '/nigeria/'
+      preLoaderRoute: typeof NigeriaIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/nigeria/$state': {
+      id: '/nigeria/$state'
+      path: '/nigeria/$state'
+      fullPath: '/nigeria/$state'
+      preLoaderRoute: typeof NigeriaStateRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/shop/': {
       id: '/shop/'
       path: '/'
@@ -2474,6 +2562,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/shop/studio'
       preLoaderRoute: typeof ShopStudioRouteImport
       parentRoute: typeof ShopRoute
+    }
+    '/vendor/$slug': {
+      id: '/vendor/$slug'
+      path: '/vendor/$slug'
+      fullPath: '/vendor/$slug'
+      preLoaderRoute: typeof VendorSlugRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/api/admin/agents': {
       id: '/api/admin/agents'
@@ -2860,6 +2955,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppVideosNewRouteImport
       parentRoute: typeof AppVideosRoute
     }
+    '/nigeria/$state/': {
+      id: '/nigeria/$state/'
+      path: '/'
+      fullPath: '/nigeria/$state/'
+      preLoaderRoute: typeof NigeriaStateIndexRouteImport
+      parentRoute: typeof NigeriaStateRoute
+    }
+    '/nigeria/$state/$category': {
+      id: '/nigeria/$state/$category'
+      path: '/$category'
+      fullPath: '/nigeria/$state/$category'
+      preLoaderRoute: typeof NigeriaStateCategoryRouteImport
+      parentRoute: typeof NigeriaStateRoute
+    }
     '/shop/agent/$shopId': {
       id: '/shop/agent/$shopId'
       path: '/$shopId'
@@ -2964,6 +3073,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/app/customers/credit/new'
       preLoaderRoute: typeof AppCustomersCreditNewRouteImport
       parentRoute: typeof AppCustomersRouteRoute
+    }
+    '/nigeria/$state/$area/$category': {
+      id: '/nigeria/$state/$area/$category'
+      path: '/$area/$category'
+      fullPath: '/nigeria/$state/$area/$category'
+      preLoaderRoute: typeof NigeriaStateAreaCategoryRouteImport
+      parentRoute: typeof NigeriaStateRoute
     }
     '/shop/post/$postId/edit': {
       id: '/shop/post/$postId/edit'
@@ -3285,6 +3401,22 @@ const ApiUssdRouteChildren: ApiUssdRouteChildren = {
 const ApiUssdRouteWithChildren =
   ApiUssdRoute._addFileChildren(ApiUssdRouteChildren)
 
+interface NigeriaStateRouteChildren {
+  NigeriaStateCategoryRoute: typeof NigeriaStateCategoryRoute
+  NigeriaStateIndexRoute: typeof NigeriaStateIndexRoute
+  NigeriaStateAreaCategoryRoute: typeof NigeriaStateAreaCategoryRoute
+}
+
+const NigeriaStateRouteChildren: NigeriaStateRouteChildren = {
+  NigeriaStateCategoryRoute: NigeriaStateCategoryRoute,
+  NigeriaStateIndexRoute: NigeriaStateIndexRoute,
+  NigeriaStateAreaCategoryRoute: NigeriaStateAreaCategoryRoute,
+}
+
+const NigeriaStateRouteWithChildren = NigeriaStateRoute._addFileChildren(
+  NigeriaStateRouteChildren,
+)
+
 interface ApiStudioVideoRouteChildren {
   ApiStudioVideoRequestIdRoute: typeof ApiStudioVideoRequestIdRoute
 }
@@ -3327,6 +3459,9 @@ const rootRouteChildren: RootRouteChildren = {
   ApiVoiceEnrollRoute: ApiVoiceEnrollRoute,
   AuthCallbackRoute: AuthCallbackRoute,
   BSlugRoute: BSlugRoute,
+  NigeriaStateRoute: NigeriaStateRouteWithChildren,
+  VendorSlugRoute: VendorSlugRoute,
+  NigeriaIndexRoute: NigeriaIndexRoute,
   ApiAdminAgentsRoute: ApiAdminAgentsRoute,
   ApiAdminExpensesRoute: ApiAdminExpensesRoute,
   ApiAdminVerifiedBadgeRoute: ApiAdminVerifiedBadgeRoute,
@@ -3366,3 +3501,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}

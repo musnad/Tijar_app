@@ -138,6 +138,8 @@ export type Business = {
   /** Blue tick on the public shop name. Independent of KYC approval. */
   verified_badge?: boolean;
   public_slug: string | null;
+  seo_title?: string | null;
+  seo_description?: string | null;
   is_published: boolean;
   public_phone: string | null;
   public_whatsapp: string | null;

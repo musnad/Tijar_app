@@ -128,6 +128,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "author", content: enMessages.meta.author },
       { name: "theme-color", content: "#0B1F4D" },
       { name: "geo.region", content: "NG" },
+      ...(typeof import.meta.env.VITE_GOOGLE_SITE_VERIFICATION === "string" &&
+      import.meta.env.VITE_GOOGLE_SITE_VERIFICATION.trim()
+        ? [{ name: "google-site-verification", content: import.meta.env.VITE_GOOGLE_SITE_VERIFICATION.trim() }]
+        : []),
       { property: "og:type", content: "website" },
       { property: "og:site_name", content: "TIJAR" },
       { property: "og:image", content: "https://www.tijar.ng/tijar-logo.png" },

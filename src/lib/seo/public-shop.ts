@@ -1,3 +1,4 @@
+import { isPublicShopIndexable, parsedShopPlace, shopPlaceLine } from "@/lib/seo/eligibility";
 import { displayShopName } from "@/lib/shop-names";
 import { PRODUCTION_ORIGIN } from "@/lib/site-url";
 import { getSupabasePublicServerClient } from "@/lib/supabase/public-server";
@@ -13,6 +14,8 @@ export type PublicShopPage = {
   products: PublicProduct[];
   videos: [];
   error: string | null;
+  redirectTo?: string | null;
+  indexable?: boolean;
 };
 
 export function shopPageUrl(slug: string): string {
@@ -53,34 +56,44 @@ function asShop(row: Record<string, unknown>, fallbackSlug: string): PublicBusin
   };
 }
 
-function placeLine(shop: Pick<PublicBusiness, "public_location_label" | "location_text">): string {
-  return (shop.public_location_label || shop.location_text || "").trim();
-}
-
 export function shopSeoTitle(shop: PublicBusiness): string {
-  const place = placeLine(shop);
+  const parsed = parsedShopPlace(shop);
+  const where = parsed.state || parsed.label || "Nigeria";
   const category = shop.category_name?.trim();
-  const bits = [shop.business_name, category, place].filter(Boolean);
-  return `${bits.join(" — ")} | TIJAR`;
+  if (category) return `${shop.business_name} ${category} in ${where} | Tijar.ng`;
+  return `${shop.business_name} in ${where} | Tijar.ng`;
 }
 
 export function shopSeoDescription(shop: PublicBusiness, products: PublicProduct[]): string {
   const fromShop = shop.description?.replace(/\s+/g, " ").trim();
-  if (fromShop) return fromShop.slice(0, 300);
-  const place = placeLine(shop);
+  if (fromShop) return fromShop.slice(0, 160);
+  const parsed = parsedShopPlace(shop);
+  const where = parsed.state || parsed.label || "Nigeria";
   const names = products
     .map((p) => p.name)
     .filter(Boolean)
-    .slice(0, 6)
+    .slice(0, 4)
     .join(", ");
-  const where = place ? ` in ${place}` : " in Nigeria";
-  const catalog = names ? ` Selling ${names}.` : "";
-  return `${shop.business_name} on TIJAR${where}.${catalog} Watch, follow, and order on tijar.ng.`.slice(0, 300);
+  const catalog = names ? ` Explore ${names}.` : " Explore available products, business information and contact details.";
+  return `Discover ${shop.business_name} in ${where} on Tijar.${catalog}`.slice(0, 160);
+}
+
+function openingHoursFromShop(shop: PublicBusiness): string[] | undefined {
+  const hours = shop.opening_hours ?? {};
+  const rows = Object.entries(hours)
+    .map(([day, value]) => {
+      const hoursText = String(value ?? "").trim();
+      if (!hoursText) return "";
+      return `${day} ${hoursText}`;
+    })
+    .filter(Boolean);
+  return rows.length > 0 ? rows : undefined;
 }
 
 export function shopJsonLd(shop: PublicBusiness, products: PublicProduct[]): Record<string, unknown> {
   const url = shopPageUrl(shop.slug);
-  const place = placeLine(shop);
+  const place = shopPlaceLine(shop);
+  const parsed = parsedShopPlace(shop);
   const offers = products.slice(0, 24).map((p) => ({
     "@type": "Offer",
     url: productPageUrl(p.id),
@@ -99,10 +112,12 @@ export function shopJsonLd(shop: PublicBusiness, products: PublicProduct[]): Rec
     logo: absoluteSeoImage(shop.logo_url),
     description: shopSeoDescription(shop, products),
     telephone: shop.public_phone || shop.public_whatsapp || undefined,
+    openingHours: openingHoursFromShop(shop),
     address: place
       ? {
           "@type": "PostalAddress",
-          addressLocality: place,
+          addressLocality: parsed.lga || place,
+          addressRegion: parsed.state || undefined,
           addressCountry: "NG",
         }
       : { "@type": "PostalAddress", addressCountry: "NG" },
@@ -209,13 +224,17 @@ export function seoHead(input: {
       { property: "og:url", content: input.url },
       { property: "og:image", content: input.image },
       { property: "og:locale", content: "en_NG" },
+      { property: "og:locale:alternate", content: "ha_NG" },
       { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:title", content: input.title },
       { name: "twitter:description", content: input.description },
       { name: "twitter:image", content: input.image },
     ],
     links: [{ rel: "canonical", href: input.url }],
-    scripts: graphs.map((graph) => ({ type: "application/ld+json", children: JSON.stringify(graph) })),
+    scripts: graphs.map((graph) => ({
+      type: "application/ld+json",
+      children: JSON.stringify(graph).replace(/</g, "\\u003c"),
+    })),
   };
 }
 
@@ -249,10 +268,22 @@ async function lookupShop(slug: string): Promise<PublicBusiness | null> {
   return null;
 }
 
+async function lookupSlugRedirect(slug: string): Promise<string | null> {
+  const supabase = getSupabasePublicServerClient();
+  if (!supabase) return null;
+  const { data, error } = await supabase.from("business_slug_redirects").select("to_slug").eq("from_slug", slug).maybeSingle();
+  if (error) return null;
+  const next = String(data?.to_slug ?? "").trim();
+  return next && next !== slug ? next : null;
+}
+
 export async function fetchPublicShopPage(slug: string): Promise<PublicShopPage> {
   try {
     const business = await lookupShop(slug);
-    if (!business) return { business: null, products: [], videos: [], error: null };
+    if (!business) {
+      const redirectTo = await lookupSlugRedirect(slug);
+      return { business: null, products: [], videos: [], error: null, redirectTo };
+    }
     const supabase = getSupabasePublicServerClient();
     if (!supabase) return { business, products: [], videos: [], error: null };
     let productsRes = await supabase
@@ -271,11 +302,13 @@ export async function fetchPublicShopPage(slug: string): Promise<PublicShopPage>
         .order("name")
         .limit(80);
     }
+    const products = (productsRes.data ?? []) as PublicProduct[];
     return {
       business,
-      products: (productsRes.data ?? []) as PublicProduct[],
+      products,
       videos: [],
       error: productsRes.error?.message ?? null,
+      indexable: isPublicShopIndexable(business, products),
     };
   } catch (err) {
     return { business: null, products: [], videos: [], error: err instanceof Error ? err.message : "Could not load this shop." };

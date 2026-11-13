@@ -15,8 +15,12 @@ import { absoluteSeoImage, productPageUrl, seoHead, shopPageUrl } from "@/lib/se
 export const Route = createFileRoute("/shop/search/$query")({
   loader: async ({ params }) => {
     const query = decodeURIComponent(params.query).replace(/[-+]/g, " ").trim().slice(0, 80);
-    const catalog = await fetchPublicCatalog({ query, limit: 60 });
-    return { query, catalog };
+    try {
+      const catalog = await fetchPublicCatalog({ query, limit: 60 });
+      return { query, catalog };
+    } catch {
+      return { query, catalog: { products: [], shops: [], categories: [] } };
+    }
   },
   head: ({ loaderData, params }) => {
     const query = loaderData?.query || decodeURIComponent(params.query);

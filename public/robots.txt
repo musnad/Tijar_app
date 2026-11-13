@@ -1,6 +1,8 @@
 User-agent: *
 Allow: /
 Allow: /b/
+Allow: /vendor/
+Allow: /nigeria/
 Allow: /shop/
 Allow: /shop/p/
 Allow: /shop/c/

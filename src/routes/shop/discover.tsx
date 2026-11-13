@@ -20,8 +20,14 @@ export const Route = createFileRoute("/shop/discover")({
     c: typeof s.c === "string" && s.c.trim() ? s.c.trim().slice(0, 80) : undefined,
   }),
   loader: async ({ search }) => {
-    const catalog = await fetchPublicCatalog({ query: search.q, category: search.c, limit: 48 });
-    return { ...catalog, q: search.q, c: search.c };
+    const q = typeof search?.q === "string" ? search.q : undefined;
+    const c = typeof search?.c === "string" ? search.c : undefined;
+    try {
+      const catalog = await fetchPublicCatalog({ query: q, category: c, limit: 48 });
+      return { ...catalog, q, c };
+    } catch {
+      return { products: [], shops: [], categories: [], q, c };
+    }
   },
   head: ({ loaderData }) => {
     const q = loaderData?.q;
@@ -58,7 +64,13 @@ export const Route = createFileRoute("/shop/discover")({
 });
 
 function Page() {
-  const { q, c } = Route.useSearch();
+  const search = Route.useSearch() ?? {};
   const catalog = Route.useLoaderData();
-  return <ShopDiscoverScreen initialQuery={q} initialCategory={c} initialProducts={catalog.products} />;
+  return (
+    <ShopDiscoverScreen
+      initialQuery={search.q}
+      initialCategory={search.c}
+      initialProducts={catalog?.products ?? []}
+    />
+  );
 }

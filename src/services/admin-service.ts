@@ -603,3 +603,62 @@ export async function setBusinessPublished(
 export function shopName(row: { businesses?: { business_name: string } | null; business_id?: string }): string {
   return row.businesses?.business_name ?? row.business_id?.slice(0, 8) ?? "Shop";
 }
+
+export type SeoKeywordAliasRow = {
+  id: string;
+  keyword: string;
+  language: string;
+  category_slug: string;
+  english_label: string;
+  hausa_label: string | null;
+  active: boolean;
+};
+
+export async function fetchSeoKeywordAliases(): Promise<{ rows: SeoKeywordAliasRow[]; error: string | null }> {
+  const supabase = getSupabaseBrowserClient();
+  const { data, error } = await supabase
+    .from("seo_keyword_aliases")
+    .select("id, keyword, language, category_slug, english_label, hausa_label, active")
+    .order("keyword")
+    .limit(500);
+  if (error) return { rows: [], error: error.message };
+  return { rows: (data ?? []) as SeoKeywordAliasRow[], error: null };
+}
+
+export async function upsertSeoKeywordAlias(input: {
+  keyword: string;
+  language: string;
+  categorySlug: string;
+  englishLabel: string;
+  hausaLabel?: string;
+}): Promise<{ error: string | null }> {
+  const supabase = getSupabaseBrowserClient();
+  const { error } = await supabase.from("seo_keyword_aliases").upsert(
+    {
+      keyword: input.keyword.trim().toLowerCase(),
+      language: input.language,
+      category_slug: input.categorySlug.trim(),
+      english_label: input.englishLabel.trim(),
+      hausa_label: input.hausaLabel?.trim() || null,
+      active: true,
+    },
+    { onConflict: "keyword,category_slug" },
+  );
+  return { error: error?.message ?? null };
+}
+
+export async function updateBusinessSeoCopy(
+  businessId: string,
+  seoTitle: string,
+  seoDescription: string,
+): Promise<{ error: string | null }> {
+  const supabase = getSupabaseBrowserClient();
+  const { error } = await supabase
+    .from("businesses")
+    .update({
+      seo_title: seoTitle.trim() || null,
+      seo_description: seoDescription.trim() || null,
+    })
+    .eq("id", businessId);
+  return { error: error?.message ?? null };
+}

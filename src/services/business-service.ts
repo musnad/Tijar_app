@@ -191,6 +191,18 @@ export async function updateBusinessProfile(
     }
   }
 
+  if (nextSlug) {
+    const current = await supabase.from("businesses").select("public_slug").eq("id", businessId).maybeSingle();
+    const fromSlug = String(current.data?.public_slug ?? "").trim();
+    if (fromSlug && fromSlug !== nextSlug) {
+      await supabase.from("business_slug_redirects").upsert({
+        from_slug: fromSlug,
+        to_slug: nextSlug,
+        business_id: businessId,
+      });
+    }
+  }
+
   const clearLogo = input.logoUrl === null;
   const rpc = await supabase.rpc("save_business_profile", {
     p_business_id: businessId,

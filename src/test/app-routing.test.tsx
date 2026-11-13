@@ -33,6 +33,14 @@ describe("App routing", () => {
     expect(matches.some((m) => m.routeId.includes("/expenses"))).toBe(true);
   });
 
+  it("matches public Nigeria directory routes", () => {
+    const router = createRouter({ routeTree, context: { queryClient: new QueryClient() } });
+    expect(router.matchRoutes("/nigeria").at(-1)?.routeId).toBe("/nigeria/");
+    expect(router.matchRoutes("/nigeria/kano").some((m) => m.routeId.includes("/nigeria/$state"))).toBe(true);
+    expect(router.matchRoutes("/nigeria/kano/dan-wake").some((m) => m.routeId.includes("$category"))).toBe(true);
+    expect(router.matchRoutes("/vendor/amina-danwake-kano").at(-1)?.routeId).toBe("/vendor/$slug");
+  });
+
   it("matches add customer at /app/customers/new", () => {
     const router = createRouter({ routeTree, context: { queryClient: new QueryClient() } });
     const matches = router.matchRoutes("/app/customers/new");
