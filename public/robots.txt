@@ -1,14 +1,20 @@
+User-agent: *
+Allow: /
+Allow: /b/
+Allow: /shop/p/
+Allow: /shop/discover
+Allow: /discover
+Disallow: /app/
+Disallow: /api/
+Disallow: /shop/cart
+Disallow: /shop/checkout
+Disallow: /shop/orders
+Disallow: /shop/settings
+Disallow: /login
+Disallow: /register
+
 User-agent: Googlebot
 Allow: /
 
-User-agent: Bingbot
-Allow: /
-
-User-agent: Twitterbot
-Allow: /
-
-User-agent: facebookexternalhit
-Allow: /
-
-User-agent: *
-Allow: /
+Sitemap: https://www.tijar.ng/api/sitemap
+Sitemap: https://www.tijar.ng/sitemap.xml

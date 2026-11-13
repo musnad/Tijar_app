@@ -23,15 +23,18 @@ import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as RegisterRouteImport } from './routes/register'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as ShopRouteImport } from './routes/shop'
+import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as TermsRouteImport } from './routes/terms'
 import { Route as TranslateRouteImport } from './routes/translate'
 import { Route as ApiPublicConfigRouteImport } from './routes/api.public-config'
 import { Route as ApiSearchImageRouteImport } from './routes/api.search-image'
+import { Route as ApiSitemapRouteImport } from './routes/api.sitemap'
 import { Route as ApiSpeakRouteImport } from './routes/api.speak'
 import { Route as ApiSupabaseHealthRouteImport } from './routes/api.supabase-health'
 import { Route as ApiTranslateRouteImport } from './routes/api.translate'
 import { Route as ApiTranslateBatchRouteImport } from './routes/api.translate-batch'
 import { Route as ApiTranslateSpeechRouteImport } from './routes/api.translate-speech'
+import { Route as ApiUssdRouteImport } from './routes/api.ussd'
 import { Route as ApiVoiceEnrollRouteImport } from './routes/api.voice-enroll'
 import { Route as AppIndexRouteImport } from './routes/app/index'
 import { Route as AppAiRouteImport } from './routes/app/ai'
@@ -59,6 +62,9 @@ import { Route as AppVideosRouteImport } from './routes/app/videos'
 import { Route as AuthCallbackRouteImport } from './routes/auth.callback'
 import { Route as BSlugRouteImport } from './routes/b/$slug'
 import { Route as ShopIndexRouteImport } from './routes/shop/index'
+import { Route as ShopAdsRouteImport } from './routes/shop/ads'
+import { Route as ShopAgentRouteImport } from './routes/shop/agent'
+import { Route as ShopBranchesRouteImport } from './routes/shop/branches'
 import { Route as ShopBrowseRouteImport } from './routes/shop/browse'
 import { Route as ShopBusinessApplyRouteImport } from './routes/shop/business-apply'
 import { Route as ShopBuyRouteImport } from './routes/shop/buy'
@@ -82,11 +88,17 @@ import { Route as ShopPayoutsRouteImport } from './routes/shop/payouts'
 import { Route as ShopProfileRouteImport } from './routes/shop/profile'
 import { Route as ShopSellItemRouteImport } from './routes/shop/sell-item'
 import { Route as ShopServicesRouteImport } from './routes/shop/services'
-import { Route as ShopAgentRouteImport } from './routes/shop/agent'
-import { Route as ShopBranchesRouteImport } from './routes/shop/branches'
 import { Route as ShopSettingsRouteImport } from './routes/shop/settings'
 import { Route as ShopStudioRouteImport } from './routes/shop/studio'
-import { Route as ShopAdsRouteImport } from './routes/shop/ads'
+import { Route as ApiAdminAgentsRouteImport } from './routes/api.admin.agents'
+import { Route as ApiAdminExpensesRouteImport } from './routes/api.admin.expenses'
+import { Route as ApiAdminVerifiedBadgeRouteImport } from './routes/api.admin.verified-badge'
+import { Route as ApiAdsAccountRouteImport } from './routes/api.ads.account'
+import { Route as ApiAdsCatalogRouteImport } from './routes/api.ads.catalog'
+import { Route as ApiAdsConfirmRouteImport } from './routes/api.ads.confirm'
+import { Route as ApiAdsGoLiveRouteImport } from './routes/api.ads.go-live'
+import { Route as ApiAdsPayWalletRouteImport } from './routes/api.ads.pay-wallet'
+import { Route as ApiAgentShopsRouteImport } from './routes/api.agent.shops'
 import { Route as ApiAiCaptionRouteImport } from './routes/api.ai.caption'
 import { Route as ApiAiGraphicsRouteImport } from './routes/api.ai.graphics'
 import { Route as ApiAiListingRouteImport } from './routes/api.ai.listing'
@@ -94,21 +106,11 @@ import { Route as ApiAiReportRouteImport } from './routes/api.ai.report'
 import { Route as ApiAiSaleRouteImport } from './routes/api.ai.sale'
 import { Route as ApiAiTranscribeRouteImport } from './routes/api.ai.transcribe'
 import { Route as ApiAssistantChatRouteImport } from './routes/api.assistant.chat'
-import { Route as ApiAdminVerifiedBadgeRouteImport } from './routes/api.admin.verified-badge'
-import { Route as ApiAdminExpensesRouteImport } from './routes/api.admin.expenses'
-import { Route as ApiAdminAgentsRouteImport } from './routes/api.admin.agents'
-import { Route as ApiAgentShopsRouteImport } from './routes/api.agent.shops'
-import { Route as ApiShopBranchesRouteImport } from './routes/api.shop.branches'
+import { Route as ApiAuthForgotPasswordRouteImport } from './routes/api.auth.forgot-password'
+import { Route as ApiCronAdsRouteImport } from './routes/api.cron.ads'
+import { Route as ApiCronAgentRepostRouteImport } from './routes/api.cron.agent-repost'
 import { Route as ApiKycVerifyRouteImport } from './routes/api.kyc.verify'
 import { Route as ApiPaymentsConfirmOrderRouteImport } from './routes/api.payments.confirm-order'
-import { Route as ApiAdsAccountRouteImport } from './routes/api.ads.account'
-import { Route as ApiAdsConfirmRouteImport } from './routes/api.ads.confirm'
-import { Route as ApiAdsGoLiveRouteImport } from './routes/api.ads.go-live'
-import { Route as ApiAdsPayWalletRouteImport } from './routes/api.ads.pay-wallet'
-import { Route as ApiAuthForgotPasswordRouteImport } from './routes/api.auth.forgot-password'
-import { Route as ApiUssdAfricastalkingRouteImport } from './routes/api.ussd.africastalking'
-import { Route as ApiUssdRouteImport } from './routes/api.ussd'
-import { Route as ApiCronAdsRouteImport } from './routes/api.cron.ads'
 import { Route as ApiPaymentsFlutterwaveRouteImport } from './routes/api.payments.flutterwave'
 import { Route as ApiPaymentsPayoutRouteImport } from './routes/api.payments.payout'
 import { Route as ApiPaymentsPaystackRouteImport } from './routes/api.payments.paystack'
@@ -118,9 +120,11 @@ import { Route as ApiPaymentsVirtualAccountRouteImport } from './routes/api.paym
 import { Route as ApiPaymentsWebhookRouteImport } from './routes/api.payments.webhook'
 import { Route as ApiPushNotifyRouteImport } from './routes/api.push.notify'
 import { Route as ApiPushSubscribeRouteImport } from './routes/api.push.subscribe'
+import { Route as ApiShopBranchesRouteImport } from './routes/api.shop.branches'
 import { Route as ApiStudioFlyerRouteImport } from './routes/api.studio.flyer'
 import { Route as ApiStudioStatusRouteImport } from './routes/api.studio.status'
 import { Route as ApiStudioVideoRouteImport } from './routes/api.studio.video'
+import { Route as ApiUssdAfricastalkingRouteImport } from './routes/api.ussd.africastalking'
 import { Route as AppAdminIndexRouteImport } from './routes/app/admin/index'
 import { Route as AppAdminModerationRouteImport } from './routes/app/admin/moderation'
 import { Route as AppAdminTranslateRouteImport } from './routes/app/admin/translate'
@@ -141,6 +145,7 @@ import { Route as AppProductsScanShopRouteImport } from './routes/app/products/s
 import { Route as AppProfileEditRouteImport } from './routes/app/profile/edit'
 import { Route as AppProfileSettingsRouteImport } from './routes/app/profile/settings'
 import { Route as AppVideosNewRouteImport } from './routes/app/videos/new'
+import { Route as ShopAgentShopIdRouteImport } from './routes/shop/agent.$shopId'
 import { Route as ShopBidPostIdRouteImport } from './routes/shop/bid.$postId'
 import { Route as ShopEnquiriesIndexRouteImport } from './routes/shop/enquiries.index'
 import { Route as ShopEnquiriesConversationIdRouteImport } from './routes/shop/enquiries.$conversationId'
@@ -150,6 +155,7 @@ import { Route as ShopOrdersIndexRouteImport } from './routes/shop/orders.index'
 import { Route as ShopOrdersOrderIdRouteImport } from './routes/shop/orders.$orderId'
 import { Route as ShopPProductIdRouteImport } from './routes/shop/p.$productId'
 import { Route as ShopUProfileIdRouteImport } from './routes/shop/u.$profileId'
+import { Route as ApiAgentShopShopIdRouteImport } from './routes/api.agent.shop.$shopId'
 import { Route as ApiStudioVideoRequestIdRouteImport } from './routes/api.studio.video.$requestId'
 import { Route as AppCustomersCreditNewRouteImport } from './routes/app/customers/credit/new'
 import { Route as ShopPostPostIdEditRouteImport } from './routes/shop/post.$postId.edit'
@@ -224,6 +230,11 @@ const ShopRoute = ShopRouteImport.update({
   path: '/shop',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
+  id: '/sitemap.xml',
+  path: '/sitemap.xml',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const TermsRoute = TermsRouteImport.update({
   id: '/terms',
   path: '/terms',
@@ -242,6 +253,11 @@ const ApiPublicConfigRoute = ApiPublicConfigRouteImport.update({
 const ApiSearchImageRoute = ApiSearchImageRouteImport.update({
   id: '/api/search-image',
   path: '/api/search-image',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiSitemapRoute = ApiSitemapRouteImport.update({
+  id: '/api/sitemap',
+  path: '/api/sitemap',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiSpeakRoute = ApiSpeakRouteImport.update({
@@ -267,6 +283,11 @@ const ApiTranslateBatchRoute = ApiTranslateBatchRouteImport.update({
 const ApiTranslateSpeechRoute = ApiTranslateSpeechRouteImport.update({
   id: '/api/translate-speech',
   path: '/api/translate-speech',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiUssdRoute = ApiUssdRouteImport.update({
+  id: '/api/ussd',
+  path: '/api/ussd',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiVoiceEnrollRoute = ApiVoiceEnrollRouteImport.update({
@@ -404,6 +425,21 @@ const ShopIndexRoute = ShopIndexRouteImport.update({
   path: '/',
   getParentRoute: () => ShopRoute,
 } as any)
+const ShopAdsRoute = ShopAdsRouteImport.update({
+  id: '/ads',
+  path: '/ads',
+  getParentRoute: () => ShopRoute,
+} as any)
+const ShopAgentRoute = ShopAgentRouteImport.update({
+  id: '/agent',
+  path: '/agent',
+  getParentRoute: () => ShopRoute,
+} as any)
+const ShopBranchesRoute = ShopBranchesRouteImport.update({
+  id: '/branches',
+  path: '/branches',
+  getParentRoute: () => ShopRoute,
+} as any)
 const ShopBrowseRoute = ShopBrowseRouteImport.update({
   id: '/browse',
   path: '/browse',
@@ -519,16 +555,6 @@ const ShopServicesRoute = ShopServicesRouteImport.update({
   path: '/services',
   getParentRoute: () => ShopRoute,
 } as any)
-const ShopAgentRoute = ShopAgentRouteImport.update({
-  id: '/agent',
-  path: '/agent',
-  getParentRoute: () => ShopRoute,
-} as any)
-const ShopBranchesRoute = ShopBranchesRouteImport.update({
-  id: '/branches',
-  path: '/branches',
-  getParentRoute: () => ShopRoute,
-} as any)
 const ShopSettingsRoute = ShopSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
@@ -539,10 +565,50 @@ const ShopStudioRoute = ShopStudioRouteImport.update({
   path: '/studio',
   getParentRoute: () => ShopRoute,
 } as any)
-const ShopAdsRoute = ShopAdsRouteImport.update({
-  id: '/ads',
-  path: '/ads',
-  getParentRoute: () => ShopRoute,
+const ApiAdminAgentsRoute = ApiAdminAgentsRouteImport.update({
+  id: '/api/admin/agents',
+  path: '/api/admin/agents',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAdminExpensesRoute = ApiAdminExpensesRouteImport.update({
+  id: '/api/admin/expenses',
+  path: '/api/admin/expenses',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAdminVerifiedBadgeRoute = ApiAdminVerifiedBadgeRouteImport.update({
+  id: '/api/admin/verified-badge',
+  path: '/api/admin/verified-badge',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAdsAccountRoute = ApiAdsAccountRouteImport.update({
+  id: '/api/ads/account',
+  path: '/api/ads/account',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAdsCatalogRoute = ApiAdsCatalogRouteImport.update({
+  id: '/api/ads/catalog',
+  path: '/api/ads/catalog',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAdsConfirmRoute = ApiAdsConfirmRouteImport.update({
+  id: '/api/ads/confirm',
+  path: '/api/ads/confirm',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAdsGoLiveRoute = ApiAdsGoLiveRouteImport.update({
+  id: '/api/ads/go-live',
+  path: '/api/ads/go-live',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAdsPayWalletRoute = ApiAdsPayWalletRouteImport.update({
+  id: '/api/ads/pay-wallet',
+  path: '/api/ads/pay-wallet',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAgentShopsRoute = ApiAgentShopsRouteImport.update({
+  id: '/api/agent/shops',
+  path: '/api/agent/shops',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const ApiAiCaptionRoute = ApiAiCaptionRouteImport.update({
   id: '/api/ai/caption',
@@ -579,29 +645,19 @@ const ApiAssistantChatRoute = ApiAssistantChatRouteImport.update({
   path: '/api/assistant/chat',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiAdminVerifiedBadgeRoute = ApiAdminVerifiedBadgeRouteImport.update({
-  id: '/api/admin/verified-badge',
-  path: '/api/admin/verified-badge',
+const ApiAuthForgotPasswordRoute = ApiAuthForgotPasswordRouteImport.update({
+  id: '/api/auth/forgot-password',
+  path: '/api/auth/forgot-password',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiAdminExpensesRoute = ApiAdminExpensesRouteImport.update({
-  id: '/api/admin/expenses',
-  path: '/api/admin/expenses',
+const ApiCronAdsRoute = ApiCronAdsRouteImport.update({
+  id: '/api/cron/ads',
+  path: '/api/cron/ads',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiAdminAgentsRoute = ApiAdminAgentsRouteImport.update({
-  id: '/api/admin/agents',
-  path: '/api/admin/agents',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiAgentShopsRoute = ApiAgentShopsRouteImport.update({
-  id: '/api/agent/shops',
-  path: '/api/agent/shops',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiShopBranchesRoute = ApiShopBranchesRouteImport.update({
-  id: '/api/shop/branches',
-  path: '/api/shop/branches',
+const ApiCronAgentRepostRoute = ApiCronAgentRepostRouteImport.update({
+  id: '/api/cron/agent-repost',
+  path: '/api/cron/agent-repost',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiKycVerifyRoute = ApiKycVerifyRouteImport.update({
@@ -612,46 +668,6 @@ const ApiKycVerifyRoute = ApiKycVerifyRouteImport.update({
 const ApiPaymentsConfirmOrderRoute = ApiPaymentsConfirmOrderRouteImport.update({
   id: '/api/payments/confirm-order',
   path: '/api/payments/confirm-order',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiAdsAccountRoute = ApiAdsAccountRouteImport.update({
-  id: '/api/ads/account',
-  path: '/api/ads/account',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiAdsConfirmRoute = ApiAdsConfirmRouteImport.update({
-  id: '/api/ads/confirm',
-  path: '/api/ads/confirm',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiAdsGoLiveRoute = ApiAdsGoLiveRouteImport.update({
-  id: '/api/ads/go-live',
-  path: '/api/ads/go-live',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiAdsPayWalletRoute = ApiAdsPayWalletRouteImport.update({
-  id: '/api/ads/pay-wallet',
-  path: '/api/ads/pay-wallet',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiAuthForgotPasswordRoute = ApiAuthForgotPasswordRouteImport.update({
-  id: '/api/auth/forgot-password',
-  path: '/api/auth/forgot-password',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiUssdAfricastalkingRoute = ApiUssdAfricastalkingRouteImport.update({
-  id: '/api/ussd/africastalking',
-  path: '/api/ussd/africastalking',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiUssdRoute = ApiUssdRouteImport.update({
-  id: '/api/ussd',
-  path: '/api/ussd',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiCronAdsRoute = ApiCronAdsRouteImport.update({
-  id: '/api/cron/ads',
-  path: '/api/cron/ads',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiPaymentsFlutterwaveRoute = ApiPaymentsFlutterwaveRouteImport.update({
@@ -700,6 +716,11 @@ const ApiPushSubscribeRoute = ApiPushSubscribeRouteImport.update({
   path: '/api/push/subscribe',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiShopBranchesRoute = ApiShopBranchesRouteImport.update({
+  id: '/api/shop/branches',
+  path: '/api/shop/branches',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiStudioFlyerRoute = ApiStudioFlyerRouteImport.update({
   id: '/api/studio/flyer',
   path: '/api/studio/flyer',
@@ -714,6 +735,11 @@ const ApiStudioVideoRoute = ApiStudioVideoRouteImport.update({
   id: '/api/studio/video',
   path: '/api/studio/video',
   getParentRoute: () => rootRouteImport,
+} as any)
+const ApiUssdAfricastalkingRoute = ApiUssdAfricastalkingRouteImport.update({
+  id: '/africastalking',
+  path: '/africastalking',
+  getParentRoute: () => ApiUssdRoute,
 } as any)
 const AppAdminIndexRoute = AppAdminIndexRouteImport.update({
   id: '/admin/',
@@ -815,6 +841,11 @@ const AppVideosNewRoute = AppVideosNewRouteImport.update({
   path: '/new',
   getParentRoute: () => AppVideosRoute,
 } as any)
+const ShopAgentShopIdRoute = ShopAgentShopIdRouteImport.update({
+  id: '/$shopId',
+  path: '/$shopId',
+  getParentRoute: () => ShopAgentRoute,
+} as any)
 const ShopBidPostIdRoute = ShopBidPostIdRouteImport.update({
   id: '/bid/$postId',
   path: '/bid/$postId',
@@ -861,6 +892,11 @@ const ShopUProfileIdRoute = ShopUProfileIdRouteImport.update({
   path: '/u/$profileId',
   getParentRoute: () => ShopRoute,
 } as any)
+const ApiAgentShopShopIdRoute = ApiAgentShopShopIdRouteImport.update({
+  id: '/api/agent/shop/$shopId',
+  path: '/api/agent/shop/$shopId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiStudioVideoRequestIdRoute = ApiStudioVideoRequestIdRouteImport.update({
   id: '/$requestId',
   path: '/$requestId',
@@ -892,17 +928,20 @@ export interface FileRoutesByFullPath {
   '/register': typeof RegisterRoute
   '/reset-password': typeof ResetPasswordRoute
   '/shop': typeof ShopRouteWithChildren
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/terms': typeof TermsRoute
   '/translate': typeof TranslateRoute
   '/app/customers': typeof AppCustomersRouteRouteWithChildren
   '/app/learn': typeof AppLearnRouteRouteWithChildren
   '/api/public-config': typeof ApiPublicConfigRoute
   '/api/search-image': typeof ApiSearchImageRoute
+  '/api/sitemap': typeof ApiSitemapRoute
   '/api/speak': typeof ApiSpeakRoute
   '/api/supabase-health': typeof ApiSupabaseHealthRoute
   '/api/translate': typeof ApiTranslateRoute
   '/api/translate-batch': typeof ApiTranslateBatchRoute
   '/api/translate-speech': typeof ApiTranslateSpeechRoute
+  '/api/ussd': typeof ApiUssdRouteWithChildren
   '/api/voice-enroll': typeof ApiVoiceEnrollRoute
   '/app/ai': typeof AppAiRoute
   '/app/assistant': typeof AppAssistantRoute
@@ -926,6 +965,9 @@ export interface FileRoutesByFullPath {
   '/app/videos': typeof AppVideosRouteWithChildren
   '/auth/callback': typeof AuthCallbackRoute
   '/b/$slug': typeof BSlugRoute
+  '/shop/ads': typeof ShopAdsRoute
+  '/shop/agent': typeof ShopAgentRouteWithChildren
+  '/shop/branches': typeof ShopBranchesRoute
   '/shop/browse': typeof ShopBrowseRoute
   '/shop/business-apply': typeof ShopBusinessApplyRoute
   '/shop/buy': typeof ShopBuyRoute
@@ -949,13 +991,19 @@ export interface FileRoutesByFullPath {
   '/shop/profile': typeof ShopProfileRoute
   '/shop/sell-item': typeof ShopSellItemRoute
   '/shop/services': typeof ShopServicesRoute
-  '/shop/agent': typeof ShopAgentRoute
-  '/shop/branches': typeof ShopBranchesRoute
   '/shop/settings': typeof ShopSettingsRoute
   '/shop/studio': typeof ShopStudioRoute
-  '/shop/ads': typeof ShopAdsRoute
   '/app/': typeof AppIndexRoute
   '/shop/': typeof ShopIndexRoute
+  '/api/admin/agents': typeof ApiAdminAgentsRoute
+  '/api/admin/expenses': typeof ApiAdminExpensesRoute
+  '/api/admin/verified-badge': typeof ApiAdminVerifiedBadgeRoute
+  '/api/ads/account': typeof ApiAdsAccountRoute
+  '/api/ads/catalog': typeof ApiAdsCatalogRoute
+  '/api/ads/confirm': typeof ApiAdsConfirmRoute
+  '/api/ads/go-live': typeof ApiAdsGoLiveRoute
+  '/api/ads/pay-wallet': typeof ApiAdsPayWalletRoute
+  '/api/agent/shops': typeof ApiAgentShopsRoute
   '/api/ai/caption': typeof ApiAiCaptionRoute
   '/api/ai/graphics': typeof ApiAiGraphicsRoute
   '/api/ai/listing': typeof ApiAiListingRoute
@@ -963,21 +1011,11 @@ export interface FileRoutesByFullPath {
   '/api/ai/sale': typeof ApiAiSaleRoute
   '/api/ai/transcribe': typeof ApiAiTranscribeRoute
   '/api/assistant/chat': typeof ApiAssistantChatRoute
-  '/api/admin/verified-badge': typeof ApiAdminVerifiedBadgeRoute
-  '/api/admin/expenses': typeof ApiAdminExpensesRoute
-  '/api/admin/agents': typeof ApiAdminAgentsRoute
-  '/api/agent/shops': typeof ApiAgentShopsRoute
-  '/api/shop/branches': typeof ApiShopBranchesRoute
+  '/api/auth/forgot-password': typeof ApiAuthForgotPasswordRoute
+  '/api/cron/ads': typeof ApiCronAdsRoute
+  '/api/cron/agent-repost': typeof ApiCronAgentRepostRoute
   '/api/kyc/verify': typeof ApiKycVerifyRoute
   '/api/payments/confirm-order': typeof ApiPaymentsConfirmOrderRoute
-  '/api/ads/account': typeof ApiAdsAccountRoute
-  '/api/ads/confirm': typeof ApiAdsConfirmRoute
-  '/api/ads/go-live': typeof ApiAdsGoLiveRoute
-  '/api/ads/pay-wallet': typeof ApiAdsPayWalletRoute
-  '/api/auth/forgot-password': typeof ApiAuthForgotPasswordRoute
-  '/api/ussd/africastalking': typeof ApiUssdAfricastalkingRoute
-  '/api/ussd': typeof ApiUssdRoute
-  '/api/cron/ads': typeof ApiCronAdsRoute
   '/api/payments/flutterwave': typeof ApiPaymentsFlutterwaveRoute
   '/api/payments/payout': typeof ApiPaymentsPayoutRoute
   '/api/payments/paystack': typeof ApiPaymentsPaystackRoute
@@ -987,9 +1025,11 @@ export interface FileRoutesByFullPath {
   '/api/payments/webhook': typeof ApiPaymentsWebhookRoute
   '/api/push/notify': typeof ApiPushNotifyRoute
   '/api/push/subscribe': typeof ApiPushSubscribeRoute
+  '/api/shop/branches': typeof ApiShopBranchesRoute
   '/api/studio/flyer': typeof ApiStudioFlyerRoute
   '/api/studio/status': typeof ApiStudioStatusRoute
   '/api/studio/video': typeof ApiStudioVideoRouteWithChildren
+  '/api/ussd/africastalking': typeof ApiUssdAfricastalkingRoute
   '/app/admin/moderation': typeof AppAdminModerationRoute
   '/app/admin/translate': typeof AppAdminTranslateRoute
   '/app/business/edit': typeof AppBusinessEditRoute
@@ -1007,6 +1047,7 @@ export interface FileRoutesByFullPath {
   '/app/profile/edit': typeof AppProfileEditRoute
   '/app/profile/settings': typeof AppProfileSettingsRoute
   '/app/videos/new': typeof AppVideosNewRoute
+  '/shop/agent/$shopId': typeof ShopAgentShopIdRoute
   '/shop/bid/$postId': typeof ShopBidPostIdRoute
   '/shop/enquiries/$conversationId': typeof ShopEnquiriesConversationIdRoute
   '/shop/order-now/$listingId': typeof ShopOrderNowListingIdRoute
@@ -1019,6 +1060,7 @@ export interface FileRoutesByFullPath {
   '/shop/enquiries/': typeof ShopEnquiriesIndexRoute
   '/shop/order-now/': typeof ShopOrderNowIndexRoute
   '/shop/orders/': typeof ShopOrdersIndexRoute
+  '/api/agent/shop/$shopId': typeof ApiAgentShopShopIdRoute
   '/api/studio/video/$requestId': typeof ApiStudioVideoRequestIdRoute
   '/app/customers/credit/new': typeof AppCustomersCreditNewRoute
   '/shop/post/$postId/edit': typeof ShopPostPostIdEditRoute
@@ -1036,15 +1078,18 @@ export interface FileRoutesByTo {
   '/privacy': typeof PrivacyRoute
   '/register': typeof RegisterRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/terms': typeof TermsRoute
   '/translate': typeof TranslateRoute
   '/api/public-config': typeof ApiPublicConfigRoute
   '/api/search-image': typeof ApiSearchImageRoute
+  '/api/sitemap': typeof ApiSitemapRoute
   '/api/speak': typeof ApiSpeakRoute
   '/api/supabase-health': typeof ApiSupabaseHealthRoute
   '/api/translate': typeof ApiTranslateRoute
   '/api/translate-batch': typeof ApiTranslateBatchRoute
   '/api/translate-speech': typeof ApiTranslateSpeechRoute
+  '/api/ussd': typeof ApiUssdRouteWithChildren
   '/api/voice-enroll': typeof ApiVoiceEnrollRoute
   '/app/ai': typeof AppAiRoute
   '/app/assistant': typeof AppAssistantRoute
@@ -1068,6 +1113,9 @@ export interface FileRoutesByTo {
   '/app/videos': typeof AppVideosRouteWithChildren
   '/auth/callback': typeof AuthCallbackRoute
   '/b/$slug': typeof BSlugRoute
+  '/shop/ads': typeof ShopAdsRoute
+  '/shop/agent': typeof ShopAgentRouteWithChildren
+  '/shop/branches': typeof ShopBranchesRoute
   '/shop/browse': typeof ShopBrowseRoute
   '/shop/business-apply': typeof ShopBusinessApplyRoute
   '/shop/buy': typeof ShopBuyRoute
@@ -1088,13 +1136,19 @@ export interface FileRoutesByTo {
   '/shop/profile': typeof ShopProfileRoute
   '/shop/sell-item': typeof ShopSellItemRoute
   '/shop/services': typeof ShopServicesRoute
-  '/shop/agent': typeof ShopAgentRoute
-  '/shop/branches': typeof ShopBranchesRoute
   '/shop/settings': typeof ShopSettingsRoute
   '/shop/studio': typeof ShopStudioRoute
-  '/shop/ads': typeof ShopAdsRoute
   '/app': typeof AppIndexRoute
   '/shop': typeof ShopIndexRoute
+  '/api/admin/agents': typeof ApiAdminAgentsRoute
+  '/api/admin/expenses': typeof ApiAdminExpensesRoute
+  '/api/admin/verified-badge': typeof ApiAdminVerifiedBadgeRoute
+  '/api/ads/account': typeof ApiAdsAccountRoute
+  '/api/ads/catalog': typeof ApiAdsCatalogRoute
+  '/api/ads/confirm': typeof ApiAdsConfirmRoute
+  '/api/ads/go-live': typeof ApiAdsGoLiveRoute
+  '/api/ads/pay-wallet': typeof ApiAdsPayWalletRoute
+  '/api/agent/shops': typeof ApiAgentShopsRoute
   '/api/ai/caption': typeof ApiAiCaptionRoute
   '/api/ai/graphics': typeof ApiAiGraphicsRoute
   '/api/ai/listing': typeof ApiAiListingRoute
@@ -1102,21 +1156,11 @@ export interface FileRoutesByTo {
   '/api/ai/sale': typeof ApiAiSaleRoute
   '/api/ai/transcribe': typeof ApiAiTranscribeRoute
   '/api/assistant/chat': typeof ApiAssistantChatRoute
-  '/api/admin/verified-badge': typeof ApiAdminVerifiedBadgeRoute
-  '/api/admin/expenses': typeof ApiAdminExpensesRoute
-  '/api/admin/agents': typeof ApiAdminAgentsRoute
-  '/api/agent/shops': typeof ApiAgentShopsRoute
-  '/api/shop/branches': typeof ApiShopBranchesRoute
+  '/api/auth/forgot-password': typeof ApiAuthForgotPasswordRoute
+  '/api/cron/ads': typeof ApiCronAdsRoute
+  '/api/cron/agent-repost': typeof ApiCronAgentRepostRoute
   '/api/kyc/verify': typeof ApiKycVerifyRoute
   '/api/payments/confirm-order': typeof ApiPaymentsConfirmOrderRoute
-  '/api/ads/account': typeof ApiAdsAccountRoute
-  '/api/ads/confirm': typeof ApiAdsConfirmRoute
-  '/api/ads/go-live': typeof ApiAdsGoLiveRoute
-  '/api/ads/pay-wallet': typeof ApiAdsPayWalletRoute
-  '/api/auth/forgot-password': typeof ApiAuthForgotPasswordRoute
-  '/api/ussd/africastalking': typeof ApiUssdAfricastalkingRoute
-  '/api/ussd': typeof ApiUssdRoute
-  '/api/cron/ads': typeof ApiCronAdsRoute
   '/api/payments/flutterwave': typeof ApiPaymentsFlutterwaveRoute
   '/api/payments/payout': typeof ApiPaymentsPayoutRoute
   '/api/payments/paystack': typeof ApiPaymentsPaystackRoute
@@ -1126,9 +1170,11 @@ export interface FileRoutesByTo {
   '/api/payments/webhook': typeof ApiPaymentsWebhookRoute
   '/api/push/notify': typeof ApiPushNotifyRoute
   '/api/push/subscribe': typeof ApiPushSubscribeRoute
+  '/api/shop/branches': typeof ApiShopBranchesRoute
   '/api/studio/flyer': typeof ApiStudioFlyerRoute
   '/api/studio/status': typeof ApiStudioStatusRoute
   '/api/studio/video': typeof ApiStudioVideoRouteWithChildren
+  '/api/ussd/africastalking': typeof ApiUssdAfricastalkingRoute
   '/app/admin/moderation': typeof AppAdminModerationRoute
   '/app/admin/translate': typeof AppAdminTranslateRoute
   '/app/business/edit': typeof AppBusinessEditRoute
@@ -1146,6 +1192,7 @@ export interface FileRoutesByTo {
   '/app/profile/edit': typeof AppProfileEditRoute
   '/app/profile/settings': typeof AppProfileSettingsRoute
   '/app/videos/new': typeof AppVideosNewRoute
+  '/shop/agent/$shopId': typeof ShopAgentShopIdRoute
   '/shop/bid/$postId': typeof ShopBidPostIdRoute
   '/shop/enquiries/$conversationId': typeof ShopEnquiriesConversationIdRoute
   '/shop/order-now/$listingId': typeof ShopOrderNowListingIdRoute
@@ -1158,6 +1205,7 @@ export interface FileRoutesByTo {
   '/shop/enquiries': typeof ShopEnquiriesIndexRoute
   '/shop/order-now': typeof ShopOrderNowIndexRoute
   '/shop/orders': typeof ShopOrdersIndexRoute
+  '/api/agent/shop/$shopId': typeof ApiAgentShopShopIdRoute
   '/api/studio/video/$requestId': typeof ApiStudioVideoRequestIdRoute
   '/app/customers/credit/new': typeof AppCustomersCreditNewRoute
   '/shop/post/$postId/edit': typeof ShopPostPostIdEditRoute
@@ -1178,17 +1226,20 @@ export interface FileRoutesById {
   '/register': typeof RegisterRoute
   '/reset-password': typeof ResetPasswordRoute
   '/shop': typeof ShopRouteWithChildren
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/terms': typeof TermsRoute
   '/translate': typeof TranslateRoute
   '/app/customers': typeof AppCustomersRouteRouteWithChildren
   '/app/learn': typeof AppLearnRouteRouteWithChildren
   '/api/public-config': typeof ApiPublicConfigRoute
   '/api/search-image': typeof ApiSearchImageRoute
+  '/api/sitemap': typeof ApiSitemapRoute
   '/api/speak': typeof ApiSpeakRoute
   '/api/supabase-health': typeof ApiSupabaseHealthRoute
   '/api/translate': typeof ApiTranslateRoute
   '/api/translate-batch': typeof ApiTranslateBatchRoute
   '/api/translate-speech': typeof ApiTranslateSpeechRoute
+  '/api/ussd': typeof ApiUssdRouteWithChildren
   '/api/voice-enroll': typeof ApiVoiceEnrollRoute
   '/app/ai': typeof AppAiRoute
   '/app/assistant': typeof AppAssistantRoute
@@ -1212,6 +1263,9 @@ export interface FileRoutesById {
   '/app/videos': typeof AppVideosRouteWithChildren
   '/auth/callback': typeof AuthCallbackRoute
   '/b/$slug': typeof BSlugRoute
+  '/shop/ads': typeof ShopAdsRoute
+  '/shop/agent': typeof ShopAgentRouteWithChildren
+  '/shop/branches': typeof ShopBranchesRoute
   '/shop/browse': typeof ShopBrowseRoute
   '/shop/business-apply': typeof ShopBusinessApplyRoute
   '/shop/buy': typeof ShopBuyRoute
@@ -1235,13 +1289,19 @@ export interface FileRoutesById {
   '/shop/profile': typeof ShopProfileRoute
   '/shop/sell-item': typeof ShopSellItemRoute
   '/shop/services': typeof ShopServicesRoute
-  '/shop/agent': typeof ShopAgentRoute
-  '/shop/branches': typeof ShopBranchesRoute
   '/shop/settings': typeof ShopSettingsRoute
   '/shop/studio': typeof ShopStudioRoute
-  '/shop/ads': typeof ShopAdsRoute
   '/app/': typeof AppIndexRoute
   '/shop/': typeof ShopIndexRoute
+  '/api/admin/agents': typeof ApiAdminAgentsRoute
+  '/api/admin/expenses': typeof ApiAdminExpensesRoute
+  '/api/admin/verified-badge': typeof ApiAdminVerifiedBadgeRoute
+  '/api/ads/account': typeof ApiAdsAccountRoute
+  '/api/ads/catalog': typeof ApiAdsCatalogRoute
+  '/api/ads/confirm': typeof ApiAdsConfirmRoute
+  '/api/ads/go-live': typeof ApiAdsGoLiveRoute
+  '/api/ads/pay-wallet': typeof ApiAdsPayWalletRoute
+  '/api/agent/shops': typeof ApiAgentShopsRoute
   '/api/ai/caption': typeof ApiAiCaptionRoute
   '/api/ai/graphics': typeof ApiAiGraphicsRoute
   '/api/ai/listing': typeof ApiAiListingRoute
@@ -1249,21 +1309,11 @@ export interface FileRoutesById {
   '/api/ai/sale': typeof ApiAiSaleRoute
   '/api/ai/transcribe': typeof ApiAiTranscribeRoute
   '/api/assistant/chat': typeof ApiAssistantChatRoute
-  '/api/admin/verified-badge': typeof ApiAdminVerifiedBadgeRoute
-  '/api/admin/expenses': typeof ApiAdminExpensesRoute
-  '/api/admin/agents': typeof ApiAdminAgentsRoute
-  '/api/agent/shops': typeof ApiAgentShopsRoute
-  '/api/shop/branches': typeof ApiShopBranchesRoute
+  '/api/auth/forgot-password': typeof ApiAuthForgotPasswordRoute
+  '/api/cron/ads': typeof ApiCronAdsRoute
+  '/api/cron/agent-repost': typeof ApiCronAgentRepostRoute
   '/api/kyc/verify': typeof ApiKycVerifyRoute
   '/api/payments/confirm-order': typeof ApiPaymentsConfirmOrderRoute
-  '/api/ads/account': typeof ApiAdsAccountRoute
-  '/api/ads/confirm': typeof ApiAdsConfirmRoute
-  '/api/ads/go-live': typeof ApiAdsGoLiveRoute
-  '/api/ads/pay-wallet': typeof ApiAdsPayWalletRoute
-  '/api/auth/forgot-password': typeof ApiAuthForgotPasswordRoute
-  '/api/ussd/africastalking': typeof ApiUssdAfricastalkingRoute
-  '/api/ussd': typeof ApiUssdRoute
-  '/api/cron/ads': typeof ApiCronAdsRoute
   '/api/payments/flutterwave': typeof ApiPaymentsFlutterwaveRoute
   '/api/payments/payout': typeof ApiPaymentsPayoutRoute
   '/api/payments/paystack': typeof ApiPaymentsPaystackRoute
@@ -1273,9 +1323,11 @@ export interface FileRoutesById {
   '/api/payments/webhook': typeof ApiPaymentsWebhookRoute
   '/api/push/notify': typeof ApiPushNotifyRoute
   '/api/push/subscribe': typeof ApiPushSubscribeRoute
+  '/api/shop/branches': typeof ApiShopBranchesRoute
   '/api/studio/flyer': typeof ApiStudioFlyerRoute
   '/api/studio/status': typeof ApiStudioStatusRoute
   '/api/studio/video': typeof ApiStudioVideoRouteWithChildren
+  '/api/ussd/africastalking': typeof ApiUssdAfricastalkingRoute
   '/app/admin/moderation': typeof AppAdminModerationRoute
   '/app/admin/translate': typeof AppAdminTranslateRoute
   '/app/business/edit': typeof AppBusinessEditRoute
@@ -1293,6 +1345,7 @@ export interface FileRoutesById {
   '/app/profile/edit': typeof AppProfileEditRoute
   '/app/profile/settings': typeof AppProfileSettingsRoute
   '/app/videos/new': typeof AppVideosNewRoute
+  '/shop/agent/$shopId': typeof ShopAgentShopIdRoute
   '/shop/bid/$postId': typeof ShopBidPostIdRoute
   '/shop/enquiries/$conversationId': typeof ShopEnquiriesConversationIdRoute
   '/shop/order-now/$listingId': typeof ShopOrderNowListingIdRoute
@@ -1305,6 +1358,7 @@ export interface FileRoutesById {
   '/shop/enquiries/': typeof ShopEnquiriesIndexRoute
   '/shop/order-now/': typeof ShopOrderNowIndexRoute
   '/shop/orders/': typeof ShopOrdersIndexRoute
+  '/api/agent/shop/$shopId': typeof ApiAgentShopShopIdRoute
   '/api/studio/video/$requestId': typeof ApiStudioVideoRequestIdRoute
   '/app/customers/credit/new': typeof AppCustomersCreditNewRoute
   '/shop/post/$postId/edit': typeof ShopPostPostIdEditRoute
@@ -1326,17 +1380,20 @@ export interface FileRouteTypes {
     | '/register'
     | '/reset-password'
     | '/shop'
+    | '/sitemap.xml'
     | '/terms'
     | '/translate'
     | '/app/customers'
     | '/app/learn'
     | '/api/public-config'
     | '/api/search-image'
+    | '/api/sitemap'
     | '/api/speak'
     | '/api/supabase-health'
     | '/api/translate'
     | '/api/translate-batch'
     | '/api/translate-speech'
+    | '/api/ussd'
     | '/api/voice-enroll'
     | '/app/ai'
     | '/app/assistant'
@@ -1360,6 +1417,9 @@ export interface FileRouteTypes {
     | '/app/videos'
     | '/auth/callback'
     | '/b/$slug'
+    | '/shop/ads'
+    | '/shop/agent'
+    | '/shop/branches'
     | '/shop/browse'
     | '/shop/business-apply'
     | '/shop/buy'
@@ -1383,13 +1443,19 @@ export interface FileRouteTypes {
     | '/shop/profile'
     | '/shop/sell-item'
     | '/shop/services'
-    | '/shop/agent'
-    | '/shop/branches'
     | '/shop/settings'
     | '/shop/studio'
-    | '/shop/ads'
     | '/app/'
     | '/shop/'
+    | '/api/admin/agents'
+    | '/api/admin/expenses'
+    | '/api/admin/verified-badge'
+    | '/api/ads/account'
+    | '/api/ads/catalog'
+    | '/api/ads/confirm'
+    | '/api/ads/go-live'
+    | '/api/ads/pay-wallet'
+    | '/api/agent/shops'
     | '/api/ai/caption'
     | '/api/ai/graphics'
     | '/api/ai/listing'
@@ -1397,21 +1463,11 @@ export interface FileRouteTypes {
     | '/api/ai/sale'
     | '/api/ai/transcribe'
     | '/api/assistant/chat'
-    | '/api/admin/verified-badge'
-    | '/api/admin/expenses'
-    | '/api/admin/agents'
-    | '/api/agent/shops'
-    | '/api/shop/branches'
+    | '/api/auth/forgot-password'
+    | '/api/cron/ads'
+    | '/api/cron/agent-repost'
     | '/api/kyc/verify'
     | '/api/payments/confirm-order'
-    | '/api/ads/account'
-    | '/api/ads/confirm'
-    | '/api/ads/go-live'
-    | '/api/ads/pay-wallet'
-    | '/api/auth/forgot-password'
-    | '/api/ussd/africastalking'
-    | '/api/ussd'
-    | '/api/cron/ads'
     | '/api/payments/flutterwave'
     | '/api/payments/payout'
     | '/api/payments/paystack'
@@ -1421,9 +1477,11 @@ export interface FileRouteTypes {
     | '/api/payments/webhook'
     | '/api/push/notify'
     | '/api/push/subscribe'
+    | '/api/shop/branches'
     | '/api/studio/flyer'
     | '/api/studio/status'
     | '/api/studio/video'
+    | '/api/ussd/africastalking'
     | '/app/admin/moderation'
     | '/app/admin/translate'
     | '/app/business/edit'
@@ -1441,6 +1499,7 @@ export interface FileRouteTypes {
     | '/app/profile/edit'
     | '/app/profile/settings'
     | '/app/videos/new'
+    | '/shop/agent/$shopId'
     | '/shop/bid/$postId'
     | '/shop/enquiries/$conversationId'
     | '/shop/order-now/$listingId'
@@ -1453,6 +1512,7 @@ export interface FileRouteTypes {
     | '/shop/enquiries/'
     | '/shop/order-now/'
     | '/shop/orders/'
+    | '/api/agent/shop/$shopId'
     | '/api/studio/video/$requestId'
     | '/app/customers/credit/new'
     | '/shop/post/$postId/edit'
@@ -1470,15 +1530,18 @@ export interface FileRouteTypes {
     | '/privacy'
     | '/register'
     | '/reset-password'
+    | '/sitemap.xml'
     | '/terms'
     | '/translate'
     | '/api/public-config'
     | '/api/search-image'
+    | '/api/sitemap'
     | '/api/speak'
     | '/api/supabase-health'
     | '/api/translate'
     | '/api/translate-batch'
     | '/api/translate-speech'
+    | '/api/ussd'
     | '/api/voice-enroll'
     | '/app/ai'
     | '/app/assistant'
@@ -1502,6 +1565,9 @@ export interface FileRouteTypes {
     | '/app/videos'
     | '/auth/callback'
     | '/b/$slug'
+    | '/shop/ads'
+    | '/shop/agent'
+    | '/shop/branches'
     | '/shop/browse'
     | '/shop/business-apply'
     | '/shop/buy'
@@ -1522,13 +1588,19 @@ export interface FileRouteTypes {
     | '/shop/profile'
     | '/shop/sell-item'
     | '/shop/services'
-    | '/shop/agent'
-    | '/shop/branches'
     | '/shop/settings'
     | '/shop/studio'
-    | '/shop/ads'
     | '/app'
     | '/shop'
+    | '/api/admin/agents'
+    | '/api/admin/expenses'
+    | '/api/admin/verified-badge'
+    | '/api/ads/account'
+    | '/api/ads/catalog'
+    | '/api/ads/confirm'
+    | '/api/ads/go-live'
+    | '/api/ads/pay-wallet'
+    | '/api/agent/shops'
     | '/api/ai/caption'
     | '/api/ai/graphics'
     | '/api/ai/listing'
@@ -1536,21 +1608,11 @@ export interface FileRouteTypes {
     | '/api/ai/sale'
     | '/api/ai/transcribe'
     | '/api/assistant/chat'
-    | '/api/admin/verified-badge'
-    | '/api/admin/expenses'
-    | '/api/admin/agents'
-    | '/api/agent/shops'
-    | '/api/shop/branches'
+    | '/api/auth/forgot-password'
+    | '/api/cron/ads'
+    | '/api/cron/agent-repost'
     | '/api/kyc/verify'
     | '/api/payments/confirm-order'
-    | '/api/ads/account'
-    | '/api/ads/confirm'
-    | '/api/ads/go-live'
-    | '/api/ads/pay-wallet'
-    | '/api/auth/forgot-password'
-    | '/api/ussd/africastalking'
-    | '/api/ussd'
-    | '/api/cron/ads'
     | '/api/payments/flutterwave'
     | '/api/payments/payout'
     | '/api/payments/paystack'
@@ -1560,9 +1622,11 @@ export interface FileRouteTypes {
     | '/api/payments/webhook'
     | '/api/push/notify'
     | '/api/push/subscribe'
+    | '/api/shop/branches'
     | '/api/studio/flyer'
     | '/api/studio/status'
     | '/api/studio/video'
+    | '/api/ussd/africastalking'
     | '/app/admin/moderation'
     | '/app/admin/translate'
     | '/app/business/edit'
@@ -1580,6 +1644,7 @@ export interface FileRouteTypes {
     | '/app/profile/edit'
     | '/app/profile/settings'
     | '/app/videos/new'
+    | '/shop/agent/$shopId'
     | '/shop/bid/$postId'
     | '/shop/enquiries/$conversationId'
     | '/shop/order-now/$listingId'
@@ -1592,6 +1657,7 @@ export interface FileRouteTypes {
     | '/shop/enquiries'
     | '/shop/order-now'
     | '/shop/orders'
+    | '/api/agent/shop/$shopId'
     | '/api/studio/video/$requestId'
     | '/app/customers/credit/new'
     | '/shop/post/$postId/edit'
@@ -1611,17 +1677,20 @@ export interface FileRouteTypes {
     | '/register'
     | '/reset-password'
     | '/shop'
+    | '/sitemap.xml'
     | '/terms'
     | '/translate'
     | '/app/customers'
     | '/app/learn'
     | '/api/public-config'
     | '/api/search-image'
+    | '/api/sitemap'
     | '/api/speak'
     | '/api/supabase-health'
     | '/api/translate'
     | '/api/translate-batch'
     | '/api/translate-speech'
+    | '/api/ussd'
     | '/api/voice-enroll'
     | '/app/ai'
     | '/app/assistant'
@@ -1645,6 +1714,9 @@ export interface FileRouteTypes {
     | '/app/videos'
     | '/auth/callback'
     | '/b/$slug'
+    | '/shop/ads'
+    | '/shop/agent'
+    | '/shop/branches'
     | '/shop/browse'
     | '/shop/business-apply'
     | '/shop/buy'
@@ -1668,13 +1740,19 @@ export interface FileRouteTypes {
     | '/shop/profile'
     | '/shop/sell-item'
     | '/shop/services'
-    | '/shop/agent'
-    | '/shop/branches'
     | '/shop/settings'
     | '/shop/studio'
-    | '/shop/ads'
     | '/app/'
     | '/shop/'
+    | '/api/admin/agents'
+    | '/api/admin/expenses'
+    | '/api/admin/verified-badge'
+    | '/api/ads/account'
+    | '/api/ads/catalog'
+    | '/api/ads/confirm'
+    | '/api/ads/go-live'
+    | '/api/ads/pay-wallet'
+    | '/api/agent/shops'
     | '/api/ai/caption'
     | '/api/ai/graphics'
     | '/api/ai/listing'
@@ -1682,21 +1760,11 @@ export interface FileRouteTypes {
     | '/api/ai/sale'
     | '/api/ai/transcribe'
     | '/api/assistant/chat'
-    | '/api/admin/verified-badge'
-    | '/api/admin/expenses'
-    | '/api/admin/agents'
-    | '/api/agent/shops'
-    | '/api/shop/branches'
+    | '/api/auth/forgot-password'
+    | '/api/cron/ads'
+    | '/api/cron/agent-repost'
     | '/api/kyc/verify'
     | '/api/payments/confirm-order'
-    | '/api/ads/account'
-    | '/api/ads/confirm'
-    | '/api/ads/go-live'
-    | '/api/ads/pay-wallet'
-    | '/api/auth/forgot-password'
-    | '/api/ussd/africastalking'
-    | '/api/ussd'
-    | '/api/cron/ads'
     | '/api/payments/flutterwave'
     | '/api/payments/payout'
     | '/api/payments/paystack'
@@ -1706,9 +1774,11 @@ export interface FileRouteTypes {
     | '/api/payments/webhook'
     | '/api/push/notify'
     | '/api/push/subscribe'
+    | '/api/shop/branches'
     | '/api/studio/flyer'
     | '/api/studio/status'
     | '/api/studio/video'
+    | '/api/ussd/africastalking'
     | '/app/admin/moderation'
     | '/app/admin/translate'
     | '/app/business/edit'
@@ -1726,6 +1796,7 @@ export interface FileRouteTypes {
     | '/app/profile/edit'
     | '/app/profile/settings'
     | '/app/videos/new'
+    | '/shop/agent/$shopId'
     | '/shop/bid/$postId'
     | '/shop/enquiries/$conversationId'
     | '/shop/order-now/$listingId'
@@ -1738,6 +1809,7 @@ export interface FileRouteTypes {
     | '/shop/enquiries/'
     | '/shop/order-now/'
     | '/shop/orders/'
+    | '/api/agent/shop/$shopId'
     | '/api/studio/video/$requestId'
     | '/app/customers/credit/new'
     | '/shop/post/$postId/edit'
@@ -1758,18 +1830,30 @@ export interface RootRouteChildren {
   RegisterRoute: typeof RegisterRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
   ShopRoute: typeof ShopRouteWithChildren
+  SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   TermsRoute: typeof TermsRoute
   TranslateRoute: typeof TranslateRoute
   ApiPublicConfigRoute: typeof ApiPublicConfigRoute
   ApiSearchImageRoute: typeof ApiSearchImageRoute
+  ApiSitemapRoute: typeof ApiSitemapRoute
   ApiSpeakRoute: typeof ApiSpeakRoute
   ApiSupabaseHealthRoute: typeof ApiSupabaseHealthRoute
   ApiTranslateRoute: typeof ApiTranslateRoute
   ApiTranslateBatchRoute: typeof ApiTranslateBatchRoute
   ApiTranslateSpeechRoute: typeof ApiTranslateSpeechRoute
+  ApiUssdRoute: typeof ApiUssdRouteWithChildren
   ApiVoiceEnrollRoute: typeof ApiVoiceEnrollRoute
   AuthCallbackRoute: typeof AuthCallbackRoute
   BSlugRoute: typeof BSlugRoute
+  ApiAdminAgentsRoute: typeof ApiAdminAgentsRoute
+  ApiAdminExpensesRoute: typeof ApiAdminExpensesRoute
+  ApiAdminVerifiedBadgeRoute: typeof ApiAdminVerifiedBadgeRoute
+  ApiAdsAccountRoute: typeof ApiAdsAccountRoute
+  ApiAdsCatalogRoute: typeof ApiAdsCatalogRoute
+  ApiAdsConfirmRoute: typeof ApiAdsConfirmRoute
+  ApiAdsGoLiveRoute: typeof ApiAdsGoLiveRoute
+  ApiAdsPayWalletRoute: typeof ApiAdsPayWalletRoute
+  ApiAgentShopsRoute: typeof ApiAgentShopsRoute
   ApiAiCaptionRoute: typeof ApiAiCaptionRoute
   ApiAiGraphicsRoute: typeof ApiAiGraphicsRoute
   ApiAiListingRoute: typeof ApiAiListingRoute
@@ -1777,21 +1861,11 @@ export interface RootRouteChildren {
   ApiAiSaleRoute: typeof ApiAiSaleRoute
   ApiAiTranscribeRoute: typeof ApiAiTranscribeRoute
   ApiAssistantChatRoute: typeof ApiAssistantChatRoute
-  ApiAdminVerifiedBadgeRoute: typeof ApiAdminVerifiedBadgeRoute
-  ApiAdminExpensesRoute: typeof ApiAdminExpensesRoute
-  ApiAdminAgentsRoute: typeof ApiAdminAgentsRoute
-  ApiAgentShopsRoute: typeof ApiAgentShopsRoute
-  ApiShopBranchesRoute: typeof ApiShopBranchesRoute
+  ApiAuthForgotPasswordRoute: typeof ApiAuthForgotPasswordRoute
+  ApiCronAdsRoute: typeof ApiCronAdsRoute
+  ApiCronAgentRepostRoute: typeof ApiCronAgentRepostRoute
   ApiKycVerifyRoute: typeof ApiKycVerifyRoute
   ApiPaymentsConfirmOrderRoute: typeof ApiPaymentsConfirmOrderRoute
-  ApiAdsAccountRoute: typeof ApiAdsAccountRoute
-  ApiAdsConfirmRoute: typeof ApiAdsConfirmRoute
-  ApiAdsGoLiveRoute: typeof ApiAdsGoLiveRoute
-  ApiAdsPayWalletRoute: typeof ApiAdsPayWalletRoute
-  ApiAuthForgotPasswordRoute: typeof ApiAuthForgotPasswordRoute
-  ApiUssdAfricastalkingRoute: typeof ApiUssdAfricastalkingRoute
-  ApiUssdRoute: typeof ApiUssdRoute
-  ApiCronAdsRoute: typeof ApiCronAdsRoute
   ApiPaymentsFlutterwaveRoute: typeof ApiPaymentsFlutterwaveRoute
   ApiPaymentsPayoutRoute: typeof ApiPaymentsPayoutRoute
   ApiPaymentsPaystackRoute: typeof ApiPaymentsPaystackRoute
@@ -1801,9 +1875,11 @@ export interface RootRouteChildren {
   ApiPaymentsWebhookRoute: typeof ApiPaymentsWebhookRoute
   ApiPushNotifyRoute: typeof ApiPushNotifyRoute
   ApiPushSubscribeRoute: typeof ApiPushSubscribeRoute
+  ApiShopBranchesRoute: typeof ApiShopBranchesRoute
   ApiStudioFlyerRoute: typeof ApiStudioFlyerRoute
   ApiStudioStatusRoute: typeof ApiStudioStatusRoute
   ApiStudioVideoRoute: typeof ApiStudioVideoRouteWithChildren
+  ApiAgentShopShopIdRoute: typeof ApiAgentShopShopIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -1906,6 +1982,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ShopRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/sitemap.xml': {
+      id: '/sitemap.xml'
+      path: '/sitemap.xml'
+      fullPath: '/sitemap.xml'
+      preLoaderRoute: typeof SitemapDotxmlRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/terms': {
       id: '/terms'
       path: '/terms'
@@ -1932,6 +2015,13 @@ declare module '@tanstack/react-router' {
       path: '/api/search-image'
       fullPath: '/api/search-image'
       preLoaderRoute: typeof ApiSearchImageRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/sitemap': {
+      id: '/api/sitemap'
+      path: '/api/sitemap'
+      fullPath: '/api/sitemap'
+      preLoaderRoute: typeof ApiSitemapRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/speak': {
@@ -1967,6 +2057,13 @@ declare module '@tanstack/react-router' {
       path: '/api/translate-speech'
       fullPath: '/api/translate-speech'
       preLoaderRoute: typeof ApiTranslateSpeechRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/ussd': {
+      id: '/api/ussd'
+      path: '/api/ussd'
+      fullPath: '/api/ussd'
+      preLoaderRoute: typeof ApiUssdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/voice-enroll': {
@@ -2158,6 +2255,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ShopIndexRouteImport
       parentRoute: typeof ShopRoute
     }
+    '/shop/ads': {
+      id: '/shop/ads'
+      path: '/ads'
+      fullPath: '/shop/ads'
+      preLoaderRoute: typeof ShopAdsRouteImport
+      parentRoute: typeof ShopRoute
+    }
+    '/shop/agent': {
+      id: '/shop/agent'
+      path: '/agent'
+      fullPath: '/shop/agent'
+      preLoaderRoute: typeof ShopAgentRouteImport
+      parentRoute: typeof ShopRoute
+    }
+    '/shop/branches': {
+      id: '/shop/branches'
+      path: '/branches'
+      fullPath: '/shop/branches'
+      preLoaderRoute: typeof ShopBranchesRouteImport
+      parentRoute: typeof ShopRoute
+    }
     '/shop/browse': {
       id: '/shop/browse'
       path: '/browse'
@@ -2319,20 +2437,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ShopServicesRouteImport
       parentRoute: typeof ShopRoute
     }
-    '/shop/agent': {
-      id: '/shop/agent'
-      path: '/agent'
-      fullPath: '/shop/agent'
-      preLoaderRoute: typeof ShopAgentRouteImport
-      parentRoute: typeof ShopRoute
-    }
-    '/shop/branches': {
-      id: '/shop/branches'
-      path: '/branches'
-      fullPath: '/shop/branches'
-      preLoaderRoute: typeof ShopBranchesRouteImport
-      parentRoute: typeof ShopRoute
-    }
     '/shop/settings': {
       id: '/shop/settings'
       path: '/settings'
@@ -2347,12 +2451,68 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ShopStudioRouteImport
       parentRoute: typeof ShopRoute
     }
-    '/shop/ads': {
-      id: '/shop/ads'
-      path: '/ads'
-      fullPath: '/shop/ads'
-      preLoaderRoute: typeof ShopAdsRouteImport
-      parentRoute: typeof ShopRoute
+    '/api/admin/agents': {
+      id: '/api/admin/agents'
+      path: '/api/admin/agents'
+      fullPath: '/api/admin/agents'
+      preLoaderRoute: typeof ApiAdminAgentsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/admin/expenses': {
+      id: '/api/admin/expenses'
+      path: '/api/admin/expenses'
+      fullPath: '/api/admin/expenses'
+      preLoaderRoute: typeof ApiAdminExpensesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/admin/verified-badge': {
+      id: '/api/admin/verified-badge'
+      path: '/api/admin/verified-badge'
+      fullPath: '/api/admin/verified-badge'
+      preLoaderRoute: typeof ApiAdminVerifiedBadgeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/ads/account': {
+      id: '/api/ads/account'
+      path: '/api/ads/account'
+      fullPath: '/api/ads/account'
+      preLoaderRoute: typeof ApiAdsAccountRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/ads/catalog': {
+      id: '/api/ads/catalog'
+      path: '/api/ads/catalog'
+      fullPath: '/api/ads/catalog'
+      preLoaderRoute: typeof ApiAdsCatalogRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/ads/confirm': {
+      id: '/api/ads/confirm'
+      path: '/api/ads/confirm'
+      fullPath: '/api/ads/confirm'
+      preLoaderRoute: typeof ApiAdsConfirmRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/ads/go-live': {
+      id: '/api/ads/go-live'
+      path: '/api/ads/go-live'
+      fullPath: '/api/ads/go-live'
+      preLoaderRoute: typeof ApiAdsGoLiveRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/ads/pay-wallet': {
+      id: '/api/ads/pay-wallet'
+      path: '/api/ads/pay-wallet'
+      fullPath: '/api/ads/pay-wallet'
+      preLoaderRoute: typeof ApiAdsPayWalletRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/agent/shops': {
+      id: '/api/agent/shops'
+      path: '/api/agent/shops'
+      fullPath: '/api/agent/shops'
+      preLoaderRoute: typeof ApiAgentShopsRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/api/ai/caption': {
       id: '/api/ai/caption'
@@ -2403,39 +2563,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAssistantChatRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/admin/verified-badge': {
-      id: '/api/admin/verified-badge'
-      path: '/api/admin/verified-badge'
-      fullPath: '/api/admin/verified-badge'
-      preLoaderRoute: typeof ApiAdminVerifiedBadgeRouteImport
+    '/api/auth/forgot-password': {
+      id: '/api/auth/forgot-password'
+      path: '/api/auth/forgot-password'
+      fullPath: '/api/auth/forgot-password'
+      preLoaderRoute: typeof ApiAuthForgotPasswordRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/admin/expenses': {
-      id: '/api/admin/expenses'
-      path: '/api/admin/expenses'
-      fullPath: '/api/admin/expenses'
-      preLoaderRoute: typeof ApiAdminExpensesRouteImport
+    '/api/cron/ads': {
+      id: '/api/cron/ads'
+      path: '/api/cron/ads'
+      fullPath: '/api/cron/ads'
+      preLoaderRoute: typeof ApiCronAdsRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/admin/agents': {
-      id: '/api/admin/agents'
-      path: '/api/admin/agents'
-      fullPath: '/api/admin/agents'
-      preLoaderRoute: typeof ApiAdminAgentsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/agent/shops': {
-      id: '/api/agent/shops'
-      path: '/api/agent/shops'
-      fullPath: '/api/agent/shops'
-      preLoaderRoute: typeof ApiAgentShopsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/shop/branches': {
-      id: '/api/shop/branches'
-      path: '/api/shop/branches'
-      fullPath: '/api/shop/branches'
-      preLoaderRoute: typeof ApiShopBranchesRouteImport
+    '/api/cron/agent-repost': {
+      id: '/api/cron/agent-repost'
+      path: '/api/cron/agent-repost'
+      fullPath: '/api/cron/agent-repost'
+      preLoaderRoute: typeof ApiCronAgentRepostRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/kyc/verify': {
@@ -2450,62 +2596,6 @@ declare module '@tanstack/react-router' {
       path: '/api/payments/confirm-order'
       fullPath: '/api/payments/confirm-order'
       preLoaderRoute: typeof ApiPaymentsConfirmOrderRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/ads/account': {
-      id: '/api/ads/account'
-      path: '/api/ads/account'
-      fullPath: '/api/ads/account'
-      preLoaderRoute: typeof ApiAdsAccountRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/ads/confirm': {
-      id: '/api/ads/confirm'
-      path: '/api/ads/confirm'
-      fullPath: '/api/ads/confirm'
-      preLoaderRoute: typeof ApiAdsConfirmRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/ads/go-live': {
-      id: '/api/ads/go-live'
-      path: '/api/ads/go-live'
-      fullPath: '/api/ads/go-live'
-      preLoaderRoute: typeof ApiAdsGoLiveRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/ads/pay-wallet': {
-      id: '/api/ads/pay-wallet'
-      path: '/api/ads/pay-wallet'
-      fullPath: '/api/ads/pay-wallet'
-      preLoaderRoute: typeof ApiAdsPayWalletRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/auth/forgot-password': {
-      id: '/api/auth/forgot-password'
-      path: '/api/auth/forgot-password'
-      fullPath: '/api/auth/forgot-password'
-      preLoaderRoute: typeof ApiAuthForgotPasswordRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/ussd/africastalking': {
-      id: '/api/ussd/africastalking'
-      path: '/api/ussd/africastalking'
-      fullPath: '/api/ussd/africastalking'
-      preLoaderRoute: typeof ApiUssdAfricastalkingRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/ussd': {
-      id: '/api/ussd'
-      path: '/api/ussd'
-      fullPath: '/api/ussd'
-      preLoaderRoute: typeof ApiUssdRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/cron/ads': {
-      id: '/api/cron/ads'
-      path: '/api/cron/ads'
-      fullPath: '/api/cron/ads'
-      preLoaderRoute: typeof ApiCronAdsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/payments/flutterwave': {
@@ -2571,6 +2661,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPushSubscribeRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/shop/branches': {
+      id: '/api/shop/branches'
+      path: '/api/shop/branches'
+      fullPath: '/api/shop/branches'
+      preLoaderRoute: typeof ApiShopBranchesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/studio/flyer': {
       id: '/api/studio/flyer'
       path: '/api/studio/flyer'
@@ -2591,6 +2688,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/api/studio/video'
       preLoaderRoute: typeof ApiStudioVideoRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/api/ussd/africastalking': {
+      id: '/api/ussd/africastalking'
+      path: '/africastalking'
+      fullPath: '/api/ussd/africastalking'
+      preLoaderRoute: typeof ApiUssdAfricastalkingRouteImport
+      parentRoute: typeof ApiUssdRoute
     }
     '/app/admin/': {
       id: '/app/admin/'
@@ -2732,6 +2836,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppVideosNewRouteImport
       parentRoute: typeof AppVideosRoute
     }
+    '/shop/agent/$shopId': {
+      id: '/shop/agent/$shopId'
+      path: '/$shopId'
+      fullPath: '/shop/agent/$shopId'
+      preLoaderRoute: typeof ShopAgentShopIdRouteImport
+      parentRoute: typeof ShopAgentRoute
+    }
     '/shop/bid/$postId': {
       id: '/shop/bid/$postId'
       path: '/bid/$postId'
@@ -2794,6 +2905,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/shop/u/$profileId'
       preLoaderRoute: typeof ShopUProfileIdRouteImport
       parentRoute: typeof ShopRoute
+    }
+    '/api/agent/shop/$shopId': {
+      id: '/api/agent/shop/$shopId'
+      path: '/api/agent/shop/$shopId'
+      fullPath: '/api/agent/shop/$shopId'
+      preLoaderRoute: typeof ApiAgentShopShopIdRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/api/studio/video/$requestId': {
       id: '/api/studio/video/$requestId'
@@ -2986,6 +3104,18 @@ const AppRouteRouteWithChildren = AppRouteRoute._addFileChildren(
   AppRouteRouteChildren,
 )
 
+interface ShopAgentRouteChildren {
+  ShopAgentShopIdRoute: typeof ShopAgentShopIdRoute
+}
+
+const ShopAgentRouteChildren: ShopAgentRouteChildren = {
+  ShopAgentShopIdRoute: ShopAgentShopIdRoute,
+}
+
+const ShopAgentRouteWithChildren = ShopAgentRoute._addFileChildren(
+  ShopAgentRouteChildren,
+)
+
 interface ShopEnquiriesRouteChildren {
   ShopEnquiriesConversationIdRoute: typeof ShopEnquiriesConversationIdRoute
   ShopEnquiriesIndexRoute: typeof ShopEnquiriesIndexRoute
@@ -3029,6 +3159,9 @@ const ShopOrdersRouteWithChildren = ShopOrdersRoute._addFileChildren(
 )
 
 interface ShopRouteChildren {
+  ShopAdsRoute: typeof ShopAdsRoute
+  ShopAgentRoute: typeof ShopAgentRouteWithChildren
+  ShopBranchesRoute: typeof ShopBranchesRoute
   ShopBrowseRoute: typeof ShopBrowseRoute
   ShopBusinessApplyRoute: typeof ShopBusinessApplyRoute
   ShopBuyRoute: typeof ShopBuyRoute
@@ -3052,11 +3185,8 @@ interface ShopRouteChildren {
   ShopProfileRoute: typeof ShopProfileRoute
   ShopSellItemRoute: typeof ShopSellItemRoute
   ShopServicesRoute: typeof ShopServicesRoute
-  ShopAgentRoute: typeof ShopAgentRoute
-  ShopBranchesRoute: typeof ShopBranchesRoute
   ShopSettingsRoute: typeof ShopSettingsRoute
   ShopStudioRoute: typeof ShopStudioRoute
-  ShopAdsRoute: typeof ShopAdsRoute
   ShopIndexRoute: typeof ShopIndexRoute
   ShopBidPostIdRoute: typeof ShopBidPostIdRoute
   ShopPProductIdRoute: typeof ShopPProductIdRoute
@@ -3065,6 +3195,9 @@ interface ShopRouteChildren {
 }
 
 const ShopRouteChildren: ShopRouteChildren = {
+  ShopAdsRoute: ShopAdsRoute,
+  ShopAgentRoute: ShopAgentRouteWithChildren,
+  ShopBranchesRoute: ShopBranchesRoute,
   ShopBrowseRoute: ShopBrowseRoute,
   ShopBusinessApplyRoute: ShopBusinessApplyRoute,
   ShopBuyRoute: ShopBuyRoute,
@@ -3088,11 +3221,8 @@ const ShopRouteChildren: ShopRouteChildren = {
   ShopProfileRoute: ShopProfileRoute,
   ShopSellItemRoute: ShopSellItemRoute,
   ShopServicesRoute: ShopServicesRoute,
-  ShopAgentRoute: ShopAgentRoute,
-  ShopBranchesRoute: ShopBranchesRoute,
   ShopSettingsRoute: ShopSettingsRoute,
   ShopStudioRoute: ShopStudioRoute,
-  ShopAdsRoute: ShopAdsRoute,
   ShopIndexRoute: ShopIndexRoute,
   ShopBidPostIdRoute: ShopBidPostIdRoute,
   ShopPProductIdRoute: ShopPProductIdRoute,
@@ -3101,6 +3231,17 @@ const ShopRouteChildren: ShopRouteChildren = {
 }
 
 const ShopRouteWithChildren = ShopRoute._addFileChildren(ShopRouteChildren)
+
+interface ApiUssdRouteChildren {
+  ApiUssdAfricastalkingRoute: typeof ApiUssdAfricastalkingRoute
+}
+
+const ApiUssdRouteChildren: ApiUssdRouteChildren = {
+  ApiUssdAfricastalkingRoute: ApiUssdAfricastalkingRoute,
+}
+
+const ApiUssdRouteWithChildren =
+  ApiUssdRoute._addFileChildren(ApiUssdRouteChildren)
 
 interface ApiStudioVideoRouteChildren {
   ApiStudioVideoRequestIdRoute: typeof ApiStudioVideoRequestIdRoute
@@ -3129,18 +3270,30 @@ const rootRouteChildren: RootRouteChildren = {
   RegisterRoute: RegisterRoute,
   ResetPasswordRoute: ResetPasswordRoute,
   ShopRoute: ShopRouteWithChildren,
+  SitemapDotxmlRoute: SitemapDotxmlRoute,
   TermsRoute: TermsRoute,
   TranslateRoute: TranslateRoute,
   ApiPublicConfigRoute: ApiPublicConfigRoute,
   ApiSearchImageRoute: ApiSearchImageRoute,
+  ApiSitemapRoute: ApiSitemapRoute,
   ApiSpeakRoute: ApiSpeakRoute,
   ApiSupabaseHealthRoute: ApiSupabaseHealthRoute,
   ApiTranslateRoute: ApiTranslateRoute,
   ApiTranslateBatchRoute: ApiTranslateBatchRoute,
   ApiTranslateSpeechRoute: ApiTranslateSpeechRoute,
+  ApiUssdRoute: ApiUssdRouteWithChildren,
   ApiVoiceEnrollRoute: ApiVoiceEnrollRoute,
   AuthCallbackRoute: AuthCallbackRoute,
   BSlugRoute: BSlugRoute,
+  ApiAdminAgentsRoute: ApiAdminAgentsRoute,
+  ApiAdminExpensesRoute: ApiAdminExpensesRoute,
+  ApiAdminVerifiedBadgeRoute: ApiAdminVerifiedBadgeRoute,
+  ApiAdsAccountRoute: ApiAdsAccountRoute,
+  ApiAdsCatalogRoute: ApiAdsCatalogRoute,
+  ApiAdsConfirmRoute: ApiAdsConfirmRoute,
+  ApiAdsGoLiveRoute: ApiAdsGoLiveRoute,
+  ApiAdsPayWalletRoute: ApiAdsPayWalletRoute,
+  ApiAgentShopsRoute: ApiAgentShopsRoute,
   ApiAiCaptionRoute: ApiAiCaptionRoute,
   ApiAiGraphicsRoute: ApiAiGraphicsRoute,
   ApiAiListingRoute: ApiAiListingRoute,
@@ -3148,21 +3301,11 @@ const rootRouteChildren: RootRouteChildren = {
   ApiAiSaleRoute: ApiAiSaleRoute,
   ApiAiTranscribeRoute: ApiAiTranscribeRoute,
   ApiAssistantChatRoute: ApiAssistantChatRoute,
-  ApiAdminVerifiedBadgeRoute: ApiAdminVerifiedBadgeRoute,
-  ApiAdminExpensesRoute: ApiAdminExpensesRoute,
-  ApiAdminAgentsRoute: ApiAdminAgentsRoute,
-  ApiAgentShopsRoute: ApiAgentShopsRoute,
-  ApiShopBranchesRoute: ApiShopBranchesRoute,
+  ApiAuthForgotPasswordRoute: ApiAuthForgotPasswordRoute,
+  ApiCronAdsRoute: ApiCronAdsRoute,
+  ApiCronAgentRepostRoute: ApiCronAgentRepostRoute,
   ApiKycVerifyRoute: ApiKycVerifyRoute,
   ApiPaymentsConfirmOrderRoute: ApiPaymentsConfirmOrderRoute,
-  ApiAdsAccountRoute: ApiAdsAccountRoute,
-  ApiAdsConfirmRoute: ApiAdsConfirmRoute,
-  ApiAdsGoLiveRoute: ApiAdsGoLiveRoute,
-  ApiAdsPayWalletRoute: ApiAdsPayWalletRoute,
-  ApiAuthForgotPasswordRoute: ApiAuthForgotPasswordRoute,
-  ApiUssdAfricastalkingRoute: ApiUssdAfricastalkingRoute,
-  ApiUssdRoute: ApiUssdRoute,
-  ApiCronAdsRoute: ApiCronAdsRoute,
   ApiPaymentsFlutterwaveRoute: ApiPaymentsFlutterwaveRoute,
   ApiPaymentsPayoutRoute: ApiPaymentsPayoutRoute,
   ApiPaymentsPaystackRoute: ApiPaymentsPaystackRoute,
@@ -3172,20 +3315,12 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPaymentsWebhookRoute: ApiPaymentsWebhookRoute,
   ApiPushNotifyRoute: ApiPushNotifyRoute,
   ApiPushSubscribeRoute: ApiPushSubscribeRoute,
+  ApiShopBranchesRoute: ApiShopBranchesRoute,
   ApiStudioFlyerRoute: ApiStudioFlyerRoute,
   ApiStudioStatusRoute: ApiStudioStatusRoute,
   ApiStudioVideoRoute: ApiStudioVideoRouteWithChildren,
+  ApiAgentShopShopIdRoute: ApiAgentShopShopIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

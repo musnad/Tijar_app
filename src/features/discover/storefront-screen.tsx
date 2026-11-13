@@ -34,7 +34,7 @@ import { updateProfile } from "@/services/profile-service";
 import { fetchStorefront, recordBusinessShare, submitEnquiry } from "@/services/discover-service";
 import { recordBusinessInsight } from "@/services/seller-ai-service";
 import { fetchMyBusinessIds } from "@/services/shop-chat-service";
-import { displayShopName, shopUsername, usernameMatchesName } from "@/lib/shop-names";
+import { displayShopName, shopUsername } from "@/lib/shop-names";
 import { isFollowingShop } from "@/lib/shop-social";
 import {
   fetchMyFollowedBusinessIds,
@@ -172,7 +172,13 @@ function ShopPostTile({ video, shopName }: { video: PublicFeedVideo; shopName: s
   );
 }
 
-export function StorefrontScreen({ slug }: { slug: string }) {
+export function StorefrontScreen({
+  slug,
+  initial,
+}: {
+  slug: string;
+  initial?: Awaited<ReturnType<typeof fetchStorefront>> | null;
+}) {
   const { t, locale } = useTranslation();
   const voiceLang = languageForLocale(locale) ?? "English";
   const { session, profile, refreshProfile } = useAuth();
@@ -215,6 +221,7 @@ export function StorefrontScreen({ slug }: { slug: string }) {
       if (r.error) throw new Error(r.error);
       return r;
     },
+    initialData: initial?.business ? initial : undefined,
   });
 
   const follows = useQuery({
@@ -469,7 +476,7 @@ export function StorefrontScreen({ slug }: { slug: string }) {
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={business.logo_url}
-                  alt=""
+                  alt={`${shopTitle} logo`}
                   className="size-[5.25rem] shrink-0 rounded-full border-[3px] border-[#1F7A4D] object-cover"
                 />
               ) : (
@@ -494,21 +501,12 @@ export function StorefrontScreen({ slug }: { slug: string }) {
             </section>
 
             <section className="px-4 pb-3">
-              {usernameMatchesName(shopTitle, handle) ? (
-                business.is_verified ? (
-                  <p className="flex items-center gap-1.5 text-[12.5px] font-semibold text-[#1F7A4D]">
-                    <BadgeCheck className="size-4 shrink-0 fill-[#1F7A4D] text-white" aria-label="Verified" />
-                    Verified
-                  </p>
-                ) : null
-              ) : (
-                <div className="flex items-center gap-1.5">
-                  <h1 className="truncate text-[15px] font-extrabold leading-tight text-[#0B1F4D]">{shopTitle}</h1>
-                  {business.is_verified ? (
-                    <BadgeCheck className="size-4 shrink-0 fill-[#1F7A4D] text-white" aria-label="Verified" />
-                  ) : null}
-                </div>
-              )}
+              <div className="flex items-center gap-1.5">
+                <h1 className="truncate text-[15px] font-extrabold leading-tight text-[#0B1F4D]">{shopTitle}</h1>
+                {business.is_verified ? (
+                  <BadgeCheck className="size-4 shrink-0 fill-[#1F7A4D] text-white" aria-label="Verified on TIJAR" />
+                ) : null}
+              </div>
               <p className="mt-0.5 text-[12.5px] font-semibold text-[#1F7A4D]">
                 {business.category_name ?? t("app.storefront.defaultCategory")}
               </p>
@@ -516,6 +514,21 @@ export function StorefrontScreen({ slug }: { slug: string }) {
                 <p className="mt-1.5 whitespace-pre-line text-[13px] leading-snug text-[#374151]">
                   {business.description}
                 </p>
+              ) : null}
+              {products.length > 0 ? (
+                <ul className="mt-3 flex flex-wrap gap-1.5">
+                  {products.slice(0, 16).map((p) => (
+                    <li key={p.id}>
+                      <Link
+                        to="/shop/p/$productId"
+                        params={{ productId: p.id }}
+                        className="inline-flex max-w-full truncate rounded-full bg-[#F3F4F6] px-2.5 py-1 text-[12px] font-semibold text-[#0B1F4D]"
+                      >
+                        {p.name}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
               ) : null}
               <ul className="mt-2 space-y-1 text-[12.5px] font-medium text-[#6B7280]">
                 <li className="flex items-center gap-1.5">

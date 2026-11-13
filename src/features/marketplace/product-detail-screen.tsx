@@ -33,6 +33,7 @@ import {
   unlikeMarketplaceProduct,
 } from "@/services/marketplace-service";
 import { enrollInService } from "@/services/customer-service";
+import type { PublicProduct } from "@/types/database";
 import { formatNgn, percentOff } from "@/utils/money";
 
 const COLOUR_HEX: Record<string, string> = {
@@ -50,7 +51,13 @@ function colourHex(label: string): string {
   return COLOUR_HEX[key] ?? "#D4D4D8";
 }
 
-export function ProductDetailScreen({ productId }: { productId: string }) {
+export function ProductDetailScreen({
+  productId,
+  initial,
+}: {
+  productId: string;
+  initial?: PublicProduct | null;
+}) {
   const { t } = useTranslation();
   const { profile, session } = useAuth();
   const navigate = useNavigate();
@@ -72,6 +79,7 @@ export function ProductDetailScreen({ productId }: { productId: string }) {
       if (!res.product) throw new Error("This product is not available.");
       return res.product;
     },
+    initialData: initial ?? undefined,
   });
 
   const cartQuery = useQuery({
@@ -255,7 +263,7 @@ export function ProductDetailScreen({ productId }: { productId: string }) {
             TIJAR
           </Link>
           <div className="text-center">
-            <h1 className="text-[15px] font-extrabold text-[color:var(--brand-navy,#001B3A)]">{t("shop.product.details")}</h1>
+            <p className="text-[15px] font-extrabold text-[color:var(--brand-navy,#001B3A)]">{t("shop.product.details")}</p>
             <span className="mx-auto mt-1 block h-0.5 w-16 rounded-full bg-[color:var(--brand-navy,#001B3A)]" />
           </div>
           <div className="flex items-center justify-end gap-1">
@@ -379,7 +387,7 @@ export function ProductDetailScreen({ productId }: { productId: string }) {
                 </ul>
               )}
 
-              <h2 className="mt-3 text-lg font-extrabold leading-snug text-[color:var(--brand-navy,#001B3A)]">{product.name}</h2>
+              <h1 className="mt-3 text-lg font-extrabold leading-snug text-[color:var(--brand-navy,#001B3A)]">{product.name}</h1>
               {product.kind === "service" ? (
                 <p className="mt-1 text-[13px] font-semibold text-muted-foreground">
                   {serviceLabel(product)}
