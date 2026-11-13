@@ -2,13 +2,14 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { ArrowLeft, BadgeCheck, Grid3x3, Package, Pencil, Search, Store, Users } from "lucide-react";
+import { ArrowLeft, BadgeCheck, Grid3x3, Package, Pencil, Search, Share2, Store, Users } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { MarketplaceShell } from "@/features/marketplace/marketplace-shell";
+import { ProfileShareSheet } from "@/features/marketplace/profile-share-sheet";
 import { ProductCard } from "@/features/marketplace/product-card";
 import { useAuth } from "@/features/auth/auth-context";
 import { cn } from "@/lib/utils";
@@ -37,6 +38,7 @@ export function PublicProfileScreen({ profileId }: { profileId: string; postId?:
   const queryClient = useQueryClient();
   const [tab, setTab] = useState<Tab>("posts");
   const [query, setQuery] = useState("");
+  const [shareOpen, setShareOpen] = useState(false);
   const isOwn = profile?.id === profileId;
 
   const personQuery = useQuery({
@@ -139,6 +141,15 @@ export function PublicProfileScreen({ profileId }: { profileId: string; postId?:
                 {person ? `@${person.handle}` : "Profile"}
               </h1>
             </div>
+            <button
+              type="button"
+              onClick={() => setShareOpen(true)}
+              className="flex size-10 items-center justify-center rounded-full"
+              aria-label="Share profile"
+              disabled={!person}
+            >
+              <Share2 className="size-5" />
+            </button>
             {isOwn ? (
               <Button asChild size="sm" variant="outline" className="rounded-full font-bold">
                 <Link to="/shop/edit-profile">
@@ -302,6 +313,16 @@ export function PublicProfileScreen({ profileId }: { profileId: string; postId?:
 
         </div>
       </div>
+      {person ? (
+        <ProfileShareSheet
+          open={shareOpen}
+          onOpenChange={setShareOpen}
+          name={person.fullName}
+          handle={person.handle}
+          url={typeof window === "undefined" ? "" : `${window.location.origin}/shop/u/${profileId}`}
+          avatarUrl={person.avatarUrl}
+        />
+      ) : null}
     </MarketplaceShell>
   );
 }

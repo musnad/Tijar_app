@@ -20,6 +20,7 @@ import { useAuth } from "@/features/auth/auth-context";
 import { useAccountGate } from "@/features/auth/account-gate";
 import { usePrimaryBusiness } from "@/hooks/use-primary-business";
 import { MarketplaceShell } from "@/features/marketplace/marketplace-shell";
+import { ProfileShareSheet } from "@/features/marketplace/profile-share-sheet";
 import { TranslateText } from "@/features/translate/translate-text";
 import { VoiceTranslate } from "@/features/translate/voice-translate";
 import { useTranslation } from "@/lib/i18n/context";
@@ -193,6 +194,7 @@ export function StorefrontScreen({ slug }: { slug: string }) {
   const [phoneOpen, setPhoneOpen] = useState(false);
   const [phoneDraft, setPhoneDraft] = useState("");
   const [phoneSaving, setPhoneSaving] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
   const scrollerRef = useRef<HTMLDivElement>(null);
   const startY = useRef(0);
 
@@ -352,29 +354,7 @@ export function StorefrontScreen({ slug }: { slug: string }) {
     await queryClient.invalidateQueries({ queryKey: ["primary-business"] });
   }
 
-  async function onShareShop() {
-    if (!business) return;
-    const url = `${window.location.origin}/b/${business.slug}`;
-    let channel = "copy";
-    try {
-      if (typeof navigator !== "undefined" && navigator.share) {
-        channel = "native";
-        await navigator.share({
-          title: business.business_name,
-          text: business.description ?? business.business_name,
-          url,
-        });
-      } else if (typeof navigator !== "undefined" && navigator.clipboard) {
-        await navigator.clipboard.writeText(url);
-        toast.success("Shop link copied");
-      } else {
-        return;
-      }
-    } catch {
-      return;
-    }
-    await recordBusinessShare(business.id, channel);
-  }
+  const shopShareUrl = business ? `${typeof window === "undefined" ? "" : window.location.origin}/b/${business.slug}` : "";
 
   async function onReport() {
     if (!requireAccount("generic") || !profile || !business) {
@@ -430,7 +410,7 @@ export function StorefrontScreen({ slug }: { slug: string }) {
             </p>
             <button
               type="button"
-              onClick={() => void onShareShop()}
+              onClick={() => setShareOpen(true)}
               className="flex size-10 shrink-0 items-center justify-center rounded-full text-[#0B1F4D] transition active:bg-[#F3F4F6]"
               aria-label="Share profile"
             >
@@ -793,6 +773,17 @@ export function StorefrontScreen({ slug }: { slug: string }) {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+        {business ? (
+          <ProfileShareSheet
+            open={shareOpen}
+            onOpenChange={setShareOpen}
+            name={shopTitle}
+            handle={handle}
+            url={shopShareUrl}
+            avatarUrl={business.logo_url}
+            onShared={() => void recordBusinessShare(business.id, "native")}
+          />
+        ) : null}
       </div>
     </MarketplaceShell>
   );

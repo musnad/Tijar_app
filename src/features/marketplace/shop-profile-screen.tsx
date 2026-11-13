@@ -45,6 +45,7 @@ import { Switch } from "@/components/ui/switch";
 import { ShopAvatarSwitch } from "@/features/business/shop-avatar-switch";
 import { MarketplaceShell } from "@/features/marketplace/marketplace-shell";
 import { BuyerOrderCard } from "@/features/marketplace/buyer-order-card";
+import { ProfileShareSheet } from "@/features/marketplace/profile-share-sheet";
 import { CartIconLink } from "@/features/marketplace/cart-icon-link";
 import { useAuth } from "@/features/auth/auth-context";
 import { useAccountGate } from "@/features/auth/account-gate";
@@ -215,33 +216,6 @@ export function ShopProfileScreen() {
     if (slug) return `${window.location.origin}/b/${slug}`;
     if (profile?.id) return `${window.location.origin}/shop/u/${profile.id}`;
     return `${window.location.origin}/shop/profile`;
-  }
-
-  async function shareProfile() {
-    setShareOpen(true);
-  }
-
-  async function copyShareLink() {
-    const url = shopShareUrl();
-    try {
-      await navigator.clipboard.writeText(url);
-      toast.success(t("shop.profile.linkCopied"));
-    } catch {
-      toast.error("Could not copy the link.");
-    }
-  }
-
-  async function nativeShare() {
-    const url = shopShareUrl();
-    try {
-      if (navigator.share) {
-        await navigator.share({ title: profile?.full_name ?? "TIJAR shop", url });
-      } else {
-        await copyShareLink();
-      }
-    } catch {
-      /* cancelled */
-    }
   }
 
   if (loading) {
@@ -817,35 +791,14 @@ export function ShopProfileScreen() {
           </div>
         </SheetContent>
       </Sheet>
-      <Sheet open={shareOpen} onOpenChange={setShareOpen}>
-        <SheetContent side="bottom" className="rounded-t-3xl pb-8">
-          <SheetHeader>
-            <SheetTitle>{t("shop.profile.shareProfile")}</SheetTitle>
-          </SheetHeader>
-          <div className="mt-4 overflow-hidden rounded-[28px] bg-gradient-to-br from-[#0B1F4D] via-[#12356E] to-[#1F7A4D] p-5 text-white shadow-lg">
-            <p className="text-[11px] font-extrabold uppercase tracking-[0.2em] text-white/70">TIJAR</p>
-            <p className="mt-2 text-2xl font-extrabold leading-tight">{name}</p>
-            <p className="mt-1 text-sm text-white/80">@{username}</p>
-            <div className="mt-4 flex justify-center rounded-2xl bg-white p-3">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={`https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(shopShareUrl())}`}
-                alt="Shop barcode"
-                className="size-44"
-              />
-            </div>
-            <p className="mt-3 text-center text-[12px] text-white/80">Scan to open this shop on TIJAR</p>
-          </div>
-          <div className="mt-3 grid grid-cols-2 gap-2">
-            <Button className="min-h-11 rounded-full font-extrabold" onClick={() => void nativeShare()}>
-              Share
-            </Button>
-            <Button variant="outline" className="min-h-11 rounded-full font-extrabold" onClick={() => void copyShareLink()}>
-              Copy
-            </Button>
-          </div>
-        </SheetContent>
-      </Sheet>
+      <ProfileShareSheet
+        open={shareOpen}
+        onOpenChange={setShareOpen}
+        name={name}
+        handle={username}
+        url={typeof window === "undefined" ? "" : shopShareUrl()}
+        avatarUrl={photo ?? shop?.logo_url ?? null}
+      />
     </Frame>
   );
 }
