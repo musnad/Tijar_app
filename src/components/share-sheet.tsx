@@ -10,6 +10,8 @@ import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useAuth } from "@/features/auth/auth-context";
 import { usePrimaryBusiness } from "@/hooks/use-primary-business";
+import { dataUrlToFile } from "@/lib/marketing/resize-image";
+import { composePostShareCard, postShareCaption } from "@/lib/share/compose-post-card";
 import { cn } from "@/lib/utils";
 import { ensurePersonalShop } from "@/services/marketplace-service";
 import { fetchDmPeople, sendPostToRecipients, type DmPerson } from "@/services/direct-chat-service";
@@ -25,6 +27,10 @@ type ShareSheetProps = {
   mediaKind?: "image" | "video";
   productId?: string | null;
   price?: number | null;
+  shopName?: string;
+  handle?: string;
+  priceLabel?: string | null;
+  avatarUrl?: string | null;
   onShared?: () => void;
 };
 
@@ -55,6 +61,10 @@ export function ShareSheet({
   mediaKind = "image",
   productId,
   price,
+  shopName,
+  handle,
+  priceLabel,
+  avatarUrl,
   onShared,
 }: ShareSheetProps) {
   const { profile, session } = useAuth();
@@ -65,6 +75,7 @@ export function ShareSheet({
   const [search, setSearch] = useState("");
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState(false);
+  const [cardSrc, setCardSrc] = useState<string | null>(null);
   const counted = useRef(false);
 
   const peopleQuery = useQuery({
@@ -72,6 +83,22 @@ export function ShareSheet({
     enabled: open && panel === "dm" && Boolean(profile?.id),
     queryFn: async () => (await fetchDmPeople(profile!.id)).people,
   });
+
+  const cardInput = useMemo(
+    () => ({
+      title,
+      shopName: shopName || title,
+      handle,
+      caption: text,
+      url,
+      imageUrl,
+      avatarUrl,
+      priceLabel: priceLabel ?? (price != null ? `₦${Number(price).toLocaleString("en-NG")}` : null),
+      cta: "Tap the link to order on tijar.ng",
+    }),
+    [avatarUrl, handle, imageUrl, price, priceLabel, shopName, text, title, url],
+  );
+  const caption = postShareCaption(cardInput);
 
   useEffect(() => {
     if (!open) {
@@ -81,8 +108,24 @@ export function ShareSheet({
       setSearch("");
       setPicked(new Set());
       setBusy(false);
+      setCardSrc(null);
     }
   }, [open]);
+
+  useEffect(() => {
+    if (!open || panel !== "main") return;
+    let live = true;
+    void composePostShareCard(cardInput)
+      .then((src) => {
+        if (live) setCardSrc(src);
+      })
+      .catch(() => {
+        if (live) setCardSrc(null);
+      });
+    return () => {
+      live = false;
+    };
+  }, [cardInput, open, panel]);
 
   function markShared() {
     if (counted.current) return;
@@ -91,7 +134,7 @@ export function ShareSheet({
   }
 
   const canNativeShare = typeof navigator !== "undefined" && typeof navigator.share === "function";
-  const message = `${text} — ${url}`;
+  const message = caption;
   const people = peopleQuery.data ?? [];
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -99,9 +142,27 @@ export function ShareSheet({
     return people.filter((p) => p.name.toLowerCase().includes(q));
   }, [people, search]);
 
+  async function shareAsCard() {
+    const src = cardSrc ?? (await composePostShareCard(cardInput).catch(() => null));
+    if (src) {
+      const file = dataUrlToFile(src, `TIJAR-${(handle || title || "post").replace(/\W+/g, "-")}.jpg`);
+      const canFiles = typeof navigator.canShare === "function" && navigator.canShare({ files: [file] });
+      if (canFiles && typeof navigator.share === "function") {
+        await navigator.share({ files: [file], title: `${title} on TIJAR`, text: caption });
+        return true;
+      }
+    }
+    if (typeof navigator.share === "function") {
+      await navigator.share({ title: `${title} on TIJAR`, text: caption, url });
+      return true;
+    }
+    return false;
+  }
+
   async function nativeShare() {
     try {
-      await navigator.share({ title, text, url });
+      const ok = await shareAsCard();
+      if (!ok) return;
       markShared();
       onOpenChange(false);
     } catch {
@@ -109,7 +170,19 @@ export function ShareSheet({
     }
   }
 
-  function openPlatform(href: string) {
+  async function openPlatform(href: string, preferCard?: boolean) {
+    if (preferCard) {
+      try {
+        const ok = await shareAsCard();
+        if (ok) {
+          markShared();
+          onOpenChange(false);
+          return;
+        }
+      } catch {
+        /* fall through */
+      }
+    }
     markShared();
     window.open(href, "_blank", "noopener,noreferrer");
     onOpenChange(false);
@@ -231,7 +304,7 @@ export function ShareSheet({
       label: "X",
       color: "#0B1F4D",
       path: X_PATH,
-      href: `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`,
+      href: `https://twitter.com/intent/tweet?text=${encodeURIComponent(caption)}`,
     },
     {
       key: "facebook",
@@ -316,14 +389,22 @@ export function ShareSheet({
           </div>
         ) : (
           <>
-            <div className="flex items-center gap-3 px-5 py-3">
-              <span className="flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-border bg-muted">
-                {imageUrl ? <FeedImage src={imageUrl} alt="" width={160} /> : <Share2 className="size-5 text-muted-foreground" />}
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block truncate text-[15px] font-extrabold text-foreground">{title}</span>
-                <span className="mt-0.5 line-clamp-2 block text-[12px] leading-snug text-muted-foreground">{text}</span>
-              </span>
+            <div className="px-5 py-3">
+              {cardSrc ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={cardSrc} alt="" className="mx-auto max-h-56 w-auto rounded-2xl border border-border object-contain shadow-sm" />
+              ) : (
+                <div className="flex items-center gap-3">
+                  <span className="flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-border bg-muted">
+                    {imageUrl ? <FeedImage src={imageUrl} alt="" width={160} /> : <Share2 className="size-5 text-muted-foreground" />}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-[15px] font-extrabold text-foreground">{title}</span>
+                    <span className="mt-0.5 line-clamp-2 block text-[12px] leading-snug text-muted-foreground">{text}</span>
+                  </span>
+                </div>
+              )}
+              {priceLabel ? <p className="mt-2 text-center text-[13px] font-extrabold text-[#1F7A4D]">{priceLabel}</p> : null}
             </div>
 
             <div className="grid grid-cols-2 gap-2 px-5 pb-3">
@@ -370,7 +451,7 @@ export function ShareSheet({
                 <button
                   key={p.key}
                   type="button"
-                  onClick={() => openPlatform(p.href)}
+                  onClick={() => void openPlatform(p.href, p.key === "whatsapp")}
                   className="flex flex-col items-center gap-1.5 rounded-2xl py-2 transition-colors hover:bg-muted"
                 >
                   <span className="flex size-12 items-center justify-center rounded-full text-white" style={{ backgroundColor: p.color }}>

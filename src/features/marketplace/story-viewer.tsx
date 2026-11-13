@@ -73,10 +73,14 @@ export function StoryViewer({
   const isOwner = Boolean(ownerBusinessId && ring?.businessId === ownerBusinessId);
   const durationMs = story?.media_kind === "video" ? Math.min(story.duration_ms ?? 7000, 20000) : 5000;
   const seenIds = useMemo(() => new Set<string>(), []);
-  const shareUrl =
-    typeof window !== "undefined" && ring
-      ? `${window.location.origin}/b/${ring.slug}`
-      : "";
+  const origin = typeof window !== "undefined" ? window.location.origin : "";
+  const shareUrl = !ring
+    ? ""
+    : story?.place_order_listing_id
+      ? `${origin}/shop/order-now/${story.place_order_listing_id}`
+      : story?.product_id
+        ? `${origin}/shop/p/${story.product_id}`
+        : `${origin}/b/${ring.slug}`;
 
   useEffect(() => {
     if (!ring?.slug) return;
@@ -400,10 +404,16 @@ export function StoryViewer({
           setShareOpen(open);
           if (!open) setPaused(false);
         }}
-        title={ring.businessName}
+        title={stickerTitle}
         text={stickerTitle}
         url={shareUrl}
-        imageUrl={story.media_url}
+        imageUrl={story.product_image || story.media_url}
+        productId={story.product_id}
+        price={stickerPrice}
+        shopName={ring.businessName}
+        handle={ring.slug}
+        priceLabel={stickerPrice != null ? `₦${Number(stickerPrice).toLocaleString("en-NG")}` : null}
+        avatarUrl={ring.logoUrl}
       />
     </div>
   );

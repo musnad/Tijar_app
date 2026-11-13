@@ -15,6 +15,8 @@ import { haptic } from "@/lib/haptics";
 import { invalidateBusinessQueries } from "@/lib/invalidate-business-queries";
 import { deleteVideoPost, fetchVideoPostById, updateVideoPost } from "@/services/bid-service";
 import { PRODUCTION_ORIGIN } from "@/lib/site-url";
+import { displayShopName, shopUsername } from "@/lib/shop-names";
+import { isBidPost, resolveCoverSrc } from "@/services/video-feed-service";
 import { formatNgn } from "@/utils/money";
 
 /** ISO timestamp → value for <input type="datetime-local">. */
@@ -70,7 +72,13 @@ export function EditPostScreen({ postId }: { postId: string }) {
     (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("from") === "profile") ||
     (typeof window !== "undefined" && sessionStorage.getItem("tijar-edit-return") === "profile");
   const afterEdit = fromProfile ? "/shop/profile" : "/shop";
-  const shareUrl = `${PRODUCTION_ORIGIN}/shop`;
+  const shareUrl = post
+    ? isBidPost(post)
+      ? `${PRODUCTION_ORIGIN}/shop/bid/${post.id}`
+      : post.product_ids?.[0]
+        ? `${PRODUCTION_ORIGIN}/shop/p/${post.product_ids[0]}`
+        : `${PRODUCTION_ORIGIN}/shop?v=${post.id}`
+    : `${PRODUCTION_ORIGIN}/shop`;
 
   async function refresh() {
     await queryClient.invalidateQueries({ queryKey: ["bid-post", postId] });
@@ -261,9 +269,20 @@ export function EditPostScreen({ postId }: { postId: string }) {
       <ShareSheet
         open={shareOpen}
         onOpenChange={setShareOpen}
-        title={`${post.business_name} on TIJAR`}
+        title={post.caption?.trim() || displayShopName(post.business_name)}
         text={post.caption?.trim() || (isBid ? "Bidding on TIJAR" : "New on TIJAR")}
         url={shareUrl}
+        imageUrl={resolveCoverSrc(post.cover_path)}
+        shopName={displayShopName(post.business_name)}
+        handle={shopUsername(post.business_name, post.slug)}
+        priceLabel={
+          post.price != null
+            ? formatNgn(Number(post.price))
+            : isBid && post.bid_starting_price != null
+              ? `From ${formatNgn(Number(post.bid_starting_price))}`
+              : null
+        }
+        avatarUrl={post.business_logo_url}
       />
     </div>
   );

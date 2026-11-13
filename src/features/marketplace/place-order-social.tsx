@@ -12,7 +12,9 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { useAuth } from "@/features/auth/auth-context";
 import { useAccountGate } from "@/features/auth/account-gate";
 import { haptic } from "@/lib/haptics";
+import { shopUsername } from "@/lib/shop-names";
 import { cn } from "@/lib/utils";
+import { formatNgn } from "@/utils/money";
 import {
   deletePlaceOrderComment,
   fetchMyLikedPlaceOrderIds,
@@ -148,9 +150,13 @@ export function PlaceOrderSocialBar({
         open={shareOpen}
         onOpenChange={setShareOpen}
         title={listing.title}
-        text={`Place your order from ${listing.shop_name} on TIJAR`}
+        text={listing.details?.trim() || `Place your order from ${listing.shop_name} on TIJAR`}
         url={placeOrderShareUrl(listing.id)}
         imageUrl={listing.image_urls[0] ?? null}
+        shopName={listing.shop_name}
+        handle={shopUsername(listing.shop_name, listing.shop_slug)}
+        priceLabel={formatNgn(listing.price)}
+        avatarUrl={listing.shop_logo}
         onShared={() => void handleShared()}
       />
       {!compact && likes > 0 ? <p className="px-3 text-[14px] font-extrabold">{compactCount(likes)} likes</p> : null}

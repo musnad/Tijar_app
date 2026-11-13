@@ -13,7 +13,8 @@ import { useAuth } from "@/features/auth/auth-context";
 import { useAccountGate } from "@/features/auth/account-gate";
 import { isMockFeedId } from "@/features/marketplace/feed-mock";
 import { haptic } from "@/lib/haptics";
-import { displayShopName } from "@/lib/shop-names";
+import { displayShopName, shopUsername } from "@/lib/shop-names";
+import { formatNgn } from "@/utils/money";
 import { cn } from "@/lib/utils";
 import {
   deleteProductComment,
@@ -188,11 +189,15 @@ export function ProductSocialBar({
         open={shareOpen}
         onOpenChange={setShareOpen}
         title={product.name}
-        text={`${product.name} · ${displayShopName(product.business_name)} on TIJAR`}
+        text={product.description?.trim() || `${product.name} · ${displayShopName(product.business_name)} on TIJAR`}
         url={productShareUrl(product.id)}
         imageUrl={product.image_url}
         productId={product.id}
         price={product.sale_price != null ? Number(product.sale_price) : null}
+        shopName={displayShopName(product.business_name)}
+        handle={shopUsername(product.business_name, product.business_slug)}
+        priceLabel={product.sale_price != null ? formatNgn(Number(product.sale_price)) : null}
+        avatarUrl={product.business_logo_url}
         onShared={() => void handleShared()}
       />
       <Sheet open={commentsOpen} onOpenChange={setCommentsOpen}>

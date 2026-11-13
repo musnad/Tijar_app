@@ -1,10 +1,11 @@
 "use client";
 
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, Clock3, MapPin, Share2 } from "lucide-react";
-import { toast } from "sonner";
+import { useState } from "react";
 
 import { MediaCarousel } from "@/components/media/media-carousel";
+import { ShareSheet } from "@/components/share-sheet";
 import { MarketplaceShell } from "@/features/marketplace/marketplace-shell";
 import { PlaceOrderForm } from "@/features/marketplace/place-order-form-sheet";
 import { PlaceOrderSocialBar } from "@/features/marketplace/place-order-social";
@@ -12,13 +13,14 @@ import {
   categoryLabel,
   listingWhenLabel,
   fetchPlaceOrderListing,
+  placeOrderShareUrl,
   placeOrderSoldOut,
-  sharePlaceOrderPost,
 } from "@/services/place-order-service";
+import { shopUsername } from "@/lib/shop-names";
 import { formatNgn } from "@/utils/money";
 
 export function PlaceOrderDetailScreen({ listingId }: { listingId: string }) {
-  const queryClient = useQueryClient();
+  const [shareOpen, setShareOpen] = useState(false);
   const listingQuery = useQuery({
     queryKey: ["place-order-listing", listingId],
     queryFn: async () => (await fetchPlaceOrderListing(listingId)).listing,
@@ -39,13 +41,7 @@ export function PlaceOrderDetailScreen({ listingId }: { listingId: string }) {
               type="button"
               className="flex size-10 items-center justify-center"
               aria-label="Share"
-              onClick={async () => {
-                const result = await sharePlaceOrderPost(listing);
-                if (result.shared) {
-                  void queryClient.invalidateQueries({ queryKey: ["place-order-listing", listing.id] });
-                  if (!navigator.share) toast.success("Link copied");
-                }
-              }}
+              onClick={() => setShareOpen(true)}
             >
               <Share2 className="size-5" />
             </button>
@@ -94,6 +90,20 @@ export function PlaceOrderDetailScreen({ listingId }: { listingId: string }) {
           ) : null}
         </div>
       </div>
+      {listing ? (
+        <ShareSheet
+          open={shareOpen}
+          onOpenChange={setShareOpen}
+          title={listing.title}
+          text={listing.details?.trim() || `Place your order from ${listing.shop_name} on TIJAR`}
+          url={placeOrderShareUrl(listing.id)}
+          imageUrl={listing.image_urls[0] ?? null}
+          shopName={listing.shop_name}
+          handle={shopUsername(listing.shop_name, listing.shop_slug)}
+          priceLabel={formatNgn(listing.price)}
+          avatarUrl={listing.shop_logo}
+        />
+      ) : null}
     </MarketplaceShell>
   );
 }

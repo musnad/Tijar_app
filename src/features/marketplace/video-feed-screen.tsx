@@ -56,7 +56,7 @@ import { BusinessOfTheWeekCard } from "@/features/marketplace/business-of-the-we
 import { StoriesRow } from "@/features/marketplace/stories-row";
 import { StoryViewer } from "@/features/marketplace/story-viewer";
 import { useViewerLocation } from "@/hooks/use-viewer-location";
-import { displayShopName, isBlankShopName, lookupShopProfiles, shopLinkSlug } from "@/lib/shop-names";
+import { displayShopName, isBlankShopName, lookupShopProfiles, shopLinkSlug, shopUsername } from "@/lib/shop-names";
 import { NEARBY_RADIUS_KM } from "@/lib/feed/rank-video-feed";
 import {
   HOME_REFRESH_EVENT,
@@ -76,7 +76,7 @@ import { haversineKm } from "@/utils/discover";
 import { formatShopPlaceLine } from "@/lib/maps/shop-coords";
 import { cn } from "@/lib/utils";
 import { CART_QUERY_KEY, addProductToBuyerCart, cartActorId, toastAddedToCart } from "@/lib/cart-actions";
-import { fetchCart, fetchMarketplaceProducts, toggleFavoriteProduct } from "@/services/marketplace-service";
+import { fetchCart, fetchMarketplaceProducts, productShareUrl, toggleFavoriteProduct } from "@/services/marketplace-service";
 import { formatPricePerUnit } from "@/lib/catalogue/units";
 import { formatServiceDates, serviceLabel } from "@/lib/catalogue/service-schedule";
 import { parseVariantList } from "@/lib/catalogue/variants";
@@ -1315,19 +1315,31 @@ export function VideoFeedScreen({ initialVideoId }: { initialVideoId?: string })
         onOpenChange={(open) => {
           if (!open) setShareTarget(null);
         }}
-        title={shareTarget ? displayShopName(shareTarget.business_name) : ""}
+        title={shareTarget?.caption?.trim() || (shareTarget ? displayShopName(shareTarget.business_name) : "")}
         text={shareTarget?.caption?.trim() || "New on TIJAR"}
         url={
           shareTarget
-            ? `${typeof window !== "undefined" ? window.location.origin : ""}${
-                shareTarget.post_type === "bid" ? `/shop/bid/${shareTarget.id}` : `/shop?v=${shareTarget.id}`
-              }`
+            ? shareTarget.post_type === "bid"
+              ? `${typeof window !== "undefined" ? window.location.origin : ""}/shop/bid/${shareTarget.id}`
+              : shareTarget.product_ids?.[0]
+                ? productShareUrl(shareTarget.product_ids[0])
+                : `${typeof window !== "undefined" ? window.location.origin : ""}/shop?v=${shareTarget.id}`
             : ""
         }
         imageUrl={shareTarget ? resolveCoverSrc(shareTarget.cover_path) ?? resolveVideoSrc(shareTarget) : null}
         mediaKind={shareTarget && isImagePost(shareTarget) ? "image" : "video"}
         productId={shareTarget?.product_ids?.[0] ?? null}
         price={shareTarget?.price ?? null}
+        shopName={shareTarget ? displayShopName(shareTarget.business_name) : ""}
+        handle={shareTarget ? shopUsername(shareTarget.business_name, shareTarget.slug) : ""}
+        priceLabel={
+          shareTarget?.price != null
+            ? formatNgn(Number(shareTarget.price))
+            : shareTarget?.post_type === "bid" && shareTarget.bid_starting_price != null
+              ? `From ${formatNgn(Number(shareTarget.bid_starting_price))}`
+              : null
+        }
+        avatarUrl={shareTarget?.business_logo_url}
       />
     </MarketplaceShell>
   );
@@ -1750,8 +1762,22 @@ const VideoSlide = memo(function VideoSlide({
   const gallery = resolvePostGallery(video, products);
   const shares = Number(video.share_count ?? 0);
   const shopName = displayShopName(video.business_name);
-  const shareUrl = `${typeof window !== "undefined" ? window.location.origin : ""}/shop?v=${video.id}`;
+  const origin = typeof window !== "undefined" ? window.location.origin : "";
+  const featuredId = featured?.id ?? video.product_ids?.[0] ?? null;
+  const shareUrl = isBidPost(video)
+    ? `${origin}/shop/bid/${video.id}`
+    : featuredId
+      ? productShareUrl(featuredId)
+      : `${origin}/shop?v=${video.id}`;
   const shareText = video.caption?.trim() || `${shopName} on TIJAR`;
+  const sharePrice =
+    featured?.sale_price != null
+      ? formatNgn(Number(featured.sale_price))
+      : video.price != null
+        ? formatNgn(Number(video.price))
+        : isBidPost(video) && video.bid_starting_price != null
+          ? `From ${formatNgn(Number(video.bid_starting_price))}`
+          : null;
 
   return (
     <article
@@ -1966,13 +1992,17 @@ const VideoSlide = memo(function VideoSlide({
       <ShareSheet
         open={shareOpen}
         onOpenChange={setShareOpen}
-        title={shopName}
+        title={featured?.name || video.caption?.trim() || shopName}
         text={shareText}
         url={shareUrl}
-        imageUrl={poster ?? gallery[0] ?? null}
+        imageUrl={poster ?? gallery[0] ?? featured?.image_url ?? null}
         mediaKind={image ? "image" : "video"}
         productId={featured?.id ?? video.product_ids?.[0] ?? null}
         price={featured?.sale_price != null ? Number(featured.sale_price) : video.price ?? null}
+        shopName={shopName}
+        handle={shopUsername(shopName, video.slug)}
+        priceLabel={sharePrice}
+        avatarUrl={video.business_logo_url}
         onShared={() => actions.onRecordShare(video)}
       />
     </article>

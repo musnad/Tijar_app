@@ -19,6 +19,7 @@ export type LiveStory = {
   overlay_text: string | null;
   price: number | null;
   product_id: string | null;
+  place_order_listing_id?: string | null;
   duration_ms: number | null;
   expires_at: string;
   created_at: string;
@@ -71,6 +72,7 @@ function asStory(row: Record<string, unknown>): LiveStory {
     overlay_text: (row.overlay_text as string | null) ?? null,
     price: row.price != null ? Number(row.price) : null,
     product_id: (row.product_id as string | null) ?? null,
+    place_order_listing_id: (row.place_order_listing_id as string | null) ?? null,
     duration_ms: (row.duration_ms as number | null) ?? null,
     expires_at: row.expires_at as string,
     created_at: row.created_at as string,
