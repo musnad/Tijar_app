@@ -20,6 +20,7 @@ describe("whatsapp receipt link", () => {
       items: "2 × Rice",
       amountLabel: "₦5,000",
     });
+    expect(text).toContain("tijar.ng");
     expect(text).toContain("Aisha Foods");
     expect(text).toContain("TJ-1001");
     expect(text).toContain("₦5,000");

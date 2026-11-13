@@ -21,17 +21,21 @@ export function whatsappChatUrl(phone: string, text?: string): string | null {
 
 export function paymentReceiptMessage(input: {
   shopName: string;
+  shopAddress?: string;
   orderRef: string;
   items: string;
   amountLabel: string;
 }): string {
   return [
-    "TIJAR payment receipt",
+    "TIJAR.ng payment receipt",
     `Shop: ${input.shopName}`,
+    input.shopAddress?.trim() ? `Address: ${input.shopAddress.trim()}` : "",
     `Order: ${input.orderRef}`,
     `Items: ${input.items}`,
     `Amount paid: ${input.amountLabel}`,
     "",
-    "I have paid this order. Please confirm.",
-  ].join("\n");
+    "Paid on tijar.ng — please confirm this order.",
+  ]
+    .filter((line, i, all) => line !== "" || (i > 0 && all[i - 1] !== ""))
+    .join("\n");
 }
