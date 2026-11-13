@@ -17,6 +17,7 @@ describe("post share caption", () => {
     expect(text).toContain("TIJAR");
     expect(text).toContain("@musnad_market");
     expect(text).toContain("₦2,500");
+    expect(text).toContain("order");
     expect(text).toContain("tijar.ng");
     expect(text).toContain("https://www.tijar.ng/shop/p/abc");
   });

@@ -392,7 +392,11 @@ export function ShareSheet({
             <div className="px-5 py-3">
               {cardSrc ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={cardSrc} alt="" className="mx-auto max-h-56 w-auto rounded-2xl border border-border object-contain shadow-sm" />
+                <img
+                  src={cardSrc}
+                  alt=""
+                  className="mx-auto max-h-64 w-auto rounded-[1.4rem] object-contain shadow-[0_18px_40px_rgba(11,31,77,0.18)]"
+                />
               ) : (
                 <div className="flex items-center gap-3">
                   <span className="flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-border bg-muted">
