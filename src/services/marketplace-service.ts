@@ -54,7 +54,7 @@ const MARKETPLACE_SHOP_SELECT_CORE =
   "id, slug, business_name, description, location_text, public_location_label, latitude, longitude, logo_url, category_id, category_name, public_phone, public_whatsapp, opening_hours, is_verified, verification_status";
 
 const MARKETPLACE_PRODUCT_SELECT =
-  "id, business_id, name, kind, description, sale_price, unit, image_url, extra_image_urls, video_url, attributes, variants, currency, is_available, created_at, updated_at, is_informal, business_name, business_slug, business_logo_url, category_name, service_type, starts_on, ends_on";
+  "id, business_id, name, kind, description, sale_price, unit, image_url, extra_image_urls, video_url, attributes, variants, currency, is_available, created_at, updated_at, is_informal, business_name, business_slug, business_logo_url, category_name, service_type, starts_on, ends_on, business_location_text, business_public_location_label";
 
 const MARKETPLACE_PRODUCT_SELECT_LEGACY =
   "id, business_id, name, kind, description, sale_price, unit, image_url, is_available";
@@ -72,6 +72,20 @@ export async function fetchMarketplaceProducts(limit = 48, before?: string | nul
   else if (offset > 0) query = query.range(offset, offset + limit - 1);
   else query = query.limit(limit);
   let { data, error } = await query;
+  if (error && /business_location|business_public_location/i.test(error.message)) {
+    query = supabase
+      .from("public_business_products")
+      .select(
+        "id, business_id, name, kind, description, sale_price, unit, image_url, extra_image_urls, video_url, attributes, variants, currency, is_available, created_at, updated_at, is_informal, business_name, business_slug, business_logo_url, category_name, service_type, starts_on, ends_on",
+      )
+      .order("created_at", { ascending: false });
+    if (before) query = query.lt("created_at", before).limit(limit);
+    else if (offset > 0) query = query.range(offset, offset + limit - 1);
+    else query = query.limit(limit);
+    const retryCols = await query;
+    data = retryCols.data;
+    error = retryCols.error;
+  }
   if (error && /created_at/i.test(error.message)) {
     const retry = await supabase
       .from("public_business_products")
@@ -130,6 +144,11 @@ async function attachProductShopNames(products: PublicProduct[]): Promise<Public
       business_name: displayShopName(shop?.business_name ?? p.business_name),
       business_slug: shop?.slug ?? p.business_slug ?? p.business_id,
       business_logo_url: shop?.logo_url ?? p.business_logo_url,
+      business_location_text: shop?.location_text ?? p.business_location_text ?? null,
+      business_public_location_label:
+        shop?.public_location_label ?? p.business_public_location_label ?? null,
+      business_latitude: shop?.latitude ?? p.business_latitude ?? null,
+      business_longitude: shop?.longitude ?? p.business_longitude ?? null,
     };
   });
 }
@@ -312,14 +331,15 @@ export async function fetchNearbyMarketplaceShops(input: {
 
   const shops: NearbyMarketplaceShop[] = [];
   for (const listing of listingsRes.shops) {
-    const coords = resolveShopMapCoords(listing);
+    const coords = resolveShopMapCoords(listing, { jitter: false });
     if (!coords) continue;
+    const pin = resolveShopMapCoords(listing) ?? coords;
     const distance_km = haversineKm(centre, coords);
     if (!includeAll && distance_km > radiusKm) continue;
     shops.push({
       ...listing,
-      map_lat: coords.lat,
-      map_lng: coords.lng,
+      map_lat: pin.lat,
+      map_lng: pin.lng,
       location_estimated: coords.estimated,
       distance_km,
       products: productsByBiz.get(listing.id) ?? [],

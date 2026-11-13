@@ -263,6 +263,11 @@ export type PublicProduct = {
   service_type?: ServiceType;
   starts_on?: string | null;
   ends_on?: string | null;
+  business_location_text?: string | null;
+  business_public_location_label?: string | null;
+  business_latitude?: number | null;
+  business_longitude?: number | null;
+  distance_km?: number | null;
 };
 
 export type ServiceEnrollment = {

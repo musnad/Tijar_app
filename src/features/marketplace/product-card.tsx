@@ -22,6 +22,8 @@ import { FeedImage } from "@/components/media/feed-image";
 import { cn } from "@/lib/utils";
 import { isTijarNativeApp } from "@/lib/tijar-native-app";
 import { useTranslation } from "@/lib/i18n/context";
+import { useViewerLocation } from "@/hooks/use-viewer-location";
+import { formatShopPlaceLine } from "@/lib/maps/shop-coords";
 
 export function ProductCard({
   product,
@@ -33,6 +35,8 @@ export function ProductCard({
   const { profile } = useAuth();
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const viewer = useViewerLocation(false);
+  const place = formatShopPlaceLine(product, viewer.coords);
   const queryClient = useQueryClient();
   const actorId = cartActorId(profile?.id);
   const [burst, setBurst] = useState(false);
@@ -159,6 +163,7 @@ export function ProductCard({
           }}
         >
           {displayShopName(product.business_name)}
+          {place ? ` · ${place}` : ""}
         </button>
         {product.sale_price != null ? (
           <div className="mt-2 grid grid-cols-2 gap-1.5">

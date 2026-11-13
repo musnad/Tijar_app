@@ -45,6 +45,8 @@ function mergeShopRow(map: Map<string, ShopNameRow>, row: ShopNameRow) {
     logo_url: existing.logo_url || row.logo_url,
     latitude: existing.latitude ?? row.latitude,
     longitude: existing.longitude ?? row.longitude,
+    location_text: existing.location_text || row.location_text,
+    public_location_label: existing.public_location_label || row.public_location_label,
     is_verified: existing.is_verified || row.is_verified,
     verification_status: existing.verification_status ?? row.verification_status,
     category_id: existing.category_id ?? row.category_id,
@@ -63,6 +65,8 @@ export type ShopNameRow = {
   category_name?: string | null;
   latitude?: number | null;
   longitude?: number | null;
+  location_text?: string | null;
+  public_location_label?: string | null;
 };
 
 export async function lookupShopProfiles(ids: string[]): Promise<Map<string, ShopNameRow>> {
@@ -73,7 +77,7 @@ export async function lookupShopProfiles(ids: string[]): Promise<Map<string, Sho
   const supabase = getSupabaseBrowserClient();
   const publicRows = await supabase
     .from("public_marketplace_businesses")
-    .select("id, slug, business_name, logo_url, is_verified, verification_status, category_id, category_name, latitude, longitude")
+    .select("id, slug, business_name, logo_url, is_verified, verification_status, category_id, category_name, latitude, longitude, location_text, public_location_label")
     .in("id", unique);
   for (const row of publicRows.data ?? []) {
     mergeShopRow(map, {
@@ -87,6 +91,8 @@ export async function lookupShopProfiles(ids: string[]): Promise<Map<string, Sho
       category_name: (row.category_name as string | null) ?? null,
       latitude: row.latitude != null ? Number(row.latitude) : null,
       longitude: row.longitude != null ? Number(row.longitude) : null,
+      location_text: (row.location_text as string | null) ?? null,
+      public_location_label: (row.public_location_label as string | null) ?? null,
     });
   }
 
@@ -97,7 +103,7 @@ export async function lookupShopProfiles(ids: string[]): Promise<Map<string, Sho
 
   const listings = await supabase
     .from("public_business_listings")
-    .select("id, slug, business_name, logo_url, is_verified, verification_status, category_id, category_name, latitude, longitude")
+    .select("id, slug, business_name, logo_url, is_verified, verification_status, category_id, category_name, latitude, longitude, location_text, public_location_label")
     .in("id", missing);
   for (const row of listings.data ?? []) {
     mergeShopRow(map, {
@@ -111,6 +117,8 @@ export async function lookupShopProfiles(ids: string[]): Promise<Map<string, Sho
       category_name: (row.category_name as string | null) ?? null,
       latitude: row.latitude != null ? Number(row.latitude) : null,
       longitude: row.longitude != null ? Number(row.longitude) : null,
+      location_text: (row.location_text as string | null) ?? null,
+      public_location_label: (row.public_location_label as string | null) ?? null,
     });
   }
 
@@ -118,7 +126,7 @@ export async function lookupShopProfiles(ids: string[]): Promise<Map<string, Sho
     (id) => !map.has(id) || isBlankShopName(map.get(id)?.business_name) || !map.get(id)?.slug?.trim(),
   );
   if (still.length > 0) {
-    const owned = await supabase.from("businesses").select("id, public_slug, business_name, logo_url, verification_status, category_id, latitude, longitude").in("id", still);
+    const owned = await supabase.from("businesses").select("id, public_slug, business_name, logo_url, verification_status, category_id, latitude, longitude, location, public_location_label").in("id", still);
     for (const row of owned.data ?? []) {
       mergeShopRow(map, {
         id: row.id as string,
@@ -129,6 +137,8 @@ export async function lookupShopProfiles(ids: string[]): Promise<Map<string, Sho
         category_id: (row.category_id as string | null) ?? null,
         latitude: row.latitude != null ? Number(row.latitude) : null,
         longitude: row.longitude != null ? Number(row.longitude) : null,
+        location_text: (row.location as string | null) ?? null,
+        public_location_label: (row.public_location_label as string | null) ?? null,
       });
     }
   }

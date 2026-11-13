@@ -186,8 +186,8 @@ export async function createShopFromUssd(
     is_published: true,
     moderation_status: "approved",
     is_informal: true,
-    latitude: fallback?.lat ?? 9.0765,
-    longitude: fallback?.lng ?? 7.3986,
+    latitude: fallback?.lat ?? null,
+    longitude: fallback?.lng ?? null,
     published_at: new Date().toISOString(),
     agent_login_password: password,
   };

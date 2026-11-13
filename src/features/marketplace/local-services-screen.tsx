@@ -13,6 +13,7 @@ import { usePrimaryBusiness } from "@/hooks/use-primary-business";
 import { NIGERIA_STATE_NAMES, lgasForState, parseNigerianLocation } from "@/lib/nigeria-locations";
 import { fetchCart, searchLocalBusinesses } from "@/services/marketplace-service";
 import type { PublicBusiness } from "@/types/database";
+import { formatShopPlaceLine } from "@/lib/maps/shop-coords";
 
 function telHref(value: string): string {
   return `tel:${value.replace(/[^\d+]/g, "")}`;
@@ -23,7 +24,7 @@ function waHref(value: string): string {
 }
 
 function ServiceRow({ shop }: { shop: PublicBusiness }) {
-  const place = shop.public_location_label ?? shop.location_text;
+  const place = formatShopPlaceLine(shop);
   const phone = shop.public_phone ?? shop.public_whatsapp;
   const whatsapp = shop.public_whatsapp ?? shop.public_phone;
 

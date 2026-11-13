@@ -15,19 +15,21 @@ import { useAuth } from "@/features/auth/auth-context";
 import { useUserArea } from "@/hooks/use-user-area";
 import { AREA_PRESETS, getMapsProvider } from "@/lib/maps/provider";
 import { fetchCart, fetchNearbyMarketplaceShops } from "@/services/marketplace-service";
-import { formatDistance } from "@/utils/discover";
 import { formatNgn } from "@/utils/money";
 import { cn } from "@/lib/utils";
+import { formatShopPlaceLine } from "@/lib/maps/shop-coords";
+import { useViewerLocation } from "@/hooks/use-viewer-location";
 
 const RADIUS_OPTIONS = [5, 10, 25, 50, 0] as const;
-const DEFAULT_CENTRE = AREA_PRESETS[0]!;
+const NIGERIA_CENTRE = { lat: 9.082, lng: 8.6753 };
 
 export function NearbyScreen() {
   const { profile } = useAuth();
   const { coords: areaCoords, label: areaLabel } = useUserArea(profile);
-  const start = areaCoords ?? { lat: DEFAULT_CENTRE.lat, lng: DEFAULT_CENTRE.lng };
+  const viewer = useViewerLocation(true);
+  const start = viewer.coords ?? areaCoords ?? NIGERIA_CENTRE;
   const [centre, setCentre] = useState<{ lat: number; lng: number }>(start);
-  const [centreLabel, setCentreLabel] = useState(areaLabel || DEFAULT_CENTRE.name);
+  const [centreLabel, setCentreLabel] = useState(areaLabel || "Your location");
   const [source, setSource] = useState<"gps" | "city">("gps");
   const [followUser, setFollowUser] = useState(true);
   const [accuracyM, setAccuracyM] = useState<number | null>(null);
@@ -38,6 +40,12 @@ export function NearbyScreen() {
   const [geoHint, setGeoHint] = useState("");
   const sourceRef = useRef(source);
   sourceRef.current = source;
+
+  useEffect(() => {
+    if (source !== "gps" || !viewer.coords) return;
+    setCentre(viewer.coords);
+    setCentreLabel("Your location");
+  }, [source, viewer.coords]);
 
   const shopsQuery = useQuery({
     queryKey: ["nearby-marketplace-shops", centre.lat, centre.lng, radiusKm],
@@ -282,9 +290,8 @@ export function NearbyScreen() {
                     <p className="truncate font-extrabold">{selectedShop.business_name}</p>
                     <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
                       <MapPin className="size-3.5" />
-                      {formatDistance(selectedShop.distance_km)}
+                      {formatShopPlaceLine(selectedShop, centre)}
                       {selectedShop.category_name ? ` · ${selectedShop.category_name}` : ""}
-                      {selectedShop.location_estimated ? " · area" : ""}
                     </p>
                   </div>
                 </div>
@@ -381,12 +388,11 @@ export function NearbyScreen() {
                         <div className="min-w-0 flex-1">
                           <p className="truncate text-sm font-bold">{shop.business_name}</p>
                           <p className="truncate text-xs text-muted-foreground">
-                            {shop.category_name ?? shop.public_location_label ?? "Shop"}
+                            {shop.category_name ?? "Shop"}
                             {shop.products.length ? ` · ${shop.products.length} items` : ""}
                           </p>
                           <p className="mt-0.5 text-xs font-semibold text-primary">
-                            {formatDistance(shop.distance_km)}
-                            {shop.location_estimated ? " · approx." : ""}
+                            {formatShopPlaceLine(shop, centre)}
                             {top?.sale_price != null ? ` · from ${formatNgn(Number(top.sale_price))}` : ""}
                           </p>
                         </div>

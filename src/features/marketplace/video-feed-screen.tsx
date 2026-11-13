@@ -71,7 +71,8 @@ import {
 } from "@/lib/feed/feed-session";
 import { fetchActiveBusinessOfTheWeek, isPromotionLive } from "@/services/business-of-the-week-service";
 import { fetchLiveStoryRings, type StoryRing } from "@/services/story-service";
-import { formatDistance, haversineKm } from "@/utils/discover";
+import { haversineKm } from "@/utils/discover";
+import { formatShopPlaceLine } from "@/lib/maps/shop-coords";
 import { cn } from "@/lib/utils";
 import { CART_QUERY_KEY, addProductToBuyerCart, cartActorId, toastAddedToCart } from "@/lib/cart-actions";
 import { fetchCart, fetchMarketplaceProducts, toggleFavoriteProduct } from "@/services/marketplace-service";
@@ -1721,14 +1722,10 @@ const VideoSlide = memo(function VideoSlide({
   }, [active, paused, muted, image, src, mounted]);
 
   const { t } = useTranslation();
+  const viewer = useViewerLocation(false);
   const featured = products[0] ?? null;
   const when = timeAgo(video.published_at ?? video.created_at);
-  const place = [
-    video.distance_km != null ? formatDistance(video.distance_km) : null,
-    video.public_location_label ?? video.location_text,
-  ]
-    .filter(Boolean)
-    .join(" · ");
+  const place = formatShopPlaceLine(video, viewer.coords);
   const [burst, setBurst] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const onMediaTap = useDoubleTap(
@@ -2298,7 +2295,8 @@ const ListingSlide = memo(function ListingSlide({
   const gallery = productGallery(product);
   const slug = shopLinkSlug(product.business_slug, product.business_id);
   const shop = displayShopName(product.business_name);
-  const place = product.business_public_location_label ?? product.business_location_text ?? null;
+  const viewer = useViewerLocation(false);
+  const place = formatShopPlaceLine(product, viewer.coords);
   return (
     <article
       data-video-id={`listing:${product.id}`}

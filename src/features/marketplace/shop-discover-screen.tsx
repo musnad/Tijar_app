@@ -45,7 +45,9 @@ import {
   filterCatalogProducts,
   filterCatalogSellers,
 } from "@/utils/discover-catalog";
-import { filterListings, formatDistance, haversineKm } from "@/utils/discover";
+import { filterListings, haversineKm } from "@/utils/discover";
+import { useViewerLocation } from "@/hooks/use-viewer-location";
+import { formatShopPlaceLine } from "@/lib/maps/shop-coords";
 import { searchQueryFromProductImage } from "@/lib/search-by-image";
 import { searchPublicPeople } from "@/services/public-profile-service";
 import type { PublicProduct } from "@/types/database";
@@ -63,6 +65,7 @@ export function ShopDiscoverScreen() {
   const { t } = useTranslation();
   const { profile } = useAuth();
   const { area, coords: areaCoords, label: areaLabel } = useUserArea(profile);
+  const viewer = useViewerLocation(true);
   const [query, setQuery] = useState("");
   const [tab, setTab] = useState<Tab>("products");
   const [category, setCategory] = useState("");
@@ -78,10 +81,16 @@ export function ShopDiscoverScreen() {
   const [imageSearching, setImageSearching] = useState(false);
 
   useEffect(() => {
+    if (centreLabel && centreLabel !== "__near__" && centreLabel !== areaLabel) return;
+    if (viewer.coords) {
+      setCentre(viewer.coords);
+      if (centreLabel !== "__near__") setCentreLabel("__near__");
+      return;
+    }
     if (centre || !areaCoords) return;
     setCentre(areaCoords);
     if (areaLabel) setCentreLabel(areaLabel);
-  }, [areaCoords, areaLabel, centre]);
+  }, [areaCoords, areaLabel, centre, centreLabel, viewer.coords]);
 
   const productsQuery = useInfiniteQuery({
     queryKey: ["marketplace-products-browse"],
@@ -617,8 +626,8 @@ export function ShopDiscoverScreen() {
                         <span className="block truncate text-[11px] text-muted-foreground">
                           @{shopUsername(shop.business_name, shop.slug)}
                           {shop.category_name ? ` · ${shop.category_name}` : ""}
-                          {shop.public_location_label || shop.location_text
-                            ? ` · ${shop.public_location_label ?? shop.location_text}`
+                          {formatShopPlaceLine(shop, centre)
+                            ? ` · ${formatShopPlaceLine(shop, centre)}`
                             : ""}
                         </span>
                       </span>
@@ -813,8 +822,7 @@ export function ShopDiscoverScreen() {
                           </p>
                           <p className="mt-0.5 flex items-center gap-1 truncate text-[11px] text-muted-foreground">
                             <MapPin className="size-3 shrink-0" />
-                            {shop.public_location_label ?? shop.location_text ?? "Nigeria"}
-                            {shop.distance_km != null ? ` · ${formatDistance(shop.distance_km)}` : ""}
+                            {formatShopPlaceLine(shop, centre) || "Location not set"}
                           </p>
                         </div>
                         <ChevronRight className="size-4 shrink-0 text-muted-foreground" />

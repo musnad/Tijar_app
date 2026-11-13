@@ -975,6 +975,34 @@ export const NIGERIA_STATE_NAMES: string[] = NIGERIA_STATES.map((s) => s.name);
 
 const STATE_LOOKUP = new Map(NIGERIA_STATES.map((s) => [s.name.toLowerCase(), s]));
 
+const STATE_ALIASES: Record<string, string> = {
+  abuja: "FCT - Abuja",
+  fct: "FCT - Abuja",
+  "fct abuja": "FCT - Abuja",
+  "federal capital territory": "FCT - Abuja",
+};
+
+const LGA_STATE_LOOKUP = new Map<string, string>();
+for (const state of NIGERIA_STATES) {
+  for (const lga of state.lgas) {
+    if (!LGA_STATE_LOOKUP.has(lga.toLowerCase())) {
+      LGA_STATE_LOOKUP.set(lga.toLowerCase(), state.name);
+    }
+  }
+}
+
+function escapePlaceRe(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function lookupStateName(token: string): string {
+  const key = token.trim().toLowerCase();
+  if (!key) return "";
+  const aliased = STATE_ALIASES[key];
+  if (aliased) return aliased;
+  return STATE_LOOKUP.get(key)?.name ?? "";
+}
+
 /** LGAs for a state name, or an empty list when the state is unknown. */
 export function lgasForState(state: string | null | undefined): string[] {
   if (!state) return [];
@@ -996,13 +1024,36 @@ export function formatNigerianLocation(
 /** Best-effort reverse of `formatNigerianLocation` for prefilling edit forms. */
 export function parseNigerianLocation(value?: string | null): { state: string; lga: string } {
   if (!value) return { state: "", lga: "" };
-  const parts = value.split(",").map((p) => p.trim()).filter(Boolean);
+  const parts = value.split(/[,|/]/).map((p) => p.trim()).filter(Boolean);
   for (let i = parts.length - 1; i >= 0; i -= 1) {
-    const match = STATE_LOOKUP.get(parts[i]!.toLowerCase());
+    const stateName = lookupStateName(parts[i]!);
+    const match = stateName ? STATE_LOOKUP.get(stateName.toLowerCase()) : undefined;
     if (!match) continue;
     const previous = i > 0 ? parts[i - 1]! : "";
     const lga = match.lgas.find((l) => l.toLowerCase() === previous.toLowerCase()) ?? "";
     return { state: match.name, lga };
+  }
+  for (const part of parts) {
+    const fromLga = LGA_STATE_LOOKUP.get(part.toLowerCase());
+    if (!fromLga) continue;
+    const match = STATE_LOOKUP.get(fromLga.toLowerCase());
+    const lga = match?.lgas.find((l) => l.toLowerCase() === part.toLowerCase()) ?? part;
+    return { state: fromLga, lga };
+  }
+  const hay = value.trim();
+  const statesLongest = [...NIGERIA_STATES].sort((a, b) => b.name.length - a.name.length);
+  for (const state of statesLongest) {
+    if (!new RegExp(`\\b${escapePlaceRe(state.name)}\\b`, "i").test(hay)) continue;
+    const lga =
+      state.lgas.find((l) => new RegExp(`\\b${escapePlaceRe(l)}\\b`, "i").test(hay)) ?? "";
+    return { state: state.name, lga };
+  }
+  for (const [alias, stateName] of Object.entries(STATE_ALIASES)) {
+    if (!new RegExp(`\\b${escapePlaceRe(alias)}\\b`, "i").test(hay)) continue;
+    const match = STATE_LOOKUP.get(stateName.toLowerCase());
+    const lga =
+      match?.lgas.find((l) => new RegExp(`\\b${escapePlaceRe(l)}\\b`, "i").test(hay)) ?? "";
+    return { state: stateName, lga };
   }
   return { state: "", lga: "" };
 }
@@ -1047,15 +1098,6 @@ const STATE_COORDINATES: Record<string, { lat: number; lng: number }> = {
   Yobe: { lat: 11.7479, lng: 11.9608 },
   Zamfara: { lat: 12.1628, lng: 6.6614 },
 };
-
-const LGA_STATE_LOOKUP = new Map<string, string>();
-for (const state of NIGERIA_STATES) {
-  for (const lga of state.lgas) {
-    if (!LGA_STATE_LOOKUP.has(lga.toLowerCase())) {
-      LGA_STATE_LOOKUP.set(lga.toLowerCase(), state.name);
-    }
-  }
-}
 
 /** Approximate coordinates for a state (capital), or null when unknown. */
 export function coordinatesForState(

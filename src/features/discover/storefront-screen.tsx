@@ -46,6 +46,8 @@ import {
 import type { PublicProduct } from "@/types/database";
 import { formatPricePerUnit } from "@/lib/catalogue/units";
 import { formatNgn } from "@/utils/money";
+import { useViewerLocation } from "@/hooks/use-viewer-location";
+import { formatShopPlaceLine } from "@/lib/maps/shop-coords";
 
 const SAVED_SHOPS_KEY = "tijar-saved-shops";
 
@@ -178,6 +180,7 @@ export function StorefrontScreen({ slug }: { slug: string }) {
   const navigate = useNavigate();
   const startChat = useStartShopChat();
   const queryClient = useQueryClient();
+  const viewer = useViewerLocation(true);
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [message, setMessage] = useState("");
@@ -538,7 +541,7 @@ export function StorefrontScreen({ slug }: { slug: string }) {
                 <li className="flex items-center gap-1.5">
                   <MapPin className="size-3.5 shrink-0 text-[#1F7A4D]" />
                   <span className="truncate">
-                    {business.public_location_label ?? business.location_text ?? "Lagos, Nigeria"}
+                    {formatShopPlaceLine(business, viewer.coords) || "Location not set"}
                   </span>
                 </li>
                 {business.public_phone || business.public_whatsapp ? (

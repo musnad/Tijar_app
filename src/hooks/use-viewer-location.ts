@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 
+import { readDeviceCoords } from "@/lib/maps/device-location";
+
 const KEY = "tijar-viewer-geo";
 
 export type ViewerCoords = { lat: number; lng: number };
@@ -39,21 +41,20 @@ export function useViewerLocation(auto = true): ViewerLocationState {
   const [coords, setCoords] = useState<ViewerCoords | null>(stored);
 
   const request = useCallback(() => {
-    if (typeof navigator === "undefined" || !navigator.geolocation) {
+    if (typeof navigator === "undefined") {
       setStatus("denied");
       return;
     }
     setStatus("prompting");
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        const next = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-        writeStored(next);
-        setCoords(next);
-        setStatus("granted");
-      },
-      () => setStatus("denied"),
-      { enableHighAccuracy: false, timeout: 12_000, maximumAge: 120_000 },
-    );
+    void readDeviceCoords().then((next) => {
+      if (!next) {
+        setStatus("denied");
+        return;
+      }
+      writeStored(next);
+      setCoords(next);
+      setStatus("granted");
+    });
   }, []);
 
   useEffect(() => {

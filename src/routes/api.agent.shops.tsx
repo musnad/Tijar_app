@@ -256,8 +256,8 @@ export const Route = createFileRoute("/api/agent/shops")({
 
         const parsed = parseNigerianLocation(location);
         const fallback = coordinatesForState(parsed.state);
-        const latitude = Number.isFinite(latIn) ? latIn : fallback?.lat ?? 9.0765;
-        const longitude = Number.isFinite(lngIn) ? lngIn : fallback?.lng ?? 7.3986;
+        const latitude = Number.isFinite(latIn) ? latIn : fallback?.lat ?? null;
+        const longitude = Number.isFinite(lngIn) ? lngIn : fallback?.lng ?? null;
 
         const shop = await ctx.admin
           .from("businesses")

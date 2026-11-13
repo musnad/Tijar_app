@@ -21,9 +21,11 @@ import { useUserArea, writeStoredUserArea } from "@/hooks/use-user-area";
 import { areaRank, formatNigerianLocation } from "@/lib/nigeria-locations";
 import { fetchCart, fetchMarketplaceProducts, fetchMarketplaceShops, type MarketplaceShop } from "@/services/marketplace-service";
 import { saveOwnArea } from "@/services/profile-service";
+import { useViewerLocation } from "@/hooks/use-viewer-location";
+import { formatShopPlaceLine } from "@/lib/maps/shop-coords";
 
-function ShopCard({ shop }: { shop: MarketplaceShop }) {
-  const place = shop.public_location_label ?? shop.location_text;
+function ShopCard({ shop, viewer }: { shop: MarketplaceShop; viewer?: { lat: number; lng: number } | null }) {
+  const place = formatShopPlaceLine(shop, viewer);
   const initial = shop.business_name.trim().slice(0, 1).toUpperCase() || "T";
 
   return (
@@ -70,6 +72,7 @@ function ShopCard({ shop }: { shop: MarketplaceShop }) {
 export function ShopHomeScreen() {
   const { profile } = useAuth();
   const { area, label: areaLabel, save: saveArea } = useUserArea(profile);
+  const viewer = useViewerLocation(true);
   const [query, setQuery] = useState("");
   const [sectorFilter, setSectorFilter] = useState("");
   const [pickState, setPickState] = useState(area?.state ?? "");
@@ -366,7 +369,7 @@ export function ShopHomeScreen() {
         <ul className="mt-3 grid gap-3 lg:grid-cols-2 xl:grid-cols-3">
           {filtered.map((shop) => (
             <li key={shop.id} className="min-w-0">
-              <ShopCard shop={shop} />
+              <ShopCard shop={shop} viewer={viewer.coords} />
             </li>
           ))}
         </ul>

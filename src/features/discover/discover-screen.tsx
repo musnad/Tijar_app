@@ -3,7 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { BadgeCheck, MapPin, MessageCircle, Phone, Search } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,7 +13,9 @@ import { TIJAR_PICKER_LANGUAGES, type TijarLanguageName } from "@/lib/translatio
 import { fetchListingProductNames, fetchPublishedBusinesses } from "@/services/discover-service";
 import { translateTextClient } from "@/services/translate-service";
 import { useTranslation } from "@/lib/i18n/context";
-import { filterListings, formatDistance } from "@/utils/discover";
+import { filterListings } from "@/utils/discover";
+import { useViewerLocation } from "@/hooks/use-viewer-location";
+import { formatShopPlaceLine } from "@/lib/maps/shop-coords";
 
 const RADIUS_OPTIONS = [5, 10, 25, 50] as const;
 
@@ -29,6 +31,13 @@ export function DiscoverScreen() {
   const [searchLang, setSearchLang] = useState<TijarLanguageName>("English");
   const [translatedQuery, setTranslatedQuery] = useState<string | null>(null);
   const [searchNote, setSearchNote] = useState<string>("");
+  const viewer = useViewerLocation(true);
+
+  useEffect(() => {
+    if (centre || !viewer.coords) return;
+    setCentre(viewer.coords);
+    setCentreLabel(t("app.discover.yourLocation"));
+  }, [centre, t, viewer.coords]);
 
   const listingsQuery = useQuery({
     queryKey: ["discover-listings"],
@@ -219,8 +228,7 @@ export function DiscoverScreen() {
                     <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
                       <MapPin className="size-3.5 shrink-0" />
                       <span className="truncate">
-                        {b.public_location_label ?? b.location_text ?? t("app.discover.areaOnShopPage")}
-                        {b.distance_km != null && <> · {formatDistance(b.distance_km)}</>}
+                        {formatShopPlaceLine(b, centre) || t("app.discover.areaOnShopPage")}
                       </span>
                     </p>
                   </div>
