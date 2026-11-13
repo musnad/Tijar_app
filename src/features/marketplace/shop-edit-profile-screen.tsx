@@ -8,9 +8,12 @@ import { NativePageHeader, nativeCanvasClass } from "@/features/marketplace/nati
 import { cn } from "@/lib/utils";
 import { EditProfileForm } from "@/features/profile/edit-profile-form";
 import { useAuth } from "@/features/auth/auth-context";
+import { usePrimaryBusiness } from "@/hooks/use-primary-business";
 
 export function ShopEditProfileScreen() {
   const { profile, session, loading } = useAuth();
+  const { data, isLoading } = usePrimaryBusiness(profile?.id);
+  const waiting = loading || Boolean(profile && isLoading);
 
   return (
     <MarketplaceShell hideTopBar variant="feed">
@@ -20,13 +23,15 @@ export function ShopEditProfileScreen() {
         className="min-h-0 flex-1 overflow-y-auto px-4 pb-8"
         style={{ WebkitOverflowScrolling: "touch" }}
       >
-        {loading && <p className="mt-4 text-sm text-muted-foreground">Loading…</p>}
-        {!loading && (!session || !profile) && (
+        {waiting && <p className="mt-4 text-sm text-muted-foreground">Loading…</p>}
+        {!waiting && (!session || !profile) && (
           <Button className="mt-6 min-h-11 w-full rounded-full font-bold" asChild>
             <Link to="/login">Sign in</Link>
           </Button>
         )}
-        {profile && <EditProfileForm profile={profile} afterSave="/shop/profile" />}
+        {!waiting && profile && (
+          <EditProfileForm profile={profile} business={data?.business ?? null} afterSave="/shop/profile" />
+        )}
       </div>
       </div>
     </MarketplaceShell>

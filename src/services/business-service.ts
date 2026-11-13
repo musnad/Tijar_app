@@ -147,7 +147,22 @@ export type UpdateBusinessProfileInput = {
   publicWhatsapp?: string | null;
   publicSlug?: string | null;
   deliveryFee?: number | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  publicLocationLabel?: string | null;
 };
+
+function geoPatch(input: UpdateBusinessProfileInput): Record<string, unknown> {
+  const extras: Record<string, unknown> = {};
+  if (input.latitude !== undefined && input.longitude !== undefined) {
+    extras.latitude = input.latitude;
+    extras.longitude = input.longitude;
+  }
+  if (input.publicLocationLabel !== undefined) {
+    extras.public_location_label = input.publicLocationLabel?.trim() || null;
+  }
+  return extras;
+}
 
 export async function updateBusinessProfile(
   businessId: string,
@@ -190,7 +205,7 @@ export async function updateBusinessProfile(
     p_public_whatsapp: input.publicWhatsapp?.trim() ?? "",
   });
   if (!rpc.error && rpc.data) {
-    const extras: Record<string, unknown> = {};
+    const extras: Record<string, unknown> = { ...geoPatch(input) };
     if (nextSlug) extras.public_slug = nextSlug;
     if (input.deliveryFee != null && Number.isFinite(input.deliveryFee)) {
       extras.delivery_fee = Math.max(0, input.deliveryFee);
@@ -209,6 +224,7 @@ export async function updateBusinessProfile(
     islamic_mode_enabled: input.islamicModeEnabled,
     public_phone: input.publicPhone?.trim() || null,
     public_whatsapp: input.publicWhatsapp?.trim() || null,
+    ...geoPatch(input),
   };
   if (input.categoryId?.trim()) patch.category_id = input.categoryId;
   if (input.logoUrl !== undefined) patch.logo_url = input.logoUrl;

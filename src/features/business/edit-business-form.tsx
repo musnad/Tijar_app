@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { FormSection } from "@/features/app-layout/form-section";
 import { BusinessLogoField } from "@/features/business/business-logo-field";
+import { ShopLocationPicker, type ShopLocationValue } from "@/features/business/shop-location-picker";
 import { UsernameField, type UsernameStatus } from "@/features/business/username-field";
 import { TranslateText } from "@/features/translate/translate-text";
 import { useAuth } from "@/features/auth/auth-context";
@@ -37,6 +38,11 @@ export function EditBusinessForm({ business }: { business: Business }) {
   const [businessName, setBusinessName] = useState(business.business_name);
   const [stateName, setStateName] = useState(initialLocation.state);
   const [lga, setLga] = useState(initialLocation.lga);
+  const [shopPlace, setShopPlace] = useState<ShopLocationValue>({
+    label: (business.public_location_label || business.location || "").trim(),
+    lat: business.latitude ?? null,
+    lng: business.longitude ?? null,
+  });
   const [phone, setPhone] = useState(business.public_phone ?? "");
   const [whatsapp, setWhatsapp] = useState(business.public_whatsapp ?? "");
   const [deliveryFee, setDeliveryFee] = useState(
@@ -65,7 +71,8 @@ export function EditBusinessForm({ business }: { business: Business }) {
 
   async function submit(e?: React.FormEvent) {
     e?.preventDefault();
-    const composedLocation = formatNigerianLocation(stateName, lga) || business.location || "";
+    const composedLocation =
+      shopPlace.label.trim() || formatNigerianLocation(stateName, lga) || business.location || "";
     const parsed = businessProfileFormSchema.safeParse({
       businessName,
       location: composedLocation || undefined,
@@ -114,6 +121,9 @@ export function EditBusinessForm({ business }: { business: Business }) {
         publicWhatsapp: whatsapp.trim() || null,
         publicSlug: slugifyBusinessName(username) || slugifyBusinessName(parsed.data.businessName),
         deliveryFee: Number(deliveryFee.replace(/,/g, "")) || 0,
+        latitude: shopPlace.lat,
+        longitude: shopPlace.lng,
+        publicLocationLabel: shopPlace.label.trim() || parsed.data.location || null,
       },
       profile?.id,
     );
@@ -199,6 +209,10 @@ export function EditBusinessForm({ business }: { business: Business }) {
               </option>
             ))}
           </select>
+        </div>
+        <label className="mt-3 block text-xs font-bold text-white/80">Exact location</label>
+        <div className="mt-1 rounded-2xl bg-white p-3 text-foreground">
+          <ShopLocationPicker value={shopPlace} onChange={setShopPlace} />
         </div>
         <label className="mt-3 block text-xs font-bold text-white/80">Shop phone</label>
         <Input

@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { FormSection } from "@/features/app-layout/form-section";
+import { ShopLocationPicker, type ShopLocationValue } from "@/features/business/shop-location-picker";
 import { UsernameField, type UsernameStatus } from "@/features/business/username-field";
 import { ProfileAvatarField } from "@/features/profile/profile-avatar-field";
 import { profileFormSchema } from "@/features/profile/schemas";
@@ -35,6 +36,11 @@ export function EditProfileForm({
   const { refreshProfile } = useAuth();
 
   const [businessName, setBusinessName] = useState(business?.business_name ?? "");
+  const [shopPlace, setShopPlace] = useState<ShopLocationValue>({
+    label: (business?.public_location_label || business?.location || "").trim(),
+    lat: business?.latitude ?? null,
+    lng: business?.longitude ?? null,
+  });
   const [username, setUsername] = useState(
     business ? shopUsername(business.business_name, business.public_slug) : "",
   );
@@ -86,15 +92,19 @@ export function EditProfileForm({
         toast.error(usernameStatus === "taken" ? "That username is not available." : "Pick a valid username.");
         return;
       }
+      const placeLabel = shopPlace.label.trim();
       const biz = await updateBusinessProfile(
         business.id,
         {
           businessName: businessName.trim(),
-          location: business.location ?? "",
+          location: placeLabel || business.location || "",
           description: business.description ?? undefined,
           categoryId: business.category_id ?? undefined,
           islamicModeEnabled: business.islamic_mode_enabled,
           publicSlug: slugifyBusinessName(username) || slugifyBusinessName(businessName),
+          latitude: shopPlace.lat,
+          longitude: shopPlace.lng,
+          publicLocationLabel: placeLabel || null,
         },
         profile.id,
       );
@@ -109,6 +119,8 @@ export function EditProfileForm({
     toast.success(t("app.profile.saved"));
     await refreshProfile();
     await queryClient.invalidateQueries({ queryKey: ["primary-business"] });
+    await queryClient.invalidateQueries({ queryKey: ["marketplace-shops"] });
+    await queryClient.invalidateQueries({ queryKey: ["storefront"] });
     void navigate({ to: afterSave });
   }
 
@@ -142,6 +154,15 @@ export function EditProfileForm({
               onStatusChange={setUsernameStatus}
             />
           </div>
+        </FormSection>
+      ) : null}
+
+      {business ? (
+        <FormSection
+          title="Shop location"
+          hint="Type your area even if it is not on the map. Drop a pin when you can for exact distance."
+        >
+          <ShopLocationPicker value={shopPlace} onChange={setShopPlace} />
         </FormSection>
       ) : null}
 
