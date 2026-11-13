@@ -1310,6 +1310,56 @@ export async function fetchOrderDetail(orderId: string, profileId?: string | nul
   return { order: order as MarketplaceOrder, items: (items ?? []) as MarketplaceOrderItem[], error: null };
 }
 
+export type ShopPublicContact = {
+  id: string;
+  business_name: string;
+  public_phone: string | null;
+  public_whatsapp: string | null;
+  location_text: string | null;
+  public_location_label: string | null;
+};
+
+export async function fetchShopPublicContact(businessId: string): Promise<{
+  shop: ShopPublicContact | null;
+  error: string | null;
+}> {
+  const supabase = getSupabaseBrowserClient();
+  const fromView = await supabase
+    .from("public_marketplace_businesses")
+    .select("id, business_name, public_phone, public_whatsapp, location_text, public_location_label")
+    .eq("id", businessId)
+    .maybeSingle();
+  if (!fromView.error && fromView.data) {
+    return { shop: fromView.data as ShopPublicContact, error: null };
+  }
+  const fromTable = await supabase
+    .from("businesses")
+    .select("id, business_name, public_phone, public_whatsapp, location, public_location_label")
+    .eq("id", businessId)
+    .maybeSingle();
+  if (fromTable.error) return { shop: null, error: fromTable.error.message };
+  if (!fromTable.data) return { shop: null, error: fromView.error?.message ?? null };
+  const row = fromTable.data as {
+    id: string;
+    business_name: string;
+    public_phone: string | null;
+    public_whatsapp: string | null;
+    location: string | null;
+    public_location_label: string | null;
+  };
+  return {
+    shop: {
+      id: row.id,
+      business_name: row.business_name,
+      public_phone: row.public_phone,
+      public_whatsapp: row.public_whatsapp,
+      location_text: row.location,
+      public_location_label: row.public_location_label,
+    },
+    error: null,
+  };
+}
+
 export async function listAddresses(profileId: string): Promise<{
   data: CustomerAddress[];
   error: string | null;

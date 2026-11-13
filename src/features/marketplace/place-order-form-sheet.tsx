@@ -8,11 +8,13 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DeliveryProviderPicker } from "@/features/marketplace/delivery-provider-picker";
+import { PaidShopContact, orderShowsShopContact } from "@/features/marketplace/paid-shop-contact";
 import { ShopPayPanel } from "@/features/marketplace/shop-pay-panel";
 import { fetchDeliveryProviders, type DeliveryProvider } from "@/services/delivery-providers";
 import { useAuth } from "@/features/auth/auth-context";
 import { cn } from "@/lib/utils";
 import {
+  fetchMyPlaceOrders,
   formatSlotWindow,
   placeYourOrder,
   type PlaceOrderFulfilment,
@@ -74,6 +76,16 @@ export function PlaceOrderForm({ listing }: { listing: PlaceOrderListing }) {
     if (profile?.phone) setPhone((current) => current || profile.phone || "");
   }, [profile?.phone]);
 
+  useEffect(() => {
+    if (!profile?.id) return;
+    void fetchMyPlaceOrders(profile.id).then((res) => {
+      const mine = res.orders.find((o) => o.listing_id === listing.id);
+      if (!mine) return;
+      setOrderId(mine.id);
+      if (orderShowsShopContact(mine.status, mine.buyer_marked_paid_at)) setPaid(true);
+    });
+  }, [listing.id, profile?.id]);
+
   async function submit() {
     if (!session || !profile) {
       toast.error("Sign in to place your order.");
@@ -134,9 +146,17 @@ export function PlaceOrderForm({ listing }: { listing: PlaceOrderListing }) {
   if (orderId) {
     if (paid) {
       return (
-        <p className="rounded-2xl bg-[#1F7A4D]/10 px-3 py-3 text-center text-sm font-extrabold text-[#1F7A4D]">
-          Paid · ordered
-        </p>
+        <div className="space-y-3">
+          <p className="rounded-2xl bg-[#1F7A4D]/10 px-3 py-3 text-center text-sm font-extrabold text-[#1F7A4D]">
+            Paid · ordered
+          </p>
+          <PaidShopContact
+            businessId={listing.business_id}
+            orderRef={orderId}
+            items={`${qty} × ${listing.title}`}
+            amount={total}
+          />
+        </div>
       );
     }
     return (

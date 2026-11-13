@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { PaidShopContact } from "@/features/marketplace/paid-shop-contact";
 import { confirmShopPayment, fetchShopReceivingAccount } from "@/services/shop-pay-service";
 import { formatNgn } from "@/utils/money";
 
@@ -159,6 +160,11 @@ export function ShopPayPanel({
             {paid ? "Paid" : busy ? "Checking shop account…" : "I’ve made the payment"}
           </Button>
         </>
+      ) : null}
+      {paid ? (
+        <div className="mt-3">
+          <PaidShopContact businessId={businessId} orderRef={orderId} items={itemLabel} amount={amount} />
+        </div>
       ) : null}
     </div>
   );

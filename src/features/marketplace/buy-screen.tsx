@@ -10,6 +10,7 @@ import { FeedImage } from "@/components/media/feed-image";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { MarketplaceShell } from "@/features/marketplace/marketplace-shell";
+import { PaidShopContact } from "@/features/marketplace/paid-shop-contact";
 import { ShopPayPanel } from "@/features/marketplace/shop-pay-panel";
 import { isMockFeedId } from "@/features/marketplace/feed-mock";
 import { useAuth } from "@/features/auth/auth-context";
@@ -268,9 +269,17 @@ export function BuyScreen({ productId, initialQty }: { productId?: string; initi
               ) : (
                 <>
                   {paidNow ? (
-                    <p className="mt-4 rounded-2xl bg-[#1F7A4D]/10 px-3 py-3 text-center text-sm font-extrabold text-[#1F7A4D]">
-                      Paid for product
-                    </p>
+                    <div className="mt-4 space-y-3">
+                      <p className="rounded-2xl bg-[#1F7A4D]/10 px-3 py-3 text-center text-sm font-extrabold text-[#1F7A4D]">
+                        Paid for product
+                      </p>
+                      <PaidShopContact
+                        businessId={product.business_id}
+                        orderRef={orderId}
+                        items={`${qty} ${unitWord} of ${product.name}`}
+                        amount={total}
+                      />
+                    </div>
                   ) : (
                     <ShopPayPanel
                       businessId={product.business_id}

@@ -47,6 +47,7 @@ import {
 } from "@/components/ui/sheet";
 import { MarketplaceShell } from "@/features/marketplace/marketplace-shell";
 import { CartIconLink } from "@/features/marketplace/cart-icon-link";
+import { PaidShopContact } from "@/features/marketplace/paid-shop-contact";
 import { ShopPayPanel } from "@/features/marketplace/shop-pay-panel";
 import { useAuth } from "@/features/auth/auth-context";
 import { useAccountGate } from "@/features/auth/account-gate";
@@ -1593,9 +1594,17 @@ function WinnerPayment({ video }: { video: PublicFeedVideo }) {
   const markedPaid = Boolean(video.bid_buyer_marked_paid_at);
   if (markedPaid || video.bid_status === "paid") {
     return (
-      <p className="mt-3 rounded-xl bg-[#1F7A4D]/10 px-3 py-3 text-center text-[13px] font-extrabold text-[#1F7A4D]">
-        Paid
-      </p>
+      <div className="mt-3 space-y-3">
+        <p className="rounded-xl bg-[#1F7A4D]/10 px-3 py-3 text-center text-[13px] font-extrabold text-[#1F7A4D]">
+          Paid
+        </p>
+        <PaidShopContact
+          businessId={video.business_id}
+          orderRef={video.id}
+          items={video.caption?.trim() || "winning bid"}
+          amount={Number(video.top_bid ?? video.bid_starting_price ?? video.price ?? 0)}
+        />
+      </div>
     );
   }
   return (

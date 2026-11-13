@@ -43,6 +43,7 @@ import {
   resumeBid,
   type BidOffer,
 } from "@/services/bid-service";
+import { PaidShopContact } from "@/features/marketplace/paid-shop-contact";
 import { ShopPayPanel } from "@/features/marketplace/shop-pay-panel";
 import { isImagePost, resolvePostGallery } from "@/services/video-feed-service";
 import { formatNgn } from "@/utils/money";
@@ -447,9 +448,17 @@ export function BidDetailScreen({ postId }: { postId: string }) {
       {/* Winner: pay the shop */}
       {isWinner && (phase === "sold" || phase === "paid") ? (
         phase === "paid" || post.bid_buyer_marked_paid_at ? (
-          <p className="mt-4 rounded-2xl bg-[#1F7A4D]/10 px-3 py-3 text-center text-sm font-extrabold text-[#1F7A4D]">
-            Paid
-          </p>
+          <div className="mt-4 space-y-3">
+            <p className="rounded-2xl bg-[#1F7A4D]/10 px-3 py-3 text-center text-sm font-extrabold text-[#1F7A4D]">
+              Paid
+            </p>
+            <PaidShopContact
+              businessId={post.business_id}
+              orderRef={post.id}
+              items={post.caption?.trim() || "winning bid"}
+              amount={Number(post.top_bid ?? post.bid_starting_price ?? 0)}
+            />
+          </div>
         ) : (
           <ShopPayPanel
             businessId={post.business_id}

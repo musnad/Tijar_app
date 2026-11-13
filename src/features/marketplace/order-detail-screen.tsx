@@ -10,6 +10,7 @@ import { MarketplaceShell } from "@/features/marketplace/marketplace-shell";
 import { NativePageHeader, nativeCanvasClass } from "@/features/marketplace/native-page-header";
 import { cn } from "@/lib/utils";
 import { OrderTrackTimeline } from "@/features/marketplace/order-track-timeline";
+import { PaidShopContact, orderShowsShopContact } from "@/features/marketplace/paid-shop-contact";
 import { ShopPayPanel } from "@/features/marketplace/shop-pay-panel";
 import { useAuth } from "@/features/auth/auth-context";
 import { canBuyerMarkReceived } from "@/lib/checkout/delivery-fee";
@@ -161,24 +162,27 @@ export function OrderDetailScreen({ orderId }: { orderId: string }) {
             </div>
           </section>
 
-          {awaitingPay && order.business_id ? (
-            buyerSaidPaid || order.status === "paid" ? (
-              <p className="rounded-2xl bg-[#1F7A4D]/10 px-3 py-3 text-center text-sm font-extrabold text-[#1F7A4D]">
-                Paid · ordered
-              </p>
-            ) : (
-              <ShopPayPanel
-                businessId={order.business_id}
-                amount={Number(order.total)}
-                orderId={order.id}
-                kind="marketplace"
-                itemLabel={itemLabel}
-                onPaid={() => {
-                  void queryClient.invalidateQueries({ queryKey: ["marketplace-order", orderId] });
-                  void queryClient.invalidateQueries({ queryKey: ["marketplace-orders"] });
-                }}
-              />
-            )
+          {awaitingPay && order.business_id && !buyerSaidPaid && order.status !== "paid" ? (
+            <ShopPayPanel
+              businessId={order.business_id}
+              amount={Number(order.total)}
+              orderId={order.id}
+              kind="marketplace"
+              itemLabel={itemLabel}
+              onPaid={() => {
+                void queryClient.invalidateQueries({ queryKey: ["marketplace-order", orderId] });
+                void queryClient.invalidateQueries({ queryKey: ["marketplace-orders"] });
+              }}
+            />
+          ) : null}
+
+          {order.business_id && orderShowsShopContact(order.status, order.buyer_marked_paid_at) ? (
+            <PaidShopContact
+              businessId={order.business_id}
+              orderRef={order.order_number}
+              items={itemLabel}
+              amount={Number(order.total)}
+            />
           ) : null}
 
           {canBuyerMarkReceived(order.status) ? (
