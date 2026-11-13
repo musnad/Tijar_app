@@ -46,6 +46,7 @@ import { ShopAvatarSwitch } from "@/features/business/shop-avatar-switch";
 import { MarketplaceShell } from "@/features/marketplace/marketplace-shell";
 import { BuyerOrderCard } from "@/features/marketplace/buyer-order-card";
 import { ProfileShareSheet } from "@/features/marketplace/profile-share-sheet";
+import { ProfileWalletCard } from "@/features/marketplace/profile-wallet-card";
 import { CartIconLink } from "@/features/marketplace/cart-icon-link";
 import { useAuth } from "@/features/auth/auth-context";
 import { useAccountGate } from "@/features/auth/account-gate";
@@ -509,6 +510,8 @@ export function ShopProfileScreen() {
             </>
           )}
         </section>
+
+        {!demo && shop?.id ? <ProfileWalletCard businessId={shop.id} /> : null}
 
         <nav className="mx-4 mt-4 grid grid-cols-3 rounded-full bg-white p-1 shadow-[0_4px_14px_rgba(11,31,58,0.06)] in-[.native-shop]:border-0">
           {(

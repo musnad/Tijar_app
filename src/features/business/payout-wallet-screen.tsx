@@ -6,13 +6,6 @@ import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { CreateReceivingAccountButton } from "@/features/business/create-receiving-account";
 import { NigerianBankSelect } from "@/features/business/nigerian-bank-select";
@@ -20,11 +13,11 @@ import { ngBankName } from "@/lib/payments/ng-banks";
 import { displayShopName } from "@/lib/shop-names";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { fetchOwnedBusinesses } from "@/services/business-service";
+import { WalletPinDialog, type WalletPinMode } from "@/features/business/wallet-pin-dialog";
 import {
   fetchSellerWallet,
   fetchVirtualAccountWallet,
   requestSellerPayout,
-  saveSellerTransferPin,
 } from "@/services/marketplace-service";
 import { formatNgn } from "@/utils/money";
 import type { Business } from "@/types/database";
@@ -86,11 +79,8 @@ export function PayoutWalletScreen({
   const [bankCode, setBankCode] = useState(selected.payout_bank_code ?? "058");
   const [resolving, setResolving] = useState(false);
   const [pinOpen, setPinOpen] = useState(false);
-  const [pinMode, setPinMode] = useState<"create" | "withdraw" | "change">("create");
+  const [pinMode, setPinMode] = useState<WalletPinMode>("create");
   const [pinThenWithdraw, setPinThenWithdraw] = useState(false);
-  const [pin, setPin] = useState("");
-  const [confirmPin, setConfirmPin] = useState("");
-  const [currentPin, setCurrentPin] = useState("");
 
   const hasTransferPin = Boolean(walletQuery.data?.hasTransferPin);
 
@@ -168,14 +158,7 @@ export function PayoutWalletScreen({
     setResolving(false);
   }
 
-  function resetPinFields() {
-    setPin("");
-    setConfirmPin("");
-    setCurrentPin("");
-  }
-
-  function openPin(mode: "create" | "withdraw" | "change", thenWithdraw = false) {
-    resetPinFields();
+  function openPin(mode: WalletPinMode, thenWithdraw = false) {
     setPinMode(mode);
     setPinThenWithdraw(thenWithdraw);
     setPinOpen(true);
@@ -214,7 +197,6 @@ export function PayoutWalletScreen({
     toast.success(result.message ?? "Transfer sent.");
     setWithdrawAmount("");
     setPinOpen(false);
-    resetPinFields();
     await queryClient.invalidateQueries({ queryKey: ["shop-wallet", selected.id] });
     return true;
   }
@@ -224,34 +206,15 @@ export function PayoutWalletScreen({
     openPin(hasTransferPin ? "withdraw" : "create", true);
   }
 
-  async function submitPin() {
-    setWithdrawing(true);
-    try {
-      if (pinMode === "change" || pinMode === "create") {
-        const saved = await saveSellerTransferPin(selected.id, {
-          pin,
-          confirmPin,
-          currentPin: pinMode === "change" ? currentPin : undefined,
-        });
-        if (saved.error) {
-          toast.error(saved.error);
-          return;
-        }
-        toast.success(saved.message ?? "Transfer PIN saved.");
-        await queryClient.invalidateQueries({ queryKey: ["shop-wallet", selected.id] });
-        if (pinThenWithdraw) {
-          await sendPayout(pin);
-          return;
-        }
-        setPinOpen(false);
-        resetPinFields();
-        return;
+  async function afterPinSaved(newPin?: string) {
+    await queryClient.invalidateQueries({ queryKey: ["shop-wallet", selected.id] });
+    if (pinThenWithdraw && newPin) {
+      setWithdrawing(true);
+      try {
+        await sendPayout(newPin);
+      } finally {
+        setWithdrawing(false);
       }
-      await sendPayout(pin);
-    } catch {
-      toast.error(pinMode === "withdraw" ? "Withdrawal did not complete. Try again." : "Could not save the PIN.");
-    } finally {
-      setWithdrawing(false);
     }
   }
 
@@ -374,14 +337,22 @@ export function PayoutWalletScreen({
             </p>
           </div>
         </div>
-        <Button
-          type="button"
-          variant="outline"
-          className="mt-3 min-h-11 w-full rounded-xl font-extrabold"
-          onClick={() => openPin(hasTransferPin ? "change" : "create")}
-        >
-          {hasTransferPin ? "Change PIN" : "Set transfer PIN"}
-        </Button>
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          {hasTransferPin ? (
+            <>
+              <Button type="button" variant="outline" className="min-h-11 rounded-xl font-extrabold" onClick={() => openPin("change")}>
+                Change PIN
+              </Button>
+              <Button type="button" variant="outline" className="min-h-11 rounded-xl font-extrabold" onClick={() => openPin("forget")}>
+                Forgot PIN
+              </Button>
+            </>
+          ) : (
+            <Button type="button" className="col-span-2 min-h-11 rounded-xl bg-[#0B1F4D] font-extrabold" onClick={() => openPin("create")}>
+              Create PIN
+            </Button>
+          )}
+        </div>
       </section>
 
       <section id="tijar-withdraw" className="mt-4 rounded-2xl border border-border bg-card p-4">
@@ -433,56 +404,22 @@ export function PayoutWalletScreen({
         </Button>
       </section>
 
-      <Dialog
+      <WalletPinDialog
         open={pinOpen}
-        onOpenChange={(open) => {
-          setPinOpen(open);
-          if (!open) resetPinFields();
+        onOpenChange={setPinOpen}
+        mode={pinMode}
+        businessId={selected.id}
+        busy={withdrawing}
+        onSaved={(newPin) => void afterPinSaved(newPin)}
+        onWithdraw={async (value) => {
+          setWithdrawing(true);
+          try {
+            await sendPayout(value);
+          } finally {
+            setWithdrawing(false);
+          }
         }}
-      >
-        <DialogContent className="max-w-sm rounded-[1.25rem]">
-          <DialogHeader>
-            <DialogTitle>
-              {pinMode === "change" ? "Change transfer PIN" : pinMode === "create" ? "Set transfer PIN" : "Enter transfer PIN"}
-            </DialogTitle>
-            <DialogDescription>
-              {pinMode === "withdraw"
-                ? "Enter your 4-digit PIN to send this withdrawal."
-                : "This PIN is required every time money leaves this wallet. Do not use 1234 or the same digit four times."}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-3">
-            {pinMode === "change" ? (
-              <PinBoxes label="Current PIN" value={currentPin} onChange={setCurrentPin} autoFocus />
-            ) : null}
-            <PinBoxes
-              label={pinMode === "withdraw" ? "Transfer PIN" : "New PIN"}
-              value={pin}
-              onChange={setPin}
-              autoFocus={pinMode !== "change"}
-            />
-            {pinMode !== "withdraw" ? (
-              <PinBoxes label="Confirm PIN" value={confirmPin} onChange={setConfirmPin} />
-            ) : null}
-            <Button
-              type="button"
-              className="min-h-11 w-full rounded-xl bg-[#1F7A4D] font-extrabold text-white hover:bg-[#1F7A4D]/90"
-              disabled={withdrawing || pin.length !== 4 || (pinMode !== "withdraw" && confirmPin.length !== 4)}
-              onClick={() => void submitPin()}
-            >
-              {withdrawing
-                ? pinMode === "withdraw"
-                  ? "Sending…"
-                  : "Saving…"
-                : pinMode === "withdraw"
-                  ? "Confirm withdrawal"
-                  : pinMode === "create" && pinThenWithdraw
-                    ? "Save PIN and continue"
-                    : "Save PIN"}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      />
 
       <section className="mt-4">
         <h2 className="text-sm font-extrabold">Transactions</h2>
@@ -518,32 +455,5 @@ export function PayoutWalletScreen({
         )}
       </section>
     </div>
-  );
-}
-
-function PinBoxes({
-  label,
-  value,
-  onChange,
-  autoFocus,
-}: {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  autoFocus?: boolean;
-}) {
-  return (
-    <label className="block">
-      <span className="text-xs font-bold">{label}</span>
-      <Input
-        className="mt-1 min-h-12 rounded-xl text-center text-2xl font-extrabold tracking-[0.55em]"
-        inputMode="numeric"
-        autoComplete="one-time-code"
-        maxLength={4}
-        autoFocus={autoFocus}
-        value={value}
-        onChange={(e) => onChange(e.target.value.replace(/\D/g, "").slice(0, 4))}
-      />
-    </label>
   );
 }

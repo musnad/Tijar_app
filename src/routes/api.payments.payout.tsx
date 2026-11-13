@@ -1,9 +1,11 @@
+import { createClient } from "@supabase/supabase-js";
 import { createFileRoute } from "@tanstack/react-router";
 
 import { corvConfigured, corvResolveAccount, corvTransfer } from "@/lib/payments/corv";
 import { flutterwaveConfigured, flutterwaveTransfer } from "@/lib/payments/flutterwave";
 import { shopAdminClient, syncCorvWallet } from "@/lib/payments/shop-server";
-import { consumeTransferPin, setShopTransferPin } from "@/lib/payments/transfer-pin";
+import { consumeTransferPin, resetShopTransferPin, setShopTransferPin } from "@/lib/payments/transfer-pin";
+import { readSupabasePublicEnv } from "@/lib/supabase/runtime-env";
 
 export const Route = createFileRoute("/api/payments/payout")({
   server: {
@@ -26,11 +28,38 @@ export const Route = createFileRoute("/api/payments/payout")({
           pin?: string;
           confirmPin?: string;
           currentPin?: string;
+          forgot?: boolean;
+          password?: string;
         };
         const businessId = body.businessId?.trim();
         if (!businessId) return Response.json({ error: "Missing shop." }, { status: 400 });
         const ctx = await shopAdminClient(request, businessId);
         if ("error" in ctx) return ctx.error;
+        if (body.forgot) {
+          const password = String(body.password ?? "");
+          const email = ctx.profile.email?.trim() ?? "";
+          if (!email) {
+            return Response.json({ error: "Add an email on your account to reset this PIN." }, { status: 400 });
+          }
+          if (password.length < 6) {
+            return Response.json({ error: "Enter your account password to reset the PIN." }, { status: 400 });
+          }
+          const env = readSupabasePublicEnv();
+          if (!env) return Response.json({ error: "Could not verify your password." }, { status: 503 });
+          const probe = createClient(env.VITE_SUPABASE_URL, env.VITE_SUPABASE_ANON_KEY, {
+            auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+          });
+          const { error: passwordError } = await probe.auth.signInWithPassword({ email, password });
+          if (passwordError) {
+            return Response.json({ error: "Wrong password. Try again or reset your login password." }, { status: 403 });
+          }
+          const saved = await resetShopTransferPin(ctx.admin, businessId, {
+            pin: body.pin ?? "",
+            confirmPin: body.confirmPin ?? "",
+          });
+          if (!saved.ok) return Response.json({ error: saved.error, code: saved.code }, { status: saved.status });
+          return Response.json({ ok: true, hasTransferPin: true, message: "Wallet PIN reset." });
+        }
         const saved = await setShopTransferPin(ctx.admin, businessId, {
           pin: body.pin ?? "",
           confirmPin: body.confirmPin ?? "",

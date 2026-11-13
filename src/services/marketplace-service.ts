@@ -2052,7 +2052,7 @@ export async function fetchVirtualAccountWallet(businessId: string): Promise<{
 
 export async function saveSellerTransferPin(
   businessId: string,
-  input: { pin: string; confirmPin: string; currentPin?: string },
+  input: { pin: string; confirmPin: string; currentPin?: string; forgot?: boolean; password?: string },
 ): Promise<{ error: string | null; message?: string }> {
   const supabase = getSupabaseBrowserClient();
   const {

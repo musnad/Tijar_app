@@ -85,13 +85,9 @@ export async function shopHasTransferPin(
   return { hasPin: Boolean(row?.pin_hash), lockedUntil: row?.locked_until ?? null, missingTable };
 }
 
-export async function setShopTransferPin(
-  admin: SupabaseClient,
-  businessId: string,
-  input: { pin: string; confirmPin: string; currentPin?: string },
-): Promise<TransferPinCheck> {
-  const pin = digitsPin(input.pin);
-  const confirm = digitsPin(input.confirmPin);
+function validNewPin(pinRaw: string, confirmRaw: string): TransferPinCheck | { ok: true; pin: string } {
+  const pin = digitsPin(pinRaw);
+  const confirm = digitsPin(confirmRaw);
   if (pin.length !== 4 || confirm.length !== 4) {
     return { ok: false, status: 400, error: "Enter a 4-digit transfer PIN.", code: "PIN_FORMAT" };
   }
@@ -106,26 +102,10 @@ export async function setShopTransferPin(
       code: "PIN_WEAK",
     };
   }
+  return { ok: true, pin };
+}
 
-  const { row, missingTable } = await loadPin(admin, businessId);
-  if (missingTable) {
-    return {
-      ok: false,
-      status: 503,
-      error: "Run the transfer PIN SQL in Supabase, then try again.",
-      code: "PIN_SQL",
-    };
-  }
-
-  if (row?.pin_hash) {
-    const current = digitsPin(input.currentPin);
-    if (current.length !== 4) {
-      return { ok: false, status: 400, error: "Enter your current PIN to change it.", code: "PIN_CURRENT" };
-    }
-    const checked = await consumeTransferPin(admin, businessId, current);
-    if (!checked.ok) return checked;
-  }
-
+async function writePinHash(admin: SupabaseClient, businessId: string, pin: string): Promise<TransferPinCheck> {
   const pin_hash = await hashPin(pin);
   const { error } = await admin.from("seller_transfer_pins").upsert(
     {
@@ -149,6 +129,56 @@ export async function setShopTransferPin(
     return { ok: false, status: 500, error: "Could not save the PIN. Try again.", code: "PIN_SAVE" };
   }
   return { ok: true };
+}
+
+export async function setShopTransferPin(
+  admin: SupabaseClient,
+  businessId: string,
+  input: { pin: string; confirmPin: string; currentPin?: string },
+): Promise<TransferPinCheck> {
+  const valid = validNewPin(input.pin, input.confirmPin);
+  if (!valid.ok) return valid;
+
+  const { row, missingTable } = await loadPin(admin, businessId);
+  if (missingTable) {
+    return {
+      ok: false,
+      status: 503,
+      error: "Run the transfer PIN SQL in Supabase, then try again.",
+      code: "PIN_SQL",
+    };
+  }
+
+  if (row?.pin_hash) {
+    const current = digitsPin(input.currentPin);
+    if (current.length !== 4) {
+      return { ok: false, status: 400, error: "Enter your current PIN to change it.", code: "PIN_CURRENT" };
+    }
+    const checked = await consumeTransferPin(admin, businessId, current);
+    if (!checked.ok) return checked;
+  }
+
+  return writePinHash(admin, businessId, valid.pin);
+}
+
+/** Replace a forgotten PIN after the signed-in owner proves their account password. */
+export async function resetShopTransferPin(
+  admin: SupabaseClient,
+  businessId: string,
+  input: { pin: string; confirmPin: string },
+): Promise<TransferPinCheck> {
+  const valid = validNewPin(input.pin, input.confirmPin);
+  if (!valid.ok) return valid;
+  const { missingTable } = await loadPin(admin, businessId);
+  if (missingTable) {
+    return {
+      ok: false,
+      status: 503,
+      error: "Run the transfer PIN SQL in Supabase, then try again.",
+      code: "PIN_SQL",
+    };
+  }
+  return writePinHash(admin, businessId, valid.pin);
 }
 
 export async function consumeTransferPin(
