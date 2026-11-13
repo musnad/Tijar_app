@@ -67,22 +67,79 @@ function wrapLines(ctx: CanvasRenderingContext2D, text: string, maxW: number, li
   return lines;
 }
 
-function hairline(ctx: CanvasRenderingContext2D, x: number, y: number, width: number, color: string) {
-  ctx.save();
-  ctx.strokeStyle = color;
-  ctx.lineWidth = 1.5;
-  ctx.beginPath();
-  ctx.moveTo(x, y);
-  ctx.lineTo(x + width, y);
-  ctx.stroke();
-  ctx.restore();
-}
-
 function drawSpaced(ctx: CanvasRenderingContext2D, text: string, x: number, y: number, tracking: number) {
   let cx = x;
   for (const ch of text) {
     ctx.fillText(ch, cx, y);
     cx += ctx.measureText(ch).width + tracking;
+  }
+}
+
+function spacedWidth(ctx: CanvasRenderingContext2D, text: string, tracking: number): number {
+  let w = 0;
+  for (const ch of text) w += ctx.measureText(ch).width + tracking;
+  return Math.max(0, w - tracking);
+}
+
+function drawBrandWash(ctx: CanvasRenderingContext2D, w: number, h: number) {
+  const bg = ctx.createLinearGradient(0, 0, w, h);
+  bg.addColorStop(0, "#061226");
+  bg.addColorStop(0.55, NAVY);
+  bg.addColorStop(1, "#0A2A1C");
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, w, h);
+  const orbs = [
+    { x: 160, y: 140, r: 240, c: "rgba(31,122,77,0.38)" },
+    { x: w - 60, y: 280, r: 260, c: "rgba(201,162,39,0.16)" },
+    { x: 90, y: h - 120, r: 220, c: "rgba(31,122,77,0.24)" },
+  ];
+  for (const o of orbs) {
+    const g = ctx.createRadialGradient(o.x, o.y, 8, o.x, o.y, o.r);
+    g.addColorStop(0, o.c);
+    g.addColorStop(1, "rgba(6,18,38,0)");
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(o.x, o.y, o.r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.save();
+  ctx.translate(w / 2, h / 2);
+  ctx.rotate(-Math.PI / 7);
+  ctx.fillStyle = "rgba(255,255,255,0.04)";
+  ctx.font = "800 160px system-ui, sans-serif";
+  ctx.textAlign = "center";
+  ctx.fillText("TIJAR", 0, 40);
+  ctx.restore();
+}
+
+async function drawTijarMark(ctx: CanvasRenderingContext2D, cx: number, cy: number, r: number) {
+  ctx.beginPath();
+  ctx.arc(cx, cy, r + 6, 0, Math.PI * 2);
+  ctx.fillStyle = "#FFFFFF";
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(cx, cy, r + 8, 0, Math.PI * 2);
+  ctx.strokeStyle = GOLD;
+  ctx.lineWidth = 3;
+  ctx.stroke();
+  try {
+    const logo = await loadImage("/tijar-logo.png");
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.clip();
+    ctx.drawImage(logo, cx - r, cy - r, r * 2, r * 2);
+    ctx.restore();
+  } catch {
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.fillStyle = GREEN;
+    ctx.fill();
+    ctx.fillStyle = "#FFFFFF";
+    ctx.font = `800 ${Math.round(r * 0.9)}px system-ui, sans-serif`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText("T", cx, cy + 2);
   }
 }
 
@@ -183,132 +240,123 @@ export function postShareCaption(input: PostShareCardInput): string {
     .join("\n");
 }
 
-/** Standard editorial TIJAR post card for WhatsApp status and groups. */
+/** Branded TIJAR post card for WhatsApp status and groups. */
 export async function composePostShareCard(input: PostShareCardInput): Promise<string> {
   const w = 1080;
-  const h = 1440;
+  const h = 1620;
   const canvas = document.createElement("canvas");
   canvas.width = w;
   canvas.height = h;
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("Could not draw the post card.");
 
-  const bg = ctx.createLinearGradient(0, 0, w, h);
-  bg.addColorStop(0, "#F3EFE6");
-  bg.addColorStop(1, "#E7E1D4");
-  ctx.fillStyle = bg;
-  ctx.fillRect(0, 0, w, h);
+  drawBrandWash(ctx, w, h);
 
-  const cardX = 48;
-  const cardY = 48;
-  const cardW = w - 96;
-  const cardH = h - 96;
+  const cardX = 56;
+  const cardY = 56;
+  const cardW = w - 112;
+  const cardH = h - 112;
   ctx.save();
-  ctx.shadowColor = "rgba(22, 24, 29, 0.18)";
-  ctx.shadowBlur = 36;
-  ctx.shadowOffsetY = 14;
-  fillRound(ctx, cardX, cardY, cardW, cardH, 36, PAPER);
+  ctx.shadowColor = "rgba(0,0,0,0.42)";
+  ctx.shadowBlur = 42;
+  ctx.shadowOffsetY = 16;
+  fillRound(ctx, cardX, cardY, cardW, cardH, 40, PAPER);
   ctx.restore();
 
   ctx.save();
-  roundPath(ctx, cardX, cardY, cardW, cardH, 36);
+  roundPath(ctx, cardX, cardY, cardW, cardH, 40);
   ctx.clip();
+
+  const headerH = 236;
+  const header = ctx.createLinearGradient(cardX, cardY, cardX + cardW, cardY + headerH);
+  header.addColorStop(0, NAVY);
+  header.addColorStop(1, "#123A28");
+  ctx.fillStyle = header;
+  ctx.fillRect(cardX, cardY, cardW, headerH);
   ctx.fillStyle = GOLD;
-  ctx.fillRect(cardX, cardY, cardW, 7);
+  ctx.fillRect(cardX, cardY, cardW, 8);
+  ctx.fillStyle = GREEN;
+  ctx.fillRect(cardX, cardY + headerH - 8, cardW, 8);
+
+  const cx = w / 2;
+  await drawTijarMark(ctx, cx, cardY + 78, 44);
+  ctx.textAlign = "center";
+  ctx.textBaseline = "alphabetic";
+  ctx.fillStyle = "#FFFFFF";
+  ctx.font = "800 44px system-ui, sans-serif";
+  const word = "TIJAR";
+  const track = 12;
+  drawSpaced(ctx, word, cx - spacedWidth(ctx, word, track) / 2, cardY + 158, track);
+  ctx.fillStyle = GOLD;
+  ctx.font = "700 22px system-ui, sans-serif";
+  ctx.fillText("tijar.ng", cx, cardY + 192);
+  ctx.fillStyle = "rgba(255,255,255,0.72)";
+  ctx.font = "600 15px system-ui, sans-serif";
+  ctx.fillText("INFORMAL MARKETPLACE  ·  NIGERIA", cx, cardY + 218);
 
   const shop = (input.shopName || "TIJAR").trim();
   const handle = `@${(input.handle || "tijar.ng").replace(/^@/, "")}`;
   const initial = (shop.slice(0, 1) || "T").toUpperCase();
-  const headerY = cardY + 86;
-  await drawCircleImage(ctx, cardX + 78, headerY, 36, input.avatarUrl, initial);
-
+  const shopY = cardY + headerH + 58;
+  await drawCircleImage(ctx, cardX + 86, shopY, 34, input.avatarUrl, initial);
   ctx.textAlign = "left";
   ctx.textBaseline = "middle";
   ctx.fillStyle = INK;
-  ctx.font = "700 30px system-ui, sans-serif";
-  ctx.fillText(shop.slice(0, 22), cardX + 132, headerY - 14);
-  ctx.fillStyle = MUTED;
-  ctx.font = "600 22px system-ui, sans-serif";
-  ctx.fillText(handle.slice(0, 26), cardX + 132, headerY + 18);
+  ctx.font = "800 30px system-ui, sans-serif";
+  ctx.fillText(shop.slice(0, 22), cardX + 138, shopY - 14);
+  ctx.fillStyle = GREEN;
+  ctx.font = "700 20px system-ui, sans-serif";
+  ctx.fillText(`${handle.slice(0, 22)}  ·  on TIJAR`, cardX + 138, shopY + 18);
 
-  try {
-    const logo = await loadImage("/tijar-logo.png");
-    const lr = 28;
-    const lx = cardX + cardW - 72;
-    ctx.beginPath();
-    ctx.arc(lx, headerY, lr + 3, 0, Math.PI * 2);
-    ctx.fillStyle = "#FFFFFF";
-    ctx.fill();
-    ctx.save();
-    ctx.beginPath();
-    ctx.arc(lx, headerY, lr, 0, Math.PI * 2);
-    ctx.clip();
-    ctx.drawImage(logo, lx - lr, headerY - lr, lr * 2, lr * 2);
-    ctx.restore();
-  } catch {
-    ctx.fillStyle = NAVY;
-    ctx.font = "800 18px system-ui, sans-serif";
-    ctx.textAlign = "right";
-    ctx.fillText("TIJAR", cardX + cardW - 40, headerY);
-  }
-
-  hairline(ctx, cardX + 40, cardY + 142, cardW - 80, "rgba(201,162,39,0.45)");
-
-  const photoX = cardX + 40;
-  const photoY = cardY + 164;
-  const photoW = cardW - 80;
-  const photoH = 780;
-  await drawCover(ctx, photoX, photoY, photoW, photoH, 22, input.imageUrl);
+  const photoX = cardX + 36;
+  const photoY = cardY + headerH + 110;
+  const photoW = cardW - 72;
+  const photoH = 720;
+  await drawCover(ctx, photoX, photoY, photoW, photoH, 24, input.imageUrl);
+  await drawTijarMark(ctx, photoX + 52, photoY + 52, 22);
 
   if (input.priceLabel) {
-    ctx.font = "700 24px system-ui, sans-serif";
+    ctx.font = "800 26px system-ui, sans-serif";
     const label = input.priceLabel;
     const tw = ctx.measureText(label).width;
-    const px = photoX + photoW - tw - 56;
+    const px = photoX + 24;
     const py = photoY + photoH - 78;
-    fillRound(ctx, px, py, tw + 36, 50, 25, "rgba(255,252,248,0.94)");
-    ctx.fillStyle = GREEN;
+    fillRound(ctx, px, py, tw + 44, 54, 16, NAVY);
+    ctx.fillStyle = GOLD;
     ctx.textAlign = "left";
     ctx.textBaseline = "middle";
-    ctx.fillText(label, px + 18, py + 26);
+    ctx.fillText(label, px + 22, py + 28);
   }
 
   const textX = cardX + 48;
   const textW = cardW - 96;
-  let y = photoY + photoH + 56;
+  let y = photoY + photoH + 58;
   ctx.textAlign = "left";
   ctx.textBaseline = "alphabetic";
   ctx.fillStyle = NAVY;
   ctx.font = "800 40px system-ui, sans-serif";
-  const titles = wrapLines(ctx, (input.title || shop).slice(0, 72), textW, 2);
-  titles.forEach((line) => {
+  wrapLines(ctx, (input.title || shop).slice(0, 72), textW, 2).forEach((line) => {
     ctx.fillText(line, textX, y);
     y += 48;
   });
 
   const body = (input.caption?.trim() || "").replace(/\s+/g, " ");
   if (body && body.toLowerCase() !== (input.title || "").toLowerCase()) {
-    y += 8;
+    y += 6;
     ctx.fillStyle = MUTED;
     ctx.font = "500 24px system-ui, sans-serif";
-    wrapLines(ctx, body.slice(0, 160), textW, 2).forEach((line) => {
+    wrapLines(ctx, body.slice(0, 140), textW, 2).forEach((line) => {
       ctx.fillText(line, textX, y);
       y += 34;
     });
   }
 
-  hairline(ctx, textX, cardY + cardH - 92, textW, "rgba(201,162,39,0.5)");
+  fillRound(ctx, cardX + 36, cardY + cardH - 108, cardW - 72, 72, 20, GREEN);
+  ctx.fillStyle = "#FFFFFF";
+  ctx.font = "800 26px system-ui, sans-serif";
   ctx.textAlign = "center";
-  ctx.fillStyle = NAVY;
-  ctx.font = "800 22px system-ui, sans-serif";
-  const mark = "TIJAR";
-  const track = 10;
-  let markW = 0;
-  for (const ch of mark) markW += ctx.measureText(ch).width + track;
-  drawSpaced(ctx, mark, w / 2 - (markW - track) / 2, cardY + cardH - 52, track);
-  ctx.fillStyle = GOLD;
-  ctx.font = "600 18px system-ui, sans-serif";
-  ctx.fillText(input.cta ?? "Tap the link to order  ·  tijar.ng", w / 2, cardY + cardH - 22);
+  ctx.textBaseline = "middle";
+  ctx.fillText("ORDER ON TIJAR.NG", cx, cardY + cardH - 72);
 
   ctx.restore();
   return canvas.toDataURL("image/jpeg", 0.93);
