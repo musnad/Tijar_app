@@ -201,7 +201,7 @@ export async function requireAuthenticatedUser(
       ok: false,
       status: 401,
       code: "UNAUTHORIZED",
-      message: "Sign in to use batch translation.",
+      message: "Sign in to use TIJAR AI.",
     };
   }
   return { ok: true, userId };

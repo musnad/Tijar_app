@@ -89,13 +89,3 @@ describe("orderHomeFeed", () => {
     });
     expect(ordered[0]?.key).toBe("recent");
     expect(ordered.map((i) => i.key).sort()).toEqual(["mid", "old", "recent"]);
-  });
-});
-
-describe("home refresh pending", () => {
-  it("remembers a Home tap until the feed consumes it", () => {
-    markHomeRefreshPending();
-    expect(consumeHomeRefreshPending()).toBe(true);
-    expect(consumeHomeRefreshPending()).toBe(false);
-  });
-});

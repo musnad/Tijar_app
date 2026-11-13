@@ -1,0 +1,9 @@
+# Intel macOS last official torch is 2.2.x — keep transformers old enough to load .bin weights.
+numpy>=1.26.4,<2
+huggingface_hub>=0.26.0,<0.30
+transformers==4.46.3
+tokenizers>=0.20.3,<0.21
+sentencepiece>=0.2.0
+sacremoses>=0.1.1
+torch==2.2.2
+protobuf>=4.25.0

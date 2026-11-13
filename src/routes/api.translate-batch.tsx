@@ -9,6 +9,7 @@ import {
   requireAuthenticatedUser,
   resolveTranslateRateKey,
 } from "@/lib/api/security";
+import { gatewayErrorResponse, replayDuplicateAi, runTimedProvider, startAiSession } from "@/lib/ai/gateway";
 import { translateBatch } from "@/lib/translation/service";
 
 /**
@@ -38,11 +39,30 @@ export const Route = createFileRoute("/api/translate-batch")({
         }
 
         const { rateLimitKey } = await resolveTranslateRateKey(request);
-        const result = await translateBatch(parsed.body, { rateLimitKey, rateLimit: 10 });
-        if (!result.ok) {
-          return jsonSecure({ error: { code: result.code, message: result.message } }, { status: result.status });
+        const session = await startAiSession({ request, service: "translate_batch" });
+        if (!session.ok) {
+          return jsonSecure(gatewayErrorResponse(session), { status: session.status });
         }
-        return jsonSecure({ translations: result.translations });
+        const replayed = replayDuplicateAi(session);
+        if (replayed) return replayed;
+        const timed = await runTimedProvider(session, translateBatch(parsed.body, { rateLimitKey, rateLimit: 10 }));
+        if (!timed.ok) {
+          const timeoutBody = { error: { code: "TIMEOUT", message: "Translation timed out." } };
+          await session.saveReplay({ httpStatus: 504, body: timeoutBody });
+          await session.finish({ status: "failed", errorCode: "TIMEOUT", refund: session.refundOnTimeout });
+          return jsonSecure(timeoutBody, { status: 504 });
+        }
+        const result = timed.value;
+        if (!result.ok) {
+          const errBody = { error: { code: result.code, message: result.message } };
+          await session.saveReplay({ httpStatus: result.status, body: errBody });
+          await session.finish({ status: "failed", errorCode: result.code });
+          return jsonSecure(errBody, { status: result.status });
+        }
+        const okBody = { translations: result.translations };
+        await session.saveReplay({ httpStatus: 200, body: okBody });
+        await session.finish({ status: "succeeded" });
+        return jsonSecure(okBody);
       },
     },
   },

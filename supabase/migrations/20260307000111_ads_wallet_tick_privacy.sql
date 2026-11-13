@@ -1,5 +1,6 @@
 -- Ticks only from verified_badge (apply or admin assign). KYC approve does not grant a tick.
 -- Wallet can pay ads. Who-can-message lives on the profile.
+-- DROP VIEW first: CREATE OR REPLACE cannot remove columns (42P16).
 
 alter table public.profiles
   add column if not exists who_can_message text not null default 'everyone';
@@ -15,7 +16,11 @@ alter table public.businesses
   add column if not exists verified_badge boolean not null default false,
   add column if not exists deleted_at timestamptz;
 
-create or replace view public.public_marketplace_businesses as
+drop view if exists public.public_marketplace_businesses;
+drop view if exists public.public_video_feed;
+drop view if exists public.public_live_stories;
+
+create view public.public_marketplace_businesses as
 select
   b.id,
   b.public_slug as slug,
@@ -46,15 +51,16 @@ where b.is_published
   and coalesce(b.moderation_status::text, 'pending') not in ('flagged', 'suspended')
   and b.deleted_at is null;
 
-create or replace view public.public_video_feed as
+create view public.public_video_feed as
 select
   v.id,
   v.business_id,
   v.profile_id,
   v.caption,
-  v.storage_path,
-  v.playback_url,
+  v.captions_url,
   v.cover_path,
+  v.playback_url,
+  v.storage_path,
   v.duration_ms,
   v.attribution,
   v.media_kind,
@@ -112,7 +118,7 @@ where v.status::text = 'ready'
   and coalesce(b.moderation_status::text, 'pending') not in ('flagged', 'suspended')
   and b.deleted_at is null;
 
-create or replace view public.public_live_stories as
+create view public.public_live_stories as
 select
   s.id,
   s.business_id,
@@ -143,5 +149,17 @@ join public.businesses b on b.id = s.business_id
 where s.expires_at > timezone('utc', now())
   and coalesce(b.moderation_status::text, 'pending') not in ('flagged', 'suspended')
   and b.deleted_at is null;
+
+grant select on public.public_marketplace_businesses to anon, authenticated;
+grant select on public.public_video_feed to anon, authenticated;
+grant select on public.public_live_stories to anon, authenticated;
+
+do $$
+begin
+  alter view public.public_video_feed set (security_invoker = false);
+exception
+  when others then
+    null;
+end $$;
 
 notify pgrst, 'reload schema';

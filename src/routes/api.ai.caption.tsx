@@ -8,6 +8,7 @@ import {
   readJsonBody,
   requireAuthenticatedUser,
 } from "@/lib/api/security";
+import { gatewayErrorResponse, replayDuplicateAi, runTimedProvider, startAiSession } from "@/lib/ai/gateway";
 import { grokJson, isXaiConfigured, XaiError } from "@/lib/xai/client";
 
 export const Route = createFileRoute("/api/ai/caption")({
@@ -45,27 +46,55 @@ export const Route = createFileRoute("/api/ai/caption")({
           price: typeof body.price === "number" ? body.price : null,
           location: body.location ?? null,
         };
+        const session = await startAiSession({ request, service: "caption" });
+        if (!session.ok) {
+          return jsonSecure(gatewayErrorResponse(session), { status: session.status });
+        }
+        const replayed = replayDuplicateAi(session);
+        if (replayed) return replayed;
         try {
-          const caption = isXaiConfigured()
-            ? await grokJson<CaptionExtract>({
+          let caption: CaptionExtract;
+          if (isXaiConfigured()) {
+            const timed = await runTimedProvider(
+              session,
+              grokJson<CaptionExtract>({
                 system: CAPTION_SYSTEM,
                 user: JSON.stringify({ ...seed, language: body.language || "English" }),
-              })
-            : fallbackCaption(seed);
-          return jsonSecure({
+              }),
+            );
+            if (!timed.ok) {
+              const timeoutBody = { error: { code: "TIMEOUT", message: "TIJAR AI timed out." } };
+              await session.saveReplay({ httpStatus: 504, body: timeoutBody });
+              await session.finish({ status: "failed", errorCode: "TIMEOUT", refund: session.refundOnTimeout });
+              return jsonSecure(timeoutBody, { status: 504 });
+            }
+            caption = timed.value;
+          } else {
+            caption = fallbackCaption(seed);
+          }
+          const okBody = {
             caption: {
               english: (caption.english || fallbackCaption(seed).english).slice(0, 2000),
               hausa: (caption.hausa || fallbackCaption(seed).hausa).slice(0, 2000),
               caption: (caption.caption || fallbackCaption(seed).caption).slice(0, 400),
             },
             source: isXaiConfigured() ? "grok" : "local",
-          });
+          };
+          await session.saveReplay({ httpStatus: 200, body: okBody });
+          await session.finish({ status: "succeeded", provider: isXaiConfigured() ? "xai" : "local" });
+          return jsonSecure(okBody);
         } catch (err) {
           const caption = fallbackCaption(seed);
           if (err instanceof XaiError && err.code === "NOT_CONFIGURED") {
-            return jsonSecure({ caption, source: "local" });
+            const localBody = { caption, source: "local" };
+            await session.saveReplay({ httpStatus: 200, body: localBody });
+            await session.finish({ status: "succeeded", provider: "local" });
+            return jsonSecure(localBody);
           }
-          return jsonSecure({ caption, source: "local", warning: "Grok was busy, so TIJAR wrote a simple description." });
+          const warnBody = { caption, source: "local", warning: "Grok was busy, so TIJAR wrote a simple description." };
+          await session.saveReplay({ httpStatus: 200, body: warnBody });
+          await session.finish({ status: "succeeded", provider: "local" });
+          return jsonSecure(warnBody);
         }
       },
     },

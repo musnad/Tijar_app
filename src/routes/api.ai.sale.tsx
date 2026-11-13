@@ -8,6 +8,7 @@ import {
   readJsonBody,
   requireAuthenticatedUser,
 } from "@/lib/api/security";
+import { gatewayErrorResponse, replayDuplicateAi, runTimedProvider, startAiSession } from "@/lib/ai/gateway";
 import { grokJson, isXaiConfigured, XaiError } from "@/lib/xai/client";
 
 export const Route = createFileRoute("/api/ai/sale")({
@@ -35,20 +36,48 @@ export const Route = createFileRoute("/api/ai/sale")({
         if (text.length < 3) {
           return jsonSecure({ error: { code: "VALIDATION", message: "Say who bought what." } }, { status: 400 });
         }
+        const session = await startAiSession({ request, service: "sale" });
+        if (!session.ok) {
+          return jsonSecure(gatewayErrorResponse(session), { status: session.status });
+        }
+        const replayed = replayDuplicateAi(session);
+        if (replayed) return replayed;
         try {
-          const sale = isXaiConfigured()
-            ? await grokJson<SaleExtract>({
+          let sale: SaleExtract;
+          if (isXaiConfigured()) {
+            const timed = await runTimedProvider(
+              session,
+              grokJson<SaleExtract>({
                 system: SALE_SYSTEM,
                 user: `Language hint: ${body.language || "English"}\nToday ISO: ${new Date().toISOString()}\n\nSeller said:\n${text.slice(0, 2000)}`,
-              })
-            : fallbackSale(text);
-          return jsonSecure({ sale: sanitizeSale(sale, text), source: isXaiConfigured() ? "grok" : "local" });
+              }),
+            );
+            if (!timed.ok) {
+              const timeoutBody = { error: { code: "TIMEOUT", message: "TIJAR AI timed out." } };
+              await session.saveReplay({ httpStatus: 504, body: timeoutBody });
+              await session.finish({ status: "failed", errorCode: "TIMEOUT", refund: session.refundOnTimeout });
+              return jsonSecure(timeoutBody, { status: 504 });
+            }
+            sale = timed.value;
+          } else {
+            sale = fallbackSale(text);
+          }
+          const okBody = { sale: sanitizeSale(sale, text), source: isXaiConfigured() ? "grok" : "local" };
+          await session.saveReplay({ httpStatus: 200, body: okBody });
+          await session.finish({ status: "succeeded", provider: isXaiConfigured() ? "xai" : "local" });
+          return jsonSecure(okBody);
         } catch (err) {
           const sale = sanitizeSale(fallbackSale(text), text);
           if (err instanceof XaiError && err.code === "NOT_CONFIGURED") {
-            return jsonSecure({ sale, source: "local" });
+            const localBody = { sale, source: "local" };
+            await session.saveReplay({ httpStatus: 200, body: localBody });
+            await session.finish({ status: "succeeded", provider: "local" });
+            return jsonSecure(localBody);
           }
-          return jsonSecure({ sale, source: "local", warning: "Grok was busy, so TIJAR used a simple extract." });
+          const warnBody = { sale, source: "local", warning: "Grok was busy, so TIJAR used a simple extract." };
+          await session.saveReplay({ httpStatus: 200, body: warnBody });
+          await session.finish({ status: "succeeded", provider: "local" });
+          return jsonSecure(warnBody);
         }
       },
     },

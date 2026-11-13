@@ -6,6 +6,7 @@
 
 import { sanitizeSecret } from "@/lib/secrets";
 import { readEnvString } from "@/lib/supabase/runtime-env";
+import { tijarTranslateSystemPrompt } from "@/lib/translation/hausa-english";
 
 const DEFAULT_BASE = "https://api.x.ai/v1";
 const KEY_NAMES = ["XAI_API_KEY", "GROK_API_KEY"] as const;
@@ -179,7 +180,7 @@ export async function grokTranslate(
   if (!text) throw new XaiError("BAD_REQUEST", "Text is required.", 400);
   const out = await grokChat(
     {
-      system: `You translate for TIJAR, a Nigerian marketplace. Translate from ${input.fromLanguage} to ${input.toLanguage}. Return only the translation — no quotes, no extra words.`,
+      system: tijarTranslateSystemPrompt(input.fromLanguage, input.toLanguage),
       user: text.slice(0, 1000),
     },
     env,

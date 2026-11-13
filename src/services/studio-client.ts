@@ -1,15 +1,9 @@
+import { aiFetch } from "@/lib/ai/client-fetch";
+import { aiClientHeaders } from "@/lib/ai/request-headers";
 import { STUDIO_LANGUAGE_NAME } from "@/lib/marketing/draft-content";
-import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import type { Locale } from "@/lib/i18n/types";
 
 export type StudioStatus = { grok: boolean; tts: boolean; design?: boolean };
-
-async function authHeaders(): Promise<HeadersInit> {
-  const supabase = getSupabaseBrowserClient();
-  const { data } = await supabase.auth.getSession();
-  const token = data.session?.access_token;
-  return token ? { Authorization: `Bearer ${token}` } : {};
-}
 
 export async function fetchStudioStatus(): Promise<StudioStatus> {
   const res = await fetch("/api/studio/status");
@@ -26,9 +20,9 @@ export async function requestFlyer(input: {
   imageDataUrl?: string;
   priceLabel?: string;
 }): Promise<{ dataUrl?: string; fallback: boolean; grok?: boolean; caption?: string; captionHa?: string; error?: string }> {
-  const res = await fetch("/api/studio/flyer", {
+  const res = await aiFetch("/api/studio/flyer", {
     method: "POST",
-    headers: { "Content-Type": "application/json", ...(await authHeaders()) },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ ...input, language: STUDIO_LANGUAGE_NAME[input.locale] }),
   });
   const json = (await res.json()) as {
@@ -57,9 +51,11 @@ export async function requestGrokVideo(input: {
   durationSec: number;
   locale: Locale;
 }): Promise<{ requestId?: string; fallback: boolean; error?: string }> {
-  const res = await fetch("/api/studio/video", {
+  const idempotencyKey = crypto.randomUUID();
+  const res = await aiFetch("/api/studio/video", {
     method: "POST",
-    headers: { "Content-Type": "application/json", ...(await authHeaders()) },
+    headers: { "Content-Type": "application/json" },
+    idempotencyKey,
     body: JSON.stringify({
       ...input,
       voiceId: "eve",
@@ -73,23 +69,23 @@ export async function requestGrokVideo(input: {
 
 export async function pollGrokVideo(requestId: string): Promise<{ status: string; error?: string }> {
   const res = await fetch(`/api/studio/video/${encodeURIComponent(requestId)}`, {
-    headers: await authHeaders(),
+    headers: await aiClientHeaders(),
   });
   return (await res.json()) as { status: string; error?: string };
 }
 
 export async function downloadGrokVideo(requestId: string): Promise<Blob> {
   const res = await fetch(`/api/studio/video/${encodeURIComponent(requestId)}?download=1`, {
-    headers: await authHeaders(),
+    headers: await aiClientHeaders(),
   });
   if (!res.ok) throw new Error("Could not download the Grok video.");
   return res.blob();
 }
 
 export async function speakAdvert(text: string, locale: Locale): Promise<Blob | null> {
-  const res = await fetch("/api/speak", {
+  const res = await aiFetch("/api/speak", {
     method: "POST",
-    headers: { "Content-Type": "application/json", ...(await authHeaders()) },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       text: text.slice(0, 400),
       language: STUDIO_LANGUAGE_NAME[locale],

@@ -8,6 +8,9 @@ import {
   jsonSecure,
   readJsonBody,
 } from "@/lib/api/security";
+import { gatewayErrorResponse, replayDuplicateAi, runTimedProvider, startAiSession } from "@/lib/ai/gateway";
+import { ownsAiVoice } from "@/lib/ai/ownership";
+import { evaluateCustomVoiceAccess } from "@/lib/ai/voice-access";
 import { speakTextServer } from "@/lib/speech/service";
 
 /**
@@ -34,18 +37,53 @@ export const Route = createFileRoute("/api/speak")({
           return jsonSecure({ error: { code: parsed.code, message: parsed.message } }, { status: parsed.status });
         }
 
-        const result = await speakTextServer(parsed.body, {
-          rateLimitKey: `speak-ip:${clientIp(request)}`,
-          rateLimit: 30,
-        });
-
+        const body = { ...(parsed.body as Record<string, unknown>) };
+        const customVoiceId = typeof body.customVoiceId === "string" ? body.customVoiceId : "";
+        if (customVoiceId) {
+          const owned = await ownsAiVoice(request, customVoiceId);
+          const access = evaluateCustomVoiceAccess(customVoiceId, owned);
+          if (!access.ok) {
+            return jsonSecure(
+              { error: { code: access.code, message: access.message } },
+              { status: access.status },
+            );
+          }
+        }
+        const session = await startAiSession({ request, service: "tts" });
+        if (!session.ok) {
+          return jsonSecure(gatewayErrorResponse(session), { status: session.status });
+        }
+        const replayed = replayDuplicateAi(session);
+        if (replayed) return replayed;
+        const timed = await runTimedProvider(
+          session,
+          speakTextServer(body, {
+            rateLimitKey: `speak-ip:${clientIp(request)}`,
+            rateLimit: 30,
+          }),
+        );
+        if (!timed.ok) {
+          const timeoutBody = { error: { code: "TIMEOUT", message: "Speech timed out." } };
+          await session.saveReplay({ httpStatus: 504, body: timeoutBody });
+          await session.finish({ status: "failed", errorCode: "TIMEOUT", refund: session.refundOnTimeout });
+          return jsonSecure(timeoutBody, { status: 504 });
+        }
+        const result = timed.value;
         if (!result.ok) {
-          return jsonSecure(
-            { error: { code: result.code, message: result.message } },
-            { status: result.status },
-          );
+          const errBody = { error: { code: result.code, message: result.message } };
+          await session.saveReplay({ httpStatus: result.status, body: errBody });
+          await session.finish({ status: "failed", errorCode: result.code });
+          return jsonSecure(errBody, { status: result.status });
         }
 
+        const bytes = result.audio.bytes instanceof Uint8Array ? result.audio.bytes : new Uint8Array(result.audio.bytes);
+        await session.saveReplay({
+          httpStatus: 200,
+          audioBase64: Buffer.from(bytes).toString("base64"),
+          contentType: result.audio.contentType,
+          headers: { "X-Speech-Language": result.language },
+        });
+        await session.finish({ status: "succeeded" });
         return new Response(result.audio.bytes, {
           status: 200,
           headers: {

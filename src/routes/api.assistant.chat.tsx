@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 import { BOOKS_SYSTEM, type BooksExtract } from "@/lib/ai/seller-extract";
+import { gatewayErrorResponse, replayDuplicateAi, runTimedProvider, startAiSession } from "@/lib/ai/gateway";
 import { tijarAssistantChat } from "@/lib/ai/tijar-chat";
 import {
   assertJsonContentType,
@@ -66,23 +67,47 @@ export const Route = createFileRoute("/api/assistant/chat")({
         const body = parsed.body as { text?: string; language?: string; shop?: string; mode?: string };
         const text = typeof body.text === "string" ? body.text.trim() : "";
         if (!text) return jsonSecure({ error: "Empty message" }, { status: 400 });
+        const session = await startAiSession({ request, service: "assistant" });
+        if (!session.ok) {
+          return jsonSecure(gatewayErrorResponse(session), { status: session.status });
+        }
+        const replayed = replayDuplicateAi(session);
+        if (replayed) return replayed;
         const mode = body.mode === "chat" ? "chat" : "books";
 
         if (mode === "books") {
           try {
             if (isXaiConfigured()) {
-              const extracted = await grokJson<BooksExtract>({
-                system: BOOKS_SYSTEM,
-                user: `Shop: ${body.shop || "unknown"}\nLanguage: ${body.language || "English"}\nToday ISO: ${new Date().toISOString()}\n\nSeller said:\n${text.slice(0, 2000)}`,
-              });
+              const timedBooks = await runTimedProvider(
+                session,
+                grokJson<BooksExtract>({
+                  system: BOOKS_SYSTEM,
+                  user: `Shop: ${body.shop || "unknown"}\nLanguage: ${body.language || "English"}\nToday ISO: ${new Date().toISOString()}\n\nSeller said:\n${text.slice(0, 2000)}`,
+                }),
+              );
+              if (!timedBooks.ok) {
+                const timeoutBody = { error: { code: "TIMEOUT", message: "Assistant timed out." } };
+                await session.saveReplay({ httpStatus: 504, body: timeoutBody });
+                await session.finish({ status: "failed", errorCode: "TIMEOUT", refund: session.refundOnTimeout });
+                return jsonSecure(timeoutBody, { status: 504 });
+              }
+              const extracted = timedBooks.value;
               const draft = grokDraft(extracted, text);
               const reply =
                 extracted.reply?.trim() ||
                 (draft.intent === "unknown" ? "" : summarizeDraft(draft));
               if (draft.intent !== "unknown") {
-                return jsonSecure({ draft, reply, source: "grok" });
+                const booksBody = { draft, reply, source: "grok" };
+                await session.saveReplay({ httpStatus: 200, body: booksBody });
+                await session.finish({ status: "succeeded", provider: "xai" });
+                return jsonSecure(booksBody);
               }
-              if (reply) return jsonSecure({ reply, source: "grok" });
+              if (reply) {
+                const replyBody = { reply, source: "grok" };
+                await session.saveReplay({ httpStatus: 200, body: replyBody });
+                await session.finish({ status: "succeeded", provider: "xai" });
+                return jsonSecure(replyBody);
+              }
             }
           } catch (err) {
             if (!(err instanceof XaiError && err.code === "NOT_CONFIGURED")) {
@@ -91,20 +116,39 @@ export const Route = createFileRoute("/api/assistant/chat")({
           }
           const draft = localDraft(text);
           if (draft.intent !== "unknown") {
-            return jsonSecure({ draft, reply: summarizeDraft(draft), source: "local" });
+            const localBody = { draft, reply: summarizeDraft(draft), source: "local" };
+            await session.saveReplay({ httpStatus: 200, body: localBody });
+            await session.finish({ status: "succeeded", provider: "local" });
+            return jsonSecure(localBody);
           }
         }
 
         try {
-          const reply = await tijarAssistantChat({
-            text,
-            language: body.language,
-            shop: body.shop,
-          });
-          return jsonSecure({ reply });
+          const timedChat = await runTimedProvider(
+            session,
+            tijarAssistantChat({
+              text,
+              language: body.language,
+              shop: body.shop,
+            }),
+          );
+          if (!timedChat.ok) {
+            const timeoutBody = { error: { code: "TIMEOUT", message: "Assistant timed out." } };
+            await session.saveReplay({ httpStatus: 504, body: timeoutBody });
+            await session.finish({ status: "failed", errorCode: "TIMEOUT", refund: session.refundOnTimeout });
+            return jsonSecure(timeoutBody, { status: 504 });
+          }
+          const reply = timedChat.value;
+          const chatBody = { reply };
+          await session.saveReplay({ httpStatus: 200, body: chatBody });
+          await session.finish({ status: "succeeded", provider: session.provider });
+          return jsonSecure(chatBody);
         } catch (err) {
           const message = err instanceof Error ? err.message : "Assistant unavailable";
-          return jsonSecure({ error: message }, { status: 502 });
+          const errBody = { error: message };
+          await session.saveReplay({ httpStatus: 502, body: errBody });
+          await session.finish({ status: "failed", errorCode: "PROVIDER_ERROR" });
+          return jsonSecure(errBody, { status: 502 });
         }
       },
     },

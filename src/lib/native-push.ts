@@ -36,13 +36,14 @@ export function isSaleNotification(kind: string | undefined): boolean {
   return kind === "purchase" || kind === "place_order" || kind === "place_order_paid";
 }
 
-export async function initNativePush(): Promise<void> {
+export async function initNativePush(opts?: { requestPermission?: boolean }): Promise<void> {
   if (!isNativeApp()) return;
   await flushStoredFcmToken();
+  const ask = opts?.requestPermission !== false;
 
   try {
     const { LocalNotifications } = await import("@capacitor/local-notifications");
-    await LocalNotifications.requestPermissions();
+    if (ask) await LocalNotifications.requestPermissions();
     await LocalNotifications.createChannel({
       id: "tijar-sales",
       name: "Sales",
@@ -70,7 +71,8 @@ export async function initNativePush(): Promise<void> {
 
   try {
     const { PushNotifications } = await import("@capacitor/push-notifications");
-    const perm = await PushNotifications.requestPermissions();
+    const current = await PushNotifications.checkPermissions();
+    const perm = ask || current.receive === "granted" ? await PushNotifications.requestPermissions() : current;
     if (perm.receive !== "granted") return;
     await PushNotifications.register();
     await PushNotifications.addListener("registration", (event) => {

@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-import { assertTranslateOrigin, clientIp, jsonSecure } from "@/lib/api/security";
+import { ownsAiVideoRequest } from "@/lib/ai/ownership";
+import { assertTranslateOrigin, clientIp, jsonSecure, requireAuthenticatedUser } from "@/lib/api/security";
 import { checkRateLimit } from "@/lib/api/rate-limit";
 import { grokDownloadVideo, grokPollVideo, XaiError } from "@/lib/xai/client";
 
@@ -10,11 +11,22 @@ export const Route = createFileRoute("/api/studio/video/$requestId")({
       GET: async ({ request, params }) => {
         const origin = assertTranslateOrigin(request);
         if (!origin.ok) return jsonSecure({ error: { code: origin.code, message: origin.message } }, { status: origin.status });
+        const auth = await requireAuthenticatedUser(request);
+        if (!auth.ok) {
+          return jsonSecure({ error: { code: auth.code, message: "Sign in to check your video." } }, { status: 401 });
+        }
         const limit = checkRateLimit(`studio-poll:${clientIp(request)}`, 40, 60_000);
         if (!limit.allowed) {
           return jsonSecure({ error: { code: "RATE_LIMITED", message: "Slow down." } }, { status: 429 });
         }
         const requestId = params.requestId;
+        if (!requestId || requestId.length < 8 || requestId.length > 128) {
+          return jsonSecure({ error: { code: "NOT_FOUND", message: "Video not found." } }, { status: 404 });
+        }
+        const owned = await ownsAiVideoRequest(request, requestId);
+        if (!owned) {
+          return jsonSecure({ error: { code: "NOT_FOUND", message: "Video not found." } }, { status: 404 });
+        }
         const download = new URL(request.url).searchParams.get("download") === "1";
         try {
           const poll = await grokPollVideo(requestId);

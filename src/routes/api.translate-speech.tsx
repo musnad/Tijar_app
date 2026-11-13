@@ -5,6 +5,7 @@ import {
   clientIp,
   jsonSecure,
 } from "@/lib/api/security";
+import { gatewayErrorResponse, replayDuplicateAi, runTimedProvider, startAiSession } from "@/lib/ai/gateway";
 import { transcribeOrTranslateSpeech } from "@/lib/speech/service";
 
 /**
@@ -54,31 +55,49 @@ export const Route = createFileRoute("/api/translate-speech")({
         const toLanguageRaw = String(form.get("toLanguage") ?? "").trim();
         const toLanguage = toLanguageRaw || undefined;
 
-        const result = await transcribeOrTranslateSpeech(
-          {
-            audio: file,
-            language,
-            toLanguage,
-          },
-          {
-            rateLimitKey: `speech-ip:${clientIp(request)}`,
-            rateLimit: 10,
-          },
+        const session = await startAiSession({ request, service: "translate_speech" });
+        if (!session.ok) {
+          return jsonSecure(gatewayErrorResponse(session), { status: session.status });
+        }
+        const replayed = replayDuplicateAi(session);
+        if (replayed) return replayed;
+        const timed = await runTimedProvider(
+          session,
+          transcribeOrTranslateSpeech(
+            {
+              audio: file,
+              language,
+              toLanguage,
+            },
+            {
+              rateLimitKey: `speech-ip:${clientIp(request)}`,
+              rateLimit: 10,
+            },
+          ),
         );
-
+        if (!timed.ok) {
+          const timeoutBody = { error: { code: "TIMEOUT", message: "Speech timed out." } };
+          await session.saveReplay({ httpStatus: 504, body: timeoutBody });
+          await session.finish({ status: "failed", errorCode: "TIMEOUT", refund: session.refundOnTimeout });
+          return jsonSecure(timeoutBody, { status: 504 });
+        }
+        const result = timed.value;
         if (!result.ok) {
-          return jsonSecure(
-            { error: { code: result.code, message: result.message } },
-            { status: result.status },
-          );
+          const errBody = { error: { code: result.code, message: result.message } };
+          await session.saveReplay({ httpStatus: result.status, body: errBody });
+          await session.finish({ status: "failed", errorCode: result.code });
+          return jsonSecure(errBody, { status: result.status });
         }
 
-        return jsonSecure({
+        const okBody = {
           transcript: result.transcript,
           translatedText: result.translatedText ?? null,
           language: result.language,
           mode: result.mode,
-        });
+        };
+        await session.saveReplay({ httpStatus: 200, body: okBody });
+        await session.finish({ status: "succeeded" });
+        return jsonSecure(okBody);
       },
     },
   },

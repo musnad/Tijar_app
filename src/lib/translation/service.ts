@@ -9,7 +9,9 @@ import {
 import { grokTranslate, isXaiConfigured, XaiError, type XaiClientConfig } from "@/lib/xai/client";
 
 import { getCachedTranslation, setCachedTranslation, translationCacheKey } from "./cache";
+import { isHausaEnglishPair, polishHausaEnglish } from "./hausa-english";
 import { isTijarLanguage } from "./languages";
+import { isTijarTranslateConfigured, tijarWorkerTranslate } from "./tijar-worker";
 import { checkRateLimit } from "@/lib/api/rate-limit";
 
 export const translateRequestSchema = z.object({
@@ -18,8 +20,17 @@ export const translateRequestSchema = z.object({
   toLanguage: z.string().trim().min(1).max(40),
 });
 
+export type TranslateEngine = "cache" | "tijar" | "xai" | "openai";
+
 export type TranslateResult =
-  | { ok: true; translatedText: string; cached: boolean; fromLanguage: string; toLanguage: string }
+  | {
+      ok: true;
+      translatedText: string;
+      cached: boolean;
+      fromLanguage: string;
+      toLanguage: string;
+      engine: TranslateEngine;
+    }
   | { ok: false; status: number; code: string; message: string };
 
 export type TranslateDeps = {
@@ -58,10 +69,8 @@ export async function translateBatch(
 
 /**
  * Orchestrates validation -> language checks -> cache -> rate limit ->
- * Grok (primary when XAI_API_KEY is set) then ChatGPT. Original text is
- * never mutated or logged.
- *
- * Works for any language pair in the TIJAR catalogue — Hausa included.
+ * Optional TIJAR worker (Hausa↔English first), then Grok, then ChatGPT.
+ * Original text is never mutated or logged.
  */
 export async function translateText(
   rawInput: unknown,
@@ -94,7 +103,7 @@ export async function translateText(
   const cacheKey = translationCacheKey(text, fromLanguage, toLanguage);
   const cached = getCachedTranslation(cacheKey);
   if (cached !== null) {
-    return { ok: true, translatedText: cached, cached: true, fromLanguage, toLanguage };
+    return { ok: true, translatedText: cached, cached: true, fromLanguage, toLanguage, engine: "cache" };
   }
 
   if (deps.rateLimitKey) {
@@ -111,12 +120,28 @@ export async function translateText(
 
   const errors: Array<{ status: number; code: string; message: string }> = [];
 
-  // 1) Grok — Hausa, Igbo, Yoruba, Swahili, Pidgin, Fulfulde, …
+  const finishOk = (translated: string, engine: TranslateEngine): TranslateResult => {
+    const polished = isHausaEnglishPair(fromLanguage, toLanguage)
+      ? polishHausaEnglish(text, translated, fromLanguage, toLanguage)
+      : translated.replace(/^["']|["']$/g, "").trim();
+    setCachedTranslation(cacheKey, polished);
+    return { ok: true, translatedText: polished, cached: false, fromLanguage, toLanguage, engine };
+  };
+
+  if (isTijarTranslateConfigured()) {
+    try {
+      const translated = await tijarWorkerTranslate({ text, fromLanguage, toLanguage });
+      return finishOk(translated, "tijar");
+    } catch {
+      errors.push({ status: 502, code: "WORKER_ERROR", message: "TIJAR translate worker failed." });
+    }
+  }
+
+  // Grok — Hausa, Igbo, Yoruba, Swahili, Pidgin, Fulfulde, …
   if (deps.xaiConfig?.apiKey || (deps.xaiConfig === undefined && isXaiConfigured())) {
     try {
       const translated = await grokTranslate({ text, fromLanguage, toLanguage }, deps.xaiConfig ?? {});
-      setCachedTranslation(cacheKey, translated);
-      return { ok: true, translatedText: translated, cached: false, fromLanguage, toLanguage };
+      return finishOk(translated, "xai");
     } catch (err) {
       if (err instanceof XaiError) errors.push({ status: err.status, code: err.code, message: err.message });
       else errors.push({ status: 502, code: "PROVIDER_ERROR", message: "Grok translation failed." });
@@ -131,8 +156,7 @@ export async function translateText(
         fromLanguage,
         toLanguage,
       });
-      setCachedTranslation(cacheKey, translated);
-      return { ok: true, translatedText: translated, cached: false, fromLanguage, toLanguage };
+      return finishOk(translated, "openai");
     } catch (err) {
       if (err instanceof OpenAiError) errors.push({ status: err.status, code: err.code, message: err.message });
       else errors.push({ status: 502, code: "PROVIDER_ERROR", message: "ChatGPT translation failed." });

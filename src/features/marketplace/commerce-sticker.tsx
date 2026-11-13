@@ -52,7 +52,8 @@ export function CommerceSticker({
     >
       <span className="flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white/15">
         {imageUrl ? (
-          <FeedImage src={imageUrl} alt="" eager width={96} />
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={imageUrl} alt="" className="size-full object-cover" />
         ) : (
           <Link2 className="size-5 text-white" />
         )}

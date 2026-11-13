@@ -16,6 +16,12 @@ dist-ssr
 .nitro
 *.local
 
+# Local translate worker weights + venv (do not commit models)
+workers/translate/.venv/
+workers/translate/models/
+workers/translate/.secret
+
+
 # Wrangler / Cloudflare
 .wrangler/
 .dev.vars
@@ -30,3 +36,15 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Capacitor / Android local build + signing (keep android/ source)
+android/app/build
+android/app/release
+android/.gradle
+android/local.properties
+android/captures
+android/key.properties
+*.jks
+*.keystore
+*.apk
+*.aab

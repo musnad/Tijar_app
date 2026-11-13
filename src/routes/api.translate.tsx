@@ -8,6 +8,7 @@ import {
   readJsonBody,
   resolveTranslateRateKey,
 } from "@/lib/api/security";
+import { gatewayErrorResponse, replayDuplicateAi, runTimedProvider, startAiSession } from "@/lib/ai/gateway";
 import { translateText } from "@/lib/translation/service";
 
 /**
@@ -38,25 +39,49 @@ export const Route = createFileRoute("/api/translate")({
           return jsonSecure({ error: { code: parsed.code, message: parsed.message } }, { status: parsed.status });
         }
 
-        const { rateLimitKey, authenticated } = await resolveTranslateRateKey(request);
-        // Signed-in users get a slightly higher ceiling; IP is always in the key.
-        const result = await translateText(parsed.body, {
-          rateLimitKey,
-          rateLimit: authenticated ? 40 : 20,
-        });
-
-        if (!result.ok) {
-          return jsonSecure(
-            { error: { code: result.code, message: result.message } },
-            { status: result.status },
-          );
+        const { rateLimitKey } = await resolveTranslateRateKey(request);
+        const session = await startAiSession({ request, service: "translate" });
+        if (!session.ok) {
+          return jsonSecure(gatewayErrorResponse(session), { status: session.status });
         }
-        return jsonSecure({
+        const replayed = replayDuplicateAi(session);
+        if (replayed) return replayed;
+        const timed = await runTimedProvider(
+          session,
+          translateText(parsed.body, {
+            rateLimitKey,
+            rateLimit: 40,
+          }),
+        );
+        if (!timed.ok) {
+          const timeoutBody = { error: { code: "TIMEOUT", message: "Translation timed out." } };
+          await session.saveReplay({ httpStatus: 504, body: timeoutBody });
+          await session.finish({ status: "failed", errorCode: "TIMEOUT", refund: session.refundOnTimeout });
+          return jsonSecure(timeoutBody, { status: 504 });
+        }
+        const result = timed.value;
+        if (!result.ok) {
+          const errBody = { error: { code: result.code, message: result.message } };
+          await session.saveReplay({ httpStatus: result.status, body: errBody });
+          await session.finish({
+            status: "failed",
+            provider: session.provider,
+            errorCode: result.code,
+          });
+          return jsonSecure(errBody, { status: result.status });
+        }
+        const okBody = {
           translatedText: result.translatedText,
           fromLanguage: result.fromLanguage,
           toLanguage: result.toLanguage,
           cached: result.cached,
+        };
+        await session.saveReplay({ httpStatus: 200, body: okBody });
+        await session.finish({
+          status: "succeeded",
+          provider: result.cached ? "cache" : result.engine === "tijar" ? "vllm" : result.engine === "openai" ? "openai" : "xai",
         });
+        return jsonSecure(okBody);
       },
     },
   },

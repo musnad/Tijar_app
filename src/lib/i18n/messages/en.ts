@@ -767,6 +767,8 @@ export const enMessages = {
       holdSpeak: "Hold to speak",
       useText: "Use this text",
       working: "Working…",
+      credits: "{n} TIJAR AI credits",
+      creditsUnavailable: "AI credits are not ready on this server yet.",
       saving: "Saving…",
       saveFailed: "Could not save. Try again.",
       listingHint: "Example: I sell pepper sauce, 200 grams, 2500 naira, I am in Sabon Gari market.",

@@ -8,6 +8,7 @@ import {
   readJsonBody,
   requireAuthenticatedUser,
 } from "@/lib/api/security";
+import { gatewayErrorResponse, replayDuplicateAi, runTimedProvider, startAiSession } from "@/lib/ai/gateway";
 import { grokJson, isXaiConfigured, XaiError } from "@/lib/xai/client";
 
 export const Route = createFileRoute("/api/ai/report")({
@@ -45,20 +46,45 @@ export const Route = createFileRoute("/api/ai/report")({
           salesTotal: num(body.salesTotal),
           salesCount: num(body.salesCount),
         };
+        const session = await startAiSession({ request, service: "report" });
+        if (!session.ok) {
+          return jsonSecure(gatewayErrorResponse(session), { status: session.status });
+        }
+        const replayed = replayDuplicateAi(session);
+        if (replayed) return replayed;
         try {
-          const copy = isXaiConfigured()
-            ? await grokJson<ReportCopy>({
+          let copy: ReportCopy;
+          if (isXaiConfigured()) {
+            const timed = await runTimedProvider(
+              session,
+              grokJson<ReportCopy>({
                 system: REPORT_SYSTEM,
                 user: JSON.stringify({ ...stats, language: body.language || "English" }),
-              })
-            : fallbackReport(stats);
-          return jsonSecure({ copy: sanitizeCopy(copy, stats), source: isXaiConfigured() ? "grok" : "local" });
+              }),
+            );
+            if (!timed.ok) {
+              const timeoutBody = { error: { code: "TIMEOUT", message: "TIJAR AI timed out." } };
+              await session.saveReplay({ httpStatus: 504, body: timeoutBody });
+              await session.finish({ status: "failed", errorCode: "TIMEOUT", refund: session.refundOnTimeout });
+              return jsonSecure(timeoutBody, { status: 504 });
+            }
+            copy = timed.value;
+          } else {
+            copy = fallbackReport(stats);
+          }
+          const okBody = { copy: sanitizeCopy(copy, stats), source: isXaiConfigured() ? "grok" : "local" };
+          await session.saveReplay({ httpStatus: 200, body: okBody });
+          await session.finish({ status: "succeeded", provider: isXaiConfigured() ? "xai" : "local" });
+          return jsonSecure(okBody);
         } catch (err) {
           const copy = fallbackReport(stats);
+          const localBody = { copy, source: "local" as const };
+          await session.saveReplay({ httpStatus: 200, body: localBody });
+          await session.finish({ status: "succeeded", provider: "local" });
           if (err instanceof XaiError && err.code === "NOT_CONFIGURED") {
-            return jsonSecure({ copy, source: "local" });
+            return jsonSecure(localBody);
           }
-          return jsonSecure({ copy, source: "local" });
+          return jsonSecure(localBody);
         }
       },
     },

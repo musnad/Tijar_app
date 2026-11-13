@@ -3,6 +3,7 @@
 import { Image, Mic, Sparkles, TrendingUp } from "lucide-react";
 import { useState } from "react";
 
+import { AiCreditsBar } from "@/features/ai/ai-credits-bar";
 import { GraphicsPanel } from "@/features/ai/graphics-panel";
 import { VoiceListingPanel } from "@/features/ai/voice-listing-panel";
 import { VoiceSalePanel } from "@/features/ai/voice-sale-panel";
@@ -39,6 +40,7 @@ export function SellerAiHub() {
   return (
     <div className="mt-4 space-y-4 pb-8">
       <p className="text-sm text-muted-foreground">{t("app.ai.subtitle")}</p>
+      <AiCreditsBar />
       <div className="grid grid-cols-4 gap-1 rounded-2xl bg-muted p-1">
         {tabs.map((item) => {
           const Icon = item.icon;

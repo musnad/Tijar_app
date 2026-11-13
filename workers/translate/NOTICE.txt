@@ -1,0 +1,12 @@
+TIJAR Translate local worker
+
+OPUS-MT (Helsinki-NLP)
+  Models: Helsinki-NLP/opus-mt-en-ha, Helsinki-NLP/opus-mt-ha-en
+  Licence: CC-BY-4.0 — attribute Helsinki-NLP / University of Helsinki
+  https://huggingface.co/Helsinki-NLP/opus-mt-en-ha
+  https://huggingface.co/Helsinki-NLP/opus-mt-ha-en
+
+Qwen2.5-0.5B-Instruct (optional weights; not loaded on 8 GB RAM hosts)
+  Model: Qwen/Qwen2.5-0.5B-Instruct
+  Licence: Apache-2.0
+  Do not use Qwen2.5-3B (research / non-commercial) or NLLB (CC-BY-NC).

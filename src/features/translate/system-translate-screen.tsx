@@ -6,8 +6,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { useTranslation } from "@/lib/i18n/context";
 import { TIJAR_PICKER_LANGUAGES, type TijarLanguageName } from "@/lib/translation/languages";
-import { getSupabaseBrowserClient } from "@/lib/supabase/client";
-import { isSupabaseEnvPresent } from "@/lib/supabase/runtime-env";
+import { aiFetch } from "@/lib/ai/client-fetch";
 
 /**
  * Admin tool to translate Tijar system/UI strings with Grok.
@@ -27,21 +26,9 @@ export function SystemTranslateScreen() {
     if (texts.length === 0) return;
     setBusy(true);
     try {
-      let token: string | null = null;
-      if (isSupabaseEnvPresent()) {
-        try {
-          const { data } = await getSupabaseBrowserClient().auth.getSession();
-          token = data.session?.access_token ?? null;
-        } catch {
-          token = null;
-        }
-      }
-      const res = await fetch("/api/translate-batch", {
+      const res = await aiFetch("/api/translate-batch", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ texts, fromLanguage: from, toLanguage: to }),
       });
       const body = (await res.json().catch(() => null)) as { translations?: string[]; error?: { message: string } } | null;

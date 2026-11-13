@@ -51,7 +51,6 @@ export async function saveVoiceProfile(
   input: {
     voiceSamplePath?: string | null;
     preferredTtsVoice?: string | null;
-    customVoiceId?: string | null;
   },
 ): Promise<{ error: string | null }> {
   const supabase = getSupabaseBrowserClient();
@@ -60,14 +59,12 @@ export async function saveVoiceProfile(
   };
   if (input.voiceSamplePath !== undefined) patch.voice_sample_path = input.voiceSamplePath;
   if (input.preferredTtsVoice !== undefined) patch.preferred_tts_voice = input.preferredTtsVoice;
-  if (input.customVoiceId !== undefined) patch.custom_voice_id = input.customVoiceId;
 
   const { error } = await supabase.from("profiles").update(patch).eq("id", profileId);
   if (!error) {
     writePersonalVoicePrefs({
       voiceSamplePath: input.voiceSamplePath ?? undefined,
       preferredTtsVoice: input.preferredTtsVoice ?? undefined,
-      customVoiceId: input.customVoiceId ?? undefined,
     });
   }
   return { error: error?.message ?? null };

@@ -108,6 +108,8 @@ import { Route as ApiAiListingRouteImport } from './routes/api.ai.listing'
 import { Route as ApiAiReportRouteImport } from './routes/api.ai.report'
 import { Route as ApiAiSaleRouteImport } from './routes/api.ai.sale'
 import { Route as ApiAiTranscribeRouteImport } from './routes/api.ai.transcribe'
+import { Route as ApiAiWalletRouteImport } from './routes/api.ai.wallet'
+import { Route as ApiAiAdminServicesRouteImport } from './routes/api.ai.admin.services'
 import { Route as ApiAssistantChatRouteImport } from './routes/api.assistant.chat'
 import { Route as ApiAuthForgotPasswordRouteImport } from './routes/api.auth.forgot-password'
 import { Route as ApiCronAdsRouteImport } from './routes/api.cron.ads'
@@ -663,6 +665,16 @@ const ApiAiTranscribeRoute = ApiAiTranscribeRouteImport.update({
   path: '/api/ai/transcribe',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiAiWalletRoute = ApiAiWalletRouteImport.update({
+  id: '/api/ai/wallet',
+  path: '/api/ai/wallet',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAiAdminServicesRoute = ApiAiAdminServicesRouteImport.update({
+  id: '/api/ai/admin/services',
+  path: '/api/ai/admin/services',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiAssistantChatRoute = ApiAssistantChatRouteImport.update({
   id: '/api/assistant/chat',
   path: '/api/assistant/chat',
@@ -1062,6 +1074,8 @@ export interface FileRoutesByFullPath {
   '/api/ai/report': typeof ApiAiReportRoute
   '/api/ai/sale': typeof ApiAiSaleRoute
   '/api/ai/transcribe': typeof ApiAiTranscribeRoute
+  '/api/ai/wallet': typeof ApiAiWalletRoute
+  '/api/ai/admin/services': typeof ApiAiAdminServicesRoute
   '/api/assistant/chat': typeof ApiAssistantChatRoute
   '/api/auth/forgot-password': typeof ApiAuthForgotPasswordRoute
   '/api/cron/ads': typeof ApiCronAdsRoute
@@ -1214,6 +1228,8 @@ export interface FileRoutesByTo {
   '/api/ai/report': typeof ApiAiReportRoute
   '/api/ai/sale': typeof ApiAiSaleRoute
   '/api/ai/transcribe': typeof ApiAiTranscribeRoute
+  '/api/ai/wallet': typeof ApiAiWalletRoute
+  '/api/ai/admin/services': typeof ApiAiAdminServicesRoute
   '/api/assistant/chat': typeof ApiAssistantChatRoute
   '/api/auth/forgot-password': typeof ApiAuthForgotPasswordRoute
   '/api/cron/ads': typeof ApiCronAdsRoute
@@ -1375,6 +1391,8 @@ export interface FileRoutesById {
   '/api/ai/report': typeof ApiAiReportRoute
   '/api/ai/sale': typeof ApiAiSaleRoute
   '/api/ai/transcribe': typeof ApiAiTranscribeRoute
+  '/api/ai/wallet': typeof ApiAiWalletRoute
+  '/api/ai/admin/services': typeof ApiAiAdminServicesRoute
   '/api/assistant/chat': typeof ApiAssistantChatRoute
   '/api/auth/forgot-password': typeof ApiAuthForgotPasswordRoute
   '/api/cron/ads': typeof ApiCronAdsRoute
@@ -1537,6 +1555,8 @@ export interface FileRouteTypes {
     | '/api/ai/report'
     | '/api/ai/sale'
     | '/api/ai/transcribe'
+    | '/api/ai/wallet'
+    | '/api/ai/admin/services'
     | '/api/assistant/chat'
     | '/api/auth/forgot-password'
     | '/api/cron/ads'
@@ -1689,6 +1709,8 @@ export interface FileRouteTypes {
     | '/api/ai/report'
     | '/api/ai/sale'
     | '/api/ai/transcribe'
+    | '/api/ai/wallet'
+    | '/api/ai/admin/services'
     | '/api/assistant/chat'
     | '/api/auth/forgot-password'
     | '/api/cron/ads'
@@ -1849,6 +1871,8 @@ export interface FileRouteTypes {
     | '/api/ai/report'
     | '/api/ai/sale'
     | '/api/ai/transcribe'
+    | '/api/ai/wallet'
+    | '/api/ai/admin/services'
     | '/api/assistant/chat'
     | '/api/auth/forgot-password'
     | '/api/cron/ads'
@@ -1958,6 +1982,8 @@ export interface RootRouteChildren {
   ApiAiReportRoute: typeof ApiAiReportRoute
   ApiAiSaleRoute: typeof ApiAiSaleRoute
   ApiAiTranscribeRoute: typeof ApiAiTranscribeRoute
+  ApiAiWalletRoute: typeof ApiAiWalletRoute
+  ApiAiAdminServicesRoute: typeof ApiAiAdminServicesRoute
   ApiAssistantChatRoute: typeof ApiAssistantChatRoute
   ApiAuthForgotPasswordRoute: typeof ApiAuthForgotPasswordRoute
   ApiCronAdsRoute: typeof ApiCronAdsRoute
@@ -2673,6 +2699,20 @@ declare module '@tanstack/react-router' {
       path: '/api/ai/transcribe'
       fullPath: '/api/ai/transcribe'
       preLoaderRoute: typeof ApiAiTranscribeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/ai/wallet': {
+      id: '/api/ai/wallet'
+      path: '/api/ai/wallet'
+      fullPath: '/api/ai/wallet'
+      preLoaderRoute: typeof ApiAiWalletRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/ai/admin/services': {
+      id: '/api/ai/admin/services'
+      path: '/api/ai/admin/services'
+      fullPath: '/api/ai/admin/services'
+      preLoaderRoute: typeof ApiAiAdminServicesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/assistant/chat': {
@@ -3477,6 +3517,8 @@ const rootRouteChildren: RootRouteChildren = {
   ApiAiReportRoute: ApiAiReportRoute,
   ApiAiSaleRoute: ApiAiSaleRoute,
   ApiAiTranscribeRoute: ApiAiTranscribeRoute,
+  ApiAiWalletRoute: ApiAiWalletRoute,
+  ApiAiAdminServicesRoute: ApiAiAdminServicesRoute,
   ApiAssistantChatRoute: ApiAssistantChatRoute,
   ApiAuthForgotPasswordRoute: ApiAuthForgotPasswordRoute,
   ApiCronAdsRoute: ApiCronAdsRoute,

@@ -13,6 +13,7 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "test": "vitest run",
+    "translate-worker": "sh workers/translate/run.sh",
     "test:watch": "vitest",
     "mobile:build": "bun run scripts/prepare-mobile-dist.mjs && bunx cap sync android",
     "mobile:android": "cd android && ./gradlew assembleDebug",

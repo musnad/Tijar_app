@@ -15,6 +15,7 @@ import {
   type OpenAiLanguage,
 } from "@/lib/openai/languages";
 import { readEnvString } from "@/lib/supabase/runtime-env";
+import { tijarTranslateSystemPrompt } from "@/lib/translation/hausa-english";
 
 export { OPENAI_LANGUAGES, isOpenAiLanguage, type OpenAiLanguage };
 
@@ -204,12 +205,7 @@ export async function openaiTranslate(
   }
 
   const resolved = resolveConfig(config);
-  const system = [
-    "You are TIJAR's translation engine for African market traders.",
-    "Translate the user message accurately and naturally.",
-    "Preserve numbers, currency (₦), product names, and proper nouns when appropriate.",
-    "Return ONLY the translation — no quotes, labels, or explanations.",
-  ].join(" ");
+  const system = tijarTranslateSystemPrompt(input.fromLanguage, input.toLanguage);
 
   const user = `Translate from ${input.fromLanguage} to ${input.toLanguage}:\n\n${text.slice(0, 2000)}`;
 

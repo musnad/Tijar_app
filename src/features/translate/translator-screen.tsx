@@ -28,7 +28,7 @@ type Result = {
 export function TranslatorScreen() {
   const { t } = useTranslation();
   const [fromLang, setFromLang] = useState<string>("English");
-  const [toLang, setToLang] = useState<string>("Yoruba");
+  const [toLang, setToLang] = useState<string>("Hausa");
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<Result | null>(null);

@@ -53,7 +53,9 @@ begin
   end if;
 
   v_nin := coalesce(v_biz.verification_status, '') = 'verified'
-    and v_biz.kyc_verified_at is not null;
+    and v_biz.kyc_verified_at is not null
+    and coalesce(v_biz.kyc_face_matched, false)
+    and coalesce(v_biz.kyc_id_last4, '') <> '';
   v_days := greatest(0, floor(extract(epoch from (now() - v_biz.created_at)) / 86400)::int);
 
   select count(*)::int into v_posts

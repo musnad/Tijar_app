@@ -59,23 +59,18 @@ export function normalizeOnboardingAnswers(wizard: OnboardingWizardAnswers): Onb
   };
 }
 
-export const registerSchema = z
-  .object({
-    fullName: z.string().min(2, "Enter your full name"),
-    phone: z.string().min(7, "Enter a valid phone number"),
-    email: z.string().email("Enter a valid email"),
-    password: strongPasswordSchema,
-    state: z.string().min(2, "Select your state"),
-    lga: z.string().min(2, "Select your local government"),
-    location: z.string().min(2, "Select your state and local government"),
-    agreeTerms: z.literal(true, {
-      errorMap: () => ({ message: "You must agree to the terms" }),
-    }),
-  })
-  .refine((data) => !passwordLooksPersonal(data.password, data), {
-    path: ["password"],
-    message: "Do not use your name, email or phone number inside the password.",
-  });
+export const registerSchema = z.object({
+  fullName: z.string().min(2, "Enter your full name"),
+  phone: z.string().min(7, "Enter a valid phone number"),
+  email: z.string().email("Enter a valid email"),
+  password: z.string().min(6, "Password must be at least 6 characters"),
+  state: z.string().min(2, "Select your state"),
+  lga: z.string().min(2, "Select your local government"),
+  location: z.string().min(2, "Select your state and local government"),
+  agreeTerms: z.literal(true, {
+    errorMap: () => ({ message: "You must agree to the terms" }),
+  }),
+});
 
 export const loginSchema = z.object({
   email: z.string().email(),

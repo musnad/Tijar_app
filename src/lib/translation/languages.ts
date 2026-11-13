@@ -1,7 +1,7 @@
 /**
  * TIJAR language catalogue.
  *
- * Translation runs on Grok (xAI) with ChatGPT as a fallback.
+ * Phase 3 Translate: Hausa ↔ English first. Optional TIJAR worker, then Grok, then ChatGPT.
  * Speak-back uses ElevenLabs / OpenAI. Those models are
  * prompt-driven, so the catalogue below is the single source of truth for
  * which languages the product exposes — Hausa is a first-class citizen.

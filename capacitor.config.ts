@@ -19,7 +19,7 @@ const config: CapacitorConfig = {
     ],
   },
   android: {
-    appendUserAgent: " TijarApp/1.0.4",
+    appendUserAgent: " TijarApp/1.0.5",
     allowMixedContent: false,
     backgroundColor: "#F3F5F8",
     webContentsDebuggingEnabled: false,

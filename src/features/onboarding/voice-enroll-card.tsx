@@ -7,6 +7,8 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { startAudioRecording } from "@/features/translate/use-speech";
 import { speakText } from "@/features/translate/use-speech";
+import { aiFetch } from "@/lib/ai/client-fetch";
+import { VOICE_ENROLL_MAX_DURATION_MS } from "@/lib/ai/audio-guard";
 import { OPENAI_TTS_VOICES, type OpenAiTtsVoice } from "@/lib/openai/voices";
 import { VOICE_ENROLL_SCRIPT, writePersonalVoicePrefs } from "@/lib/voice/personal-voice";
 import { cn } from "@/lib/utils";
@@ -23,17 +25,21 @@ export function VoiceEnrollCard({ profileId, lang, onDone, onSkip }: Props) {
   const [recording, setRecording] = useState(false);
   const [busy, setBusy] = useState(false);
   const [hasSample, setHasSample] = useState(false);
+  const [consent, setConsent] = useState(false);
   const [preferred, setPreferred] = useState<OpenAiTtsVoice>("nova");
   const [customVoiceId, setCustomVoiceId] = useState<string | null>(null);
   const stopRef = useRef<(() => Promise<Blob>) | null>(null);
-  const cancelRef = useRef<(() => void) | null>(null);
-  const blobRef = useRef<Blob | null>(null);
+  const startedAt = useRef<number>(0);
 
   async function startRec() {
+    if (!consent) {
+      toast.error("Tick the box to allow TIJAR to create a synthetic voice from your recording.");
+      return;
+    }
     try {
-      const session = await startAudioRecording();
+      const session = await startAudioRecording(VOICE_ENROLL_MAX_DURATION_MS);
       stopRef.current = session.stop;
-      cancelRef.current = session.cancel;
+      startedAt.current = Date.now();
       setRecording(true);
       toast.message("Speak clearly for about 12 seconds…");
     } catch (err) {
@@ -44,13 +50,12 @@ export function VoiceEnrollCard({ profileId, lang, onDone, onSkip }: Props) {
   async function stopRec() {
     const stopper = stopRef.current;
     stopRef.current = null;
-    cancelRef.current = null;
     setRecording(false);
     if (!stopper) return;
     setBusy(true);
     try {
       const blob = await stopper();
-      blobRef.current = blob;
+      const durationMs = Date.now() - startedAt.current;
       const uploaded = await uploadVoiceSample(profileId, blob);
       if (uploaded.error || !uploaded.path) {
         toast.error(uploaded.error ?? "Upload failed");
@@ -58,22 +63,31 @@ export function VoiceEnrollCard({ profileId, lang, onDone, onSkip }: Props) {
         return;
       }
 
-      // Try server-side personal clone (ElevenLabs when configured).
-      let customVoiceId: string | null = null;
+      let clonedId: string | null = null;
       try {
         const form = new FormData();
         form.append("audio", blob, "sample.webm");
         form.append("name", "TIJAR shopkeeper");
-        const res = await fetch("/api/voice-enroll", { method: "POST", body: form });
+        form.append("consent", "1");
+        form.append("durationMs", String(durationMs));
+        const res = await aiFetch("/api/voice-enroll", {
+          method: "POST",
+          body: form,
+        });
         const body = (await res.json().catch(() => null)) as {
           voiceId?: string | null;
           message?: string;
           error?: { message?: string };
         } | null;
-        if (res.ok && body?.voiceId) {
-          customVoiceId = body.voiceId;
+        if (res.status === 401) {
+          toast.error("Sign in again, then save your voice.");
+        } else if (res.ok && body?.voiceId) {
+          clonedId = body.voiceId;
           setCustomVoiceId(body.voiceId);
+          writePersonalVoicePrefs({ customVoiceId: body.voiceId });
           toast.success("Your personal voice is ready.");
+        } else if (body?.error?.message) {
+          toast.error(body.error.message);
         } else if (body?.message) {
           toast.message(body.message);
         }
@@ -84,15 +98,14 @@ export function VoiceEnrollCard({ profileId, lang, onDone, onSkip }: Props) {
       writePersonalVoicePrefs({
         voiceSamplePath: uploaded.path,
         preferredTtsVoice: preferred,
-        customVoiceId,
+        customVoiceId: clonedId,
       });
       await saveVoiceProfile(profileId, {
         voiceSamplePath: uploaded.path,
         preferredTtsVoice: preferred,
-        customVoiceId,
       });
       setHasSample(true);
-      if (!customVoiceId) {
+      if (!clonedId) {
         toast.success("Voice saved. Pick how TIJAR should sound, then continue.");
       }
     } catch (err) {
@@ -112,7 +125,6 @@ export function VoiceEnrollCard({ profileId, lang, onDone, onSkip }: Props) {
     setBusy(true);
     await saveVoiceProfile(profileId, {
       preferredTtsVoice: preferred,
-      customVoiceId,
     });
     writePersonalVoicePrefs({ preferredTtsVoice: preferred, customVoiceId });
     setBusy(false);
@@ -123,9 +135,22 @@ export function VoiceEnrollCard({ profileId, lang, onDone, onSkip }: Props) {
     <section className="mt-4 rounded-3xl border border-border bg-card p-5 shadow-sm">
       <h2 className="font-extrabold">Save your voice</h2>
       <p className="mt-1 text-sm text-muted-foreground">
-        Record a short sample. TIJAR will use your personal voice for speak-back across the app
-        (or your preferred voice until a clone is ready).
+        Record a short sample (8–20 seconds). If you consent, TIJAR can send that recording to our
+        voice partner to create a synthetic copy of your voice for speak-back in the app. We do not
+        show the recording in logs. You can skip and use a stock voice instead.
       </p>
+
+      <label className="mt-4 flex items-start gap-3 rounded-2xl border border-border bg-muted/40 p-3 text-sm">
+        <input
+          type="checkbox"
+          className="mt-1 size-4"
+          checked={consent}
+          onChange={(e) => setConsent(e.target.checked)}
+        />
+        <span>
+          I agree that TIJAR may use this recording to create a synthetic voice for my account only.
+        </span>
+      </label>
 
       <div className="mt-4 rounded-2xl bg-muted/60 p-3 text-sm leading-relaxed">
         <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Please say</p>
@@ -135,7 +160,7 @@ export function VoiceEnrollCard({ profileId, lang, onDone, onSkip }: Props) {
       <div className="mt-5 flex flex-col items-center">
         <button
           type="button"
-          disabled={busy}
+          disabled={busy || (!consent && !recording)}
           onClick={() => (recording ? void stopRec() : void startRec())}
           className={cn(
             "flex size-20 items-center justify-center rounded-full text-primary-foreground shadow-lg active:scale-95 disabled:opacity-50",

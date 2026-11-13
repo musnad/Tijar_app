@@ -80,12 +80,9 @@ function haystack(parts: Array<string | null | undefined>): string {
 }
 
 function matchesWords(text: string, query: string): boolean {
-  const q = normalizeSearchQuery(query);
+  const q = query.trim().toLowerCase();
   if (!q) return true;
-  return q.split(/\s+/).filter(Boolean).every((word) => {
-    const terms = expandSearchTerms(word);
-    return terms.some((term) => text.includes(term));
-  });
+  return q.split(/\s+/).filter(Boolean).every((word) => text.includes(word));
 }
 
 export function filterCatalogProducts<T extends CatalogProduct>(
@@ -95,20 +92,14 @@ export function filterCatalogProducts<T extends CatalogProduct>(
   return products.filter((p) => {
     if (filters.kind && filters.kind !== "all" && p.kind !== filters.kind) return false;
     if (filters.availableOnly && !p.is_available) return false;
-    const q = (filters.query ?? "").trim();
-    if (!q && filters.category && (p.category_name ?? "") !== filters.category) return false;
+    if (filters.category && (p.category_name ?? "") !== filters.category) return false;
     if (filters.minPrice != null && (p.sale_price == null || p.sale_price < filters.minPrice)) return false;
     if (filters.maxPrice != null && (p.sale_price == null || p.sale_price > filters.maxPrice)) return false;
     if (filters.attribute) {
       const attrs = Object.values(p.attributes ?? {}).join(" ").toLowerCase();
       if (!attrs.includes(filters.attribute.trim().toLowerCase())) return false;
     }
-    if (
-      !matchesWords(
-        haystack([p.name, p.description, p.business_name, p.business_slug, p.category_name, ...handleTokens(p.business_slug)]),
-        filters.query ?? "",
-      )
-    ) {
+    if (!matchesWords(haystack([p.name, p.description, p.business_name, p.category_name]), filters.query ?? "")) {
       return false;
     }
     return true;
@@ -116,18 +107,15 @@ export function filterCatalogProducts<T extends CatalogProduct>(
 }
 
 export function filterCatalogSellers<T extends CatalogSeller>(sellers: T[], query: string, categoryId?: string | null): T[] {
-  const q = query.trim();
   return sellers.filter((s) => {
-    if (!q && categoryId && s.category_id !== categoryId) return false;
+    if (categoryId && s.category_id !== categoryId) return false;
     return matchesWords(
       haystack([
         s.business_name,
-        s.slug,
         s.description,
         s.category_name,
         s.location_text,
         s.public_location_label,
-        ...handleTokens(s.slug),
         ...(s.product_names ?? []),
       ]),
       query,
@@ -142,9 +130,8 @@ export function catalogSuggestions(input: {
   categories: string[];
   limit?: number;
 }): SearchSuggestion[] {
-  const q = normalizeSearchQuery(input.query);
+  const q = input.query.trim().toLowerCase();
   if (q.length < 1) return [];
-  const terms = expandSearchTerms(q);
   const limit = input.limit ?? 8;
   const out: SearchSuggestion[] = [];
   const seen = new Set<string>();
@@ -156,21 +143,13 @@ export function catalogSuggestions(input: {
     out.push(item);
   }
 
-  function hits(text: string) {
-    const hay = text.toLowerCase();
-    return terms.some((term) => hay.includes(term));
-  }
-
   for (const c of input.categories) {
-    if (hits(c)) push({ label: c, kind: "category" });
+    if (c.toLowerCase().includes(q)) push({ label: c, kind: "category" });
   }
   for (const s of input.sellers) {
-    const loc = `${s.public_location_label ?? ""} ${s.location_text ?? ""}`;
-    if (hits(`${s.business_name} ${s.slug} ${loc} ${s.category_name ?? ""} ${s.description ?? ""} ${(s.product_names ?? []).join(" ")}`)) {
+    const loc = `${s.public_location_label ?? ""} ${s.location_text ?? ""}`.toLowerCase();
+    if (s.business_name.toLowerCase().includes(q) || loc.includes(q) || (s.category_name ?? "").toLowerCase().includes(q)) {
       push({ label: s.business_name, kind: "seller" });
-      if (s.slug && !s.business_name.toLowerCase().includes(s.slug.toLowerCase())) {
-        push({ label: `@${s.slug.replace(/^@/, "")}`, kind: "seller" });
-      }
     }
   }
   for (const p of input.products) {

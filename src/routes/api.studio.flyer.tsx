@@ -10,6 +10,7 @@ import {
 } from "@/lib/api/security";
 import { checkRateLimit } from "@/lib/api/rate-limit";
 import { openaiGenerateImage } from "@/lib/openai/images";
+import { gatewayErrorResponse, replayDuplicateAi, runTimedProvider, startAiSession, withAiTimeout } from "@/lib/ai/gateway";
 import { grokGenerateImage, grokJson, isXaiConfigured, XaiError } from "@/lib/xai/client";
 
 const MAX_BYTES = 3_500_000;
@@ -52,6 +53,12 @@ export const Route = createFileRoute("/api/studio/flyer")({
         if (prompt.length < 4) {
           return jsonSecure({ error: { code: "VALIDATION", message: "Write what you want designed." } }, { status: 400 });
         }
+        const session = await startAiSession({ request, service: "flyer" });
+        if (!session.ok) {
+          return jsonSecure(gatewayErrorResponse(session), { status: session.status });
+        }
+        const replayed = replayDuplicateAi(session);
+        if (replayed) return replayed;
 
         let imaginePrompt = [
           prompt,
@@ -68,46 +75,65 @@ export const Route = createFileRoute("/api/studio/flyer")({
 
         if (isXaiConfigured()) {
           try {
-            const brief = await grokJson<{ imaginePrompt?: string; caption?: string; captionHa?: string }>({
+            const brief = await withAiTimeout(grokJson<{ imaginePrompt?: string; caption?: string; captionHa?: string }>({
               system:
                 "You write Grok Imagine prompts for informal Nigerian shops on TIJAR. Return JSON only: imaginePrompt (one vivid paragraph for an advert photo, no watermarks), caption (For You post, max 220 chars, keep numbers and ₦), captionHa (Hausa version of the caption).",
               user: `Language: ${language}\nShop: ${businessName}\nProduct: ${productName || "shop item"}\nPrice: ${priceLabel || "none"}\nSeller prompt:\n${prompt}`,
-            });
+            }), 12_000);
             if (brief.imaginePrompt?.trim()) imaginePrompt = brief.imaginePrompt.trim().slice(0, 1800);
             if (brief.caption?.trim()) caption = brief.caption.trim().slice(0, 280);
             if (brief.captionHa?.trim()) captionHa = brief.captionHa.trim().slice(0, 280);
           } catch {
             /* use the seller prompt as-is */
-          }
-          try {
-            const img = await grokGenerateImage({
-              prompt: imaginePrompt,
-              aspectRatio: "3:4",
-              imageDataUrl: imageDataUrl || undefined,
-            });
-            return jsonSecure({
+        }
+        try {
+            const timedImg = await runTimedProvider(
+              session,
+              grokGenerateImage({
+                prompt: imaginePrompt,
+                aspectRatio: "3:4",
+                imageDataUrl: imageDataUrl || undefined,
+              }),
+            );
+            if (!timedImg.ok) {
+              const timeoutBody = { error: { code: "TIMEOUT", message: "Flyer timed out." } };
+              await session.saveReplay({ httpStatus: 504, body: timeoutBody });
+              await session.finish({ status: "failed", errorCode: "TIMEOUT", refund: session.refundOnTimeout });
+              return jsonSecure(timeoutBody, { status: 504 });
+            }
+            const img = timedImg.value;
+            const grokBody = {
               fallback: false,
               grok: true,
               dataUrl: img.dataUrl,
               caption,
               captionHa,
-            });
-          } catch (err) {
+            };
+            await session.saveReplay({ httpStatus: 200, body: grokBody });
+            await session.finish({ status: "succeeded", provider: "xai" });
+            return jsonSecure(grokBody);
+        } catch (err) {
             if (err instanceof XaiError && err.code === "INVALID_CREDENTIALS") {
-              return jsonSecure(
-                { error: { code: err.code, message: err.message }, fallback: true, grok: true },
-                { status: 502 },
-              );
+              const credBody = { error: { code: err.code, message: err.message }, fallback: true, grok: true };
+              await session.saveReplay({ httpStatus: 502, body: credBody });
+              await session.finish({ status: "failed", errorCode: "INVALID_CREDENTIALS" });
+              return jsonSecure(credBody, { status: 502 });
             }
           }
         }
 
         const openai = await openaiGenerateImage(imaginePrompt);
         if (openai?.dataUrl) {
-          return jsonSecure({ fallback: false, grok: false, dataUrl: openai.dataUrl, caption, captionHa });
+          const openaiBody = { fallback: false, grok: false, dataUrl: openai.dataUrl, caption, captionHa };
+          await session.saveReplay({ httpStatus: 200, body: openaiBody });
+          await session.finish({ status: "succeeded", provider: "openai" });
+          return jsonSecure(openaiBody);
         }
 
-        return jsonSecure({ fallback: true, grok: isXaiConfigured(), caption, captionHa });
+        const failBody = { fallback: true, grok: isXaiConfigured(), caption, captionHa };
+        await session.saveReplay({ httpStatus: 200, body: failBody });
+        await session.finish({ status: "failed", errorCode: "PROVIDER_ERROR", provider: "local" });
+        return jsonSecure(failBody);
       },
     },
   },

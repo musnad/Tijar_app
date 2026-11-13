@@ -1113,6 +1113,28 @@ html.tijar-android-webview body {
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
+html.tijar-android-webview.tijar-keyboard-open .native-shop-dock,
+html.tijar-android-webview.tijar-keyboard-open nav[aria-label] {
+  display: none !important;
+}
+
+html.tijar-android-webview.tijar-keyboard-open #main-content,
+html.tijar-android-webview.tijar-keyboard-open .native-shop {
+  padding-bottom: var(--keyboard-inset, 0px);
+}
+
+html.tijar-android-webview button,
+html.tijar-android-webview a,
+html.tijar-android-webview [role="button"] {
+  touch-action: manipulation;
+}
+
+html.tijar-android-webview input,
+html.tijar-android-webview textarea,
+html.tijar-android-webview select {
+  font-size: 16px;
+}
+
 html.tijar-android-webview .app-bottom-nav {
   padding-bottom: max(0.5rem, env(safe-area-inset-bottom, 0px));
 }

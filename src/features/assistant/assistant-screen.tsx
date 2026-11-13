@@ -17,6 +17,7 @@ import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { aiFetch } from "@/lib/ai/client-fetch";
 import { useAuth } from "@/features/auth/auth-context";
 import { speakText, useSpeechPlayback, useSpeechRecognition } from "@/features/translate/use-speech";
 import { usePrimaryBusiness } from "@/hooks/use-primary-business";
@@ -275,7 +276,7 @@ export function AssistantScreen() {
     setDraft(null);
     setBusy(true);
     try {
-      const res = await fetch("/api/assistant/chat", {
+      const res = await aiFetch("/api/assistant/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -287,7 +288,7 @@ export function AssistantScreen() {
       });
       const json = (await res.json()) as {
         reply?: string;
-        error?: string;
+        error?: string | { message?: string };
         draft?: ParsedVoiceCommand;
       };
       if (json.draft && json.draft.intent && json.draft.intent !== "unknown") {
@@ -295,7 +296,8 @@ export function AssistantScreen() {
         sayBooks(json.reply?.trim() || summarizeDraft(json.draft, summaryStrings()));
         return;
       }
-      sayBooks(json.reply?.trim() || json.error || t("app.assistant.summaryUnknown"));
+      const errText = typeof json.error === "string" ? json.error : json.error?.message;
+      sayBooks(json.reply?.trim() || errText || t("app.assistant.summaryUnknown"));
     } catch {
       sayBooks(t("app.assistant.summaryUnknown"));
     } finally {

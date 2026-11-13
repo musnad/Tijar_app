@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { aiFetch } from "@/lib/ai/client-fetch";
 import { isOpenAiLanguage } from "@/lib/openai/languages";
 import { bcp47For, isTijarLanguage } from "@/lib/translation/languages";
 
@@ -219,7 +220,7 @@ async function speakViaServer(
   if (typeof window === "undefined" || !tijarSpeechLanguage(languageName)) return false;
   let res: Response;
   try {
-    res = await fetch("/api/speak", {
+    res = await aiFetch("/api/speak", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -397,7 +398,7 @@ function canRecordAudio(): boolean {
 /**
  * Push-to-talk MediaRecorder. Caller starts; returns a stop() that resolves to the blob.
  */
-export async function startAudioRecording(): Promise<{
+export async function startAudioRecording(maxMs = MAX_RECORD_MS): Promise<{
   stop: () => Promise<Blob>;
   cancel: () => void;
 }> {
@@ -450,7 +451,7 @@ export async function startAudioRecording(): Promise<{
     } catch {
       /* ignore */
     }
-  }, MAX_RECORD_MS);
+  }, maxMs);
 
   recorder.ondataavailable = (e) => {
     if (e.data?.size) chunks.push(e.data);
@@ -517,7 +518,10 @@ export async function transcribeAudioClient(input: {
     form.append("language", input.language);
     if (input.toLanguage) form.append("toLanguage", input.toLanguage);
 
-    const res = await fetch("/api/translate-speech", { method: "POST", body: form });
+    const res = await aiFetch("/api/translate-speech", {
+      method: "POST",
+      body: form,
+    });
     const body = (await res.json().catch(() => null)) as
       | {
           transcript?: string;

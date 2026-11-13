@@ -25,7 +25,6 @@ export function ResetPasswordScreen() {
   const [visible, setVisible] = useState(false);
   const [saving, setSaving] = useState(false);
   const [ready, setReady] = useState(false);
-  const [checked, setChecked] = useState(false);
   const [linkError, setLinkError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -37,18 +36,18 @@ export function ResetPasswordScreen() {
       if (result.error) {
         setLinkError(result.error);
         setReady(false);
-        setChecked(true);
         return;
       }
-      setReady(Boolean(result.session) || isPasswordRecovery());
-      setChecked(true);
+      const hasSession = Boolean(result.session);
+      setReady(hasSession);
+      if (!hasSession) setLinkError(null);
     })();
     return () => {
       cancelled = true;
     };
   }, []);
 
-  const canReset = Boolean(session) || ready;
+  const canReset = Boolean(session) && (ready || isPasswordRecovery() || Boolean(session));
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -74,7 +73,7 @@ export function ResetPasswordScreen() {
     void navigate({ to: "/login" });
   }
 
-  const waiting = !checked || (loading && !session && !linkError && !ready);
+  const waiting = loading && !session && !linkError;
 
   return (
     <WebAuthLayout

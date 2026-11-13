@@ -8,6 +8,7 @@ import {
   readJsonBody,
   requireAuthenticatedUser,
 } from "@/lib/api/security";
+import { gatewayErrorResponse, replayDuplicateAi, runTimedProvider, startAiSession } from "@/lib/ai/gateway";
 import { grokGenerateImage, isXaiConfigured, XaiError } from "@/lib/xai/client";
 
 const MAX_BODY = 3_500_000;
@@ -47,13 +48,22 @@ export const Route = createFileRoute("/api/ai/graphics")({
           typeof body.photoDataUrl === "string" && body.photoDataUrl.startsWith("data:image/")
             ? body.photoDataUrl.slice(0, 2_800_000)
             : undefined;
+        const session = await startAiSession({ request, service: "graphics" });
+        if (!session.ok) {
+          return jsonSecure(gatewayErrorResponse(session), { status: session.status });
+        }
+        const replayed = replayDuplicateAi(session);
+        if (replayed) return replayed;
         if (!isXaiConfigured()) {
-          return jsonSecure({
+          const localBody = {
             dataUrl: null,
             frame,
             source: "local",
             warning: "Grok image is not configured. TIJAR will still stamp your photo on a branded frame.",
-          });
+          };
+          await session.saveReplay({ httpStatus: 200, body: localBody });
+          await session.finish({ status: "succeeded", provider: "local" });
+          return jsonSecure(localBody);
         }
         try {
           const prompt = graphicsPrompt({
@@ -62,20 +72,31 @@ export const Route = createFileRoute("/api/ai/graphics")({
             productName: body.productName,
             locale: body.locale || "English",
           });
-          const image = await grokGenerateImage({
-            prompt,
-            aspectRatio: "3:4",
-            imageDataUrl: photo,
-          });
-          return jsonSecure({ dataUrl: image.dataUrl, frame, source: "grok" });
+          const timed = await runTimedProvider(
+            session,
+            grokGenerateImage({
+              prompt,
+              aspectRatio: "3:4",
+              imageDataUrl: photo,
+            }),
+          );
+          if (!timed.ok) {
+            const timeoutBody = { error: { code: "TIMEOUT", message: "Image generation timed out." } };
+            await session.saveReplay({ httpStatus: 504, body: timeoutBody });
+            await session.finish({ status: "failed", errorCode: "TIMEOUT", refund: session.refundOnTimeout });
+            return jsonSecure(timeoutBody, { status: 504 });
+          }
+          const image = timed.value;
+          const okBody = { dataUrl: image.dataUrl, frame, source: "grok" };
+          await session.saveReplay({ httpStatus: 200, body: okBody });
+          await session.finish({ status: "succeeded", provider: "xai" });
+          return jsonSecure(okBody);
         } catch (err) {
           const message = err instanceof XaiError ? err.message : "Grok could not draw this poster.";
-          return jsonSecure({
-            dataUrl: null,
-            frame,
-            source: "local",
-            warning: message,
-          });
+          const warnBody = { dataUrl: null, frame, source: "local", warning: message };
+          await session.saveReplay({ httpStatus: 200, body: warnBody });
+          await session.finish({ status: "failed", errorCode: "PROVIDER_ERROR", provider: "xai" });
+          return jsonSecure(warnBody);
         }
       },
     },

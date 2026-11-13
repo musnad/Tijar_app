@@ -203,7 +203,7 @@ export function PlaceOrderComposeScreen() {
           {tab === "post" ? (
             <>
               <p className="text-[13px] text-muted-foreground">Post food or snacks you make from time to time. Shoppers pick pickup or delivery, a time, and pay you.</p>
-              <label className="mt-4 block text-sm font-extrabold">Photos (required)</label>
+              <label className="mt-4 block text-sm font-extrabold">Photos</label>
               <div className="mt-2">
                 <ProductPhotosField photos={photos} onChange={setPhotos} required />
               </div>
