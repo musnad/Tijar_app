@@ -132,15 +132,15 @@ export function PaidShopContact({
         <img
           src={receiptSrc}
           alt={`TIJAR.ng payment receipt for ${shopName}`}
-          className="mt-3 w-full overflow-hidden rounded-2xl border border-[#0B1F4D]/10 shadow-sm"
+          className="mt-3 w-full overflow-hidden rounded-[1.35rem] border border-[#E8C98A]/40 shadow-[0_18px_40px_rgba(7,21,47,0.22)]"
         />
       ) : (
-        <div className="mt-3 rounded-2xl bg-[#0B1F4D] px-4 py-8 text-center text-white">
-          <p className="text-lg font-extrabold tracking-wide">TIJAR</p>
-          <p className="text-xs font-bold text-[#8CFFC4]">tijar.ng</p>
-          <p className="mt-3 text-sm font-semibold">{shopName}</p>
+        <div className="mt-3 rounded-[1.35rem] bg-[linear-gradient(160deg,#061226,#0B1F4D_55%,#123A28)] px-4 py-10 text-center text-white">
+          <p className="text-[11px] font-bold tracking-[0.35em] text-[#E8C98A]">TIJAR</p>
+          <p className="mt-1 text-xs font-bold text-[#C8F5D8]">tijar.ng</p>
+          <p className="mt-4 font-serif text-lg font-semibold">{shopName}</p>
           <p className="mt-1 text-xs text-white/70">{orderRef}</p>
-          <p className="mt-2 text-xl font-extrabold text-[#8CFFC4]">{amountLabel}</p>
+          <p className="mt-3 text-2xl font-extrabold text-[#C8F5D8]">{amountLabel}</p>
         </div>
       )}
       {address ? (
