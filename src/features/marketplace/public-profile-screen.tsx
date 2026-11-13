@@ -3,7 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { ArrowLeft, BadgeCheck, Grid3x3, Package, Pencil, Search, Share2, Store, Users } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -22,6 +22,7 @@ import {
   isFollowingPerson,
   type PublicFollower,
 } from "@/services/public-profile-service";
+import { recordBusinessInsight } from "@/services/seller-ai-service";
 import { toggleFollowPerson } from "@/services/social-service";
 import { resolveCoverSrc } from "@/services/video-feed-service";
 
@@ -72,6 +73,10 @@ export function PublicProfileScreen({ profileId }: { profileId: string; postId?:
   });
 
   const person = personQuery.data;
+  useEffect(() => {
+    if (!person?.shopId || isOwn) return;
+    void recordBusinessInsight(person.shopId, "profile_view");
+  }, [person?.shopId, isOwn]);
   const needle = query.trim().toLowerCase();
   const posts = useMemo(
     () => (postsQuery.data ?? []).filter((p) => matches(p.caption, needle) || matches(p.business_name, needle)),

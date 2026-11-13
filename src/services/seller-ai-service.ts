@@ -25,6 +25,12 @@ export function currentWeekStart(): string {
 
 export async function recordBusinessInsight(businessId: string, kind: InsightKind): Promise<void> {
   try {
+    if (typeof window !== "undefined" && kind === "profile_view") {
+      const key = `tijar-shop-view-${businessId}`;
+      const last = Number(sessionStorage.getItem(key) ?? "0");
+      if (Number.isFinite(last) && Date.now() - last < 20 * 60 * 1000) return;
+      sessionStorage.setItem(key, String(Date.now()));
+    }
     const supabase = getSupabaseBrowserClient();
     await supabase.rpc("record_business_insight", {
       p_business_id: businessId,

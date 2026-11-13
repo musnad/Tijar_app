@@ -156,6 +156,8 @@ export type Business = {
   created_by_agent_id?: string | null;
   parent_business_id?: string | null;
   delivery_fee?: number | null;
+  profile_views_count?: number;
+  profile_viewers_count?: number;
   payout_account_name?: string | null;
   payout_account_number?: string | null;
   payout_bank_name?: string | null;
@@ -236,6 +238,8 @@ export type PublicBusiness = {
   product_names?: string[];
   gallery_urls?: string[];
   custom_category?: string | null;
+  profile_views_count?: number;
+  profile_viewers_count?: number;
 };
 
 export type PublicProduct = {

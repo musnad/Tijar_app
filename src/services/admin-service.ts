@@ -85,6 +85,17 @@ export async function fetchAdminProfiles(): Promise<{
   return { profiles: (data ?? []) as Profile[], error: null };
 }
 
+export async function fetchAdminProfileVisits(): Promise<Map<string, number>> {
+  const supabase = getSupabaseBrowserClient();
+  const { data, error } = await supabase.rpc("admin_profile_visit_counts");
+  if (error || !data) return new Map();
+  const map = new Map<string, number>();
+  for (const row of data as Array<{ profile_id?: string; visits?: number }>) {
+    if (row.profile_id) map.set(row.profile_id, Number(row.visits ?? 0));
+  }
+  return map;
+}
+
 export async function fetchAdminBusinesses(): Promise<{
   businesses: AdminBusiness[];
   error: string | null;

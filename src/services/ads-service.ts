@@ -217,7 +217,15 @@ export async function fetchAdsPayAccount(): Promise<{
   return { account: json.account ?? null, error: null };
 }
 
-export type AdminAdShop = { id: string; name: string; logo: string | null; published: boolean; slug: string | null };
+export type AdminAdShop = {
+  id: string;
+  name: string;
+  logo: string | null;
+  published: boolean;
+  slug: string | null;
+  views?: number;
+  viewers?: number;
+};
 export type AdminAdProduct = { id: string; name: string; image_url: string | null; sale_price: number | null };
 export type AdminAdPost = { id: string; caption: string | null; cover: string | null };
 

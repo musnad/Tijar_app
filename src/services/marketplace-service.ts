@@ -48,7 +48,7 @@ export type MarketplaceShop = PublicBusiness & {
 };
 
 const MARKETPLACE_SHOP_SELECT =
-  "id, slug, business_name, description, location_text, public_location_label, latitude, longitude, logo_url, cover_image_url, category_id, category_name, public_phone, public_whatsapp, opening_hours, is_verified, verification_status, is_informal";
+  "id, slug, business_name, description, location_text, public_location_label, latitude, longitude, logo_url, cover_image_url, category_id, category_name, public_phone, public_whatsapp, opening_hours, is_verified, verification_status, is_informal, profile_views_count, profile_viewers_count";
 
 const MARKETPLACE_SHOP_SELECT_CORE =
   "id, slug, business_name, description, location_text, public_location_label, latitude, longitude, logo_url, category_id, category_name, public_phone, public_whatsapp, opening_hours, is_verified, verification_status";
@@ -162,6 +162,7 @@ export async function fetchMarketplaceShops(limit = 200): Promise<{
   let { data, error } = await supabase
     .from("public_marketplace_businesses")
     .select(MARKETPLACE_SHOP_SELECT)
+    .order("profile_views_count", { ascending: false })
     .order("business_name")
     .limit(limit);
 

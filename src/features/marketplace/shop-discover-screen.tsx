@@ -264,7 +264,13 @@ export function ShopDiscoverScreen({
     );
   }, [shops, query, category, centre]);
 
-  const featuredShops = useMemo(() => shops.slice(0, 8), [shops]);
+  const featuredShops = useMemo(
+    () =>
+      [...shops]
+        .sort((a, b) => (b.profile_views_count ?? 0) - (a.profile_views_count ?? 0))
+        .slice(0, 8),
+    [shops],
+  );
 
   function useMyLocation() {
     haptic();

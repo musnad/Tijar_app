@@ -16,6 +16,7 @@ import {
   Building2,
   ClipboardList,
   Download,
+  Eye,
   Percent,
   Phone,
   Search,
@@ -62,6 +63,7 @@ import {
   adminReviewAgentEdit,
   fetchAdminAgents,
   fetchAdminBusinesses,
+  fetchAdminProfileVisits,
   fetchAdminOrders,
   fetchAdminPayments,
   fetchAdminPlatformFees,
@@ -325,6 +327,12 @@ export function AdminConsoleScreen() {
     },
   });
 
+  const visitsQuery = useQuery({
+    queryKey: ["admin-profile-visits"],
+    enabled: isAdmin,
+    queryFn: fetchAdminProfileVisits,
+  });
+
   const ordersQuery = useQuery({
     queryKey: ["admin-orders"],
     enabled: isAdmin,
@@ -448,6 +456,8 @@ export function AdminConsoleScreen() {
       gmv: orders.reduce((n, o) => n + Number(o.total), 0),
       payments: payments.reduce((n, p) => n + Number(p.amount), 0),
       newUsersToday: newUsersToday.length,
+      profileViews: businesses.reduce((n, b) => n + Number(b.profile_views_count ?? 0), 0),
+      profileViewers: businesses.reduce((n, b) => n + Number(b.profile_viewers_count ?? 0), 0),
       activeShopsToday: new Set(
         [
           ...salesToday.map((t) => t.business_id),
@@ -477,9 +487,11 @@ export function AdminConsoleScreen() {
         upgrades.filter((r) => r.profile_id === user.id),
         orders.filter((o) => o.buyer_profile_id === user.id),
       );
-      return { user, kind, spend, making, phones, commission: commissionOnAmount(spend + making, commissionRate) };
+      const shopViews = owned.reduce((n, b) => n + Number(b.profile_views_count ?? 0), 0);
+      const visits = visitsQuery.data?.get(user.id) ?? 0;
+      return { user, kind, spend, making, phones, shopViews, visits, commission: commissionOnAmount(spend + making, commissionRate) };
     });
-  }, [users, businesses, orders, transactions, commissionRate, upgrades]);
+  }, [users, businesses, orders, transactions, commissionRate, upgrades, visitsQuery.data]);
 
   const businessLedger = useMemo(() => {
     return businesses.map((biz) => {
@@ -519,6 +531,7 @@ export function AdminConsoleScreen() {
       queryClient.invalidateQueries({ queryKey: ["admin-upgrades"] }),
       queryClient.invalidateQueries({ queryKey: ["admin-badge-requests"] }),
       queryClient.invalidateQueries({ queryKey: ["admin-users"] }),
+      queryClient.invalidateQueries({ queryKey: ["admin-profile-visits"] }),
       queryClient.invalidateQueries({ queryKey: ["admin-orders"] }),
       queryClient.invalidateQueries({ queryKey: ["admin-transactions"] }),
       queryClient.invalidateQueries({ queryKey: ["admin-payments"] }),
@@ -668,8 +681,8 @@ export function AdminConsoleScreen() {
   function exportUsers() {
     downloadAdminCsv(
       `tijar-users-${stamp()}.csv`,
-      ["Name", "Email", "Phone numbers", "Category", "Account mode", "Onboarding", "Spend", "Business making", "Commission", "Joined"],
-      userLedger.map(({ user, kind, spend, making, commission, phones }) => [
+      ["Name", "Email", "Phone numbers", "Category", "Account mode", "Onboarding", "Spend", "Business making", "Shop views", "Profiles opened", "Commission", "Joined"],
+      userLedger.map(({ user, kind, spend, making, commission, phones, shopViews, visits }) => [
         user.full_name,
         user.email,
         phones.map((p) => `${p.phone} (${p.label})`).join(" | "),
@@ -678,6 +691,8 @@ export function AdminConsoleScreen() {
         user.onboarding_status,
         spend.toFixed(2),
         making.toFixed(2),
+        shopViews,
+        visits,
         commission.toFixed(2),
         user.created_at,
       ]),
@@ -688,7 +703,7 @@ export function AdminConsoleScreen() {
   function exportBusinesses() {
     downloadAdminCsv(
       `tijar-businesses-${stamp()}.csv`,
-      ["Business", "Owner", "Owner phone", "Shop phone", "WhatsApp", "KYC", "Listing", "Published", "Ledger sales", "Marketplace sales", "Gross", "Commission", "Net"],
+      ["Business", "Owner", "Owner phone", "Shop phone", "WhatsApp", "KYC", "Listing", "Published", "Shop views", "People", "Ledger sales", "Marketplace sales", "Gross", "Commission", "Net"],
       businessLedger.map(({ biz, ledger, market, gross, commission, net }) => [
         biz.business_name,
         biz.owner?.full_name ?? biz.owner_id,
@@ -698,6 +713,8 @@ export function AdminConsoleScreen() {
         biz.verification_status,
         biz.moderation_status,
         biz.is_published ? "yes" : "no",
+        biz.profile_views_count ?? 0,
+        biz.profile_viewers_count ?? 0,
         ledger.toFixed(2),
         market.toFixed(2),
         gross.toFixed(2),
@@ -785,16 +802,20 @@ export function AdminConsoleScreen() {
       q,
     ),
   );
-  const userRows = userLedger.filter(({ user, kind, phones }) => {
-    if (userKind !== "all" && kind !== userKind) return false;
-    return matchesQuery(
-      [user.full_name, user.email, user.phone, user.account_mode, kind, ...phones.map((p) => `${p.phone} ${p.label}`)].join(" "),
-      q,
-    );
-  });
-  const bizFinanceRows = businessLedger.filter(({ biz }) =>
-    matchesQuery([biz.business_name, biz.public_phone, biz.public_whatsapp, biz.owner?.phone, biz.owner?.full_name, biz.location, biz.public_slug].join(" "), q),
-  );
+  const userRows = userLedger
+    .filter(({ user, kind, phones }) => {
+      if (userKind !== "all" && kind !== userKind) return false;
+      return matchesQuery(
+        [user.full_name, user.email, user.phone, user.account_mode, kind, ...phones.map((p) => `${p.phone} ${p.label}`)].join(" "),
+        q,
+      );
+    })
+    .sort((a, b) => b.shopViews - a.shopViews || b.visits - a.visits);
+  const bizFinanceRows = businessLedger
+    .filter(({ biz }) =>
+      matchesQuery([biz.business_name, biz.public_phone, biz.public_whatsapp, biz.owner?.phone, biz.owner?.full_name, biz.location, biz.public_slug].join(" "), q),
+    )
+    .sort((a, b) => Number(b.biz.profile_views_count ?? 0) - Number(a.biz.profile_views_count ?? 0));
   const txRows = transactions.filter((t) =>
     matchesQuery([shopName(t), t.type, t.description, t.payment_method].join(" "), q),
   );
@@ -830,6 +851,7 @@ export function AdminConsoleScreen() {
         </div>
         <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-6">
           <Kpi icon={Users} label="Users" value={String(stats.users)} hint={`${stats.newUsersToday} today`} />
+          <Kpi icon={Eye} label="Shop profile views" value={String(stats.profileViews)} hint={`${stats.profileViewers} people`} />
           <Kpi icon={Store} label="Businesses" value={String(stats.businesses)} hint={`${stats.ticks} blue ticks · ${stats.verified} KYC`} />
           <Kpi icon={BadgeCheck} label="KYC queue" value={String(stats.pendingKyc)} hint={`${stats.pendingApps} applications`} />
           <Kpi icon={Wallet} label="Sales (ledger)" value={formatNgnCompact(stats.salesVolume)} hint={`${formatNgnCompact(stats.salesToday)} today`} />
@@ -1290,7 +1312,7 @@ export function AdminConsoleScreen() {
       {tab === "businesses" && (
         <AdminTable
           empty="No businesses yet."
-          headers={["Business", "Shop phone", "Owner phone", "Making", "KYC", "Tick", "Listing", "Actions"]}
+          headers={["Business", "Shop phone", "Owner phone", "Making", "Views", "People", "KYC", "Tick", "Listing", "Actions"]}
         >
           {bizFinanceRows.map(({ biz, gross }) => (
             <tr key={biz.id} className="border-t border-border align-top">
@@ -1307,6 +1329,8 @@ export function AdminConsoleScreen() {
                 <PhoneLink phone={recordedPhone(biz.owner?.phone, biz.public_phone)} />
               </td>
               <td className="px-3 py-3 font-extrabold tabular-nums">{formatNgn(gross)}</td>
+              <td className="px-3 py-3 font-extrabold tabular-nums">{biz.profile_views_count ?? 0}</td>
+              <td className="px-3 py-3 tabular-nums">{biz.profile_viewers_count ?? 0}</td>
               <td className="px-3 py-3">
                 <StatusPill label={biz.verification_status} tone={kycTone(biz.verification_status)} />
               </td>
@@ -1531,7 +1555,7 @@ export function AdminConsoleScreen() {
               </button>
             ))}
           </div>
-          <AdminTable empty="No users in this category." headers={["Name", "Phone numbers", "Category", "Spend", "Business making", "Email", "Joined", "Agent"]}>
+          <AdminTable empty="No users in this category." headers={["Name", "Phone numbers", "Category", "Spend", "Business making", "Shop views", "Opens shops", "Email", "Joined", "Agent"]}>
             {userRows.map((row) => (
               <UserRow
                 key={row.user.id}
@@ -1773,11 +1797,13 @@ function UserRow({
     spend: number;
     making: number;
     phones: LabeledPhone[];
+    shopViews: number;
+    visits: number;
   };
   isAgent: boolean;
   onToggle: () => void;
 }) {
-  const { user, kind, spend, making, phones } = row;
+  const { user, kind, spend, making, phones, shopViews, visits } = row;
   return (
     <tr className="border-t border-border align-top">
       <td className="px-3 py-2.5">
@@ -1794,6 +1820,8 @@ function UserRow({
       </td>
       <td className="px-3 py-2.5 font-extrabold tabular-nums">{formatNgn(spend)}</td>
       <td className="px-3 py-2.5 tabular-nums">{formatNgn(making)}</td>
+      <td className="px-3 py-2.5 font-extrabold tabular-nums">{shopViews}</td>
+      <td className="px-3 py-2.5 tabular-nums">{visits}</td>
       <td className="px-3 py-2.5 text-muted-foreground">{user.email ?? "—"}</td>
       <td className="px-3 py-2.5 text-muted-foreground">{formatWhen(user.created_at)}</td>
       <td className="px-3 py-2.5">

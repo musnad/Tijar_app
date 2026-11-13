@@ -122,10 +122,15 @@ export function AdsManagerScreen({ adminMode = false, embedded = false }: { admi
   const adminProducts = catalogQuery.data?.products ?? [];
   const adminPosts = catalogQuery.data?.posts ?? [];
   const filteredShops = useMemo(() => {
+    const ranked = [...adminShops].sort((a, b) => (b.views ?? 0) - (a.views ?? 0) || a.name.localeCompare(b.name));
     const needle = shopSearch.trim().toLowerCase();
-    if (!needle) return adminShops.slice(0, 80);
-    return adminShops.filter((s) => s.name.toLowerCase().includes(needle)).slice(0, 80);
+    if (!needle) return ranked.slice(0, 80);
+    return ranked.filter((s) => s.name.toLowerCase().includes(needle)).slice(0, 80);
   }, [adminShops, shopSearch]);
+  const topEngaged = useMemo(
+    () => [...adminShops].sort((a, b) => (b.views ?? 0) - (a.views ?? 0)).filter((s) => (s.views ?? 0) > 0).slice(0, 8),
+    [adminShops],
+  );
   const selectedShop = adminShops.find((s) => s.id === adminShopId) ?? null;
 
   const pack = AD_PACKAGES.find((p) => p.hours === hours)!;
@@ -306,6 +311,33 @@ export function AdsManagerScreen({ adminMode = false, embedded = false }: { admi
         />
       ) : null}
 
+      {!creating && adminMode && topEngaged.length > 0 ? (
+        <section className="mt-5 rounded-[22px] border border-border bg-white p-3.5">
+          <p className="text-sm font-extrabold">Most engaged shops</p>
+          <p className="mt-0.5 text-[11px] text-muted-foreground">People opening these accounts. Publish ads on the busiest ones first.</p>
+          <ul className="mt-2 space-y-1">
+            {topEngaged.map((s) => (
+              <li key={s.id}>
+                <button
+                  type="button"
+                  className="flex w-full items-center justify-between rounded-xl px-2 py-2 text-left hover:bg-muted"
+                  onClick={() => {
+                    setAdminShopId(s.id);
+                    setShopSearch(s.name);
+                    setCreating(true);
+                  }}
+                >
+                  <span className="min-w-0 truncate text-[13px] font-extrabold">{s.name}</span>
+                  <span className="shrink-0 text-[11px] font-bold text-[#1F7A4D]">
+                    {s.views ?? 0} views · {s.viewers ?? 0} people
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
       {!creating ? (
         <Button className="mt-5 min-h-12 w-full rounded-2xl bg-[#0B1F4D] text-[15px] font-extrabold shadow-md" onClick={() => setCreating(true)}>
           <Megaphone className="mr-2 size-4" /> Create ad
@@ -353,9 +385,12 @@ export function AdsManagerScreen({ adminMode = false, embedded = false }: { admi
                         {s.name.slice(0, 1).toUpperCase()}
                       </span>
                     )}
-                    <span className="min-w-0">
+                    <span className="min-w-0 flex-1">
                       <span className="block truncate text-[13px] font-extrabold">{s.name}</span>
-                      <span className="text-[10px] text-muted-foreground">{s.published ? "Live shop" : "Unpublished"}</span>
+                      <span className="text-[10px] text-muted-foreground">
+                        {s.published ? "Live shop" : "Unpublished"}
+                        {(s.views ?? 0) > 0 ? ` · ${s.views} profile views` : ""}
+                      </span>
                     </span>
                   </button>
                 ))}

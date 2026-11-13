@@ -10,11 +10,19 @@ export const Route = createFileRoute("/api/ads/catalog")({
         if ("error" in ctx) return ctx.error;
         const shopId = new URL(request.url).searchParams.get("shopId")?.trim() || "";
 
-        const shops = await ctx.admin
+        let shops = await ctx.admin
           .from("businesses")
-          .select("id, business_name, logo_url, is_published, public_slug")
+          .select("id, business_name, logo_url, is_published, public_slug, profile_views_count, profile_viewers_count")
+          .order("profile_views_count", { ascending: false })
           .order("business_name")
           .limit(800);
+        if (shops.error) {
+          shops = await ctx.admin
+            .from("businesses")
+            .select("id, business_name, logo_url, is_published, public_slug")
+            .order("business_name")
+            .limit(800);
+        }
 
         let products: Array<{ id: string; name: string; image_url: string | null; sale_price: number | null }> = [];
         let posts: Array<{ id: string; caption: string | null; cover: string | null }> = [];
@@ -56,6 +64,8 @@ export const Route = createFileRoute("/api/ads/catalog")({
             logo: (row.logo_url as string | null) ?? null,
             published: Boolean(row.is_published),
             slug: (row.public_slug as string | null) ?? null,
+            views: Number(row.profile_views_count ?? 0),
+            viewers: Number(row.profile_viewers_count ?? 0),
           })),
           products,
           posts,
