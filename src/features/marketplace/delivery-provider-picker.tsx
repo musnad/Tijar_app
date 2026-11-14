@@ -30,15 +30,17 @@ export function DeliveryProviderPicker({
   if (providers.length === 0) {
     return (
       <p className="mt-2 rounded-xl bg-muted/60 px-3 py-2 text-[13px] text-muted-foreground">
-        No dispatch or delivery businesses have an open product or place-order post with a fee yet.
+        No delivery companies yet. Shops named Delivery, Dispatch, Rider, Logistics, or related appear here when you choose delivery.
       </p>
     );
   }
 
   return (
     <div className="mt-2 space-y-2">
-      <p className="text-sm font-extrabold text-[#0B1F4D]">Choose a delivery business</p>
-      <p className="text-[12px] text-muted-foreground">Fees come from each shop’s delivery product or place-order post.</p>
+      <p className="text-sm font-extrabold text-[#0B1F4D]">Choose a delivery company</p>
+      <p className="text-[12px] text-muted-foreground">
+        Shops whose name or trade is delivery, dispatch, rider, or logistics. Pickup does not use this list.
+      </p>
       <ul className="space-y-2">
         {providers.map((provider) => {
           const active = selectedId === provider.offerId;
@@ -64,11 +66,13 @@ export function DeliveryProviderPicker({
                   <span className="block truncate text-sm font-extrabold text-[#0B1F4D]">{provider.name}</span>
                   <span className="block truncate text-[11px] text-muted-foreground">
                     {provider.offerTitle}
-                    {` · ${provider.source === "place_order" ? "Place order" : "Product"}`}
+                    {provider.source === "shop" ? " · Delivery company" : provider.source === "place_order" ? " · Place order" : " · Product"}
                     {provider.location ? ` · ${provider.location}` : ""}
                   </span>
                 </span>
-                <span className="shrink-0 text-sm font-extrabold text-[#1F7A4D]">{formatNgn(provider.fee)}</span>
+                <span className="shrink-0 text-sm font-extrabold text-[#1F7A4D]">
+                  {provider.fee > 0 ? formatNgn(provider.fee) : "Ask fee"}
+                </span>
               </button>
             </li>
           );
